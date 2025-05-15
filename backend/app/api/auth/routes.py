@@ -1,0 +1,162 @@
+from flask import jsonify, request, current_app
+from flask_jwt_extended import (
+    create_access_token, create_refresh_token,
+    jwt_required, get_jwt_identity, get_current_user
+)
+from app.api.auth import auth_bp
+from app.models.user import User
+from app.extensions import db
+from app.schemas.auth import LoginSchema, RegisterSchema
+from app.utils.tenant_context import TenantContext
+from datetime import datetime
+
+
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    """
+    用户登录
+    """
+    # 验证请求数据
+    schema = LoginSchema()
+    data = schema.load(request.json)
+    
+    # 查找用户
+    user = User.query.filter_by(email=data['email']).first()
+    
+    # 验证用户和密码
+    if not user or not user.check_password(data['password']):
+        return jsonify({"message": "Invalid email or password"}), 401
+    
+    # 验证用户状态
+    if not user.is_active:
+        return jsonify({"message": "Account is inactive"}), 403
+    
+    # 更新最后登录时间
+    user.update_last_login()
+    
+    # 创建访问令牌和刷新令牌
+    additional_claims = {
+        "is_admin": user.is_admin,
+        "is_superadmin": user.is_superadmin,
+        "tenant_id": str(user.tenant_id) if user.tenant_id else None
+    }
+    
+    access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
+    refresh_token = create_refresh_token(identity=str(user.id))
+    
+    return jsonify({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_admin": user.is_admin,
+            "is_superadmin": user.is_superadmin,
+            "tenant_id": str(user.tenant_id) if user.tenant_id else None
+        }
+    }), 200
+
+
+@auth_bp.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """
+    刷新访问令牌
+    """
+    # 获取当前用户ID
+    current_user_id = get_jwt_identity()
+    
+    # 查找用户
+    user = User.query.filter_by(id=current_user_id).first()
+    
+    if not user or not user.is_active:
+        return jsonify({"message": "User not found or inactive"}), 404
+    
+    # 创建新的访问令牌
+    additional_claims = {
+        "is_admin": user.is_admin,
+        "is_superadmin": user.is_superadmin,
+        "tenant_id": str(user.tenant_id) if user.tenant_id else None
+    }
+    
+    access_token = create_access_token(identity=current_user_id, additional_claims=additional_claims)
+    
+    return jsonify({"access_token": access_token}), 200
+
+
+@auth_bp.route('/register', methods=['POST'])
+def register():
+    """
+    用户注册（仅在系统允许自注册时使用）
+    """
+    # 验证请求数据
+    schema = RegisterSchema()
+    data = schema.load(request.json)
+    
+    # 检查邮箱是否已存在
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"message": "Email already registered"}), 400
+    
+    # 创建新用户
+    tenant_id = data.get('tenant_id')
+    new_user = User(
+        email=data['email'],
+        password=data['password'],
+        first_name=data.get('first_name'),
+        last_name=data.get('last_name'),
+        tenant_id=tenant_id,
+        is_active=True,
+        is_admin=False,
+        is_superadmin=False
+    )
+    
+    # 保存用户
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({
+        "message": "User registered successfully",
+        "user": {
+            "id": str(new_user.id),
+            "email": new_user.email
+        }
+    }), 201
+
+
+@auth_bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    """
+    用户登出
+    注意：由于JWT是无状态的，服务器端不需要额外操作
+    客户端应该删除本地存储的token
+    """
+    return jsonify({"message": "Successfully logged out"}), 200
+
+
+@auth_bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_user_info():
+    """
+    获取当前用户信息
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.filter_by(id=current_user_id).first()
+    
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    
+    return jsonify({
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_admin": user.is_admin,
+            "is_superadmin": user.is_superadmin,
+            "tenant_id": str(user.tenant_id) if user.tenant_id else None,
+            "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None
+        }
+    }), 200 

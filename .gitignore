@@ -1,0 +1,20 @@
+# Docker环境文件
+docker/.env
+
+# Docker数据卷
+/data/
+
+# IDE文件
+.idea/
+.vscode/
+*.sublime-*
+*.code-workspace
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# 日志文件
+*.log 

@@ -1,0 +1,17 @@
+# 环境变量文件
+.env
+.env.local
+.env.development
+.env.production
+
+# 数据卷映射
+/data/
+
+# SSL证书
+/nginx/ssl/*.crt
+/nginx/ssl/*.key
+/nginx/ssl/*.pem
+
+# 临时文件
+*.tmp
+*.bak 
