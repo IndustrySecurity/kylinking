@@ -1,225 +1,261 @@
-# 智能制造管理 SaaS 平台设计文档
+# KylinKing云膜智能管理系统
 
-## 项目概述
+KylinKing云膜智能管理系统是一个基于SaaS架构的智能薄膜制造管理平台，旨在为薄膜制造企业提供全面的生产管理解决方案。
 
-本项目旨在为中小型薄膜行业提供一个基于 SaaS 模式的智能制造管理平台。该平台采用 Flask API 和 React 前端技术栈，支持多租户架构，使用 PostgreSQL 实现数据库隔离，并通过 Docker 容器化部署。
+## 技术栈
 
-## 系统架构
+### 后端
+- Python 3.9+
+- Flask 2.0+
+- PostgreSQL 13+
+- Redis 6+
+- SQLAlchemy
+- JWT认证
+- Flask-Migrate
+- Flask-CORS
+- Gunicorn
 
-### 整体架构
+### 前端
+- React 18+
+- Ant Design 5+
+- Vite
+- React Router 6+
+- Axios
+- Redux Toolkit
+- Styled Components
+
+### 部署
+- Docker
+- Docker Compose
+- Nginx
+- Let's Encrypt
+
+## 功能特性
+
+- 多租户架构
+- 用户认证与授权
+- 角色权限管理
+- 生产计划管理
+- 设备管理
+- 质量控制
+- 库存管理
+- 报表分析
+- 系统监控
+
+## 快速开始
+
+### 环境要求
+- Docker 20.10+
+- Docker Compose 2.0+
+- Node.js 16+
+- npm 8+
+
+### 开发环境设置
+
+1. 克隆仓库
+```bash
+git clone https://github.com/your-username/kylinking-saas.git
+cd kylinking-saas
+```
+
+2. 配置环境变量
+```bash
+cp .env.example .env
+# 编辑.env文件，设置必要的环境变量
+```
+
+3. 启动开发环境
+```bash
+docker-compose -f docker/docker-compose.dev.yml up -d
+```
+
+4. 访问应用
+- 前端: http://localhost:3000
+- 后端API: http://localhost:5000/api
+- 默认管理员账号: admin@kylinking.com
+- 默认密码: admin123
+
+### 生产环境部署
+
+1. 配置环境变量
+```bash
+cp .env.example .env.prod
+# 编辑.env.prod文件，设置生产环境变量
+```
+
+2. 构建和启动服务
+```bash
+docker-compose -f docker/docker-compose.prod.yml up -d
+```
+
+3. 配置SSL证书
+```bash
+# 使用Let's Encrypt获取SSL证书
+certbot certonly --nginx -d www.kylinking.com
+```
+
+4. 重启Nginx
+```bash
+docker-compose -f docker/docker-compose.prod.yml restart nginx
+```
+
+## 项目结构
 
 ```
-├── 前端层 (React)
-│   ├── 租户应用前端
-│   └── 管理后台前端
-├── 后端层 (Flask)
-│   ├── API 服务
-│   ├── 租户管理服务
-│   ├── 认证授权服务
-│   └── 业务逻辑服务
-├── 数据层 (PostgreSQL)
-│   ├── 主数据库 (租户管理)
-│   └── 租户数据库 (每个租户一个独立 Schema)
-└── 部署层 (Docker)
-    ├── 前端容器
-    ├── 后端容器
-    └── 数据库容器
+kylinking-saas/
+├── backend/                 # Flask后端
+│   ├── app/
+│   │   ├── api/            # API路由
+│   │   ├── models/         # 数据模型
+│   │   ├── services/       # 业务逻辑
+│   │   └── utils/          # 工具函数
+│   ├── migrations/         # 数据库迁移
+│   ├── tests/              # 测试用例
+│   └── wsgi.py            # WSGI入口
+├── frontend/               # React前端
+│   ├── src/
+│   │   ├── components/     # 组件
+│   │   ├── pages/         # 页面
+│   │   ├── services/      # API服务
+│   │   └── utils/         # 工具函数
+│   └── public/            # 静态资源
+├── docker/                # Docker配置
+│   ├── nginx/             # Nginx配置
+│   └── postgres/          # PostgreSQL配置
+└── docs/                  # 文档
 ```
 
-### 多租户架构
+## 开发指南
 
-采用 Schema 隔离模式，为每个租户创建独立的 Schema，实现数据隔离，同时共享数据库实例资源：
+### 后端开发
 
-- **主数据库**：存储租户信息、用户账户等系统级数据
-- **租户 Schema**：每个租户拥有独立的 Schema，存储业务数据
+1. 创建新的API路由
+```python
+# backend/app/api/example.py
+from flask import Blueprint, jsonify
 
-## 技术栈选择
+bp = Blueprint('example', __name__)
 
-### 前端技术栈
+@bp.route('/example', methods=['GET'])
+def get_example():
+    return jsonify({'message': 'Example API'})
+```
 
-- **框架**：React 18
-- **UI 组件库**：Ant Design
-- **状态管理**：Redux Toolkit
-- **路由**：React Router
-- **API 调用**：Axios
-- **构建工具**：Vite
+2. 创建新的数据模型
+```python
+# backend/app/models/example.py
+from app.extensions import db
 
-### 后端技术栈
+class Example(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+```
 
-- **框架**：Flask 2.x
-- **API 构建**：Flask-RESTful
-- **ORM**：SQLAlchemy
-- **数据库迁移**：Alembic
-- **认证授权**：Flask-JWT-Extended
-- **多租户支持**：自定义中间件
+3. 运行数据库迁移
+```bash
+flask db migrate -m "Add example model"
+flask db upgrade
+```
 
-### 数据库
+### 前端开发
 
-- **数据库**：PostgreSQL 14+
-- **多租户实现**：Schema 隔离
+1. 创建新的组件
+```jsx
+// frontend/src/components/Example.jsx
+import React from 'react';
+import { Card } from 'antd';
 
-### 部署技术
+const Example = () => {
+  return (
+    <Card title="Example Component">
+      Content
+    </Card>
+  );
+};
 
-- **容器化**：Docker
-- **编排**：Docker Compose
-- **网关**：Nginx
+export default Example;
+```
 
-## 系统功能模块
+2. 创建新的页面
+```jsx
+// frontend/src/pages/Example.jsx
+import React from 'react';
+import { Layout } from 'antd';
+import Example from '../components/Example';
 
-### 超级管理员后台
+const ExamplePage = () => {
+  return (
+    <Layout>
+      <Example />
+    </Layout>
+  );
+};
 
-1. **租户管理**
-   - 创建、编辑、停用租户
-   - 租户资源配置与限制
-   - 租户使用情况监控
+export default ExamplePage;
+```
 
-2. **系统配置**
-   - 系统参数配置
-   - 账号安全策略设置
-   - 系统日志查看
+## 测试
 
-### 租户应用
+### 后端测试
+```bash
+# 运行所有测试
+pytest
 
-1. **生产管理**
-   - 生产计划管理
-   - 生产过程监控
-   - 生产数据采集与分析
+# 运行特定测试文件
+pytest tests/test_example.py
 
-2. **设备管理**
-   - 设备档案管理
-   - 设备状态监控
-   - 设备维护计划
+# 运行带覆盖率报告的测试
+pytest --cov=app tests/
+```
 
-3. **质量管理**
-   - 质量检测记录
-   - 质量分析与追溯
-   - 质量改进计划
+### 前端测试
+```bash
+# 运行单元测试
+npm test
 
-4. **仓储管理**
-   - 原材料库存管理
-   - 成品库存管理
-   - 库存预警
+# 运行端到端测试
+npm run test:e2e
+```
 
-5. **人员管理**
-   - 员工信息管理
-   - 绩效考核
-   - 权限分配
+## 部署
 
-## 数据库设计
+### 开发环境
+```bash
+# 启动所有服务
+docker-compose -f docker/docker-compose.dev.yml up -d
 
-### 主数据库表结构
+# 查看日志
+docker-compose -f docker/docker-compose.dev.yml logs -f
 
-- **tenants**：租户信息表
-- **users**：用户账户表
-- **roles**：角色表
-- **permissions**：权限表
-- **user_roles**：用户-角色关联表
-- **role_permissions**：角色-权限关联表
+# 停止服务
+docker-compose -f docker/docker-compose.dev.yml down
+```
 
-### 租户数据库表结构
+### 生产环境
+```bash
+# 构建和启动服务
+docker-compose -f docker/docker-compose.prod.yml up -d
 
-每个租户拥有相同的表结构，但数据彼此隔离：
+# 查看日志
+docker-compose -f docker/docker-compose.prod.yml logs -f
 
-- **production_plans**：生产计划表
-- **production_records**：生产记录表
-- **equipments**：设备表
-- **equipment_maintenance**：设备维护记录表
-- **quality_inspections**：质量检测记录表
-- **inventory_materials**：原材料库存表
-- **inventory_products**：成品库存表
-- **employees**：员工表
-- **departments**：部门表
+# 停止服务
+docker-compose -f docker/docker-compose.prod.yml down
+```
 
-## API 设计
+## 贡献指南
 
-### 认证 API
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建Pull Request
 
-- `POST /api/auth/login`：用户登录
-- `POST /api/auth/logout`：用户登出
-- `POST /api/auth/refresh`：刷新令牌
+## 许可证
 
-### 超管 API
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
 
-- `GET /api/admin/tenants`：获取租户列表
-- `POST /api/admin/tenants`：创建租户
-- `GET /api/admin/tenants/{id}`：获取租户详情
-- `PUT /api/admin/tenants/{id}`：更新租户信息
-- `DELETE /api/admin/tenants/{id}`：停用租户
+## 联系方式
 
-### 租户 API
-
-以生产管理模块为例：
-
-- `GET /api/production/plans`：获取生产计划列表
-- `POST /api/production/plans`：创建生产计划
-- `GET /api/production/plans/{id}`：获取生产计划详情
-- `PUT /api/production/plans/{id}`：更新生产计划
-- `DELETE /api/production/plans/{id}`：删除生产计划
-
-## 多租户实现方案
-
-### 租户识别
-
-1. 通过子域名识别租户：`{tenant-id}.domain.com`
-2. 用户登录后，后端根据用户所属租户确定数据库 Schema
-3. 所有数据库操作自动添加 Schema 前缀
-
-### 数据隔离
-
-1. 在 SQLAlchemy 中实现会话管理，为每个请求设置正确的 Schema
-2. 使用中间件拦截请求，根据租户信息设置当前 Schema
-3. 数据库连接池按租户隔离
-
-## 部署架构
-
-使用 Docker Compose 编排以下容器：
-
-1. **前端容器**：运行 Nginx + React 静态文件
-2. **后端容器**：运行 Flask API 服务
-3. **数据库容器**：运行 PostgreSQL 数据库
-4. **Redis 容器**：用于缓存和会话管理
-
-## 安全设计
-
-1. **认证**：JWT 令牌认证，支持令牌刷新
-2. **授权**：基于 RBAC 的权限控制
-3. **数据隔离**：Schema 级别的租户数据隔离
-4. **API 安全**：请求限流，SQL 注入防护
-5. **密码安全**：密码加盐哈希存储
-
-## 扩展性设计
-
-1. **模块化架构**：核心功能与业务模块分离
-2. **API 版本控制**：支持 API 版本管理
-3. **插件系统**：支持功能扩展
-4. **多语言支持**：国际化框架
-
-## 实施路径
-
-### 阶段一：基础架构搭建
-
-1. 搭建前端和后端项目结构
-2. 实现多租户数据库设计
-3. 开发认证授权系统
-4. 开发租户管理功能
-
-### 阶段二：核心业务功能开发
-
-1. 开发生产管理模块
-2. 开发设备管理模块
-3. 开发质量管理模块
-4. 开发仓储管理模块
-
-### 阶段三：高级功能与优化
-
-1. 开发数据分析与报表功能
-2. 实现系统监控与告警
-3. 性能优化与压力测试
-4. 系统文档完善与用户培训
-
-## 下一步工作计划
-
-1. 建立详细的项目目录结构
-2. 实现数据库模型设计
-3. 开发租户管理和认证模块
-4. 搭建基础的 Docker 部署环境 
+- 项目维护者: [Your Name](mailto:your.email@example.com)
+- 项目主页: [https://www.kylinking.com](https://www.kylinking.com) 

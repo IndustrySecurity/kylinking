@@ -37,9 +37,16 @@ import {
 } from '@ant-design/icons';
 import { useApi } from '../../hooks/useApi';
 import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
+const StyledCard = styled(Card)`
+  .ant-card-head {
+    border-bottom: none;
+  }
+`;
 
 const TenantManagement = () => {
   const [tenants, setTenants] = useState([]);

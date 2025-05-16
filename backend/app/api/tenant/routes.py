@@ -6,6 +6,7 @@ from app.extensions import db
 from app.utils.tenant_context import tenant_context_required
 from datetime import datetime
 import uuid
+from functools import wraps
 
 
 def tenant_required(fn):
@@ -13,7 +14,8 @@ def tenant_required(fn):
     装饰器，确保用户有对应的租户
     """
     @jwt_required()
-    def wrapper(*args, **kwargs):
+    @wraps(fn)  # 添加functools.wraps保留原始函数名称
+    def tenant_wrapper(*args, **kwargs):
         claims = get_jwt()
         tenant_id = claims.get('tenant_id')
         
@@ -22,7 +24,7 @@ def tenant_required(fn):
         
         return fn(*args, **kwargs)
     
-    return wrapper
+    return tenant_wrapper
 
 
 @tenant_bp.route('/production/plans', methods=['GET'])

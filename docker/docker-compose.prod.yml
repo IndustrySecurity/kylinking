@@ -5,34 +5,32 @@ services:
   frontend:
     build:
       context: ../frontend
-      dockerfile: Dockerfile.dev
-    container_name: saas_frontend_dev
+      dockerfile: Dockerfile
+    container_name: saas_frontend_prod
     ports:
-      - "3000:3000"
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
+      - "3000:80"
     environment:
-      - NODE_ENV=development
-      - VITE_API_URL=http://localhost:5000/api
+      - NODE_ENV=production
+      - VITE_API_URL=/api
       - VITE_APP_TITLE=KylinKing云膜智能管理系统
-      - VITE_APP_ENV=development
+      - VITE_APP_ENV=production
     depends_on:
       - backend
     networks:
       - saas-network
     restart: unless-stopped
-    command: npm run dev -- --host 0.0.0.0
 
   # Nginx (Web Server)
   nginx:
     image: nginx:alpine
-    container_name: saas_nginx_dev
+    container_name: saas_nginx_prod
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       - frontend
       - backend
@@ -44,33 +42,31 @@ services:
   backend:
     build:
       context: ../backend
-      dockerfile: Dockerfile.dev
-    container_name: saas_backend_dev
+      dockerfile: Dockerfile
+    container_name: saas_backend_prod
     ports:
       - "5000:5000"
-    volumes:
-      - ../backend:/app
     depends_on:
       - postgres
       - redis
     environment:
       - FLASK_APP=wsgi.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - DATABASE_URI=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/saas_platform
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - CORS_ORIGINS=http://localhost:3000,http://localhost
+      - CORS_ORIGINS=https://www.kylinking.com,http://www.kylinking.com
     networks:
       - saas-network
     restart: unless-stopped
-    command: flask run --host=0.0.0.0 --port=5000
+    command: gunicorn --bind 0.0.0.0:5000 --workers 4 --threads 2 --timeout 120 wsgi:app
 
   # PostgreSQL Database
   postgres:
     image: postgres:latest
-    container_name: saas_postgres_dev
+    container_name: saas_postgres_prod
     ports:
       - "5432:5432"
     volumes:
@@ -92,7 +88,7 @@ services:
   # Redis (for caching and session management)
   redis:
     image: redis:alpine
-    container_name: saas_redis_dev
+    container_name: saas_redis_prod
     ports:
       - "6379:6379"
     volumes:

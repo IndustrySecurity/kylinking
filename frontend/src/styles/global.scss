@@ -1,0 +1,122 @@
+@import './variables.scss';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: $font-family;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.85);
+  background-color: #f0f2f5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// 科技感卡片样式
+.tech-card {
+  background: white;
+  border-radius: $border-radius-lg;
+  box-shadow: $box-shadow-card;
+  transition: $transition-base;
+  overflow: hidden;
+  
+  &:hover {
+    box-shadow: $box-shadow-hover;
+    transform: translateY(-2px);
+  }
+}
+
+// 渐变背景
+.gradient-bg {
+  background: $gradient-primary;
+  color: white;
+}
+
+// 科技感标题
+.tech-title {
+  font-size: 24px;
+  font-weight: 500;
+  background: $gradient-primary;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: $spacing-lg;
+}
+
+// 科技感按钮
+.tech-button {
+  background: $gradient-primary;
+  border: none;
+  color: white;
+  padding: $spacing-sm $spacing-lg;
+  border-radius: $border-radius-base;
+  cursor: pointer;
+  transition: $transition-base;
+  
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+}
+
+// 响应式容器
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 $spacing-md;
+  
+  @media (max-width: $screen-lg) {
+    max-width: 960px;
+  }
+  
+  @media (max-width: $screen-md) {
+    max-width: 720px;
+  }
+  
+  @media (max-width: $screen-sm) {
+    max-width: 540px;
+  }
+}
+
+// 动画类
+.fade-enter {
+  opacity: 0;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 300ms ease-in;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 300ms ease-in;
+}
+
+// 滚动条美化
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+  
+  &:hover {
+    background: #555;
+  }
+} 

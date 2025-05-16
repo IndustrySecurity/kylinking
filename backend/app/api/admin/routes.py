@@ -9,6 +9,7 @@ from app.utils.tenant_context import TenantContext
 from slugify import slugify
 import re
 import uuid
+from functools import wraps
 
 
 def admin_required(fn):
@@ -16,13 +17,14 @@ def admin_required(fn):
     装饰器，确保只有管理员可以访问
     """
     @jwt_required()
-    def wrapper(*args, **kwargs):
+    @wraps(fn)  # 添加functools.wraps保留原始函数名称
+    def admin_wrapper(*args, **kwargs):
         claims = get_jwt()
         if not claims.get('is_admin') and not claims.get('is_superadmin'):
             return jsonify({"message": "Admin privileges required"}), 403
         return fn(*args, **kwargs)
     
-    return wrapper
+    return admin_wrapper
 
 
 def superadmin_required(fn):
@@ -30,13 +32,14 @@ def superadmin_required(fn):
     装饰器，确保只有超级管理员可以访问
     """
     @jwt_required()
-    def wrapper(*args, **kwargs):
+    @wraps(fn)  # 添加functools.wraps保留原始函数名称
+    def superadmin_wrapper(*args, **kwargs):
         claims = get_jwt()
         if not claims.get('is_superadmin'):
             return jsonify({"message": "Superadmin privileges required"}), 403
         return fn(*args, **kwargs)
     
-    return wrapper
+    return superadmin_wrapper
 
 
 @admin_bp.route('/tenants', methods=['GET'])
