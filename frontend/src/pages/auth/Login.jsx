@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Form,
   Input,
@@ -9,31 +9,158 @@ import {
   Card,
   message,
   Space,
-  Spin,
-  Divider
+  Divider,
+  Select,
+  Tabs,
+  Row,
+  Col,
+  Alert
 } from 'antd';
 import {
   UserOutlined,
   LockOutlined,
   LoginOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  BuildOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 import { useApi } from '../../hooks/useApi';
+import styled from 'styled-components';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
+const { Option } = Select;
 
+// Styled components
+const LoginContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1890ff 0%, #001529 100%);
+  padding: 20px;
+`;
+
+const StyledCard = styled(Card)`
+  width: 480px;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(0, 21, 41, 0.12);
+  overflow: hidden;
+`;
+
+const Logo = styled.div`
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(120deg, #1890ff, #096dd9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+`;
+
+const TenantBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: rgba(24, 144, 255, 0.1);
+  border-radius: 16px;
+  color: #1890ff;
+  margin-top: 8px;
+  font-size: 14px;
+`;
+
+// Main Login component
 const Login = () => {
   const [loading, setLoading] = useState(false);
+  const [currentTenant, setCurrentTenant] = useState(null);
+  const [loginMode, setLoginMode] = useState('tenant'); // 'tenant' or 'admin'
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  const location = useLocation();
   const api = useApi();
 
+  // 检测当前租户信息（基于域名）
+  useEffect(() => {
+    const detectTenant = () => {
+      // 从URL获取租户信息，格式为 tenant.domain.com 或 domain.com/tenant/login
+      const hostname = window.location.hostname;
+      const pathParts = window.location.pathname.split('/');
+      
+      // 检查是否为管理员平台域名
+      if (hostname === 'admin.kylinking.com' || hostname === 'localhost' || hostname === '127.0.0.1') {
+        setLoginMode('admin');
+        return;
+      }
+      
+      // 检查子域名格式，例如 tenant-name.kylinking.com
+      const hostParts = hostname.split('.');
+      if (hostParts.length > 2 && hostParts[0] !== 'www' && hostParts[0] !== 'admin') {
+        setCurrentTenant({
+          name: hostParts[0],
+          slug: hostParts[0],
+          domain: hostname
+        });
+        return;
+      }
+      
+      // 检查URL路径格式，例如 kylinking.com/tenant-name/login
+      if (pathParts.length > 1 && pathParts[1] !== 'login' && pathParts[1] !== 'admin') {
+        setCurrentTenant({
+          name: pathParts[1],
+          slug: pathParts[1],
+          domain: `${pathParts[1]}.${hostname}`
+        });
+        return;
+      }
+      
+      // 默认显示租户登录，但不预设租户
+      setLoginMode('tenant');
+    };
+    
+    detectTenant();
+  }, [location]);
+
+  // 处理登录
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      await api.login(values.email, values.password);
-      message.success('登录成功');
-      navigate('/admin/dashboard');
+      // 注意: 后端API有前缀，而axios实例已配置了baseURL，因此这里不需要再添加/api
+      
+      // 如果是租户登录且有选择租户，添加租户信息
+      const loginData = {
+        email: values.email,
+        password: values.password
+      };
+      
+      if (loginMode === 'tenant' && values.tenant) {
+        loginData.tenant = values.tenant;
+      }
+      
+      // 优先使用表单中填写的超级管理员账号密码
+      if (loginMode === 'admin' && !values.email) {
+        loginData.email = 'admin@kylinking.com';
+        loginData.password = 'admin123'; // 默认密码，生产环境应移除
+      }
+      
+      // 根据登录模式选择不同的API端点
+      const endpoint = loginMode === 'admin' ? '/auth/admin-login' : '/auth/login';
+      const result = await api.login(loginData.email, loginData.password, loginData.tenant, endpoint);
+      
+      if (result) {
+        message.success('登录成功');
+        
+        // 根据登录模式跳转到相应的页面
+        if (loginMode === 'admin') {
+          // 稍微延迟跳转，确保状态已更新
+          setTimeout(() => {
+            navigate('/admin/tenants');
+          }, 100);
+        } else {
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 100);
+        }
+      }
     } catch (error) {
       console.error('Login error:', error);
       message.error('登录失败: ' + (error.response?.data?.message || '请检查您的邮箱和密码'));
@@ -42,58 +169,92 @@ const Login = () => {
     }
   };
 
+  // 切换登录模式
+  const handleModeChange = (mode) => {
+    setLoginMode(mode);
+    form.resetFields();
+  };
+
+  // 定义Tabs项
+  const tabItems = [
+    {
+      key: 'tenant',
+      label: '租户登录'
+    },
+    {
+      key: 'admin',
+      label: '平台管理员'
+    }
+  ];
+
   return (
-    <div className="login-container" style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1890ff 0%, #001529 100%)',
-      backgroundSize: 'cover',
-      padding: '20px'
-    }}>
-      <Card
-        style={{
-          width: 450,
-          borderRadius: 8,
-          boxShadow: '0 8px 24px rgba(0, 21, 41, 0.12)',
-          overflow: 'hidden'
-        }}
-        bodyStyle={{ padding: '32px 40px' }}
-      >
+    <LoginContainer>
+      <StyledCard styles={{ body: { padding: '32px 40px' } }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Space align="center" direction="vertical" size={16}>
-            <div className="logo" style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: 'linear-gradient(120deg, #1890ff, #096dd9)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 8
-            }}>
-              <SafetyOutlined style={{ color: 'white', fontSize: 32 }} />
-            </div>
+          <Space align="center" direction="vertical" size={12}>
+            <Logo>
+              <SafetyOutlined style={{ color: 'white', fontSize: 36 }} />
+            </Logo>
             <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-              智能制造 SaaS 平台
+              {loginMode === 'admin' ? '管理员后台' : '薄膜智能管理平台'}
             </Title>
             <Text type="secondary">
-              登录后台管理系统
+              {loginMode === 'admin' ? '平台超级管理员入口' : '企业租户登录入口'}
             </Text>
+            
+            {currentTenant && (
+              <TenantBadge>
+                <BuildOutlined style={{ marginRight: 8 }} />
+                {currentTenant.name}
+              </TenantBadge>
+            )}
           </Space>
         </div>
         
-        <Divider style={{ marginBottom: 32 }} />
+        <Tabs 
+          activeKey={loginMode} 
+          onChange={handleModeChange}
+          centered
+          style={{ marginBottom: 24 }}
+          items={tabItems}
+        />
+        
+        {loginMode === 'admin' && (
+          <Alert
+            message="管理员登录入口"
+            description="此入口仅限平台超级管理员访问，用于管理整个平台的租户与系统设置。"
+            type="info"
+            showIcon
+            style={{ marginBottom: 24 }}
+          />
+        )}
         
         <Form
           name="login"
           form={form}
-          initialValues={{ remember: true }}
+          initialValues={{ 
+            remember: true,
+            email: loginMode === 'admin' ? 'admin@kylinking.com' : '',
+            password: loginMode === 'admin' ? 'admin123' : ''
+          }}
           onFinish={onFinish}
           size="large"
           layout="vertical"
         >
+          {loginMode === 'tenant' && !currentTenant && (
+            <Form.Item
+              name="tenant"
+              rules={[{ required: true, message: '请选择或输入租户!' }]}
+            >
+              <Input 
+                prefix={<BuildOutlined className="site-form-item-icon" />} 
+                placeholder="租户标识"
+                autoComplete="off"
+                size="large"
+              />
+            </Form.Item>
+          )}
+          
           <Form.Item
             name="email"
             rules={[
@@ -122,13 +283,18 @@ const Login = () => {
           </Form.Item>
           
           <Form.Item>
-            <Form.Item name="remember" valuePropName="checked" noStyle>
-              <Checkbox>记住我</Checkbox>
-            </Form.Item>
-            
-            <a href="#" style={{ float: 'right' }}>
-              忘记密码?
-            </a>
+            <Row justify="space-between">
+              <Col>
+                <Form.Item name="remember" valuePropName="checked" noStyle>
+                  <Checkbox>记住我</Checkbox>
+                </Form.Item>
+              </Col>
+              <Col>
+                <a href="#" style={{ float: 'right' }}>
+                  忘记密码?
+                </a>
+              </Col>
+            </Row>
           </Form.Item>
           
           <Form.Item>
@@ -140,20 +306,28 @@ const Login = () => {
               loading={loading}
               style={{ height: 46 }}
             >
-              登录
+              {loginMode === 'admin' ? '管理员登录' : '登录系统'}
             </Button>
           </Form.Item>
         </Form>
+        
+        {loginMode === 'tenant' && (
+          <div style={{ textAlign: 'center', marginTop: 8 }}>
+            <Text type="secondary">还没有企业账号? </Text>
+            <a href="#contact">联系我们开通</a>
+          </div>
+        )}
         
         <Divider style={{ margin: '24px 0 16px' }}>
           <Text type="secondary">系统信息</Text>
         </Divider>
         
         <Text type="secondary" style={{ display: 'block', textAlign: 'center' }}>
-          版本: v1.0.0 | Copyright © {new Date().getFullYear()} 智能制造 SaaS 平台
+          <GlobalOutlined style={{ marginRight: 8 }} />
+          KylinKing云膜智能管理系统 v1.0.0 | Copyright © {new Date().getFullYear()}
         </Text>
-      </Card>
-    </div>
+      </StyledCard>
+    </LoginContainer>
   );
 };
 

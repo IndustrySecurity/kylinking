@@ -28,7 +28,18 @@ export default defineConfig({
       '/api': {
         target: 'http://backend:5000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Sending Request:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Received Response from:', req.url, proxyRes.statusCode);
+          });
+        }
       }
     }
   },
@@ -44,8 +55,9 @@ export default defineConfig({
       }
     }
   },
-  // 定义环境变量
+  // 允许在前端开发中模拟后端接口
   define: {
-    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('/api')
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('/api'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
   }
 }) 

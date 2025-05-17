@@ -14,6 +14,7 @@ import {
   LaptopOutlined
 } from '@ant-design/icons';
 import styled, { css } from 'styled-components';
+import { useApi } from '../../hooks/useApi';
 
 const { Header, Sider, Content } = Layout;
 
@@ -147,6 +148,9 @@ const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const api = useApi();
+  const user = api.getUser();
+  const tenant = api.getCurrentTenant();
   
   // Toggle sidebar collapsed state
   const toggleCollapsed = () => {
@@ -262,6 +266,18 @@ const MainLayout = ({ children }) => {
     }
   };
   
+  // Handle user menu actions
+  const handleUserMenuClick = ({ key }) => {
+    if (key === 'logout') {
+      api.logout();
+    } else if (key === 'profile') {
+      navigate('/profile');
+    } else if (key === 'switch') {
+      // Handle tenant switching
+      navigate('/login');
+    }
+  };
+  
   // Determine selected menu key from current path
   const selectedKey = location.pathname.split('/')[1] || 'dashboard';
   // Only show open keys when sidebar is expanded
@@ -322,7 +338,7 @@ const MainLayout = ({ children }) => {
             <Dropdown
               menu={{ 
                 items: userMenuItems,
-                onClick: (e) => console.log('Clicked user menu', e.key),
+                onClick: handleUserMenuClick,
               }}
               placement="bottomRight"
               arrow
@@ -332,7 +348,10 @@ const MainLayout = ({ children }) => {
                   style={{ backgroundColor: '#1890ff' }} 
                   icon={<UserOutlined />} 
                 />
-                <span className="username">管理员</span>
+                <span className="username">
+                  {user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : '管理员'}
+                  {tenant && <small style={{ display: 'block', fontSize: '12px' }}>{tenant.name}</small>}
+                </span>
               </UserInfo>
             </Dropdown>
           </HeaderControls>
