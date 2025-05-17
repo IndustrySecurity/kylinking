@@ -1,5 +1,6 @@
-@import './variables.scss';
+@use "./variables.scss" as *;
 
+/* 基础重置 */
 * {
   margin: 0;
   padding: 0;
@@ -16,7 +17,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-// 科技感卡片样式
+/* 科技感卡片样式 */
 .tech-card {
   background: white;
   border-radius: $border-radius-lg;
@@ -30,13 +31,13 @@ html, body {
   }
 }
 
-// 渐变背景
+/* 渐变背景 */
 .gradient-bg {
   background: $gradient-primary;
   color: white;
 }
 
-// 科技感标题
+/* 科技感标题 */
 .tech-title {
   font-size: 24px;
   font-weight: 500;
@@ -46,7 +47,7 @@ html, body {
   margin-bottom: $spacing-lg;
 }
 
-// 科技感按钮
+/* 科技感按钮 */
 .tech-button {
   background: $gradient-primary;
   border: none;
@@ -62,7 +63,7 @@ html, body {
   }
 }
 
-// 响应式容器
+/* 响应式容器 */
 .container {
   width: 100%;
   max-width: 1200px;
@@ -82,7 +83,7 @@ html, body {
   }
 }
 
-// 动画类
+/* 动画类 */
 .fade-enter {
   opacity: 0;
 }
@@ -101,7 +102,7 @@ html, body {
   transition: opacity 300ms ease-in;
 }
 
-// 滚动条美化
+/* 滚动条美化 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

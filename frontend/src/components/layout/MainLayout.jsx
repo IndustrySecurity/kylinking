@@ -1,66 +1,165 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Avatar, Dropdown, theme } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Badge } from 'antd';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  DashboardOutlined,
+  AppstoreOutlined,
+  UserOutlined,
+  SettingOutlined,
+  BellOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  DashboardOutlined,
-  SettingOutlined,
-  UserOutlined,
-  TeamOutlined,
-  BarChartOutlined,
   LogoutOutlined,
-  AppstoreOutlined,
+  UserSwitchOutlined,
+  LaptopOutlined
 } from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
 const { Header, Sider, Content } = Layout;
 
-const StyledLayout = styled(Layout)`
+// Root layout container
+const RootLayout = styled(Layout)`
   min-height: 100vh;
 `;
 
-const Logo = styled.div`
-  height: 64px;
-  padding: 16px;
-  color: white;
-  font-size: 18px;
-  font-weight: bold;
-  text-align: center;
-  background: ${props => props.theme.gradientPrimary};
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+// Sidebar styles
+const SidebarLayout = styled(Sider)`
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  height: 100vh;
+  overflow: hidden auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  
+  .ant-layout-sider-children {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
 `;
 
-const StyledHeader = styled(Header)`
-  padding: 0 24px;
+// Logo container
+const LogoContainer = styled.div`
+  height: 64px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+`;
+
+// Logo text
+const LogoText = styled.div`
+  color: white;
+  font-size: ${props => props.$collapsed ? '1rem' : '1.25rem'};
+  font-weight: bold;
+  text-align: center;
+  white-space: nowrap;
+  transition: all 0.2s;
+`;
+
+// Main content area that adjusts based on sidebar state
+const MainContentLayout = styled(Layout)`
+  margin-left: ${props => props.$collapsed ? '80px' : '200px'};
+  transition: margin-left 0.2s;
+`;
+
+// Header styles
+const HeaderWrapper = styled(Header)`
+  padding: 0;
   background: white;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  width: 100%;
 `;
 
-const StyledContent = styled(Content)`
+// Collapse button
+const CollapseButton = styled.div`
+  padding: 0 24px;
+  font-size: 18px;
+  line-height: 64px;
+  cursor: pointer;
+  transition: color 0.3s;
+  
+  &:hover {
+    color: #1890ff;
+  }
+`;
+
+// Header controls
+const HeaderControls = styled.div`
+  display: flex;
+  align-items: center;
+  padding-right: 24px;
+`;
+
+// Header icon button
+const IconButton = styled.div`
+  padding: 0 12px;
+  cursor: pointer;
+  font-size: 18px;
+  
+  &:hover {
+    color: #1890ff;
+  }
+`;
+
+// User info container
+const UserInfo = styled.div`
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+  cursor: pointer;
+  
+  .username {
+    margin-left: 8px;
+    font-weight: 500;
+  }
+`;
+
+// Main content wrapper
+const ContentWrapper = styled(Content)`
   margin: 24px;
+  flex: 1;
+  overflow: auto;
+  background: #f5f7fa;
+  border-radius: 4px;
+  padding: 0;
+`;
+
+// Inner content container
+const ContentContainer = styled.div`
   padding: 24px;
   background: white;
-  border-radius: 8px;
-  min-height: 280px;
+  border-radius: 4px;
+  min-height: calc(100vh - 64px - 48px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 `;
 
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { token } = theme.useToken();
-
+  
+  // Toggle sidebar collapsed state
+  const toggleCollapsed = () => {
+    setCollapsed(!collapsed);
+  };
+  
+  // Menu items configuration
   const menuItems = [
     {
-      key: '/dashboard',
+      key: 'dashboard',
       icon: <DashboardOutlined />,
       label: '仪表盘',
+      path: '/dashboard',
     },
     {
       key: 'admin',
@@ -68,114 +167,185 @@ const MainLayout = ({ children }) => {
       label: '系统管理',
       children: [
         {
-          key: '/admin/tenants',
-          icon: <TeamOutlined />,
+          key: 'tenants',
           label: '租户管理',
+          path: '/admin/tenants',
         },
         {
-          key: '/admin/users',
-          icon: <UserOutlined />,
+          key: 'users',
           label: '用户管理',
+          path: '/admin/users',
         },
       ],
     },
     {
-      key: '/production',
-      icon: <BarChartOutlined />,
+      key: 'production',
+      icon: <LaptopOutlined />,
       label: '生产管理',
+      children: [
+        {
+          key: 'schedule',
+          label: '生产计划',
+          path: '/production/schedule',
+        },
+        {
+          key: 'monitor',
+          label: '生产监控',
+          path: '/production/monitor',
+        },
+      ],
     },
     {
-      key: '/equipment',
+      key: 'settings',
       icon: <SettingOutlined />,
-      label: '设备管理',
+      label: '系统设置',
+      path: '/settings',
+    },
+  ];
+  
+  // User dropdown menu items
+  const userMenuItems = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: '个人信息',
     },
     {
-      key: '/quality',
-      icon: <BarChartOutlined />,
-      label: '质量管理',
+      key: 'switch',
+      icon: <UserSwitchOutlined />,
+      label: '切换租户',
     },
     {
-      key: '/inventory',
-      icon: <BarChartOutlined />,
-      label: '仓储管理',
+      type: 'divider',
     },
     {
-      key: '/employees',
-      icon: <TeamOutlined />,
-      label: '人员管理',
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+    },
+  ];
+  
+  // Notification dropdown items
+  const notificationItems = [
+    {
+      key: 'notification1',
+      label: '设备MCL-235需要维护',
+    },
+    {
+      key: 'notification2',
+      label: '今日生产计划已完成85%',
+    },
+    {
+      key: 'notification3',
+      label: '系统将于今晚23:00进行维护',
     },
   ];
 
-  const userMenu = (
-    <Menu
-      items={[
-        {
-          key: 'profile',
-          icon: <UserOutlined />,
-          label: '个人信息',
-        },
-        {
-          key: 'settings',
-          icon: <SettingOutlined />,
-          label: '系统设置',
-        },
-        {
-          type: 'divider',
-        },
-        {
-          key: 'logout',
-          icon: <LogoutOutlined />,
-          label: '退出登录',
-        },
-      ]}
-    />
-  );
+  // Handle menu click
+  const handleMenuClick = ({ key }) => {
+    const findPath = (items) => {
+      for (const item of items) {
+        if (item.key === key) {
+          return item.path;
+        }
+        if (item.children) {
+          const path = findPath(item.children);
+          if (path) return path;
+        }
+      }
+      return null;
+    };
+
+    const path = findPath(menuItems);
+    if (path) {
+      navigate(path);
+    }
+  };
+  
+  // Determine selected menu key from current path
+  const selectedKey = location.pathname.split('/')[1] || 'dashboard';
+  // Only show open keys when sidebar is expanded
+  const openKeys = collapsed ? [] : ['admin', 'production'];
 
   return (
-    <StyledLayout>
-      <Sider 
-        trigger={null} 
+    <RootLayout>
+      {/* Sidebar */}
+      <SidebarLayout 
+        width={200} 
         collapsible 
         collapsed={collapsed}
-        theme="light"
-        style={{
-          boxShadow: '2px 0 8px 0 rgba(29,35,41,.05)',
-        }}
+        trigger={null} 
+        theme="dark"
       >
-        <Logo>
-          {collapsed ? 'KK' : 'KylinKing云膜智能管理系统'}
-        </Logo>
+        <LogoContainer>
+          <LogoText $collapsed={collapsed}>
+            {collapsed ? 'KK' : 'KylinKing'}
+          </LogoText>
+        </LogoContainer>
         <Menu
-          theme="light"
+          theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
-          defaultOpenKeys={['admin']}
+          selectedKeys={[selectedKey]}
+          defaultOpenKeys={openKeys}
+          style={{ flex: 1, borderRight: 0 }}
           items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          onClick={handleMenuClick}
         />
-      </Sider>
-      <Layout>
-        <StyledHeader>
-          {React.createElement(
-            collapsed ? MenuUnfoldOutlined : MenuFoldOutlined,
-            {
-              className: 'trigger',
-              onClick: () => setCollapsed(!collapsed),
-              style: { fontSize: '18px', cursor: 'pointer' },
-            }
-          )}
-          <Dropdown overlay={userMenu} placement="bottomRight">
-            <div style={{ cursor: 'pointer' }}>
-              <Avatar icon={<UserOutlined />} />
-              <span style={{ marginLeft: 8 }}>管理员</span>
-            </div>
-          </Dropdown>
-        </StyledHeader>
-        <StyledContent>
-          {children}
-        </StyledContent>
-      </Layout>
-    </StyledLayout>
+      </SidebarLayout>
+      
+      {/* Main content area */}
+      <MainContentLayout $collapsed={collapsed}>
+        {/* Header */}
+        <HeaderWrapper>
+          <CollapseButton onClick={toggleCollapsed}>
+            {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          </CollapseButton>
+          
+          <HeaderControls>
+            {/* Notifications */}
+            <Dropdown
+              menu={{ 
+                items: notificationItems,
+                onClick: (e) => console.log('Clicked notification', e.key),
+              }}
+              placement="bottomRight"
+              arrow
+            >
+              <IconButton>
+                <Badge count={3} size="small">
+                  <BellOutlined style={{ fontSize: '18px' }} />
+                </Badge>
+              </IconButton>
+            </Dropdown>
+            
+            {/* User menu */}
+            <Dropdown
+              menu={{ 
+                items: userMenuItems,
+                onClick: (e) => console.log('Clicked user menu', e.key),
+              }}
+              placement="bottomRight"
+              arrow
+            >
+              <UserInfo>
+                <Avatar 
+                  style={{ backgroundColor: '#1890ff' }} 
+                  icon={<UserOutlined />} 
+                />
+                <span className="username">管理员</span>
+              </UserInfo>
+            </Dropdown>
+          </HeaderControls>
+        </HeaderWrapper>
+        
+        {/* Page content */}
+        <ContentWrapper>
+          <ContentContainer>
+            {children}
+          </ContentContainer>
+        </ContentWrapper>
+      </MainContentLayout>
+    </RootLayout>
   );
 };
 

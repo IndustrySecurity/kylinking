@@ -1,3 +1,92 @@
+/* Base reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f5f7fa;
+  color: rgba(0, 0, 0, 0.85);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  width: 100%;
+  line-height: 1.5;
+}
+
+/* Remove Ant Design table hover highlight */
+.ant-table-tbody > tr.ant-table-row:hover > td {
+  background: #fafafa !important;
+}
+
+/* Better scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+/* Fix Ant Design menu item padding in collapsed state */
+.ant-layout-sider-collapsed .ant-menu-item {
+  padding-left: 24px !important;
+}
+
+/* Fix notification badge alignment */
+.ant-badge-count {
+  box-shadow: 0 0 0 1px #fff;
+}
+
+/* Basic animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Fix table layout */
+.ant-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Better card titles */
+.ant-card-head-title {
+  font-weight: 600;
+}
+
+/* Fix dropdown menu z-index */
+.ant-dropdown {
+  z-index: 1050;
+}
+
+/* Ensure proper positioning of fixed elements */
+#root {
+  position: relative;
+  min-height: 100vh;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -11,14 +100,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
 }
 
 h1 {

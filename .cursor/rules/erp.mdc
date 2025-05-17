@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+当前是容器化的开发测试环境，同时最前面用的nginx做的代理
+nginx端口：80
+frontend端口：3000
+backend端口：5000

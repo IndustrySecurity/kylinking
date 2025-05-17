@@ -95,7 +95,7 @@ export const useApi = () => {
           const refreshToken = getRefreshToken();
           if (refreshToken) {
             try {
-              const response = await axios.post(`${BASE_URL}/api/auth/refresh`, {}, {
+              const response = await axios.post(`${BASE_URL}/auth/refresh`, {}, {
                 headers: {
                   'Authorization': `Bearer ${refreshToken}`
                 }
@@ -145,7 +145,7 @@ export const useApi = () => {
 
   // 登录方法
   const login = async (email, password) => {
-    const response = await axiosInstance.post('/api/auth/login', { email, password });
+    const response = await axiosInstance.post('/auth/login', { email, password });
     
     if (response.data.access_token) {
       saveToken(response.data.access_token);
@@ -160,7 +160,7 @@ export const useApi = () => {
   // 登出方法
   const logout = async () => {
     try {
-      await axiosInstance.post('/api/auth/logout');
+      await axiosInstance.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

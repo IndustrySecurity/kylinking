@@ -84,7 +84,7 @@ const UserManagement = () => {
         params.append('active', active);
       }
       
-      const response = await api.get(`/api/admin/tenants/${tenantId}/users?${params.toString()}`);
+      const response = await api.get(`/admin/tenants/${tenantId}/users?${params.toString()}`);
       setUsers(response.data.users);
       setPagination({
         current: response.data.page,
@@ -102,7 +102,7 @@ const UserManagement = () => {
   // 获取租户信息
   const fetchTenant = async () => {
     try {
-      const response = await api.get(`/api/admin/tenants/${tenantId}`);
+      const response = await api.get(`/admin/tenants/${tenantId}`);
       setTenant(response.data.tenant);
     } catch (error) {
       message.error('获取租户信息失败');
@@ -113,7 +113,7 @@ const UserManagement = () => {
   // 获取角色列表
   const fetchRoles = async () => {
     try {
-      const response = await api.get(`/api/admin/tenants/${tenantId}/roles`);
+      const response = await api.get(`/admin/tenants/${tenantId}/roles`);
       setRoles(response.data.roles);
     } catch (error) {
       console.error('Error fetching roles:', error);
@@ -199,11 +199,11 @@ const UserManagement = () => {
       
       if (editingUser) {
         // 更新用户
-        await api.put(`/api/admin/tenants/${tenantId}/users/${editingUser.id}`, values);
+        await api.put(`/admin/tenants/${tenantId}/users/${editingUser.id}`, values);
         message.success('用户更新成功');
       } else {
         // 创建用户
-        await api.post(`/api/admin/tenants/${tenantId}/users`, values);
+        await api.post(`/admin/tenants/${tenantId}/users`, values);
         message.success('用户创建成功');
       }
       
@@ -220,7 +220,7 @@ const UserManagement = () => {
     try {
       const values = await passwordForm.validateFields();
       
-      await api.post(`/api/admin/tenants/${tenantId}/users/${editingUser.id}/reset-password`, {
+      await api.post(`/admin/tenants/${tenantId}/users/${editingUser.id}/reset-password`, {
         password: values.password
       });
       
@@ -235,7 +235,7 @@ const UserManagement = () => {
   // 停用/启用用户
   const handleToggleUserStatus = async (user) => {
     try {
-      await api.patch(`/api/admin/tenants/${tenantId}/users/${user.id}/toggle-status`);
+      await api.patch(`/admin/tenants/${tenantId}/users/${user.id}/toggle-status`);
       message.success(`用户已${user.is_active ? '停用' : '启用'}`);
       fetchUsers(pagination.current, pagination.pageSize, searchEmail, filterActive);
     } catch (error) {
