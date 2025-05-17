@@ -5,7 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import TenantManagement from './pages/admin/TenantManagement';
 import UserManagement from './pages/admin/UserManagement';
-import './styles/global.scss';
+import './index.css';
 
 // Note: React Router warnings can be safely ignored for now
 // They're related to future React Router v7 behavior

@@ -3,7 +3,8 @@ import axios from 'axios';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '';
+// 使用/api前缀统一访问后端API，通过nginx代理转发
+const BASE_URL = '/api';
 
 // 创建axios实例
 const axiosInstance = axios.create({

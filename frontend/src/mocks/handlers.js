@@ -98,10 +98,10 @@ const roles = [
   { id: uuid(), tenant_id: tenants[0].id, name: '操作员', description: '设备操作人员' }
 ];
 
-// Mock API handlers
+// Mock API handlers - Using MSW v1 syntax
 export const handlers = [
   // 获取租户列表
-  rest.get('/admin/tenants', (req, res, ctx) => {
+  rest.get('/api/admin/tenants', (req, res, ctx) => {
     const page = parseInt(req.url.searchParams.get('page')) || 1;
     const per_page = parseInt(req.url.searchParams.get('per_page')) || 10;
     const name = req.url.searchParams.get('name');
@@ -139,7 +139,7 @@ export const handlers = [
   }),
   
   // 获取单个租户
-  rest.get('/admin/tenants/:id', (req, res, ctx) => {
+  rest.get('/api/admin/tenants/:id', (req, res, ctx) => {
     const { id } = req.params;
     const tenant = tenants.find(t => t.id === id);
     
@@ -161,7 +161,7 @@ export const handlers = [
   }),
   
   // 创建租户
-  rest.post('/admin/tenants', (req, res, ctx) => {
+  rest.post('/api/admin/tenants', (req, res, ctx) => {
     const newTenant = {
       id: uuid(),
       ...req.body,
@@ -182,7 +182,7 @@ export const handlers = [
   }),
   
   // 更新租户
-  rest.put('/admin/tenants/:id', (req, res, ctx) => {
+  rest.put('/api/admin/tenants/:id', (req, res, ctx) => {
     const { id } = req.params;
     const tenantIndex = tenants.findIndex(t => t.id === id);
     
@@ -209,7 +209,7 @@ export const handlers = [
   }),
   
   // 停用租户
-  rest.delete('/admin/tenants/:id', (req, res, ctx) => {
+  rest.delete('/api/admin/tenants/:id', (req, res, ctx) => {
     const { id } = req.params;
     const tenantIndex = tenants.findIndex(t => t.id === id);
     
@@ -230,7 +230,7 @@ export const handlers = [
   }),
   
   // 系统统计数据
-  rest.get('/admin/stats', (req, res, ctx) => {
+  rest.get('/api/admin/stats', (req, res, ctx) => {
     const activeTenants = tenants.filter(t => t.is_active).length;
     const totalUsers = users.length;
     const adminUsers = users.filter(u => u.is_admin).length;
@@ -253,7 +253,7 @@ export const handlers = [
   }),
   
   // 获取租户用户列表
-  rest.get('/admin/tenants/:tenantId/users', (req, res, ctx) => {
+  rest.get('/api/admin/tenants/:tenantId/users', (req, res, ctx) => {
     const { tenantId } = req.params;
     const page = parseInt(req.url.searchParams.get('page')) || 1;
     const per_page = parseInt(req.url.searchParams.get('per_page')) || 10;
@@ -292,7 +292,7 @@ export const handlers = [
   }),
   
   // 获取租户角色列表
-  rest.get('/admin/tenants/:tenantId/roles', (req, res, ctx) => {
+  rest.get('/api/admin/tenants/:tenantId/roles', (req, res, ctx) => {
     const { tenantId } = req.params;
     const tenantRoles = roles.filter(role => role.tenant_id === tenantId);
     
@@ -304,5 +304,129 @@ export const handlers = [
     );
   }),
   
-  // 更多API处理程序可以在这里添加...
+  // 新增用户
+  rest.post('/api/admin/tenants/:tenantId/users', (req, res, ctx) => {
+    const { tenantId } = req.params;
+    
+    // 验证租户存在
+    const tenant = tenants.find(t => t.id === tenantId);
+    if (!tenant) {
+      return res(
+        ctx.status(404),
+        ctx.json({ message: 'Tenant not found' })
+      );
+    }
+    
+    // 创建新用户
+    const newUser = {
+      id: uuid(),
+      tenant_id: tenantId,
+      ...req.body,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // 处理角色
+    if (req.body.roles) {
+      newUser.roles = req.body.roles.map(roleId => {
+        const role = roles.find(r => r.id === roleId);
+        return role ? { id: role.id, name: role.name } : null;
+      }).filter(Boolean);
+    } else {
+      newUser.roles = [];
+    }
+    
+    users.push(newUser);
+    
+    return res(
+      ctx.status(201),
+      ctx.json({
+        message: 'User created successfully',
+        user: newUser
+      })
+    );
+  }),
+  
+  // 更新用户
+  rest.put('/api/admin/tenants/:tenantId/users/:userId', (req, res, ctx) => {
+    const { tenantId, userId } = req.params;
+    const userIndex = users.findIndex(u => u.id === userId && u.tenant_id === tenantId);
+    
+    if (userIndex === -1) {
+      return res(
+        ctx.status(404),
+        ctx.json({ message: 'User not found in this tenant' })
+      );
+    }
+    
+    // 更新用户信息
+    users[userIndex] = {
+      ...users[userIndex],
+      ...req.body,
+      updated_at: new Date().toISOString()
+    };
+    
+    // 处理角色
+    if (req.body.roles) {
+      users[userIndex].roles = req.body.roles.map(roleId => {
+        const role = roles.find(r => r.id === roleId);
+        return role ? { id: role.id, name: role.name } : null;
+      }).filter(Boolean);
+    }
+    
+    return res(
+      ctx.status(200),
+      ctx.json({
+        message: 'User updated successfully',
+        user: users[userIndex]
+      })
+    );
+  }),
+  
+  // 更改用户状态
+  rest.patch('/api/admin/tenants/:tenantId/users/:userId/toggle-status', (req, res, ctx) => {
+    const { tenantId, userId } = req.params;
+    const userIndex = users.findIndex(u => u.id === userId && u.tenant_id === tenantId);
+    
+    if (userIndex === -1) {
+      return res(
+        ctx.status(404),
+        ctx.json({ message: 'User not found in this tenant' })
+      );
+    }
+    
+    // 切换状态
+    users[userIndex].is_active = !users[userIndex].is_active;
+    users[userIndex].updated_at = new Date().toISOString();
+    
+    return res(
+      ctx.status(200),
+      ctx.json({
+        message: `User status changed to ${users[userIndex].is_active ? 'active' : 'inactive'}`,
+        is_active: users[userIndex].is_active
+      })
+    );
+  }),
+  
+  // 重置用户密码
+  rest.post('/api/admin/tenants/:tenantId/users/:userId/reset-password', (req, res, ctx) => {
+    const { tenantId, userId } = req.params;
+    const user = users.find(u => u.id === userId && u.tenant_id === tenantId);
+    
+    if (!user) {
+      return res(
+        ctx.status(404),
+        ctx.json({ message: 'User not found in this tenant' })
+      );
+    }
+    
+    // 模拟密码重置（在真实应用中，这里会包含加密等逻辑）
+    // 这里我们只是记录一下更新时间
+    user.updated_at = new Date().toISOString();
+    
+    return res(
+      ctx.status(200),
+      ctx.json({ message: 'Password reset successfully' })
+    );
+  })
 ]; 

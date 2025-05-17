@@ -24,9 +24,11 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
+      // 在开发环境中，直接代理到后端容器
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://backend:5000',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   },
@@ -41,5 +43,9 @@ export default defineConfig({
         // Removing additionalData to prevent conflicts with @use directives
       }
     }
+  },
+  // 定义环境变量
+  define: {
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify('/api')
   }
 }) 
