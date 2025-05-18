@@ -120,30 +120,32 @@ const Login = () => {
     detectTenant();
   }, [location]);
 
-  // 处理登录
+  // 登录处理函数
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      // 注意: 后端API有前缀，而axios实例已配置了baseURL，因此这里不需要再添加/api
-      
-      // 如果是租户登录且有选择租户，添加租户信息
+      // 登录数据
       const loginData = {
         email: values.email,
         password: values.password
       };
       
+      // 如果是租户登录且有选择租户，添加租户信息
       if (loginMode === 'tenant' && values.tenant) {
         loginData.tenant = values.tenant;
       }
       
-      // 优先使用表单中填写的超级管理员账号密码
+      // 优先使用表单中填写的管理员账号密码
       if (loginMode === 'admin' && !values.email) {
         loginData.email = 'admin@kylinking.com';
         loginData.password = 'admin123'; // 默认密码，生产环境应移除
       }
       
-      // 根据登录模式选择不同的API端点
-      const endpoint = loginMode === 'admin' ? '/auth/admin-login' : '/auth/login';
+      // 根据登录模式选择端点
+      const endpoint = loginMode === 'admin' ? '/api/auth/admin-login' : '/api/auth/login';
+      console.log(`Logging in using endpoint: ${endpoint}`);
+      
+      // 调用API登录
       const result = await api.login(loginData.email, loginData.password, loginData.tenant, endpoint);
       
       if (result) {
@@ -151,14 +153,11 @@ const Login = () => {
         
         // 根据登录模式跳转到相应的页面
         if (loginMode === 'admin') {
-          // 稍微延迟跳转，确保状态已更新
-          setTimeout(() => {
-            navigate('/admin/tenants');
-          }, 100);
+          // 管理员前往管理仪表盘
+          navigate('/admin/dashboard');
         } else {
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 100);
+          // 普通用户前往租户仪表盘
+          navigate('/dashboard');
         }
       }
     } catch (error) {

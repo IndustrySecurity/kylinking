@@ -1,0 +1,13 @@
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc0NzQ5OTMwMywianRpIjoiYjA1ODM4N2EtYWM4Ni00OTk1LWI4YmEtMGMxOGU5YzkwMTMwIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6Ijg0ZjdlNjQwLWJkYmYtNGEwYi04MzFlLWEyM2IxOGM0MmJjNSIsIm5iZiI6MTc0NzQ5OTMwMywiZXhwIjoxNzQ3NTg1NzAzLCJpc19hZG1pbiI6dHJ1ZSwiaXNfc3VwZXJhZG1pbiI6dHJ1ZSwidGVuYW50X2lkIjpudWxsfQ.xr9n2snSJ6-bdsVO_EHXfXvFreq_NuxjIHaFfxXacOk",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc0NzQ5OTMwMywianRpIjoiYWZhYWIyODktYmNmMy00ZDcyLWJlYzctYjFjMzgxMmQ1NmQ1IiwidHlwZSI6InJlZnJlc2giLCJzdWIiOiI4NGY3ZTY0MC1iZGJmLTRhMGItODMxZS1hMjNiMThjNDJiYzUiLCJuYmYiOjE3NDc0OTkzMDMsImV4cCI6MTc1MDA5MTMwM30.qraCIScv6xrwBxiCFy830_FhOToxThziL8BXtiXYdgE",
+  "user": {
+    "email": "admin@kylinking.com",
+    "first_name": "System",
+    "id": "84f7e640-bdbf-4a0b-831e-a23b18c42bc5",
+    "is_admin": true,
+    "is_superadmin": true,
+    "last_name": "Admin",
+    "tenant_id": null
+  }
+}

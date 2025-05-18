@@ -85,19 +85,31 @@ const TenantManagement = () => {
       }
       
       if (status !== null) {
-        params.append('active', status);
+        params.append('status', status);
       }
       
-      const response = await api.get(`/admin/tenants?${params.toString()}`);
-      setTenants(response.data.tenants);
-      setPagination({
-        current: response.data.page,
-        pageSize: response.data.per_page,
-        total: response.data.total
-      });
+      const response = await api.get(`/api/admin/tenants?${params.toString()}`);
+      
+      if (response.data) {
+        setTenants(response.data.tenants || []);
+        setPagination({
+          current: response.data.page || 1,
+          pageSize: response.data.per_page || 10,
+          total: response.data.total || 0
+        });
+      } else {
+        message.error('获取租户列表失败');
+      }
     } catch (error) {
-      message.error('获取租户列表失败');
       console.error('Error fetching tenants:', error);
+      if (error.response && error.response.status === 401) {
+        message.error('登录已过期，请重新登录');
+        setTimeout(() => navigate('/login'), 1500);
+      } else if (error.response && error.response.status === 403) {
+        message.error('没有权限访问租户列表');
+      } else {
+        message.error('获取租户列表失败: ' + (error.message || '未知错误'));
+      }
     } finally {
       setLoading(false);
     }
@@ -107,10 +119,19 @@ const TenantManagement = () => {
   const fetchStats = async () => {
     setStatsLoading(true);
     try {
-      const response = await api.get('/admin/stats');
-      setStats(response.data.stats);
+      const response = await api.get('/api/admin/stats');
+      if (response.data && response.data.stats) {
+        setStats(response.data.stats);
+      } else {
+        message.error('获取统计数据失败，返回格式不正确');
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
+      if (error.response && error.response.status === 401) {
+        message.error('登录已过期，请重新登录');
+      } else {
+        message.error('获取统计数据失败: ' + (error.message || '未知错误'));
+      }
     } finally {
       setStatsLoading(false);
     }
@@ -189,11 +210,11 @@ const TenantManagement = () => {
       
       if (editingTenant) {
         // 更新租户
-        await api.put(`/admin/tenants/${editingTenant.id}`, values);
+        await api.put(`/api/admin/tenants/${editingTenant.id}`, values);
         message.success('租户更新成功');
       } else {
         // 创建租户
-        await api.post('/admin/tenants', values);
+        await api.post('/api/admin/tenants', values);
         message.success('租户创建成功');
       }
       
@@ -209,7 +230,7 @@ const TenantManagement = () => {
   // 停用租户
   const handleDeactivate = async (id) => {
     try {
-      await api.delete(`/admin/tenants/${id}`);
+      await api.delete(`/api/admin/tenants/${id}`);
       message.success('租户已停用');
       fetchTenants(pagination.current, pagination.pageSize, searchName, filterStatus);
       fetchStats(); // 刷新统计

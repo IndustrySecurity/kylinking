@@ -14,7 +14,8 @@ import {
   Tooltip,
   Divider,
   Calendar,
-  Badge
+  Badge,
+  message
 } from 'antd';
 import {
   TeamOutlined,
@@ -51,32 +52,41 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // 在实际应用中，这里会调用后端API获取数据
+      // 获取API统计数据，使用正确的API路径
       const response = await api.get('/api/admin/stats');
       
-      // 模拟数据
-      setStats({
-        tenants: { 
-          total: response.data.stats.tenants.total || 25, 
-          active: response.data.stats.tenants.active || 22
-        },
-        users: { 
-          total: response.data.stats.users.total || 156, 
-          admin: response.data.stats.users.admin || 18
-        },
-        growth: { 
-          tenants: 15, 
-          users: 28
+      if (response.data && response.data.stats) {
+        // 使用实际API返回的数据
+        setStats({
+          tenants: { 
+            total: response.data.stats.tenants.total || 0, 
+            active: response.data.stats.tenants.active || 0
+          },
+          users: { 
+            total: response.data.stats.users.total || 0, 
+            admin: response.data.stats.users.admin || 0
+          },
+          growth: { 
+            tenants: 15, // 这些是模拟数据
+            users: 28
+          }
+        });
+        
+        // 使用API返回的最近租户数据
+        if (response.data.recent_tenants && response.data.recent_tenants.length > 0) {
+          setRecentTenants(response.data.recent_tenants);
+        } else {
+          // 备用模拟数据
+          setRecentTenants([
+            { id: '1', name: '创新科技有限公司', slug: 'tech-innovation', is_active: true, created_at: '2023-06-15T08:25:30Z' },
+            { id: '2', name: '未来材料研究院', slug: 'future-materials', is_active: true, created_at: '2023-06-10T14:35:20Z' },
+            { id: '3', name: '智能制造集团', slug: 'smart-manufacturing', is_active: true, created_at: '2023-06-05T09:12:45Z' },
+            { id: '4', name: '绿色能源科技', slug: 'green-energy', is_active: false, created_at: '2023-06-01T11:42:18Z' }
+          ]);
         }
-      });
-      
-      // 模拟最近的租户数据
-      setRecentTenants(response.data.recent_tenants || [
-        { id: '1', name: '创新科技有限公司', slug: 'tech-innovation', is_active: true, created_at: '2023-06-15T08:25:30Z' },
-        { id: '2', name: '未来材料研究院', slug: 'future-materials', is_active: true, created_at: '2023-06-10T14:35:20Z' },
-        { id: '3', name: '智能制造集团', slug: 'smart-manufacturing', is_active: true, created_at: '2023-06-05T09:12:45Z' },
-        { id: '4', name: '绿色能源科技', slug: 'green-energy', is_active: false, created_at: '2023-06-01T11:42:18Z' }
-      ]);
+      } else {
+        message.error('获取统计数据失败，返回数据格式不正确');
+      }
       
       // 模拟系统活动数据
       setActivities([
@@ -88,6 +98,14 @@ const Dashboard = () => {
       ]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      if (error.response && error.response.status === 401) {
+        message.error('登录已过期，请重新登录');
+        setTimeout(() => navigate('/login'), 1500);
+      } else if (error.response && error.response.status === 403) {
+        message.error('没有权限访问管理员统计信息');
+      } else {
+        message.error('获取仪表盘数据失败: ' + (error.message || '未知错误'));
+      }
     } finally {
       setLoading(false);
     }

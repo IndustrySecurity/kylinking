@@ -129,16 +129,14 @@ const RoleManagement = () => {
     }
   };
 
-  // 获取权限列表
+  // 获取系统权限列表
   const fetchPermissions = async () => {
-    setPermLoading(true);
     try {
       const response = await api.get('/api/admin/permissions');
-      setPermissions(response.data.permissions);
+      setPermissions(response.data || []);
     } catch (error) {
       console.error('Error fetching permissions:', error);
-    } finally {
-      setPermLoading(false);
+      message.error('获取权限列表失败');
     }
   };
 

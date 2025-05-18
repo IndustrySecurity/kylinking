@@ -30,9 +30,7 @@ class Tenant(SystemModel):
     # 是否激活
     is_active = Column(Boolean, default=True, nullable=False)
     
-    # 关联关系
-    users = relationship("User", back_populates="tenant")
-    roles = relationship("Role", back_populates="tenant")
+    # users 关联关系现在通过 User.tenant 的 backref 建立
     
     def __init__(self, name, slug, schema_name, contact_email, domain=None, contact_phone=None, is_active=True):
         """

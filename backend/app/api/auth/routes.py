@@ -31,8 +31,60 @@ def login():
     if not user.is_active:
         return jsonify({"message": "Account is inactive"}), 403
     
+    # 更新最后登录时间 - 直接设置，不调用方法
+    user.last_login_at = datetime.now()
+    
+    # 创建访问令牌和刷新令牌
+    additional_claims = {
+        "is_admin": user.is_admin,
+        "is_superadmin": user.is_superadmin,
+        "tenant_id": str(user.tenant_id) if user.tenant_id else None
+    }
+    
+    access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
+    refresh_token = create_refresh_token(identity=str(user.id))
+    
+    return jsonify({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_admin": user.is_admin,
+            "is_superadmin": user.is_superadmin,
+            "tenant_id": str(user.tenant_id) if user.tenant_id else None
+        }
+    }), 200
+
+
+@auth_bp.route('/admin-login', methods=['POST'])
+def admin_login():
+    """
+    管理员登录
+    """
+    # 验证请求数据
+    schema = LoginSchema()
+    data = schema.load(request.json)
+    
+    # 查找用户
+    user = User.query.filter_by(email=data['email']).first()
+    
+    # 验证用户和密码
+    if not user or not user.check_password(data['password']):
+        return jsonify({"message": "Invalid email or password"}), 401
+    
+    # 验证用户状态和管理员权限
+    if not user.is_active:
+        return jsonify({"message": "Account is inactive"}), 403
+    
+    if not user.is_admin and not user.is_superadmin:
+        return jsonify({"message": "Admin privileges required"}), 403
+    
     # 更新最后登录时间
-    user.update_last_login()
+    user.last_login_at = datetime.now()
+    db.session.commit()
     
     # 创建访问令牌和刷新令牌
     additional_claims = {

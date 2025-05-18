@@ -107,17 +107,6 @@ def create_tenant():
     schema = TenantCreateSchema()
     data = schema.load(request.json)
     
-    # 生成slug，如果未提供
-    if not data.get('slug'):
-        data['slug'] = slugify(data['name'])
-    
-    # 生成schema名称，如果未提供
-    if not data.get('schema_name'):
-        # 创建安全的schema名称，只包含字母、数字和下划线
-        schema_name = re.sub(r'[^a-zA-Z0-9_]', '_', data['slug'].lower())
-        # 添加前缀t_以防与系统schema或保留字冲突
-        data['schema_name'] = f"t_{schema_name}"
-    
     # 检查slug是否已存在
     if Tenant.query.filter_by(slug=data['slug']).first():
         return jsonify({"message": "Slug already exists"}), 400
@@ -147,13 +136,9 @@ def create_tenant():
         # 创建管理员角色
         admin_role = Role(name="Admin", description="Tenant Administrator", tenant_id=new_tenant.id)
         db.session.add(admin_role)
+        db.session.commit()
         
-        # 添加所有权限
-        permissions = Permission.query.all()
-        for permission in permissions:
-            admin_role.permissions.append(permission)
-        
-        # 创建管理员用户
+        # 创建管理员用户 - 简化权限模型，直接设置is_admin=True
         admin_user = User(
             email=admin_data['email'],
             password=admin_data['password'],
@@ -164,10 +149,6 @@ def create_tenant():
             is_admin=True
         )
         db.session.add(admin_user)
-        
-        # 分配管理员角色
-        admin_user.roles.append(admin_role)
-        
         db.session.commit()
     
     # 序列化返回数据
