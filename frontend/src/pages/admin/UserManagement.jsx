@@ -170,7 +170,7 @@ const UserManagement = () => {
       last_name: user.last_name,
       is_active: user.is_active,
       is_admin: user.is_admin,
-      roles: user.roles?.map(role => role.id) || []
+      roles: []
     });
     setModalVisible(true);
   };
@@ -309,15 +309,7 @@ const UserManagement = () => {
       key: 'roles',
       render: (_, record) => (
         <>
-          {record.roles && record.roles.length > 0 ? (
-            record.roles.map(role => (
-              <Tag color="blue" key={role.id} style={{ marginBottom: 4 }}>
-                {role.name}
-              </Tag>
-            ))
-          ) : (
-            <Text type="secondary">无角色</Text>
-          )}
+          <Text type="secondary">无角色</Text>
         </>
       ),
     },
@@ -438,7 +430,7 @@ const UserManagement = () => {
               <Col span={8}>
                 <Statistic 
                   title="管理员数" 
-                  value={users.filter(user => user.is_admin).length} 
+                  value={(users || []).filter(user => user.is_admin).length} 
                   prefix={<SafetyOutlined />}
                 />
               </Col>
@@ -597,7 +589,7 @@ const UserManagement = () => {
               style={{ width: '100%' }}
               optionFilterProp="children"
             >
-              {roles.map(role => (
+              {(roles || []).map(role => (
                 <Option key={role.id} value={role.id}>
                   {role.name}
                 </Option>

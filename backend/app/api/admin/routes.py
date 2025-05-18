@@ -293,7 +293,7 @@ def get_tenant_users(tenant_id):
             "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
             "created_at": user.created_at.isoformat(),
             "updated_at": user.updated_at.isoformat(),
-            "roles": [{"id": str(role.id), "name": role.name} for role in user.roles]
+            "roles": []  # 简化后的模型不再有roles关系
         }
         users_data.append(user_data)
     
@@ -331,7 +331,7 @@ def get_tenant_user(tenant_id, user_id):
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
-        "roles": [{"id": str(role.id), "name": role.name} for role in user.roles]
+        "roles": []  # 简化后的模型不再有roles关系
     }
     
     return jsonify({"user": user_data}), 200
@@ -371,13 +371,6 @@ def create_tenant_user(tenant_id):
         is_admin=data.get('is_admin', False)
     )
     
-    # 添加角色（如果有）
-    if data.get('roles'):
-        for role_id in data['roles']:
-            role = Role.query.get(role_id)
-            if role and role.tenant_id == tenant_id:
-                new_user.roles.append(role)
-    
     # 保存用户
     db.session.add(new_user)
     db.session.commit()
@@ -391,7 +384,7 @@ def create_tenant_user(tenant_id):
         "is_active": new_user.is_active,
         "is_admin": new_user.is_admin,
         "created_at": new_user.created_at.isoformat(),
-        "roles": [{"id": str(role.id), "name": role.name} for role in new_user.roles]
+        "roles": []  # 简化后的模型不再有roles关系
     }
     
     return jsonify({
@@ -430,17 +423,6 @@ def update_tenant_user(tenant_id, user_id):
     if data.get('is_admin') is not None:
         user.is_admin = data['is_admin']
     
-    # 更新角色（如果有）
-    if data.get('roles') is not None:
-        # 清除现有角色
-        user.roles = []
-        
-        # 添加新角色
-        for role_id in data['roles']:
-            role = Role.query.get(role_id)
-            if role and role.tenant_id == tenant_id:
-                user.roles.append(role)
-    
     # 保存更新
     db.session.commit()
     
@@ -453,7 +435,7 @@ def update_tenant_user(tenant_id, user_id):
         "is_active": user.is_active,
         "is_admin": user.is_admin,
         "updated_at": user.updated_at.isoformat(),
-        "roles": [{"id": str(role.id), "name": role.name} for role in user.roles]
+        "roles": []  # 简化后的模型不再有roles关系
     }
     
     return jsonify({
