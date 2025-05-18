@@ -179,6 +179,7 @@ const TenantManagement = () => {
     form.setFieldsValue({
       name: tenant.name,
       slug: tenant.slug,
+      schema_name: tenant.schema_name,
       contact_email: tenant.contact_email,
       contact_phone: tenant.contact_phone,
       domain: tenant.domain,
@@ -207,6 +208,7 @@ const TenantManagement = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      console.log("Form values being submitted:", values);
       
       if (editingTenant) {
         // 更新租户
@@ -509,6 +511,17 @@ const TenantManagement = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
+                name="schema_name"
+                label="数据库Schema名称"
+                rules={[{ required: editingTenant === null, message: '请输入Schema名称' }]}
+                tooltip="数据库Schema名称，只能包含字母、数字和下划线，且必须以字母开头"
+              >
+                <Input placeholder="请输入Schema名称" disabled={editingTenant !== null} />
+              </Form.Item>
+            </Col>
+            
+            <Col span={12}>
+              <Form.Item
                 name="contact_email"
                 label="联系邮箱"
                 rules={[
@@ -519,7 +532,9 @@ const TenantManagement = () => {
                 <Input placeholder="请输入联系邮箱" />
               </Form.Item>
             </Col>
-            
+          </Row>
+          
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item
                 name="contact_phone"
@@ -528,15 +543,17 @@ const TenantManagement = () => {
                 <Input placeholder="请输入联系电话" />
               </Form.Item>
             </Col>
+            
+            <Col span={12}>
+              <Form.Item
+                name="domain"
+                label="自定义域名"
+                tooltip="如果不设置，将使用默认子域名"
+              >
+                <Input placeholder="请输入自定义域名" prefix={<GlobalOutlined />} />
+              </Form.Item>
+            </Col>
           </Row>
-          
-          <Form.Item
-            name="domain"
-            label="自定义域名"
-            tooltip="如果不设置，将使用默认子域名"
-          >
-            <Input placeholder="请输入自定义域名" prefix={<GlobalOutlined />} />
-          </Form.Item>
           
           {editingTenant && (
             <Form.Item

@@ -23,8 +23,8 @@ class TenantCreateSchema(Schema):
     创建租户的请求数据验证
     """
     name = fields.String(required=True, validate=validate.Length(min=2, max=255))
-    slug = fields.String(validate=validate.Length(min=2, max=100))
-    schema_name = fields.String(validate=validate.Length(min=2, max=63))
+    slug = fields.String(required=True, validate=validate.Length(min=2, max=100))
+    schema_name = fields.String(required=True, validate=validate.Length(min=2, max=63))
     domain = fields.String(validate=validate.Length(max=255))
     contact_email = fields.Email(required=True)
     contact_phone = fields.String(validate=validate.Length(max=50))

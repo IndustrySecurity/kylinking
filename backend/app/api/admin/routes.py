@@ -103,9 +103,31 @@ def create_tenant():
     """
     创建新租户
     """
+    # 打印请求数据以进行调试
+    print("Received request.json:", request.json)
+    
+    # 如果schema_name没有提供，则从slug自动生成
+    if request.json and 'slug' in request.json and ('schema_name' not in request.json or not request.json['schema_name']):
+        # 将连字符替换为下划线，去除其他特殊字符，确保符合PostgreSQL schema命名规则
+        slug = request.json['slug']
+        # 确保第一个字符是字母或下划线
+        if slug and slug[0].isdigit():
+            schema_name = 't_' + re.sub(r'[^a-zA-Z0-9_]', '_', slug)
+        else:
+            schema_name = re.sub(r'[^a-zA-Z0-9_]', '_', slug)
+        
+        # 添加到请求数据
+        request_data = request.json.copy() if isinstance(request.json, dict) else {}
+        request_data['schema_name'] = schema_name
+    else:
+        request_data = request.json
+    
     # 验证请求数据
     schema = TenantCreateSchema()
-    data = schema.load(request.json)
+    data = schema.load(request_data)
+    
+    # 打印验证后的数据
+    print("Validated data:", data)
     
     # 检查slug是否已存在
     if Tenant.query.filter_by(slug=data['slug']).first():
