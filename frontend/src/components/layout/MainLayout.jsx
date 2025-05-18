@@ -165,22 +165,25 @@ const MainLayout = ({ children }) => {
       label: '仪表盘',
       path: '/dashboard',
     },
-    {
+    // Show system management menu only for superadmin users
+    user?.is_superadmin && {
       key: 'admin',
       icon: <AppstoreOutlined />,
-      label: '系统管理',
+      label: '平台管理',
       children: [
         {
           key: 'tenants',
           label: '租户管理',
           path: '/admin/tenants',
         },
-        {
-          key: 'users',
-          label: '用户管理',
-          path: '/admin/users',
-        },
       ],
+    },
+    // Show system management for both admin and superadmin
+    (user?.is_admin || user?.is_superadmin) && {
+      key: 'system',
+      icon: <SettingOutlined />,
+      label: '系统管理',
+      path: '/admin/system',
     },
     {
       key: 'production',

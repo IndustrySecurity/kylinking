@@ -5,6 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import TenantManagement from './pages/admin/TenantManagement';
 import UserManagement from './pages/admin/UserManagement';
+import SystemManagement from './pages/admin/SystemManagement';
 import Login from './pages/auth/Login';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -91,10 +92,27 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            {/* 平台管理中的用户管理路由 - 保留此路由以向后兼容，但功能已合并至系统管理 */}
+            <Route path="/admin/users" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <UserManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/admin/tenants/:tenantId/users" element={
               <ProtectedRoute>
                 <MainLayout>
                   <UserManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin/system" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SystemManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

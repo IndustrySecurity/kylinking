@@ -6,6 +6,14 @@ from app.extensions import db
 import hashlib
 import uuid
 
+# 用户与组织的多对多关联表
+organization_users = Table(
+    'organization_users',
+    db.metadata,
+    Column('organization_id', UUID(as_uuid=True), ForeignKey('organizations.id'), primary_key=True),
+    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id'), primary_key=True),
+    Column('created_at', DateTime, default=db.func.now())
+)
 
 class User(SystemModel):
     """
@@ -30,6 +38,10 @@ class User(SystemModel):
     
     # 最后登录时间
     last_login_at = Column(DateTime, nullable=True)
+    
+    # 关联组织 - 使用字符串引用而不是直接类引用
+    organizations = relationship("Organization", secondary=organization_users, 
+                               back_populates="users")
     
     def __init__(self, email, password, first_name=None, last_name=None, tenant_id=None, 
                  is_active=True, is_admin=False, is_superadmin=False):
