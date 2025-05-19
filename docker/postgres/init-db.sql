@@ -1,11 +1,3 @@
--- Create the main database if it doesn't exist
--- This is usually handled by the Postgres Docker image environment variables
--- But we include it here for completeness
-CREATE DATABASE IF NOT EXISTS saas_platform;
-
--- Connect to the main database
-\c saas_platform;
-
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -243,7 +235,7 @@ EXECUTE FUNCTION system.create_tenant_schema_trigger();
 -- Insert default superadmin user (password: admin123)
 -- In a real application, you would generate a secure password hash
 INSERT INTO system.users (email, password_hash, first_name, last_name, is_active, is_admin, is_superadmin)
-VALUES ('admin@saasplatform.com', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'System', 'Admin', TRUE, TRUE, TRUE)
+VALUES ('admin@kylinking.com', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'System', 'Admin', TRUE, TRUE, TRUE)
 ON CONFLICT (email) DO NOTHING;
 
 -- Insert some default permissions

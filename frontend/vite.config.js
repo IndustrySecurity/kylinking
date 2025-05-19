@@ -10,6 +10,11 @@ export default defineConfig({
     host: '0.0.0.0',
     strictPort: true,
     cors: true,
+    allowedHosts: [
+      'localhost',
+      'kylinking.com',
+      'www.kylinking.com'
+    ],
     hmr: {
       host: '0.0.0.0',
       port: 3000,
