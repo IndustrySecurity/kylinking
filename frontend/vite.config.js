@@ -16,9 +16,9 @@ export default defineConfig({
       'www.kylinking.com'
     ],
     hmr: {
-      host: '0.0.0.0',
+      host: 'localhost',
       port: 3000,
-      clientPort: 3000,
+      protocol: 'ws'
     },
     fs: {
       // 允许任何主机访问

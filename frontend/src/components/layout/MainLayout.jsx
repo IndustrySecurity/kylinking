@@ -208,6 +208,28 @@ const MainLayout = ({ children }) => {
       label: '系统设置',
       path: '/settings',
     },
+    {
+      key: 'baseArchive',
+      icon: <AppstoreOutlined />,
+      label: '基础档案',
+      children: [
+        {
+          key: 'baseData',
+          label: '基础数据',
+          path: '/base-archive/base-data',
+        },
+        {
+          key: 'productionManagement',
+          label: '生产管理',
+          path: '/base-archive/production-management',
+        },
+        {
+          key: 'financialManagement',
+          label: '财务管理',
+          path: '/base-archive/financial-management',
+        },
+      ],
+    },
   ];
   
   // User dropdown menu items
@@ -284,7 +306,7 @@ const MainLayout = ({ children }) => {
   // Determine selected menu key from current path
   const selectedKey = location.pathname.split('/')[1] || 'dashboard';
   // Only show open keys when sidebar is expanded
-  const openKeys = collapsed ? [] : ['admin', 'production'];
+  const openKeys = collapsed ? [] : ['admin', 'production', 'baseArchive'];
 
   return (
     <RootLayout>
