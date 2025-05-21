@@ -15,6 +15,24 @@ organization_users = Table(
     Column('created_at', DateTime, default=db.func.now())
 )
 
+# 用户与角色的多对多关联表
+user_roles = Table(
+    'user_roles',
+    db.metadata,
+    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id'), primary_key=True),
+    Column('role_id', UUID(as_uuid=True), ForeignKey('roles.id'), primary_key=True),
+    Column('created_at', DateTime, default=db.func.now())
+)
+
+# 角色与权限的多对多关联表
+role_permissions = Table(
+    'role_permissions',
+    db.metadata,
+    Column('role_id', UUID(as_uuid=True), ForeignKey('roles.id'), primary_key=True),
+    Column('permission_id', UUID(as_uuid=True), ForeignKey('permissions.id'), primary_key=True),
+    Column('created_at', DateTime, default=db.func.now())
+)
+
 class User(SystemModel):
     """
     用户模型，存储在system schema
@@ -144,6 +162,10 @@ class Role(SystemModel):
     # 角色信息
     name = Column(String(100), nullable=False)
     description = Column(String(255))
+    
+    # 添加缺失的关系
+    permissions = relationship('Permission', secondary='role_permissions', backref='roles')
+    users = relationship('User', secondary='user_roles', backref='roles')
     
     def __init__(self, name, description=None, tenant_id=None):
         """
