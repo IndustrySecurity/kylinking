@@ -7,6 +7,13 @@ import TenantManagement from './pages/admin/TenantManagement';
 import UserManagement from './pages/admin/UserManagement';
 import SystemManagement from './pages/admin/SystemManagement';
 import Login from './pages/auth/Login';
+import BaseData from './pages/base-archive/BaseData';
+import ProductionManagement from './pages/base-archive/ProductionManagement';
+import FinancialManagement from './pages/base-archive/FinancialManagement';
+import CustomerCategories from './pages/base-archive/base-data/base-category/CustomerCategories';
+import ProductCategories from './pages/base-archive/base-data/base-category/ProductCategories';
+import SupplierCategories from './pages/base-archive/base-data/base-category/SupplierCategories';
+import MaterialCategories from './pages/base-archive/base-data/base-category/MaterialCategories';
 import { useApi } from './hooks/useApi';
 import './index.css';
 
@@ -84,6 +91,62 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            {/* 基础档案路由 */}
+            <Route path="/base-archive/base-data" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BaseData />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProductionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/financial-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinancialManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础分类路由 */}
+            <Route path="/base-archive/base-data/base-category/customer-categories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CustomerCategories />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/base-archive/base-data/base-category/product-categories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProductCategories />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/base-archive/base-data/base-category/supplier-categories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SupplierCategories />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/base-archive/base-data/base-category/material-categories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialCategories />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 平台管理路由 */}
             <Route path="/admin/tenants" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -92,7 +155,6 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 平台管理中的用户管理路由 - 保留此路由以向后兼容，但功能已合并至系统管理 */}
             <Route path="/admin/users" element={
               <ProtectedRoute>
                 <MainLayout>
