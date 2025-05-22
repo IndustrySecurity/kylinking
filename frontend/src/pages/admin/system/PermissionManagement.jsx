@@ -21,10 +21,13 @@ import {
   InfoCircleOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import { useApi } from '../../../hooks/useApi';
 
 const { Title } = Typography;
 const { TextArea } = Input;
+
+// Helper function to add delay
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const PermissionManagement = ({ tenant, userRole }) => {
   const [permissions, setPermissions] = useState([]);
@@ -39,6 +42,7 @@ const PermissionManagement = ({ tenant, userRole }) => {
     pageSize: 10,
     total: 0
   });
+  const api = useApi();
   const [form] = Form.useForm();
 
   // Fetch permissions when component mounts
@@ -48,16 +52,20 @@ const PermissionManagement = ({ tenant, userRole }) => {
 
   // Fetch permissions list
   const fetchPermissions = async () => {
+    if (loading) return; // Prevent concurrent fetches
+    
     setLoading(true);
     try {
-      const response = await axios.get('/api/admin/permissions');
+      // Add delay to slow down API calls
+      await sleep(600);
+      
+      const response = await api.get('/api/admin/permissions');
       setPermissions(response.data.permissions);
       setPagination({
         ...pagination,
         total: response.data.permissions.length
       });
     } catch (error) {
-      console.error('Failed to fetch permissions:', error);
       message.error('获取权限列表失败');
     } finally {
       setLoading(false);
@@ -115,6 +123,9 @@ const PermissionManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
+      // Add delay before API call simulation
+      await sleep(500);
+      
       // This is a placeholder - the backend endpoint for creating/editing permissions
       // might not be implemented since permissions are typically predefined
       
@@ -127,9 +138,12 @@ const PermissionManagement = ({ tenant, userRole }) => {
       }
       
       setModalVisible(false);
-      fetchPermissions();
+      
+      // Add delay before refreshing permissions
+      setTimeout(() => {
+        fetchPermissions();
+      }, 800);
     } catch (error) {
-      console.error('Form submission failed:', error);
       message.error('操作失败');
     }
   };

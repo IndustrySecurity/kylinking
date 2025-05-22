@@ -23,6 +23,9 @@ import OrganizationManagement from './system/OrganizationManagement';
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+// 帮助函数：添加延迟 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const SystemManagement = () => {
   const navigate = useNavigate();
   const api = useApi();
@@ -56,7 +59,7 @@ const SystemManagement = () => {
             }
             setSelectedTenant(parsedTenant);
           } catch (e) {
-            console.error("Failed to parse tenant from localStorage:", e);
+            // Error parsing tenant from localStorage
           }
         }
       }
@@ -75,22 +78,21 @@ const SystemManagement = () => {
       
       fetchAttempts++;
       setLoading(true);
+      
+      // Add delay to avoid too frequent API calls
+      await sleep(300);
+      
       try {
         // Get user info from context or API call if needed
         let userInfo = api.getUser();
         
-        // Log debugging info about user
-        console.log("User from API context:", userInfo);
-        
         // If user info isn't in context, try getting it from an API call
         if (!userInfo) {
           try {
-            console.log("User not in context, trying API call");
+            await sleep(300); // Add sleep before API call
             const userResponse = await api.get('/api/auth/me');
             userInfo = userResponse.data.user;
-            console.log("User from API call:", userInfo);
           } catch (authError) {
-            console.error("Failed to get user from API:", authError);
             throw new Error("User authentication failed");
           }
         }
@@ -100,13 +102,6 @@ const SystemManagement = () => {
         }
         
         if (isMounted) {
-          // Log user role data being set
-          console.log("Setting user role with data:", {
-            isSuperAdmin: userInfo.is_superadmin,
-            isAdmin: userInfo.is_admin,
-            tenantId: userInfo.tenant_id
-          });
-          
           setUserRole({
             isSuperAdmin: userInfo.is_superadmin,
             isAdmin: userInfo.is_admin,
@@ -114,30 +109,28 @@ const SystemManagement = () => {
           });
         }
 
+        // Add delay before the next API call
+        await sleep(500);
+
         // If superadmin, fetch all tenants to allow selection
         if (userInfo.is_superadmin) {
-          console.log("User is superadmin, fetching all tenants");
           const tenantResponse = await api.get('/api/admin/tenants');
-          console.log("Tenants response:", tenantResponse.data);
           if (isMounted) {
             setTenants(tenantResponse.data.tenants || []);
           }
         } else if (userInfo.is_admin && userInfo.tenant_id) {
           // For tenant admin, only set their own tenant
-          console.log("User is tenant admin, fetching tenant:", userInfo.tenant_id);
           try {
+            await sleep(300); // Add sleep before API call
             const tenantResponse = await api.get(`/api/admin/tenants/${userInfo.tenant_id}`);
-            console.log("Tenant response:", tenantResponse.data);
             
             // Check if the response has the expected structure
             if (tenantResponse.data && tenantResponse.data.tenant) {
-              console.log("Setting selected tenant:", tenantResponse.data.tenant);
               if (isMounted) {
                 setSelectedTenant(tenantResponse.data.tenant);
               }
             } else {
               // If the tenant data isn't in the expected format, try to use it directly
-              console.log("Tenant data not in expected format, trying direct data");
               if (tenantResponse.data) {
                 if (isMounted) {
                   setSelectedTenant(tenantResponse.data);
@@ -147,59 +140,54 @@ const SystemManagement = () => {
               }
             }
           } catch (tenantError) {
-            console.error("Error fetching tenant:", tenantError);
             if (isMounted) {
               message.error("Failed to load tenant information");
             }
           }
         }
-              } catch (error) {
-          console.error("Error fetching user role or tenants:", error);
-          
-          // Check if we should retry
-          if (fetchAttempts < maxAttempts && isMounted) {
-            console.log(`Retry attempt ${fetchAttempts} of ${maxAttempts}`);
-            setTimeout(() => {
-              if (isMounted) {
-                setLoading(false);
-                fetchUserRoleAndTenants();
-              }
-            }, 1000); // Wait 1 second before retrying
-            return;
-          }
-          
-          if (isMounted) {
-            message.error("Failed to load user information");
-            // Only redirect if we have no user information at all
-            if (!userRole) {
-              navigate('/');
+      } catch (error) {
+        // Check if we should retry
+        if (fetchAttempts < maxAttempts && isMounted) {
+          setTimeout(() => {
+            if (isMounted) {
+              setLoading(false);
+              fetchUserRoleAndTenants();
             }
-          }
-        } finally {
-          if (isMounted) {
-            setLoading(false);
+          }, 2000); // Increase wait time before retrying to 2 seconds
+          return;
+        }
+        
+        if (isMounted) {
+          message.error("Failed to load user information");
+          // Only redirect if we have no user information at all
+          if (!userRole) {
+            navigate('/');
           }
         }
-      };
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-      fetchUserRoleAndTenants();
-      
-      // Add window event listener for online/offline status
-      const handleOnline = () => {
-        console.log("Connection restored, refreshing data");
-        if (isMounted && !loading) {
-          fetchUserRoleAndTenants();
-        }
-      };
-      
-      window.addEventListener('online', handleOnline);
-      
-      // Cleanup function to prevent state updates after unmount
-      return () => {
-        isMounted = false;
-        window.removeEventListener('online', handleOnline);
-      };
-    }, [navigate, api, userRole]); // Include userRole to prevent unnecessary redirects
+    fetchUserRoleAndTenants();
+    
+    // Add window event listener for online/offline status
+    const handleOnline = () => {
+      if (isMounted && !loading) {
+        setTimeout(fetchUserRoleAndTenants, 1000); // Delay reload on connection restore
+      }
+    };
+    
+    window.addEventListener('online', handleOnline);
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [navigate, api, userRole]); // Include userRole to prevent unnecessary redirects
 
   // Handle tenant change for superadmin
   const handleTenantChange = (tenantId) => {
@@ -248,8 +236,6 @@ const SystemManagement = () => {
     } : null;
     
     if (tenantInfo) {
-      console.log("Forcing tenant data:", tenantInfo);
-      
       // Store in localStorage for future use
       localStorage.setItem('tenant', JSON.stringify(tenantInfo));
       
@@ -260,41 +246,10 @@ const SystemManagement = () => {
       message.success('租户信息已手动加载，系统管理功能已启用');
     }
   };
-
-  // Debug information
-  console.log("SystemManagement render state:", {
-    userRole,
-    selectedTenant,
-    tenantsLoaded: tenants.length > 0
-  });
   
   return (
     <div className="system-management">
       <Card>
-        {/* Debug panel - only visible in development */}
-        {process.env.NODE_ENV !== 'production' && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#fffbe6', border: '1px solid #ffe58f' }}>
-            <Title level={5}>Debug Info</Title>
-            <pre style={{ whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify({
-                auth: {
-                  token: localStorage.getItem('token') ? 'exists' : 'missing',
-                  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null,
-                  tenant: localStorage.getItem('tenant') ? JSON.parse(localStorage.getItem('tenant')) : null
-                },
-                component: {
-                  userRole,
-                  selectedTenant,
-                  tenantsLoaded: tenants.length > 0
-                }
-              }, null, 2)}
-            </pre>
-            <Button onClick={() => window.location.reload()} type="primary" size="small">
-              刷新页面
-            </Button>
-          </div>
-        )}
-        
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <Title level={4}>
@@ -344,8 +299,6 @@ const SystemManagement = () => {
               showIcon
             />
           )}
-          
-          {/* We've removed the manual loading UI since we're now showing tabs automatically */}
 
           {/* Tabs will be shown for tenant admins even if tenant data isn't fully loaded */}
           {(selectedTenant || (userRole?.isAdmin && !userRole?.isSuperAdmin)) && (
@@ -372,7 +325,6 @@ const SystemManagement = () => {
                         label: '用户管理',
                         children: (
                           <div>
-                            {/* 用户管理作为系统管理的一部分，取代了独立的用户管理页面 */}
                             <UserManagement tenant={useTenant} userRole={userRole} />
                           </div>
                         )

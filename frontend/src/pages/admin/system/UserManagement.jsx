@@ -28,11 +28,15 @@ import { useApi } from '../../../hooks/useApi';
 const { Title } = Typography;
 const { Option } = Select;
 
+// 帮助函数：添加延迟
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const UserManagement = ({ tenant, userRole }) => {
   const api = useApi();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
@@ -48,17 +52,23 @@ const UserManagement = ({ tenant, userRole }) => {
   // Fetch users when component mounts or tenant changes
   useEffect(() => {
     if (tenant?.id) {
+      // 加载时先加载用户，然后再延迟加载角色
       fetchUsers();
-      fetchRoles();
+      setTimeout(() => {
+        fetchRoles();
+      }, 1000); // 延迟1秒后再加载角色
     }
   }, [tenant?.id]); // Only depend on tenant ID, not the entire object
 
   // Fetch users list with pagination
   const fetchUsers = async (page = 1, pageSize = 10) => {
-    if (!tenant?.id) return;
+    if (!tenant?.id || loading) return;
     
     setLoading(true);
     try {
+      // 添加延迟以减少API调用频率
+      await sleep(500);
+      
       const response = await api.get(`/api/admin/tenants/${tenant.id}/users`, {
         params: {
           page,
@@ -75,7 +85,6 @@ const UserManagement = ({ tenant, userRole }) => {
         pages
       });
     } catch (error) {
-      console.error('Failed to fetch users:', error);
       message.error('获取用户列表失败');
     } finally {
       setLoading(false);
@@ -84,14 +93,19 @@ const UserManagement = ({ tenant, userRole }) => {
 
   // Fetch roles for the tenant
   const fetchRoles = async () => {
-    if (!tenant?.id) return;
+    if (!tenant?.id || rolesLoading) return;
     
+    setRolesLoading(true);
     try {
+      // 添加延迟以减少API调用频率
+      await sleep(600);
+      
       const response = await api.get(`/api/admin/tenants/${tenant.id}/roles`);
       setRoles(response.data.roles);
     } catch (error) {
-      console.error('Failed to fetch roles:', error);
       message.error('获取角色列表失败');
+    } finally {
+      setRolesLoading(false);
     }
   };
 
@@ -137,6 +151,8 @@ const UserManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
+      await sleep(300); // 添加延迟
+      
       if (currentUser) {
         // Update existing user
         await api.put(`/api/admin/tenants/${tenant.id}/users/${currentUser.id}`, values);
@@ -148,9 +164,12 @@ const UserManagement = ({ tenant, userRole }) => {
       }
       
       setModalVisible(false);
-      fetchUsers(pagination.current, pagination.pageSize);
+      
+      // 延迟重新加载数据
+      setTimeout(() => {
+        fetchUsers(pagination.current, pagination.pageSize);
+      }, 500);
     } catch (error) {
-      console.error('Form submission failed:', error);
       message.error('操作失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -160,6 +179,8 @@ const UserManagement = ({ tenant, userRole }) => {
     try {
       const values = await passwordForm.validateFields();
       
+      await sleep(300); // 添加延迟
+      
       await api.post(`/api/admin/tenants/${tenant.id}/users/${currentUser.id}/reset-password`, {
         password: values.password
       });
@@ -167,7 +188,6 @@ const UserManagement = ({ tenant, userRole }) => {
       message.success('密码重置成功');
       setResetPasswordVisible(false);
     } catch (error) {
-      console.error('Password reset failed:', error);
       message.error('密码重置失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -175,11 +195,16 @@ const UserManagement = ({ tenant, userRole }) => {
   // Toggle user active status
   const toggleUserStatus = async (user) => {
     try {
+      await sleep(300); // 添加延迟
+      
       await api.patch(`/api/admin/tenants/${tenant.id}/users/${user.id}/toggle-status`);
       message.success(`用户状态已${user.is_active ? '禁用' : '启用'}`);
-      fetchUsers(pagination.current, pagination.pageSize);
+      
+      // 延迟重新加载数据
+      setTimeout(() => {
+        fetchUsers(pagination.current, pagination.pageSize);
+      }, 500);
     } catch (error) {
-      console.error('Failed to toggle user status:', error);
       message.error('操作失败');
     }
   };
@@ -269,14 +294,6 @@ const UserManagement = ({ tenant, userRole }) => {
     },
   ];
 
-  // Debug info
-  console.log("UserManagement render:", {
-    tenant,
-    hasUsers: users.length > 0,
-    userRole,
-    loading
-  });
-  
   return (
     <div className="user-management">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>

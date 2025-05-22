@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   Button,
@@ -22,14 +22,19 @@ import {
   DeleteOutlined,
   TeamOutlined,
   FolderOutlined,
-  UserSwitchOutlined
+  UserSwitchOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import { useApi } from '../../../hooks/useApi';
+import { debounce } from 'lodash';
 
 const { Title } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 const { TreeNode } = Tree;
+
+// Helper function to add delay
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Since we don't have an organization model yet, we'll simulate 
 // an organization API for the frontend design
@@ -45,21 +50,40 @@ const OrganizationManagement = ({ tenant, userRole }) => {
   const [assignUserModalVisible, setAssignUserModalVisible] = useState(false);
   const [form] = Form.useForm();
   const [assignForm] = Form.useForm();
+  const api = useApi();
+  const [usersLoading, setUsersLoading] = useState(false);
 
   // 模拟获取组织数据
   useEffect(() => {
-    if (tenant) {
-      fetchOrganizations();
-      fetchUsers();
-    }
-  }, [tenant]);
+    let isMounted = true;
+    
+    const initializeComponent = async () => {
+      if (tenant?.id && isMounted && !loading) {
+        await fetchOrganizations();
+      }
+    };
+    
+    initializeComponent();
+    
+    // Cleanup function to prevent updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
+  }, [tenant?.id]); // Only depend on tenant ID to prevent unnecessary rerenders
 
   // 模拟获取组织列表
   const fetchOrganizations = async () => {
+    if (loading) return; // Prevent concurrent fetches
+    
     setLoading(true);
-    // 这里模拟从API获取组织数据
-    // 实际应用中应该调用真实的API
-    setTimeout(() => {
+    
+    try {
+      // Add delay to slow down API calls
+      await sleep(600);
+      
+      // 在真实环境中，应该使用API调用获取组织列表
+      // 例如: const response = await api.get(`/api/admin/tenants/${tenant.id}/organizations`);
+      // 这里使用模拟数据
       const mockOrgs = [
         {
           id: '1',
@@ -118,8 +142,11 @@ const OrganizationManagement = ({ tenant, userRole }) => {
       setOrganizations(flattenOrgs(mockOrgs));
       setTreeData(mockOrgs);
       setExpandedKeys(['1', '3']); // 默认展开的节点
+    } catch (error) {
+      message.error('获取组织结构失败');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // 扁平化组织数据用于表格显示
@@ -142,18 +169,25 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     return result;
   };
 
-  // 获取用户列表
-  const fetchUsers = async () => {
+  // 获取用户列表 - 使用debounce减少API调用频率
+  const fetchUsers = useCallback(debounce(async () => {
+    if (!tenant?.id || usersLoading) return;
+    
+    setUsersLoading(true);
     try {
-      const response = await axios.get(`/api/admin/tenants/${tenant.id}/users`, {
+      // 添加较长的延迟以减少API调用频率
+      await sleep(800);
+      
+      const response = await api.get(`/api/admin/tenants/${tenant.id}/users`, {
         params: { per_page: 100 } // 获取更多用户
       });
       setUsers(response.data.users);
     } catch (error) {
-      console.error('Failed to fetch users:', error);
       message.error('获取用户列表失败');
+    } finally {
+      setUsersLoading(false);
     }
-  };
+  }, 1500), [tenant?.id, api, usersLoading]); // 增加debounce时间到1500ms，添加usersLoading依赖项
 
   // 显示创建组织的模态框
   const showCreateModal = (parentOrg = null) => {
@@ -186,10 +220,21 @@ const OrganizationManagement = ({ tenant, userRole }) => {
   };
 
   // 显示分配用户的模态框
-  const showAssignUserModal = (org) => {
+  const showAssignUserModal = async (org) => {
     setCurrentOrg(org);
     assignForm.resetFields();
-    setAssignUserModalVisible(true);
+    
+    // Start loading
+    setUsersLoading(true);
+    
+    // 只有在实际需要用户数据时才加载
+    await fetchUsers();
+    
+    // End loading in a guaranteed way and show modal
+    setTimeout(() => {
+      setUsersLoading(false);
+      setAssignUserModalVisible(true);
+    }, 100);
   };
 
   // 处理表单提交（创建或更新组织）
@@ -197,13 +242,22 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
+      // 添加延迟以减少API调用频率
+      await sleep(600);
+      
       // 这里模拟提交到API
       // 实际应用中应该调用真实的API
+      // 如果有实际API，应该使用 api.post 或 api.put
+      // 例如: await api.post(`/api/admin/tenants/${tenant.id}/organizations`, values);
+      
       message.success(currentOrg ? '组织更新成功' : '组织创建成功');
       setModalVisible(false);
-      fetchOrganizations(); // 重新获取数据
+      
+      // 添加延迟后再刷新数据
+      setTimeout(() => {
+        fetchOrganizations(); // 重新获取数据
+      }, 800);
     } catch (error) {
-      console.error('Form submission failed:', error);
       message.error('操作失败');
     }
   };
@@ -213,12 +267,16 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     try {
       const values = await assignForm.validateFields();
       
+      // 添加延迟以减少API调用频率
+      await sleep(600);
+      
       // 这里模拟提交到API
       // 实际应用中应该调用真实的API
+      // 例如: await api.post(`/api/admin/tenants/${tenant.id}/organizations/${currentOrg.id}/users`, values);
+      
       message.success('用户分配成功');
       setAssignUserModalVisible(false);
     } catch (error) {
-      console.error('User assignment failed:', error);
       message.error('用户分配失败');
     }
   };
@@ -232,10 +290,19 @@ const OrganizationManagement = ({ tenant, userRole }) => {
       return;
     }
     
+    // 添加延迟以减少API调用频率
+    await sleep(500);
+    
     // 这里模拟从API删除组织
     // 实际应用中应该调用真实的API
+    // 例如: await api.delete(`/api/admin/tenants/${tenant.id}/organizations/${orgId}`);
+    
     message.success('组织删除成功');
-    fetchOrganizations(); // 重新获取数据
+    
+    // 添加延迟后再刷新数据
+    setTimeout(() => {
+      fetchOrganizations(); // 重新获取数据
+    }, 800);
   };
 
   // 处理树节点展开/收起
@@ -332,13 +399,22 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     <div className="organization-management">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Title level={5}>{tenant.name} - 组织管理</Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => showCreateModal()}
-        >
-          创建顶级组织
-        </Button>
+        <div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => showCreateModal()}
+            style={{ marginRight: '8px' }}
+          >
+            创建顶级组织
+          </Button>
+          <Button
+            icon={<SyncOutlined />}
+            onClick={fetchOrganizations}
+          >
+            刷新
+          </Button>
+        </div>
       </div>
 
       <Card>

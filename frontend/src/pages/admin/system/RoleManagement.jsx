@@ -22,14 +22,18 @@ import {
   DeleteOutlined,
   TeamOutlined,
   KeyOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
+import { useApi } from '../../../hooks/useApi';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { TabPane } = Tabs;
 const { TextArea } = Input;
+
+// Helper function to add delay
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const RoleManagement = ({ tenant, userRole }) => {
   const [roles, setRoles] = useState([]);
@@ -46,6 +50,7 @@ const RoleManagement = ({ tenant, userRole }) => {
     pageSize: 10,
     total: 0
   });
+  const api = useApi();
   const [form] = Form.useForm();
   const [targetKeys, setTargetKeys] = useState([]);
   const [permissionTargetKeys, setPermissionTargetKeys] = useState([]);
@@ -54,17 +59,35 @@ const RoleManagement = ({ tenant, userRole }) => {
 
   // Fetch roles when component mounts or tenant changes
   useEffect(() => {
-    if (tenant) {
-      fetchRoles();
-      fetchPermissions();
-    }
-  }, [tenant]);
+    let isMounted = true;
+    
+    const initializeComponent = async () => {
+      if (tenant?.id) {
+        if (isMounted) {
+          await fetchRoles();
+          await fetchPermissions();
+        }
+      }
+    };
+    
+    initializeComponent();
+    
+    // Cleanup function to prevent updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
+  }, [tenant?.id]); // Only depend on tenant ID to prevent unnecessary rerenders
 
   // Fetch roles list with pagination
   const fetchRoles = async (page = 1, pageSize = 10) => {
+    if (loading) return; // Prevent concurrent fetches
+    
     setLoading(true);
     try {
-      const response = await axios.get(`/api/admin/tenants/${tenant.id}/roles`, {
+      // Add delay to slow down API calls
+      await sleep(500);
+      
+      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles`, {
         params: {
           page,
           per_page: pageSize
@@ -80,7 +103,6 @@ const RoleManagement = ({ tenant, userRole }) => {
         pages
       });
     } catch (error) {
-      console.error('Failed to fetch roles:', error);
       message.error('获取角色列表失败');
     } finally {
       setLoading(false);
@@ -90,22 +112,28 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Fetch permissions
   const fetchPermissions = async () => {
     try {
-      const response = await axios.get('/api/admin/permissions');
+      // Add delay to slow down API calls
+      await sleep(600);
+      
+      const response = await api.get('/api/admin/permissions');
       setPermissions(response.data.permissions.map(p => ({
         key: p.id,
         title: p.name,
         description: p.description
       })));
     } catch (error) {
-      console.error('Failed to fetch permissions:', error);
       message.error('获取权限列表失败');
     }
   };
 
   // Fetch tenant users for role assignment
   const fetchUsers = async () => {
+    let usersLoading = true;
     try {
-      const response = await axios.get(`/api/admin/tenants/${tenant.id}/users`, {
+      // Add delay to slow down API calls
+      await sleep(800);
+      
+      const response = await api.get(`/api/admin/tenants/${tenant.id}/users`, {
         params: { per_page: 100 } // Get more users for selection
       });
       setUsers(response.data.users.map(u => ({
@@ -114,8 +142,9 @@ const RoleManagement = ({ tenant, userRole }) => {
         description: [u.first_name, u.last_name].filter(Boolean).join(' ') || ''
       })));
     } catch (error) {
-      console.error('Failed to fetch users:', error);
       message.error('获取用户列表失败');
+    } finally {
+      usersLoading = false;
     }
   };
 
@@ -148,40 +177,59 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Open modal for managing role users
   const showRoleUsersModal = async (role) => {
     setCurrentRole(role);
+    
+    // Start loading state
+    setLoading(true);
+    
     await fetchUsers();
     
     // Get role details with assigned users
     try {
-      const response = await axios.get(`/api/admin/tenants/${tenant.id}/roles/${role.id}`);
+      // Add delay to slow down API calls
+      await sleep(500);
+      
+      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles/${role.id}`);
       const roleData = response.data.role;
       
       // Set target keys for transfer component (user IDs assigned to this role)
       setTargetKeys(roleData.users.map(u => u.id));
     } catch (error) {
-      console.error('Failed to fetch role details:', error);
       message.error('获取角色详情失败');
+    } finally {
+      // Make sure to end loading state
+      setLoading(false);
+      
+      // Now show the modal
+      setRoleUsersModalVisible(true);
     }
-    
-    setRoleUsersModalVisible(true);
   };
 
   // Open modal for managing role permissions
   const showRolePermissionsModal = async (role) => {
     setCurrentRole(role);
     
+    // Start loading state
+    setLoading(true);
+    
     // Get role details with assigned permissions
     try {
-      const response = await axios.get(`/api/admin/tenants/${tenant.id}/roles/${role.id}`);
+      // Add delay to slow down API calls
+      await sleep(500);
+      
+      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles/${role.id}`);
       const roleData = response.data.role;
       
       // Set target keys for transfer component (permission IDs assigned to this role)
       setPermissionTargetKeys(roleData.permissions.map(p => p.id));
     } catch (error) {
-      console.error('Failed to fetch role details:', error);
       message.error('获取角色详情失败');
+    } finally {
+      // Make sure to end loading state
+      setLoading(false);
+      
+      // Now show the modal
+      setRolePermissionsModalVisible(true);
     }
-    
-    setRolePermissionsModalVisible(true);
   };
 
   // Handle form submission (create or update role)
@@ -189,20 +237,26 @@ const RoleManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
+      // Add delay to slow down API calls
+      await sleep(500);
+      
       if (currentRole) {
         // Update existing role
-        await axios.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}`, values);
+        await api.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}`, values);
         message.success('角色更新成功');
       } else {
         // Create new role
-        await axios.post(`/api/admin/tenants/${tenant.id}/roles`, values);
+        await api.post(`/api/admin/tenants/${tenant.id}/roles`, values);
         message.success('角色创建成功');
       }
       
       setModalVisible(false);
-      fetchRoles(pagination.current, pagination.pageSize);
+      
+      // Add delay before refreshing data
+      setTimeout(() => {
+        fetchRoles(pagination.current, pagination.pageSize);
+      }, 800);
     } catch (error) {
-      console.error('Form submission failed:', error);
       message.error('操作失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -210,11 +264,17 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Handle delete role
   const handleDeleteRole = async (roleId) => {
     try {
-      await axios.delete(`/api/admin/tenants/${tenant.id}/roles/${roleId}`);
+      // Add delay to slow down API calls
+      await sleep(500);
+      
+      await api.delete(`/api/admin/tenants/${tenant.id}/roles/${roleId}`);
       message.success('角色删除成功');
-      fetchRoles(pagination.current, pagination.pageSize);
+      
+      // Add delay before refreshing data
+      setTimeout(() => {
+        fetchRoles(pagination.current, pagination.pageSize);
+      }, 800);
     } catch (error) {
-      console.error('Failed to delete role:', error);
       message.error('删除角色失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -232,15 +292,21 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Save role users
   const saveRoleUsers = async () => {
     try {
-      await axios.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}/users`, {
+      // Add delay to slow down API calls
+      await sleep(600);
+      
+      await api.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}/users`, {
         user_ids: targetKeys
       });
       
       message.success('用户分配成功');
       setRoleUsersModalVisible(false);
-      fetchRoles(pagination.current, pagination.pageSize);
+      
+      // Add delay before refreshing data
+      setTimeout(() => {
+        fetchRoles(pagination.current, pagination.pageSize);
+      }, 800);
     } catch (error) {
-      console.error('Failed to save role users:', error);
       message.error('保存用户分配失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -248,15 +314,21 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Save role permissions
   const saveRolePermissions = async () => {
     try {
-      await axios.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}/permissions`, {
+      // Add delay to slow down API calls
+      await sleep(600);
+      
+      await api.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}/permissions`, {
         permission_ids: permissionTargetKeys
       });
       
       message.success('权限分配成功');
       setRolePermissionsModalVisible(false);
-      fetchRoles(pagination.current, pagination.pageSize);
+      
+      // Add delay before refreshing data
+      setTimeout(() => {
+        fetchRoles(pagination.current, pagination.pageSize);
+      }, 800);
     } catch (error) {
-      console.error('Failed to save role permissions:', error);
       message.error('保存权限分配失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -341,13 +413,22 @@ const RoleManagement = ({ tenant, userRole }) => {
     <div className="role-management">
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
         <Title level={5}>{tenant.name} - 角色管理</Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={showCreateModal}
-        >
-          创建角色
-        </Button>
+        <div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={showCreateModal}
+            style={{ marginRight: '8px' }}
+          >
+            创建角色
+          </Button>
+          <Button
+            icon={<SyncOutlined />}
+            onClick={() => fetchRoles(pagination.current, pagination.pageSize)}
+          >
+            刷新
+          </Button>
+        </div>
       </div>
 
       <Table
