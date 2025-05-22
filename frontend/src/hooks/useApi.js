@@ -38,6 +38,13 @@ export const useApi = () => {
           }
           
           config.headers.Authorization = `Bearer ${token}`;
+          
+          // 调试信息 - 查看令牌内容
+          const decoded = authUtils.parseJwt(token);
+          console.log('DEBUG - Request to:', config.url);
+          console.log('DEBUG - Token claims:', decoded);
+        } else {
+          console.warn('No token available for request to:', config.url);
         }
         return config;
       },
@@ -54,9 +61,26 @@ export const useApi = () => {
       async (error) => {
         const originalRequest = error.config;
         
+        console.log('DEBUG - Error response:', error.response?.status, 'URL:', originalRequest?.url);
+        console.log('DEBUG - Error details:', error.response?.data);
+        
+        // 检查是否有token - 获取请求中使用的token查看是否正确
+        if (originalRequest?.headers?.Authorization) {
+          const token = originalRequest.headers.Authorization.replace('Bearer ', '');
+          const decoded = authUtils.parseJwt(token);
+          console.log('DEBUG - Token used in failed request:', decoded);
+        }
+        
         // 如果是401错误且没有重试过
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
+          
+          console.log('DEBUG - Attempt to recover from 401 error');
+          
+          // 对于管理员相关的API端点，尝试使用管理员登录重新获取token
+          if (originalRequest.url.includes('/api/admin/')) {
+            console.log('DEBUG - Admin endpoint detected, might need admin login');
+          }
           
           // 尝试刷新token
           const refreshToken = authUtils.getRefreshToken();
@@ -75,6 +99,10 @@ export const useApi = () => {
                 const newToken = response.data.access_token;
                 authUtils.saveToken(newToken);
                 
+                // Debug - log new token info
+                const newDecoded = authUtils.parseJwt(newToken);
+                console.log('DEBUG - New token claims after refresh:', newDecoded);
+                
                 // 更新原始请求的token并重试
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return axiosInstance(originalRequest);
@@ -84,10 +112,19 @@ export const useApi = () => {
             } catch (refreshError) {
               // 刷新token失败，登出并重定向到登录页
               console.error('Token refresh failed:', refreshError);
-              authUtils.clearAuthInfo();
-              setIsLoggedIn(false);
-              message.error('登录已过期，请重新登录');
-              navigate('/login');
+              
+              // 如果重试刷新令牌失败，只有在非admin页面才自动登出
+              // 这样可以防止管理页面突然跳转
+              if (!originalRequest.url.includes('/api/admin/')) {
+                authUtils.clearAuthInfo();
+                setIsLoggedIn(false);
+                message.error('登录已过期，请重新登录');
+                navigate('/login');
+              } else {
+                // 对于管理页面的401错误，只显示警告，不跳转
+                message.warning('管理员权限验证失败，部分功能可能无法使用');
+              }
+              
               return Promise.reject(refreshError);
             }
           } else {
@@ -227,6 +264,19 @@ export const useApi = () => {
     }
   };
 
+  // 调试获取令牌信息
+  const checkAuthInfo = async () => {
+    try {
+      // 尝试调用调试API
+      const response = await axiosInstance.get('/api/admin/debug/auth');
+      console.log('DEBUG - Auth check result:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('DEBUG - Auth check failed:', error);
+      return { error: error.message };
+    }
+  };
+
   // 返回API方法和认证状态
   return {
     get: axiosInstance.get,
@@ -240,6 +290,7 @@ export const useApi = () => {
     getUser: authUtils.getUser,
     getToken: authUtils.getToken,
     getCurrentTenant,
-    isAdmin: authUtils.isAdmin
+    isAdmin: authUtils.isAdmin,
+    checkAuthInfo
   };
 }; 

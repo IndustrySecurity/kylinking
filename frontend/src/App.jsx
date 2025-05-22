@@ -7,6 +7,7 @@ import TenantManagement from './pages/admin/TenantManagement';
 import UserManagement from './pages/admin/UserManagement';
 import SystemManagement from './pages/admin/SystemManagement';
 import Login from './pages/auth/Login';
+import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
 
@@ -66,6 +67,7 @@ const AppRoot = () => {
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/public-debug" element={<Debug />} />
             
             {/* Protected routes within MainLayout */}
             <Route path="/" element={
@@ -113,6 +115,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <SystemManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/debug" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Debug />
                 </MainLayout>
               </ProtectedRoute>
             } />

@@ -131,12 +131,23 @@ const RoleManagement = () => {
 
   // 获取系统权限列表
   const fetchPermissions = async () => {
+    setPermLoading(true);
     try {
       const response = await api.get('/api/admin/permissions');
-      setPermissions(response.data || []);
+      if (response.data && response.data.permissions) {
+        setPermissions(response.data.permissions);
+        console.log('Successfully loaded permissions:', response.data.permissions.length);
+      } else {
+        console.warn('Permissions response missing expected data structure');
+        setPermissions([]);
+      }
     } catch (error) {
       console.error('Error fetching permissions:', error);
-      message.error('获取权限列表失败');
+      message.warning('无法获取权限列表，将使用已有权限数据');
+      // 设置为空数组，不阻止UI渲染
+      setPermissions([]);
+    } finally {
+      setPermLoading(false);
     }
   };
 
@@ -168,6 +179,17 @@ const RoleManagement = () => {
 
   // 首次加载
   useEffect(() => {
+    // 调试检查身份验证信息
+    const checkAuth = async () => {
+      try {
+        const authInfo = await api.checkAuthInfo();
+        console.log('Auth info for role management:', authInfo);
+      } catch (error) {
+        console.error('Failed to check auth info:', error);
+      }
+    };
+    
+    checkAuth();
     fetchRoles();
     fetchTenant();
     fetchPermissions();

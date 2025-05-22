@@ -86,12 +86,14 @@ def admin_login():
     user.last_login_at = datetime.now()
     db.session.commit()
     
-    # 创建访问令牌和刷新令牌
+    # 创建访问令牌和刷新令牌 - 确保is_admin设置为True
     additional_claims = {
-        "is_admin": user.is_admin,
+        "is_admin": True,  # 强制设置为True，确保管理员权限
         "is_superadmin": user.is_superadmin,
         "tenant_id": str(user.tenant_id) if user.tenant_id else None
     }
+    
+    print(f"DEBUG - Admin login for user {user.email}, claims: {additional_claims}")
     
     access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
     refresh_token = create_refresh_token(identity=str(user.id))
@@ -128,10 +130,12 @@ def refresh():
     
     # 创建新的访问令牌
     additional_claims = {
-        "is_admin": user.is_admin,
+        "is_admin": user.is_admin or user.is_superadmin,  # 确保管理员权限被保留
         "is_superadmin": user.is_superadmin,
         "tenant_id": str(user.tenant_id) if user.tenant_id else None
     }
+    
+    print(f"DEBUG - Token refresh for user {user.email}, claims: {additional_claims}")
     
     access_token = create_access_token(identity=current_user_id, additional_claims=additional_claims)
     
@@ -211,4 +215,38 @@ def get_user_info():
             "tenant_id": str(user.tenant_id) if user.tenant_id else None,
             "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None
         }
-    }), 200 
+    }), 200
+
+
+@auth_bp.route('/debug/token', methods=['POST'])
+def debug_token():
+    """
+    调试令牌
+    """
+    data = request.json
+    token = data.get('token')
+    
+    if not token:
+        return jsonify({
+            "error": "No token provided"
+        }), 400
+    
+    try:
+        # 尝试解析令牌
+        from flask_jwt_extended import decode_token
+        
+        try:
+            decoded = decode_token(token)
+            return jsonify({
+                "valid": True,
+                "decoded": decoded
+            })
+        except Exception as e:
+            return jsonify({
+                "valid": False,
+                "error": str(e)
+            })
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to process token: {str(e)}"
+        }), 500 

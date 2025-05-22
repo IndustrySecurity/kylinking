@@ -175,6 +175,28 @@ export const isTokenExpired = (token) => {
   }
 };
 
+// 检查令牌是否有效（与后端验证）
+export const validateTokenWithBackend = async (token) => {
+  try {
+    const response = await fetch('/api/auth/debug/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ token })
+    });
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Failed to validate token with backend:', error);
+    return {
+      valid: false,
+      error: error.message
+    };
+  }
+};
+
 export default {
   saveToken,
   getToken,
@@ -188,5 +210,6 @@ export default {
   isAdmin,
   getAuthHeader,
   parseJwt,
-  isTokenExpired
+  isTokenExpired,
+  validateTokenWithBackend
 }; 

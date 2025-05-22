@@ -20,8 +20,48 @@ def admin_required(fn):
     @wraps(fn)  # 添加functools.wraps保留原始函数名称
     def admin_wrapper(*args, **kwargs):
         claims = get_jwt()
-        if not claims.get('is_admin') and not claims.get('is_superadmin'):
+        
+        # 详细调试信息
+        print(f"DEBUG - JWT claims in admin_required: {claims}")
+        print(f"DEBUG - Request path: {request.path}")
+        print(f"DEBUG - Request method: {request.method}")
+        
+        # 获取管理员状态
+        is_admin_claim = claims.get('is_admin')
+        is_superadmin_claim = claims.get('is_superadmin')
+        
+        print(f"DEBUG - Raw admin status: is_admin={is_admin_claim}, is_superadmin={is_superadmin_claim}")
+        print(f"DEBUG - Raw admin types: is_admin type={type(is_admin_claim).__name__}, is_superadmin type={type(is_superadmin_claim).__name__}")
+        
+        # 这里明确处理各种可能的值
+        is_admin = False
+        is_superadmin = False
+        
+        # 对字符串进行特殊处理
+        if isinstance(is_admin_claim, str):
+            is_admin = is_admin_claim.lower() in ['true', 'yes', 't', 'y', '1']
+        # 对布尔值直接使用
+        elif isinstance(is_admin_claim, bool):
+            is_admin = is_admin_claim
+        # 对数字类型处理
+        elif isinstance(is_admin_claim, (int, float)):
+            is_admin = bool(is_admin_claim)
+            
+        # 同样处理超级管理员状态
+        if isinstance(is_superadmin_claim, str):
+            is_superadmin = is_superadmin_claim.lower() in ['true', 'yes', 't', 'y', '1']
+        elif isinstance(is_superadmin_claim, bool):
+            is_superadmin = is_superadmin_claim
+        elif isinstance(is_superadmin_claim, (int, float)):
+            is_superadmin = bool(is_superadmin_claim)
+            
+        print(f"DEBUG - Processed admin status: is_admin={is_admin}, is_superadmin={is_superadmin}")
+        
+        if not is_admin and not is_superadmin:
+            print(f"DEBUG - Access denied: User is not admin or superadmin")
             return jsonify({"message": "Admin privileges required"}), 403
+            
+        print(f"DEBUG - Access granted: User is {'superadmin' if is_superadmin else 'admin'}")
         return fn(*args, **kwargs)
     
     return admin_wrapper
@@ -526,47 +566,70 @@ def get_tenant_roles(tenant_id):
     """
     获取租户的所有角色
     """
-    # 验证租户
-    tenant = Tenant.query.get_or_404(tenant_id)
-    
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-    
-    # 构建查询
-    query = Role.query.filter_by(tenant_id=tenant_id)
-    
-    # 过滤条件
-    if request.args.get('name'):
-        query = query.filter(Role.name.ilike(f"%{request.args.get('name')}%"))
-    
-    # 分页
-    pagination = query.order_by(Role.created_at.desc()).paginate(page=page, per_page=per_page)
-    
-    # 准备返回数据
-    roles_data = []
-    for role in pagination.items:
-        # 查询权限和用户数量
-        permissions_count = len(role.permissions)
-        users_count = len(role.users)
+    print(f"DEBUG - Inside get_tenant_roles for tenant_id: {tenant_id}")
+    try:
+        # 验证租户
+        tenant = Tenant.query.get_or_404(tenant_id)
         
-        role_data = {
-            "id": str(role.id),
-            "name": role.name,
-            "description": role.description,
-            "created_at": role.created_at.isoformat(),
-            "updated_at": role.updated_at.isoformat(),
-            "permissions_count": permissions_count,
-            "users_count": users_count
-        }
-        roles_data.append(role_data)
-    
-    return jsonify({
-        "roles": roles_data,
-        "total": pagination.total,
-        "pages": pagination.pages,
-        "page": page,
-        "per_page": per_page
-    }), 200
+        # 获取请求参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        name = request.args.get('name', '')
+        
+        print(f"DEBUG - Getting roles for tenant {tenant_id} with page={page}, per_page={per_page}, name={name}")
+        
+        # 构建查询
+        query = Role.query.filter_by(tenant_id=tenant_id)
+        
+        # 过滤条件
+        if name:
+            query = query.filter(Role.name.ilike(f"%{name}%"))
+        
+        # 查询总记录数
+        total_count = query.count()
+        print(f"DEBUG - Total roles found before pagination: {total_count}")
+        
+        # 分页
+        if page and per_page:
+            pagination = query.order_by(Role.created_at.desc()).paginate(page=page, per_page=per_page)
+            roles = pagination.items
+            total = pagination.total
+            pages = pagination.pages
+        else:
+            # 不分页时返回所有结果
+            roles = query.order_by(Role.created_at.desc()).all()
+            total = len(roles)
+            pages = 1
+        
+        # 准备返回数据
+        roles_data = []
+        for role in roles:
+            # 查询权限和用户数量
+            permissions_count = len(role.permissions)
+            users_count = len(role.users)
+            
+            role_data = {
+                "id": str(role.id),
+                "name": role.name,
+                "description": role.description,
+                "created_at": role.created_at.isoformat(),
+                "updated_at": role.updated_at.isoformat(),
+                "permissions_count": permissions_count,
+                "users_count": users_count
+            }
+            roles_data.append(role_data)
+
+        print(f"DEBUG - Returning {len(roles_data)} roles after pagination")
+        return jsonify({
+            "roles": roles_data,
+            "total": total,
+            "pages": pages,
+            "page": page,
+            "per_page": per_page
+        }), 200
+    except Exception as e:
+        print(f"DEBUG - Error in get_tenant_roles: {str(e)}")
+        return jsonify({"message": "Failed to retrieve roles", "error": str(e)}), 500
 
 
 @admin_bp.route('/tenants/<uuid:tenant_id>/roles/<uuid:role_id>', methods=['GET'])
@@ -816,19 +879,59 @@ def get_permissions():
     """
     获取所有权限列表
     """
-    # 查询所有权限
-    permissions = Permission.query.all()
+    print("DEBUG - Inside get_permissions function")
+    try:
+        # 查询所有权限
+        permissions = Permission.query.all()
+        
+        # 准备返回数据
+        permissions_data = []
+        for permission in permissions:
+            permission_data = {
+                "id": str(permission.id),
+                "name": permission.name,
+                "description": permission.description,
+                "created_at": permission.created_at.isoformat(),
+                "updated_at": permission.updated_at.isoformat()
+            }
+            permissions_data.append(permission_data)
+
+        print(f"DEBUG - Found {len(permissions_data)} permissions")
+        return jsonify({"permissions": permissions_data}), 200
+    except Exception as e:
+        print(f"DEBUG - Error in get_permissions: {str(e)}")
+        return jsonify({"message": "Failed to retrieve permissions", "error": str(e)}), 500
+
+
+@admin_bp.route('/debug/auth', methods=['GET'])
+def debug_auth():
+    """
+    调试端点，用于检查认证信息
+    """
+    auth_header = request.headers.get('Authorization')
     
-    # 准备返回数据
-    permissions_data = []
-    for permission in permissions:
-        permission_data = {
-            "id": str(permission.id),
-            "name": permission.name,
-            "description": permission.description,
-            "created_at": permission.created_at.isoformat(),
-            "updated_at": permission.updated_at.isoformat()
-        }
-        permissions_data.append(permission_data)
+    # 获取令牌
+    token = None
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
     
-    return jsonify({"permissions": permissions_data}), 200 
+    response = {
+        "has_auth_header": auth_header is not None,
+        "auth_header": auth_header,
+        "token": token,
+        "token_parsed": None
+    }
+    
+    # 尝试解析令牌（不验证签名）
+    if token:
+        try:
+            from flask_jwt_extended import decode_token
+            try:
+                decoded = decode_token(token)
+                response["token_parsed"] = decoded
+            except Exception as e:
+                response["token_error"] = str(e)
+        except Exception as e:
+            response["parse_error"] = str(e)
+    
+    return jsonify(response) 
