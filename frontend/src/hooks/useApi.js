@@ -164,6 +164,26 @@ export const useApi = () => {
   // 登录方法
   const login = async (email, password, tenant = null, endpoint = '/api/auth/login') => {
     try {
+      // 如果没有提供租户信息，尝试从邮箱中提取
+      if (!tenant && email && email.includes('@') && endpoint !== '/api/auth/admin-login') {
+        // 提取邮箱域名部分，例如从 user@tenant.kylinking.com 提取 tenant
+        const emailDomain = email.split('@')[1];
+        if (emailDomain && emailDomain !== 'kylinking.com') {
+          // 如果域名是 tenant.kylinking.com 格式，提取租户部分
+          if (emailDomain.includes('.')) {
+            const domainParts = emailDomain.split('.');
+            if (domainParts.length > 2) {
+              tenant = domainParts[0];
+              console.log(`Extracted tenant '${tenant}' from email domain`);
+            }
+          } else {
+            // 如果域名不是多级格式，可能直接就是租户名
+            tenant = emailDomain;
+            console.log(`Using email domain '${tenant}' as tenant`);
+          }
+        }
+      }
+      
       // 如果提供了租户信息，则添加到请求头
       const config = {};
       if (tenant) {

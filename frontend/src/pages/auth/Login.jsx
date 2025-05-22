@@ -130,9 +130,9 @@ const Login = () => {
         password: values.password
       };
       
-      // 如果是租户登录且有选择租户，添加租户信息
-      if (loginMode === 'tenant' && values.tenant) {
-        loginData.tenant = values.tenant;
+      // 如果是租户登录并且已经从URL或域名检测到了租户，添加租户信息
+      if (loginMode === 'tenant' && currentTenant) {
+        loginData.tenant = currentTenant.slug;
       }
       
       // 优先使用表单中填写的管理员账号密码
@@ -241,17 +241,13 @@ const Login = () => {
           layout="vertical"
         >
           {loginMode === 'tenant' && !currentTenant && (
-            <Form.Item
-              name="tenant"
-              rules={[{ required: true, message: '请选择或输入租户!' }]}
-            >
-              <Input 
-                prefix={<BuildOutlined className="site-form-item-icon" />} 
-                placeholder="租户标识"
-                autoComplete="off"
-                size="large"
-              />
-            </Form.Item>
+            <Alert
+              message="租户自动识别"
+              description="系统将根据您的邮箱地址或当前域名自动识别您所属的租户。"
+              type="info"
+              showIcon
+              style={{ marginBottom: 24 }}
+            />
           )}
           
           <Form.Item

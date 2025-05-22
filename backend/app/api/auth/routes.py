@@ -20,6 +20,25 @@ def login():
     schema = LoginSchema()
     data = schema.load(request.json)
     
+    # 尝试从请求头获取租户信息，如果没有，尝试从邮箱提取
+    tenant_id = request.headers.get('X-Tenant-ID')
+    email = data['email']
+    
+    if not tenant_id and '@' in email:
+        # 提取邮箱域名部分
+        email_domain = email.split('@')[1]
+        if email_domain and email_domain != 'kylinking.com':
+            # 检查是否是 tenant.kylinking.com 格式
+            if '.' in email_domain:
+                domain_parts = email_domain.split('.')
+                if len(domain_parts) > 2:
+                    # 查询数据库，查找匹配的租户
+                    from app.models.tenant import Tenant
+                    tenant = Tenant.query.filter_by(slug=domain_parts[0]).first()
+                    if tenant:
+                        tenant_id = str(tenant.id)
+                        current_app.logger.info(f"Extracted tenant '{tenant.name}' (ID: {tenant.id}) from email domain")
+    
     # 查找用户
     user = User.query.filter_by(email=data['email']).first()
     
