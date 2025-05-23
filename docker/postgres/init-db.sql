@@ -357,6 +357,137 @@ CREATE SCHEMA IF NOT EXISTS tenant_management;
 -- Set search path
 SET search_path TO public, tenant_management;
 
+-- Create the same tables in public schema to ensure foreign key relationships work
+CREATE TABLE IF NOT EXISTS public.users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    is_superadmin BOOLEAN NOT NULL DEFAULT FALSE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.roles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.permissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.user_roles (
+    user_id UUID NOT NULL,
+    role_id UUID NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+    role_id UUID NOT NULL,
+    permission_id UUID NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (role_id, permission_id),
+    FOREIGN KEY (role_id) REFERENCES public.roles(id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES public.permissions(id) ON DELETE CASCADE
+);
+
+-- Create triggers to sync data from system to public schema
+CREATE OR REPLACE FUNCTION sync_system_to_public()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- For users
+    IF TG_TABLE_NAME = 'users' THEN
+        INSERT INTO public.users (id, tenant_id, email, password_hash, first_name, last_name, 
+                                is_active, is_admin, is_superadmin, last_login_at, created_at, updated_at)
+        VALUES (NEW.id, NEW.tenant_id, NEW.email, NEW.password_hash, NEW.first_name, NEW.last_name, 
+               NEW.is_active, NEW.is_admin, NEW.is_superadmin, NEW.last_login_at, NEW.created_at, NEW.updated_at)
+        ON CONFLICT (id) DO UPDATE SET
+            tenant_id = NEW.tenant_id,
+            email = NEW.email,
+            password_hash = NEW.password_hash,
+            first_name = NEW.first_name,
+            last_name = NEW.last_name,
+            is_active = NEW.is_active,
+            is_admin = NEW.is_admin,
+            is_superadmin = NEW.is_superadmin,
+            last_login_at = NEW.last_login_at,
+            updated_at = NEW.updated_at;
+    
+    -- For roles
+    ELSIF TG_TABLE_NAME = 'roles' THEN
+        INSERT INTO public.roles (id, tenant_id, name, description, created_at, updated_at)
+        VALUES (NEW.id, NEW.tenant_id, NEW.name, NEW.description, NEW.created_at, NEW.updated_at)
+        ON CONFLICT (id) DO UPDATE SET
+            tenant_id = NEW.tenant_id,
+            name = NEW.name,
+            description = NEW.description,
+            updated_at = NEW.updated_at;
+    
+    -- For permissions
+    ELSIF TG_TABLE_NAME = 'permissions' THEN
+        INSERT INTO public.permissions (id, name, description, created_at, updated_at)
+        VALUES (NEW.id, NEW.name, NEW.description, NEW.created_at, NEW.updated_at)
+        ON CONFLICT (id) DO UPDATE SET
+            name = NEW.name,
+            description = NEW.description,
+            updated_at = NEW.updated_at;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for syncing data
+CREATE TRIGGER sync_users_to_public
+AFTER INSERT OR UPDATE ON system.users
+FOR EACH ROW
+EXECUTE FUNCTION sync_system_to_public();
+
+CREATE TRIGGER sync_roles_to_public
+AFTER INSERT OR UPDATE ON system.roles
+FOR EACH ROW
+EXECUTE FUNCTION sync_system_to_public();
+
+CREATE TRIGGER sync_permissions_to_public
+AFTER INSERT OR UPDATE ON system.permissions
+FOR EACH ROW
+EXECUTE FUNCTION sync_system_to_public();
+
+-- Initialize public tables with existing data from system schema
+INSERT INTO public.users (id, tenant_id, email, password_hash, first_name, last_name, 
+                        is_active, is_admin, is_superadmin, last_login_at, created_at, updated_at)
+SELECT id, tenant_id, email, password_hash, first_name, last_name, 
+       is_active, is_admin, is_superadmin, last_login_at, created_at, updated_at
+FROM system.users
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.roles (id, tenant_id, name, description, created_at, updated_at)
+SELECT id, tenant_id, name, description, created_at, updated_at
+FROM system.roles
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.permissions (id, name, description, created_at, updated_at)
+SELECT id, name, description, created_at, updated_at
+FROM system.permissions
+ON CONFLICT (id) DO NOTHING;
+
 -- Create tenant management tables
 CREATE TABLE IF NOT EXISTS tenant_management.tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
