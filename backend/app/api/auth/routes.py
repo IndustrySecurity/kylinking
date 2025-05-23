@@ -52,6 +52,7 @@ def login():
     
     # 更新最后登录时间 - 直接设置，不调用方法
     user.last_login_at = datetime.now()
+    db.session.commit()
     
     # 创建访问令牌和刷新令牌
     additional_claims = {
