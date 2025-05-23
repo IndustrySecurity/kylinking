@@ -103,7 +103,7 @@ const RoleManagement = () => {
         params.append('name', name);
       }
       
-      const response = await api.get(`/api/admin/tenants/${tenantId}/roles?${params.toString()}`);
+      const response = await api.get(`/admin/tenants/${tenantId}/roles?${params.toString()}`);
       setRoles(response.data.roles);
       setPagination({
         current: response.data.page || 1,
@@ -121,7 +121,7 @@ const RoleManagement = () => {
   // 获取租户信息
   const fetchTenant = async () => {
     try {
-      const response = await api.get(`/api/admin/tenants/${tenantId}`);
+      const response = await api.get(`/admin/tenants/${tenantId}`);
       setTenant(response.data.tenant);
     } catch (error) {
       message.error('获取租户信息失败');
@@ -133,7 +133,7 @@ const RoleManagement = () => {
   const fetchPermissions = async () => {
     setPermLoading(true);
     try {
-      const response = await api.get('/api/admin/permissions');
+      const response = await api.get('/admin/permissions');
       if (response.data && response.data.permissions) {
         setPermissions(response.data.permissions);
         console.log('Successfully loaded permissions:', response.data.permissions.length);
@@ -154,7 +154,7 @@ const RoleManagement = () => {
   // 获取用户列表(摘要)
   const fetchUsers = async () => {
     try {
-      const response = await api.get(`/api/admin/tenants/${tenantId}/users?per_page=1000`);
+      const response = await api.get(`/admin/tenants/${tenantId}/users?per_page=1000`);
       setUsers(response.data.users);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -165,7 +165,7 @@ const RoleManagement = () => {
   const fetchRoleDetail = async (roleId) => {
     setLoading(true);
     try {
-      const response = await api.get(`/api/admin/tenants/${tenantId}/roles/${roleId}`);
+      const response = await api.get(`/admin/tenants/${tenantId}/roles/${roleId}`);
       setDetailRole(response.data.role);
       setSelectedPermissions(response.data.role.permissions.map(p => p.id));
       setSelectedUsers(response.data.role.users.map(u => u.id));
@@ -255,11 +255,11 @@ const RoleManagement = () => {
       
       if (editingRole) {
         // 更新角色
-        await api.put(`/api/admin/tenants/${tenantId}/roles/${editingRole.id}`, values);
+        await api.put(`/admin/tenants/${tenantId}/roles/${editingRole.id}`, values);
         message.success('角色更新成功');
       } else {
         // 创建角色
-        await api.post(`/api/admin/tenants/${tenantId}/roles`, values);
+        await api.post(`/admin/tenants/${tenantId}/roles`, values);
         message.success('角色创建成功');
       }
       
@@ -274,7 +274,7 @@ const RoleManagement = () => {
   // 删除角色
   const handleDeleteRole = async (roleId) => {
     try {
-      await api.delete(`/api/admin/tenants/${tenantId}/roles/${roleId}`);
+      await api.delete(`/admin/tenants/${tenantId}/roles/${roleId}`);
       message.success('角色删除成功');
       fetchRoles(pagination.current, pagination.pageSize, searchName);
     } catch (error) {
@@ -288,7 +288,7 @@ const RoleManagement = () => {
     if (!detailRole) return;
     
     try {
-      await api.put(`/api/admin/tenants/${tenantId}/roles/${detailRole.id}/permissions`, {
+      await api.put(`/admin/tenants/${tenantId}/roles/${detailRole.id}/permissions`, {
         permission_ids: selectedPermissions
       });
       message.success('权限更新成功');
@@ -304,7 +304,7 @@ const RoleManagement = () => {
     if (!detailRole) return;
     
     try {
-      await api.put(`/api/admin/tenants/${tenantId}/roles/${detailRole.id}/users`, {
+      await api.put(`/admin/tenants/${tenantId}/roles/${detailRole.id}/users`, {
         user_ids: selectedUsers
       });
       message.success('用户更新成功');

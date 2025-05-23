@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import TenantManagement from './pages/admin/TenantManagement';
 import UserManagement from './pages/admin/UserManagement';
 import SystemManagement from './pages/admin/SystemManagement';
+import TenantModuleManagement from './pages/admin/TenantModuleManagement';
 import Login from './pages/auth/Login';
 import BaseData from './pages/base-archive/BaseData';
 import ProductionManagement from './pages/base-archive/ProductionManagement';
@@ -153,6 +154,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <TenantManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin/modules" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <TenantModuleManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

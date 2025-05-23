@@ -84,8 +84,8 @@ const UserManagement = () => {
         params.append('active', active);
       }
       
-      console.log(`Fetching users from: /api/admin/tenants/${tenantId}/users?${params.toString()}`);
-      const response = await api.get(`/api/admin/tenants/${tenantId}/users?${params.toString()}`);
+      console.log(`Fetching users from: /admin/tenants/${tenantId}/users?${params.toString()}`);
+      const response = await api.get(`/admin/tenants/${tenantId}/users?${params.toString()}`);
       console.log('Users response:', response.data);
       setUsers(response.data.users);
       setPagination({
@@ -104,8 +104,8 @@ const UserManagement = () => {
   // 获取租户信息
   const fetchTenant = async () => {
     try {
-      console.log(`Fetching tenant from: /api/admin/tenants/${tenantId}`);
-      const response = await api.get(`/api/admin/tenants/${tenantId}`);
+      console.log(`Fetching tenant from: /admin/tenants/${tenantId}`);
+      const response = await api.get(`/admin/tenants/${tenantId}`);
       console.log('Tenant response:', response.data);
       setTenant(response.data.tenant);
     } catch (error) {
@@ -117,8 +117,8 @@ const UserManagement = () => {
   // 获取角色列表
   const fetchRoles = async () => {
     try {
-      console.log(`Fetching roles from: /api/admin/tenants/${tenantId}/roles`);
-      const response = await api.get(`/api/admin/tenants/${tenantId}/roles`);
+      console.log(`Fetching roles from: /admin/tenants/${tenantId}/roles`);
+      const response = await api.get(`/admin/tenants/${tenantId}/roles`);
       console.log('Roles response:', response.data);
       setRoles(response.data.roles);
     } catch (error) {
@@ -206,14 +206,14 @@ const UserManagement = () => {
       
       if (editingUser) {
         // 更新用户
-        console.log(`Updating user at: /api/admin/tenants/${tenantId}/users/${editingUser.id}`);
-        const response = await api.put(`/api/admin/tenants/${tenantId}/users/${editingUser.id}`, values);
+        console.log(`Updating user at: /admin/tenants/${tenantId}/users/${editingUser.id}`);
+        const response = await api.put(`/admin/tenants/${tenantId}/users/${editingUser.id}`, values);
         console.log('Update user response:', response.data);
         message.success('用户更新成功');
       } else {
         // 创建用户
-        console.log(`Creating user at: /api/admin/tenants/${tenantId}/users`);
-        const response = await api.post(`/api/admin/tenants/${tenantId}/users`, values);
+        console.log(`Creating user at: /admin/tenants/${tenantId}/users`);
+        const response = await api.post(`/admin/tenants/${tenantId}/users`, values);
         console.log('Create user response:', response.data);
         message.success('用户创建成功');
       }
@@ -231,7 +231,7 @@ const UserManagement = () => {
     try {
       const values = await passwordForm.validateFields();
       
-      await api.post(`/api/admin/tenants/${tenantId}/users/${editingUser.id}/reset-password`, {
+      await api.post(`/admin/tenants/${tenantId}/users/${editingUser.id}/reset-password`, {
         password: values.password
       });
       
@@ -246,7 +246,7 @@ const UserManagement = () => {
   // 停用/启用用户
   const handleToggleUserStatus = async (user) => {
     try {
-      await api.patch(`/api/admin/tenants/${tenantId}/users/${user.id}/toggle-status`);
+      await api.patch(`/admin/tenants/${tenantId}/users/${user.id}/toggle-status`);
       message.success(`用户已${user.is_active ? '停用' : '启用'}`);
       fetchUsers(pagination.current, pagination.pageSize, searchEmail, filterActive);
     } catch (error) {

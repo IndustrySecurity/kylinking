@@ -87,7 +87,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(500);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles`, {
+      const response = await api.get(`/admin/tenants/${tenant.id}/roles`, {
         params: {
           page,
           per_page: pageSize
@@ -115,7 +115,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(600);
       
-      const response = await api.get('/api/admin/permissions');
+      const response = await api.get('/admin/permissions');
       setPermissions(response.data.permissions.map(p => ({
         key: p.id,
         title: p.name,
@@ -133,7 +133,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(800);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/users`, {
+      const response = await api.get(`/admin/tenants/${tenant.id}/users`, {
         params: { per_page: 100 } // Get more users for selection
       });
       setUsers(response.data.users.map(u => ({
@@ -188,7 +188,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(500);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles/${role.id}`);
+      const response = await api.get(`/admin/tenants/${tenant.id}/roles/${role.id}`);
       const roleData = response.data.role;
       
       // Set target keys for transfer component (user IDs assigned to this role)
@@ -216,7 +216,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(500);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles/${role.id}`);
+      const response = await api.get(`/admin/tenants/${tenant.id}/roles/${role.id}`);
       const roleData = response.data.role;
       
       // Set target keys for transfer component (permission IDs assigned to this role)
@@ -242,11 +242,11 @@ const RoleManagement = ({ tenant, userRole }) => {
       
       if (currentRole) {
         // Update existing role
-        await api.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}`, values);
+        await api.put(`/admin/tenants/${tenant.id}/roles/${currentRole.id}`, values);
         message.success('角色更新成功');
       } else {
         // Create new role
-        await api.post(`/api/admin/tenants/${tenant.id}/roles`, values);
+        await api.post(`/admin/tenants/${tenant.id}/roles`, values);
         message.success('角色创建成功');
       }
       
@@ -267,7 +267,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(500);
       
-      await api.delete(`/api/admin/tenants/${tenant.id}/roles/${roleId}`);
+      await api.delete(`/admin/tenants/${tenant.id}/roles/${roleId}`);
       message.success('角色删除成功');
       
       // Add delay before refreshing data
@@ -295,7 +295,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(600);
       
-      await api.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}/users`, {
+      await api.put(`/admin/tenants/${tenant.id}/roles/${currentRole.id}/users`, {
         user_ids: targetKeys
       });
       
@@ -317,7 +317,7 @@ const RoleManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(600);
       
-      await api.put(`/api/admin/tenants/${tenant.id}/roles/${currentRole.id}/permissions`, {
+      await api.put(`/admin/tenants/${tenant.id}/roles/${currentRole.id}/permissions`, {
         permission_ids: permissionTargetKeys
       });
       

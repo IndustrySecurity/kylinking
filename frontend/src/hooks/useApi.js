@@ -4,8 +4,8 @@ import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import authUtils from '../utils/auth';
 
-// 去掉/api前缀，因为实际请求时会再次添加
-const BASE_URL = '';
+// 确保API请求正确路由到后端
+const BASE_URL = import.meta.env.DEV ? '/api' : '/api';
 
 // 创建axios实例
 const axiosInstance = axios.create({
@@ -88,7 +88,7 @@ export const useApi = () => {
             try {
               // 使用refreshToken获取新的accessToken
               console.log('Attempting to refresh token...');
-              const response = await axios.post(`${BASE_URL}/api/auth/refresh`, {}, {
+              const response = await axios.post(`${BASE_URL}/auth/refresh`, {}, {
                 headers: {
                   'Authorization': `Bearer ${refreshToken}`
                 }
@@ -162,10 +162,10 @@ export const useApi = () => {
   }, [navigate]);
 
   // 登录方法
-  const login = async (email, password, tenant = null, endpoint = '/api/auth/login') => {
+  const login = async (email, password, tenant = null, endpoint = '/auth/login') => {
     try {
       // 如果没有提供租户信息，尝试从邮箱中提取
-      if (!tenant && email && email.includes('@') && endpoint !== '/api/auth/admin-login') {
+      if (!tenant && email && email.includes('@') && endpoint !== '/auth/admin-login') {
         // 提取邮箱域名部分，例如从 user@tenant.kylinking.com 提取 tenant
         const emailDomain = email.split('@')[1];
         if (emailDomain && emailDomain !== 'kylinking.com') {
@@ -272,7 +272,7 @@ export const useApi = () => {
   const logout = async () => {
     try {
       // 尝试调用登出API
-      await axiosInstance.post('/api/auth/logout');
+      await axiosInstance.post('/auth/logout');
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {

@@ -82,7 +82,7 @@ const OrganizationManagement = ({ tenant, userRole }) => {
       await sleep(600);
       
       // 在真实环境中，应该使用API调用获取组织列表
-      // 例如: const response = await api.get(`/api/admin/tenants/${tenant.id}/organizations`);
+      // 例如: const response = await api.get(`/admin/tenants/${tenant.id}/organizations`);
       // 这里使用模拟数据
       const mockOrgs = [
         {
@@ -178,7 +178,7 @@ const OrganizationManagement = ({ tenant, userRole }) => {
       // 添加较长的延迟以减少API调用频率
       await sleep(800);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/users`, {
+      const response = await api.get(`/admin/tenants/${tenant.id}/users`, {
         params: { per_page: 100 } // 获取更多用户
       });
       setUsers(response.data.users);
@@ -248,7 +248,7 @@ const OrganizationManagement = ({ tenant, userRole }) => {
       // 这里模拟提交到API
       // 实际应用中应该调用真实的API
       // 如果有实际API，应该使用 api.post 或 api.put
-      // 例如: await api.post(`/api/admin/tenants/${tenant.id}/organizations`, values);
+      // 例如: await api.post(`/admin/tenants/${tenant.id}/organizations`, values);
       
       message.success(currentOrg ? '组织更新成功' : '组织创建成功');
       setModalVisible(false);
@@ -272,7 +272,7 @@ const OrganizationManagement = ({ tenant, userRole }) => {
       
       // 这里模拟提交到API
       // 实际应用中应该调用真实的API
-      // 例如: await api.post(`/api/admin/tenants/${tenant.id}/organizations/${currentOrg.id}/users`, values);
+      // 例如: await api.post(`/admin/tenants/${tenant.id}/organizations/${currentOrg.id}/users`, values);
       
       message.success('用户分配成功');
       setAssignUserModalVisible(false);
@@ -295,7 +295,7 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     
     // 这里模拟从API删除组织
     // 实际应用中应该调用真实的API
-    // 例如: await api.delete(`/api/admin/tenants/${tenant.id}/organizations/${orgId}`);
+    // 例如: await api.delete(`/admin/tenants/${tenant.id}/organizations/${orgId}`);
     
     message.success('组织删除成功');
     

@@ -53,7 +53,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       // 获取API统计数据，使用正确的API路径
-      const response = await api.get('/api/admin/stats');
+      const response = await api.get('/admin/stats');
       
       if (response.data && response.data.stats) {
         // 使用实际API返回的数据

@@ -345,7 +345,9 @@ VALUES
     ('employee:create', 'Create employee records'),
     ('employee:read', 'View employee data'),
     ('employee:update', 'Update employee data'),
-    ('employee:delete', 'Delete employee data')
+    ('employee:delete', 'Delete employee data'),
+    ('module:manage', 'Manage system modules'),
+    ('module:configure', 'Configure tenant modules')
 ON CONFLICT (name) DO NOTHING;
 
 -- Create schema for public access
@@ -638,4 +640,127 @@ BEGIN
     )
     ON CONFLICT (email) DO NOTHING;
 END;
-$$; 
+$$;
+
+-- Create tenant module management tables
+-- 系统模块表
+CREATE TABLE IF NOT EXISTS system.system_modules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    display_name VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(100),
+    version VARCHAR(20) DEFAULT '1.0.0',
+    icon VARCHAR(255),
+    sort_order INTEGER DEFAULT 0,
+    is_core BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    dependencies JSON DEFAULT '[]',
+    default_config JSON DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- 模块字段表
+CREATE TABLE IF NOT EXISTS system.module_fields (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    module_id UUID REFERENCES system.system_modules(id) ON DELETE CASCADE,
+    field_name VARCHAR(100) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    field_type VARCHAR(50) NOT NULL,
+    description TEXT,
+    is_required BOOLEAN DEFAULT FALSE,
+    is_system_field BOOLEAN DEFAULT FALSE,
+    is_configurable BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    validation_rules JSON DEFAULT '{}',
+    field_options JSON DEFAULT '{}',
+    default_value JSON,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- 租户模块配置表
+CREATE TABLE IF NOT EXISTS system.tenant_modules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES system.tenants(id) ON DELETE CASCADE,
+    module_id UUID REFERENCES system.system_modules(id) ON DELETE CASCADE,
+    is_enabled BOOLEAN DEFAULT TRUE,
+    is_visible BOOLEAN DEFAULT TRUE,
+    custom_config JSON DEFAULT '{}',
+    custom_permissions JSON DEFAULT '{}',
+    configured_by UUID REFERENCES system.users(id),
+    configured_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, module_id)
+);
+
+-- 租户字段配置表
+CREATE TABLE IF NOT EXISTS system.tenant_field_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES system.tenants(id) ON DELETE CASCADE,
+    field_id UUID REFERENCES system.module_fields(id) ON DELETE CASCADE,
+    is_enabled BOOLEAN DEFAULT TRUE,
+    is_visible BOOLEAN DEFAULT TRUE,
+    is_required BOOLEAN DEFAULT FALSE,
+    is_readonly BOOLEAN DEFAULT FALSE,
+    custom_label VARCHAR(255),
+    custom_placeholder VARCHAR(255),
+    custom_help_text TEXT,
+    custom_validation_rules JSON DEFAULT '{}',
+    custom_options JSON DEFAULT '{}',
+    custom_default_value JSON,
+    display_order INTEGER DEFAULT 0,
+    column_width INTEGER,
+    field_group VARCHAR(100),
+    configured_by UUID REFERENCES system.users(id),
+    configured_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, field_id)
+);
+
+-- 租户扩展表
+CREATE TABLE IF NOT EXISTS system.tenant_extensions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES system.tenants(id) ON DELETE CASCADE,
+    extension_type VARCHAR(100) NOT NULL,
+    extension_name VARCHAR(255) NOT NULL,
+    extension_key VARCHAR(100) NOT NULL,
+    extension_config JSON DEFAULT '{}',
+    extension_schema JSON DEFAULT '{}',
+    extension_metadata JSON DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
+    module_id UUID REFERENCES system.system_modules(id),
+    created_by UUID REFERENCES system.users(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(tenant_id, extension_key)
+);
+
+-- 创建索引以提高查询性能
+CREATE INDEX IF NOT EXISTS idx_system_modules_category ON system.system_modules(category);
+CREATE INDEX IF NOT EXISTS idx_system_modules_is_active ON system.system_modules(is_active);
+CREATE INDEX IF NOT EXISTS idx_module_fields_module_id ON system.module_fields(module_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_modules_tenant_id ON system.tenant_modules(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_modules_module_id ON system.tenant_modules(module_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_field_configs_tenant_id ON system.tenant_field_configs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_field_configs_field_id ON system.tenant_field_configs(field_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_extensions_tenant_id ON system.tenant_extensions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_extensions_module_id ON system.tenant_extensions(module_id);
+
+-- 创建触发器自动更新updated_at字段
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_system_modules_updated_at BEFORE UPDATE ON system.system_modules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_module_fields_updated_at BEFORE UPDATE ON system.module_fields FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_tenant_modules_updated_at BEFORE UPDATE ON system.tenant_modules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_tenant_field_configs_updated_at BEFORE UPDATE ON system.tenant_field_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_tenant_extensions_updated_at BEFORE UPDATE ON system.tenant_extensions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); 

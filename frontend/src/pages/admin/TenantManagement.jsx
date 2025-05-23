@@ -88,7 +88,7 @@ const TenantManagement = () => {
         params.append('status', status);
       }
       
-      const response = await api.get(`/api/admin/tenants?${params.toString()}`);
+      const response = await api.get(`/admin/tenants?${params.toString()}`);
       
       if (response.data) {
         setTenants(response.data.tenants || []);
@@ -119,7 +119,7 @@ const TenantManagement = () => {
   const fetchStats = async () => {
     setStatsLoading(true);
     try {
-      const response = await api.get('/api/admin/stats');
+      const response = await api.get('/admin/stats');
       if (response.data && response.data.stats) {
         setStats(response.data.stats);
       } else {
@@ -212,11 +212,11 @@ const TenantManagement = () => {
       
       if (editingTenant) {
         // 更新租户
-        await api.put(`/api/admin/tenants/${editingTenant.id}`, values);
+        await api.put(`/admin/tenants/${editingTenant.id}`, values);
         message.success('租户更新成功');
       } else {
         // 创建租户
-        await api.post('/api/admin/tenants', values);
+        await api.post('/admin/tenants', values);
         message.success('租户创建成功');
       }
       
@@ -232,7 +232,7 @@ const TenantManagement = () => {
   // 停用租户
   const handleDeactivate = async (id) => {
     try {
-      await api.delete(`/api/admin/tenants/${id}`);
+      await api.delete(`/admin/tenants/${id}`);
       message.success('租户已停用');
       fetchTenants(pagination.current, pagination.pageSize, searchName, filterStatus);
       fetchStats(); // 刷新统计

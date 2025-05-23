@@ -59,7 +59,7 @@ const PermissionManagement = ({ tenant, userRole }) => {
       // Add delay to slow down API calls
       await sleep(600);
       
-      const response = await api.get('/api/admin/permissions');
+      const response = await api.get('/admin/permissions');
       setPermissions(response.data.permissions);
       setPagination({
         ...pagination,

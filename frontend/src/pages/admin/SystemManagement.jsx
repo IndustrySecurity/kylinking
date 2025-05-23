@@ -114,7 +114,7 @@ const SystemManagement = () => {
 
         // If superadmin, fetch all tenants to allow selection
         if (userInfo.is_superadmin) {
-          const tenantResponse = await api.get('/api/admin/tenants');
+          const tenantResponse = await api.get('/admin/tenants');
           if (isMounted) {
             setTenants(tenantResponse.data.tenants || []);
           }
@@ -122,7 +122,7 @@ const SystemManagement = () => {
           // For tenant admin, only set their own tenant
           try {
             await sleep(300); // Add sleep before API call
-            const tenantResponse = await api.get(`/api/admin/tenants/${userInfo.tenant_id}`);
+            const tenantResponse = await api.get(`/admin/tenants/${userInfo.tenant_id}`);
             
             // Check if the response has the expected structure
             if (tenantResponse.data && tenantResponse.data.tenant) {

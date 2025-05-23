@@ -142,7 +142,7 @@ const Login = () => {
       }
       
       // 根据登录模式选择端点
-      const endpoint = loginMode === 'admin' ? '/api/auth/admin-login' : '/api/auth/login';
+      const endpoint = loginMode === 'admin' ? '/auth/admin-login' : '/auth/login';
       console.log(`Logging in using endpoint: ${endpoint}`);
       
       // 调用API登录

@@ -176,6 +176,11 @@ const MainLayout = ({ children }) => {
           label: '租户管理',
           path: '/admin/tenants',
         },
+        {
+          key: 'modules',
+          label: '模块管理',
+          path: '/admin/modules',
+        },
       ],
     },
     // Show system management for both admin and superadmin

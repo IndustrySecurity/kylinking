@@ -69,7 +69,7 @@ const UserManagement = ({ tenant, userRole }) => {
       // 添加延迟以减少API调用频率
       await sleep(500);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/users`, {
+      const response = await api.get(`/admin/tenants/${tenant.id}/users`, {
         params: {
           page,
           per_page: pageSize
@@ -100,7 +100,7 @@ const UserManagement = ({ tenant, userRole }) => {
       // 添加延迟以减少API调用频率
       await sleep(600);
       
-      const response = await api.get(`/api/admin/tenants/${tenant.id}/roles`);
+      const response = await api.get(`/admin/tenants/${tenant.id}/roles`);
       setRoles(response.data.roles);
     } catch (error) {
       message.error('获取角色列表失败');
@@ -155,11 +155,11 @@ const UserManagement = ({ tenant, userRole }) => {
       
       if (currentUser) {
         // Update existing user
-        await api.put(`/api/admin/tenants/${tenant.id}/users/${currentUser.id}`, values);
+        await api.put(`/admin/tenants/${tenant.id}/users/${currentUser.id}`, values);
         message.success('用户更新成功');
       } else {
         // Create new user
-        await api.post(`/api/admin/tenants/${tenant.id}/users`, values);
+        await api.post(`/admin/tenants/${tenant.id}/users`, values);
         message.success('用户创建成功');
       }
       
@@ -181,7 +181,7 @@ const UserManagement = ({ tenant, userRole }) => {
       
       await sleep(300); // 添加延迟
       
-      await api.post(`/api/admin/tenants/${tenant.id}/users/${currentUser.id}/reset-password`, {
+      await api.post(`/admin/tenants/${tenant.id}/users/${currentUser.id}/reset-password`, {
         password: values.password
       });
       
@@ -197,7 +197,7 @@ const UserManagement = ({ tenant, userRole }) => {
     try {
       await sleep(300); // 添加延迟
       
-      await api.patch(`/api/admin/tenants/${tenant.id}/users/${user.id}/toggle-status`);
+      await api.patch(`/admin/tenants/${tenant.id}/users/${user.id}/toggle-status`);
       message.success(`用户状态已${user.is_active ? '禁用' : '启用'}`);
       
       // 延迟重新加载数据
