@@ -33,18 +33,10 @@ export const useApi = () => {
         if (token) {
           // 检查令牌是否过期
           if (authUtils.isTokenExpired(token)) {
-            console.warn('Token has expired, attempting to refresh...');
-            // 这里不做任何操作，让响应拦截器处理过期令牌
+            // Token过期，让响应拦截器处理
           }
           
           config.headers.Authorization = `Bearer ${token}`;
-          
-          // 调试信息 - 查看令牌内容
-          const decoded = authUtils.parseJwt(token);
-          console.log('DEBUG - Request to:', config.url);
-          console.log('DEBUG - Token claims:', decoded);
-        } else {
-          console.warn('No token available for request to:', config.url);
         }
         return config;
       },
@@ -61,33 +53,15 @@ export const useApi = () => {
       async (error) => {
         const originalRequest = error.config;
         
-        console.log('DEBUG - Error response:', error.response?.status, 'URL:', originalRequest?.url);
-        console.log('DEBUG - Error details:', error.response?.data);
-        
-        // 检查是否有token - 获取请求中使用的token查看是否正确
-        if (originalRequest?.headers?.Authorization) {
-          const token = originalRequest.headers.Authorization.replace('Bearer ', '');
-          const decoded = authUtils.parseJwt(token);
-          console.log('DEBUG - Token used in failed request:', decoded);
-        }
-        
         // 如果是401错误且没有重试过
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
-          console.log('DEBUG - Attempt to recover from 401 error');
-          
-          // 对于管理员相关的API端点，尝试使用管理员登录重新获取token
-          if (originalRequest.url.includes('/api/admin/')) {
-            console.log('DEBUG - Admin endpoint detected, might need admin login');
-          }
           
           // 尝试刷新token
           const refreshToken = authUtils.getRefreshToken();
           if (refreshToken) {
             try {
               // 使用refreshToken获取新的accessToken
-              console.log('Attempting to refresh token...');
               const response = await axios.post(`${BASE_URL}/auth/refresh`, {}, {
                 headers: {
                   'Authorization': `Bearer ${refreshToken}`
@@ -99,10 +73,6 @@ export const useApi = () => {
                 const newToken = response.data.access_token;
                 authUtils.saveToken(newToken);
                 
-                // Debug - log new token info
-                const newDecoded = authUtils.parseJwt(newToken);
-                console.log('DEBUG - New token claims after refresh:', newDecoded);
-                
                 // 更新原始请求的token并重试
                 originalRequest.headers.Authorization = `Bearer ${newToken}`;
                 return axiosInstance(originalRequest);
@@ -111,8 +81,6 @@ export const useApi = () => {
               }
             } catch (refreshError) {
               // 刷新token失败，登出并重定向到登录页
-              console.error('Token refresh failed:', refreshError);
-              
               // 如果重试刷新令牌失败，只有在非admin页面才自动登出
               // 这样可以防止管理页面突然跳转
               if (!originalRequest.url.includes('/api/admin/')) {
@@ -137,7 +105,6 @@ export const useApi = () => {
           }
         } else if (error.response?.status === 422) {
           // 处理422错误 - 通常是请求格式问题
-          console.error('Validation error:', error.response?.data);
           message.error('请求格式错误: ' + (error.response?.data?.message || '请检查输入'));
         }
         
@@ -174,12 +141,10 @@ export const useApi = () => {
             const domainParts = emailDomain.split('.');
             if (domainParts.length > 2) {
               tenant = domainParts[0];
-              console.log(`Extracted tenant '${tenant}' from email domain`);
             }
           } else {
             // 如果域名不是多级格式，可能直接就是租户名
             tenant = emailDomain;
-            console.log(`Using email domain '${tenant}' as tenant`);
           }
         }
       }
@@ -195,7 +160,6 @@ export const useApi = () => {
       // 尝试调用API
       try {
         // 使用传入的endpoint替换默认值
-        console.log(`Logging in with endpoint: ${endpoint}`);
         const response = await axiosInstance.post(endpoint, { email, password }, config);
         
         if (response.data && response.data.access_token) {
@@ -212,16 +176,13 @@ export const useApi = () => {
           throw new Error('Invalid response format from authentication server');
         }
       } catch (apiError) {
-        console.error('Login API error:', apiError);
         if (process.env.NODE_ENV === 'development' && apiError.response?.status === 404) {
           // 开发环境中，API 404的情况下继续模拟登录
-          console.log('Development environment detected, using mock login');
           return simulateMockLogin(email, tenant);
         }
         throw apiError;
       }
     } catch (error) {
-      console.error('Login failed:', error);
       throw error;
     }
   };
@@ -274,14 +235,14 @@ export const useApi = () => {
       // 尝试调用登出API
       await axiosInstance.post('/auth/logout');
     } catch (error) {
-      console.error('Logout API error:', error);
-    } finally {
+      // 忽略登出API错误，继续清理本地数据
+    }
+    
       // 清除所有认证信息
       authUtils.clearAuthInfo();
       setIsLoggedIn(false);
       // 重定向到登录页
       navigate('/login');
-    }
   };
 
   // 调试获取令牌信息
@@ -289,10 +250,8 @@ export const useApi = () => {
     try {
       // 尝试调用调试API
       const response = await axiosInstance.get('/api/admin/debug/auth');
-      console.log('DEBUG - Auth check result:', response.data);
       return response.data;
     } catch (error) {
-      console.error('DEBUG - Auth check failed:', error);
       return { error: error.message };
     }
   };

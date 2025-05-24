@@ -26,7 +26,6 @@ export const AuthProvider = ({ children }) => {
         if (token) {
           // 检查令牌是否过期
           if (authUtils.isTokenExpired(token)) {
-            console.log('Token expired, attempting to refresh...');
             // 尝试使用刷新令牌获取新令牌
             const refreshToken = authUtils.getRefreshToken();
             if (refreshToken) {
@@ -43,7 +42,6 @@ export const AuthProvider = ({ children }) => {
                   setUser(authUtils.getUser());
                 }
               } catch (refreshError) {
-                console.error('Failed to refresh token:', refreshError);
                 // 清除认证信息并重定向到登录页
                 logout();
                 return;
@@ -59,7 +57,8 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        // 清除认证信息并重定向到登录页
+        logout();
       } finally {
         setLoading(false);
       }
@@ -91,7 +90,6 @@ export const AuthProvider = ({ children }) => {
       
       return false;
     } catch (error) {
-      console.error('Login failed:', error);
       message.error(error.response?.data?.message || '登录失败，请检查您的凭据');
       return false;
     } finally {
@@ -105,7 +103,8 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       await api.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      // 清除认证信息并重定向到登录页
+      logout();
     } finally {
       setUser(null);
       setLoading(false);

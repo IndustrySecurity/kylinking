@@ -124,45 +124,51 @@ const Login = () => {
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      // 登录数据
-      const loginData = {
-        email: values.email,
-        password: values.password
-      };
+      // 记录登录尝试
+      message.loading('正在登录...', 0);
       
-      // 如果是租户登录并且已经从URL或域名检测到了租户，添加租户信息
-      if (loginMode === 'tenant' && currentTenant) {
-        loginData.tenant = currentTenant.slug;
-      }
-      
-      // 优先使用表单中填写的管理员账号密码
-      if (loginMode === 'admin' && !values.email) {
-        loginData.email = 'admin@kylinking.com';
-        loginData.password = 'admin123'; // 默认密码，生产环境应移除
-      }
-      
-      // 根据登录模式选择端点
+      // 选择合适的登录端点
       const endpoint = loginMode === 'admin' ? '/auth/admin-login' : '/auth/login';
-      console.log(`Logging in using endpoint: ${endpoint}`);
+      const result = await api.login(values.email, values.password, currentTenant?.slug, endpoint);
       
-      // 调用API登录
-      const result = await api.login(loginData.email, loginData.password, loginData.tenant, endpoint);
+      message.destroy();
       
-      if (result) {
-        message.success('登录成功');
+      if (result && result.access_token) {
+        message.success('登录成功！');
         
-        // 根据登录模式跳转到相应的页面
-        if (loginMode === 'admin') {
-          // 管理员前往管理仪表盘
-          navigate('/admin/dashboard');
+        // 登录成功后导航到合适的页面
+        if (loginMode === 'admin' || result.user.is_admin) {
+          navigate('/dashboard');
         } else {
-          // 普通用户前往租户仪表盘
           navigate('/dashboard');
         }
+      } else {
+        message.error('登录失败，服务器返回无效数据');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      message.error('登录失败: ' + (error.response?.data?.message || '请检查您的邮箱和密码'));
+      message.destroy();
+      
+      // 不同错误状态的处理
+      if (error.response) {
+        const { status, data } = error.response;
+        switch (status) {
+          case 401:
+            message.error('用户名或密码错误');
+            break;
+          case 403:
+            message.error('账户已被禁用');
+            break;
+          case 429:
+            message.error('登录尝试次数过多，请稍后再试');
+            break;
+          default:
+            message.error(data?.message || '登录失败，请稍后重试');
+        }
+      } else if (error.request) {
+        message.error('网络连接失败，请检查网络设置');
+      } else {
+        message.error('登录过程中出现未知错误');
+      }
     } finally {
       setLoading(false);
     }

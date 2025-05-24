@@ -74,7 +74,7 @@ const TenantModuleConfig = () => {
         setConfigSummary(response.data.data);
       }
     } catch (error) {
-      console.error('获取配置概要失败:', error);
+      message.error('获取配置概要失败');
     }
   };
 
@@ -88,7 +88,7 @@ const TenantModuleConfig = () => {
         setExtensions(response.data.data);
       }
     } catch (error) {
-      console.error('获取扩展列表失败:', error);
+      message.error('获取扩展列表失败');
     }
   };
 

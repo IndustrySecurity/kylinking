@@ -84,9 +84,7 @@ const UserManagement = () => {
         params.append('active', active);
       }
       
-      console.log(`Fetching users from: /admin/tenants/${tenantId}/users?${params.toString()}`);
       const response = await api.get(`/admin/tenants/${tenantId}/users?${params.toString()}`);
-      console.log('Users response:', response.data);
       setUsers(response.data.users);
       setPagination({
         current: response.data.page,
@@ -94,7 +92,6 @@ const UserManagement = () => {
         total: response.data.total
       });
     } catch (error) {
-      console.error('Error fetching users:', error.response || error);
       message.error('获取用户列表失败');
     } finally {
       setLoading(false);
@@ -104,12 +101,9 @@ const UserManagement = () => {
   // 获取租户信息
   const fetchTenant = async () => {
     try {
-      console.log(`Fetching tenant from: /admin/tenants/${tenantId}`);
       const response = await api.get(`/admin/tenants/${tenantId}`);
-      console.log('Tenant response:', response.data);
       setTenant(response.data.tenant);
     } catch (error) {
-      console.error('Error fetching tenant:', error.response || error);
       message.error('获取租户信息失败');
     }
   };
@@ -117,12 +111,9 @@ const UserManagement = () => {
   // 获取角色列表
   const fetchRoles = async () => {
     try {
-      console.log(`Fetching roles from: /admin/tenants/${tenantId}/roles`);
       const response = await api.get(`/admin/tenants/${tenantId}/roles`);
-      console.log('Roles response:', response.data);
       setRoles(response.data.roles);
     } catch (error) {
-      console.error('Error fetching roles:', error.response || error);
     }
   };
 
@@ -202,26 +193,20 @@ const UserManagement = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Form values being submitted:', values);
       
       if (editingUser) {
         // 更新用户
-        console.log(`Updating user at: /admin/tenants/${tenantId}/users/${editingUser.id}`);
         const response = await api.put(`/admin/tenants/${tenantId}/users/${editingUser.id}`, values);
-        console.log('Update user response:', response.data);
         message.success('用户更新成功');
       } else {
         // 创建用户
-        console.log(`Creating user at: /admin/tenants/${tenantId}/users`);
         const response = await api.post(`/admin/tenants/${tenantId}/users`, values);
-        console.log('Create user response:', response.data);
         message.success('用户创建成功');
       }
       
       setModalVisible(false);
       fetchUsers(pagination.current, pagination.pageSize, searchEmail, filterActive);
     } catch (error) {
-      console.error('Form submission error:', error.response || error);
       message.error('操作失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -238,7 +223,6 @@ const UserManagement = () => {
       message.success('密码修改成功');
       setPasswordModalVisible(false);
     } catch (error) {
-      console.error('Password reset error:', error);
       message.error('密码修改失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -251,7 +235,6 @@ const UserManagement = () => {
       fetchUsers(pagination.current, pagination.pageSize, searchEmail, filterActive);
     } catch (error) {
       message.error('操作失败');
-      console.error('Error toggling user status:', error);
     }
   };
 

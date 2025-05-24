@@ -2,7 +2,7 @@ from flask import Blueprint
 
 admin_bp = Blueprint('admin', __name__)
 
-from app.api.admin import routes
+from app.api.admin import routes 
 from app.api.admin import modules
 
 # 注册模块管理相关的路由

@@ -352,7 +352,9 @@ const MainLayout = ({ children }) => {
             <Dropdown
               menu={{ 
                 items: notificationItems,
-                onClick: (e) => console.log('Clicked notification', e.key),
+                onClick: (e) => {
+                  // Handle notification click
+                },
               }}
               placement="bottomRight"
               arrow

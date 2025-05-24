@@ -640,7 +640,7 @@ BEGIN
     )
     ON CONFLICT (email) DO NOTHING;
 END;
-$$;
+$$; 
 
 -- Create tenant module management tables
 -- 系统模块表
@@ -655,16 +655,16 @@ CREATE TABLE IF NOT EXISTS system.system_modules (
     sort_order INTEGER DEFAULT 0,
     is_core BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
-    dependencies JSON DEFAULT '[]',
-    default_config JSON DEFAULT '{}',
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    dependencies JSONB DEFAULT '[]',
+    default_config JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 模块字段表
 CREATE TABLE IF NOT EXISTS system.module_fields (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    module_id UUID REFERENCES system.system_modules(id) ON DELETE CASCADE,
+    module_id UUID NOT NULL REFERENCES system.system_modules(id) ON DELETE CASCADE,
     field_name VARCHAR(100) NOT NULL,
     display_name VARCHAR(255) NOT NULL,
     field_type VARCHAR(50) NOT NULL,
@@ -673,34 +673,35 @@ CREATE TABLE IF NOT EXISTS system.module_fields (
     is_system_field BOOLEAN DEFAULT FALSE,
     is_configurable BOOLEAN DEFAULT TRUE,
     sort_order INTEGER DEFAULT 0,
-    validation_rules JSON DEFAULT '{}',
-    field_options JSON DEFAULT '{}',
-    default_value JSON,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    validation_rules JSONB DEFAULT '{}',
+    field_options JSONB DEFAULT '{}',
+    default_value JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(module_id, field_name)
 );
 
 -- 租户模块配置表
 CREATE TABLE IF NOT EXISTS system.tenant_modules (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID REFERENCES system.tenants(id) ON DELETE CASCADE,
-    module_id UUID REFERENCES system.system_modules(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES system.tenants(id) ON DELETE CASCADE,
+    module_id UUID NOT NULL REFERENCES system.system_modules(id) ON DELETE CASCADE,
     is_enabled BOOLEAN DEFAULT TRUE,
     is_visible BOOLEAN DEFAULT TRUE,
-    custom_config JSON DEFAULT '{}',
-    custom_permissions JSON DEFAULT '{}',
+    custom_config JSONB DEFAULT '{}',
+    custom_permissions JSONB DEFAULT '{}',
     configured_by UUID REFERENCES system.users(id),
-    configured_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    configured_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(tenant_id, module_id)
 );
 
 -- 租户字段配置表
 CREATE TABLE IF NOT EXISTS system.tenant_field_configs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID REFERENCES system.tenants(id) ON DELETE CASCADE,
-    field_id UUID REFERENCES system.module_fields(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES system.tenants(id) ON DELETE CASCADE,
+    field_id UUID NOT NULL REFERENCES system.module_fields(id) ON DELETE CASCADE,
     is_enabled BOOLEAN DEFAULT TRUE,
     is_visible BOOLEAN DEFAULT TRUE,
     is_required BOOLEAN DEFAULT FALSE,
@@ -708,34 +709,34 @@ CREATE TABLE IF NOT EXISTS system.tenant_field_configs (
     custom_label VARCHAR(255),
     custom_placeholder VARCHAR(255),
     custom_help_text TEXT,
-    custom_validation_rules JSON DEFAULT '{}',
-    custom_options JSON DEFAULT '{}',
-    custom_default_value JSON,
+    custom_validation_rules JSONB DEFAULT '{}',
+    custom_options JSONB DEFAULT '{}',
+    custom_default_value JSONB,
     display_order INTEGER DEFAULT 0,
     column_width INTEGER,
     field_group VARCHAR(100),
     configured_by UUID REFERENCES system.users(id),
-    configured_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    configured_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(tenant_id, field_id)
 );
 
 -- 租户扩展表
 CREATE TABLE IF NOT EXISTS system.tenant_extensions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID REFERENCES system.tenants(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES system.tenants(id) ON DELETE CASCADE,
     extension_type VARCHAR(100) NOT NULL,
     extension_name VARCHAR(255) NOT NULL,
     extension_key VARCHAR(100) NOT NULL,
-    extension_config JSON DEFAULT '{}',
-    extension_schema JSON DEFAULT '{}',
-    extension_metadata JSON DEFAULT '{}',
+    extension_config JSONB DEFAULT '{}',
+    extension_schema JSONB DEFAULT '{}',
+    extension_metadata JSONB DEFAULT '{}',
     is_active BOOLEAN DEFAULT TRUE,
     module_id UUID REFERENCES system.system_modules(id),
     created_by UUID REFERENCES system.users(id),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(tenant_id, extension_key)
 );
 
@@ -763,4 +764,258 @@ CREATE TRIGGER update_system_modules_updated_at BEFORE UPDATE ON system.system_m
 CREATE TRIGGER update_module_fields_updated_at BEFORE UPDATE ON system.module_fields FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tenant_modules_updated_at BEFORE UPDATE ON system.tenant_modules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_tenant_field_configs_updated_at BEFORE UPDATE ON system.tenant_field_configs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_tenant_extensions_updated_at BEFORE UPDATE ON system.tenant_extensions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); 
+CREATE TRIGGER update_tenant_extensions_updated_at BEFORE UPDATE ON system.tenant_extensions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 基础档案管理表结构 (在租户schema中创建)
+-- 这些表将在每个租户的schema中创建
+
+-- Function to create basic data tables in tenant schema
+CREATE OR REPLACE FUNCTION system.create_basic_data_tables(tenant_schema VARCHAR(63))
+RETURNS VOID AS $$
+BEGIN
+    -- 客户分类表
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || quote_ident(tenant_schema) || '.customer_categories (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        category_code VARCHAR(50) NOT NULL UNIQUE,
+        category_name VARCHAR(100) NOT NULL,
+        parent_id UUID REFERENCES ' || quote_ident(tenant_schema) || '.customer_categories(id),
+        level INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )';
+
+    -- 客户档案表
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || quote_ident(tenant_schema) || '.customers (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        customer_code VARCHAR(50) NOT NULL UNIQUE,
+        customer_name VARCHAR(200) NOT NULL,
+        customer_type VARCHAR(20) DEFAULT ''enterprise'',
+        category_id UUID REFERENCES ' || quote_ident(tenant_schema) || '.customer_categories(id),
+        
+        -- 基本信息
+        legal_name VARCHAR(200),
+        unified_credit_code VARCHAR(50),
+        tax_number VARCHAR(50),
+        industry VARCHAR(100),
+        scale VARCHAR(20),
+        
+        -- 联系信息
+        contact_person VARCHAR(100),
+        contact_phone VARCHAR(50),
+        contact_email VARCHAR(100),
+        contact_address TEXT,
+        postal_code VARCHAR(20),
+        
+        -- 业务信息
+        credit_limit DECIMAL(15,2) DEFAULT 0,
+        payment_terms INTEGER DEFAULT 30,
+        currency VARCHAR(10) DEFAULT ''CNY'',
+        price_level VARCHAR(20) DEFAULT ''standard'',
+        sales_person_id UUID,
+        
+        -- 系统字段
+        status VARCHAR(20) DEFAULT ''active'',
+        is_approved BOOLEAN DEFAULT FALSE,
+        approved_by UUID,
+        approved_at TIMESTAMP WITH TIME ZONE,
+        
+        -- 租户模块配置支持
+        custom_fields JSONB DEFAULT ''{}'',
+        
+        -- 审计字段
+        created_by UUID NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_by UUID,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        
+        CONSTRAINT customers_status_check CHECK (status IN (''active'', ''inactive'', ''pending'')),
+        CONSTRAINT customers_type_check CHECK (customer_type IN (''enterprise'', ''individual''))
+    )';
+
+    -- 供应商分类表
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || quote_ident(tenant_schema) || '.supplier_categories (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        category_code VARCHAR(50) NOT NULL UNIQUE,
+        category_name VARCHAR(100) NOT NULL,
+        parent_id UUID REFERENCES ' || quote_ident(tenant_schema) || '.supplier_categories(id),
+        level INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )';
+
+    -- 供应商档案表
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || quote_ident(tenant_schema) || '.suppliers (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        supplier_code VARCHAR(50) NOT NULL UNIQUE,
+        supplier_name VARCHAR(200) NOT NULL,
+        supplier_type VARCHAR(20) DEFAULT ''material'',
+        category_id UUID REFERENCES ' || quote_ident(tenant_schema) || '.supplier_categories(id),
+        
+        -- 基本信息
+        legal_name VARCHAR(200),
+        unified_credit_code VARCHAR(50),
+        business_license VARCHAR(50),
+        industry VARCHAR(100),
+        established_date DATE,
+        
+        -- 联系信息
+        contact_person VARCHAR(100),
+        contact_phone VARCHAR(50),
+        contact_email VARCHAR(100),
+        office_address TEXT,
+        factory_address TEXT,
+        
+        -- 业务信息
+        payment_terms INTEGER DEFAULT 30,
+        currency VARCHAR(10) DEFAULT ''CNY'',
+        quality_level VARCHAR(20) DEFAULT ''qualified'',
+        cooperation_level VARCHAR(20) DEFAULT ''ordinary'',
+        
+        -- 评估信息
+        quality_score DECIMAL(3,1) DEFAULT 0,
+        delivery_score DECIMAL(3,1) DEFAULT 0,
+        service_score DECIMAL(3,1) DEFAULT 0,
+        price_score DECIMAL(3,1) DEFAULT 0,
+        overall_score DECIMAL(3,1) DEFAULT 0,
+        
+        -- 系统字段
+        status VARCHAR(20) DEFAULT ''active'',
+        is_approved BOOLEAN DEFAULT FALSE,
+        approved_by UUID,
+        approved_at TIMESTAMP WITH TIME ZONE,
+        
+        custom_fields JSONB DEFAULT ''{}'',
+        
+        created_by UUID NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_by UUID,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        
+        CONSTRAINT suppliers_status_check CHECK (status IN (''active'', ''inactive'', ''pending'')),
+        CONSTRAINT suppliers_type_check CHECK (supplier_type IN (''material'', ''service'', ''both'')),
+        CONSTRAINT suppliers_quality_check CHECK (quality_level IN (''excellent'', ''good'', ''qualified'', ''poor'')),
+        CONSTRAINT suppliers_cooperation_check CHECK (cooperation_level IN (''strategic'', ''important'', ''ordinary''))
+    )';
+
+    -- 产品分类表
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || quote_ident(tenant_schema) || '.product_categories (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        category_code VARCHAR(50) NOT NULL UNIQUE,
+        category_name VARCHAR(100) NOT NULL,
+        parent_id UUID REFERENCES ' || quote_ident(tenant_schema) || '.product_categories(id),
+        level INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )';
+
+    -- 产品档案表
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || quote_ident(tenant_schema) || '.products (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        product_code VARCHAR(50) NOT NULL UNIQUE,
+        product_name VARCHAR(200) NOT NULL,
+        product_type VARCHAR(20) DEFAULT ''finished'',
+        category_id UUID REFERENCES ' || quote_ident(tenant_schema) || '.product_categories(id),
+        
+        -- 基本信息
+        short_name VARCHAR(100),
+        english_name VARCHAR(200),
+        brand VARCHAR(100),
+        model VARCHAR(100),
+        specification TEXT,
+        
+        -- 技术参数 (薄膜产品特有)
+        thickness DECIMAL(8,3),
+        width DECIMAL(8,2),
+        length DECIMAL(10,2),
+        material_type VARCHAR(100),
+        transparency DECIMAL(5,2),
+        tensile_strength DECIMAL(8,2),
+        
+        -- 包装信息
+        base_unit VARCHAR(20) DEFAULT ''m²'',
+        package_unit VARCHAR(20),
+        conversion_rate DECIMAL(10,4) DEFAULT 1,
+        net_weight DECIMAL(10,3),
+        gross_weight DECIMAL(10,3),
+        
+        -- 价格信息
+        standard_cost DECIMAL(15,4),
+        standard_price DECIMAL(15,4),
+        currency VARCHAR(10) DEFAULT ''CNY'',
+        
+        -- 库存信息
+        safety_stock DECIMAL(15,3) DEFAULT 0,
+        min_order_qty DECIMAL(15,3) DEFAULT 1,
+        max_order_qty DECIMAL(15,3),
+        
+        -- 生产信息
+        lead_time INTEGER DEFAULT 0,
+        shelf_life INTEGER,
+        storage_condition VARCHAR(200),
+        
+        -- 质量标准
+        quality_standard VARCHAR(200),
+        inspection_method VARCHAR(200),
+        
+        -- 系统字段
+        status VARCHAR(20) DEFAULT ''active'',
+        is_sellable BOOLEAN DEFAULT TRUE,
+        is_purchasable BOOLEAN DEFAULT TRUE,
+        is_producible BOOLEAN DEFAULT TRUE,
+        
+        custom_fields JSONB DEFAULT ''{}'',
+        
+        created_by UUID NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_by UUID,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        
+        CONSTRAINT products_status_check CHECK (status IN (''active'', ''inactive'', ''pending'')),
+        CONSTRAINT products_type_check CHECK (product_type IN (''finished'', ''semi'', ''material''))
+    )';
+
+    -- 创建索引
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_customer_categories_parent ON ' || quote_ident(tenant_schema) || '.customer_categories(parent_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_customers_category ON ' || quote_ident(tenant_schema) || '.customers(category_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_customers_status ON ' || quote_ident(tenant_schema) || '.customers(status)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_customers_code ON ' || quote_ident(tenant_schema) || '.customers(customer_code)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_customers_name ON ' || quote_ident(tenant_schema) || '.customers(customer_name)';
+    
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_supplier_categories_parent ON ' || quote_ident(tenant_schema) || '.supplier_categories(parent_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_suppliers_category ON ' || quote_ident(tenant_schema) || '.suppliers(category_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_suppliers_status ON ' || quote_ident(tenant_schema) || '.suppliers(status)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_suppliers_code ON ' || quote_ident(tenant_schema) || '.suppliers(supplier_code)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_suppliers_name ON ' || quote_ident(tenant_schema) || '.suppliers(supplier_name)';
+    
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_product_categories_parent ON ' || quote_ident(tenant_schema) || '.product_categories(parent_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_products_category ON ' || quote_ident(tenant_schema) || '.products(category_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_products_status ON ' || quote_ident(tenant_schema) || '.products(status)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_products_code ON ' || quote_ident(tenant_schema) || '.products(product_code)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_products_name ON ' || quote_ident(tenant_schema) || '.products(product_name)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_products_type ON ' || quote_ident(tenant_schema) || '.products(product_type)';
+
+END;
+$$ LANGUAGE plpgsql;
+
+-- 索引创建
+CREATE INDEX IF NOT EXISTS idx_system_modules_name ON system.system_modules(name);
+CREATE INDEX IF NOT EXISTS idx_system_modules_category ON system.system_modules(category);
+CREATE INDEX IF NOT EXISTS idx_module_fields_module_id ON system.module_fields(module_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_modules_tenant_id ON system.tenant_modules(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_modules_module_id ON system.tenant_modules(module_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_field_configs_tenant_id ON system.tenant_field_configs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_field_configs_field_id ON system.tenant_field_configs(field_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_extensions_tenant_id ON system.tenant_extensions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_extensions_module_id ON system.tenant_extensions(module_id);
+
+-- 为现有租户创建基础档案表
+SELECT system.create_basic_data_tables('wanle'); 

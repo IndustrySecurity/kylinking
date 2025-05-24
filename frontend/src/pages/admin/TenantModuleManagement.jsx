@@ -35,7 +35,6 @@ import {
   ReloadOutlined
 } from '@ant-design/icons';
 import { useApi } from '../../hooks/useApi';
-import DebugAuth from '../../components/DebugAuth';
 
 const { Title } = Typography;
 const { TabPane } = Tabs;
@@ -74,7 +73,6 @@ const TenantModuleManagement = () => {
   const fetchTenants = async () => {
     try {
       const response = await api.get('/admin/tenants');
-      console.log('租户API响应:', response.data); // 调试日志
       
       // 适应后端实际的API响应格式
       if (response.data.tenants) {
@@ -82,11 +80,9 @@ const TenantModuleManagement = () => {
       } else if (response.data.success && response.data.data) {
         setTenants(response.data.data);
       } else {
-        console.error('无法解析租户数据:', response.data);
         message.error('租户数据格式错误');
       }
     } catch (error) {
-      console.error('获取租户列表失败:', error);
       message.error('获取租户列表失败');
     }
   };
@@ -261,16 +257,13 @@ const TenantModuleManagement = () => {
         setConfigDrawerVisible(false);
       }
     } catch (error) {
-      console.error('保存配置失败:', error);
+      message.error('保存配置失败');
     }
   };
 
   return (
     <div style={{ padding: '24px' }}>
       <Title level={2}>租户模块管理</Title>
-      
-      {/* 临时调试组件 */}
-      <DebugAuth />
       
       {/* 统计信息 */}
       <Row gutter={16} style={{ marginBottom: 24 }}>

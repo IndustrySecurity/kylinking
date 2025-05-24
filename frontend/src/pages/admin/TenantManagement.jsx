@@ -101,7 +101,6 @@ const TenantManagement = () => {
         message.error('获取租户列表失败');
       }
     } catch (error) {
-      console.error('Error fetching tenants:', error);
       if (error.response && error.response.status === 401) {
         message.error('登录已过期，请重新登录');
         setTimeout(() => navigate('/login'), 1500);
@@ -126,7 +125,6 @@ const TenantManagement = () => {
         message.error('获取统计数据失败，返回格式不正确');
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
       if (error.response && error.response.status === 401) {
         message.error('登录已过期，请重新登录');
       } else {
@@ -208,7 +206,6 @@ const TenantManagement = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log("Form values being submitted:", values);
       
       if (editingTenant) {
         // 更新租户
@@ -224,7 +221,6 @@ const TenantManagement = () => {
       fetchTenants(pagination.current, pagination.pageSize, searchName, filterStatus);
       fetchStats(); // 刷新统计
     } catch (error) {
-      console.error('Form submission error:', error);
       message.error('操作失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -238,7 +234,6 @@ const TenantManagement = () => {
       fetchStats(); // 刷新统计
     } catch (error) {
       message.error('停用租户失败');
-      console.error('Error deactivating tenant:', error);
     }
   };
 

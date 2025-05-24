@@ -112,7 +112,6 @@ const RoleManagement = () => {
       });
     } catch (error) {
       message.error('获取角色列表失败');
-      console.error('Error fetching roles:', error);
     } finally {
       setLoading(false);
     }
@@ -125,7 +124,6 @@ const RoleManagement = () => {
       setTenant(response.data.tenant);
     } catch (error) {
       message.error('获取租户信息失败');
-      console.error('Error fetching tenant:', error);
     }
   };
 
@@ -136,15 +134,11 @@ const RoleManagement = () => {
       const response = await api.get('/admin/permissions');
       if (response.data && response.data.permissions) {
         setPermissions(response.data.permissions);
-        console.log('Successfully loaded permissions:', response.data.permissions.length);
       } else {
-        console.warn('Permissions response missing expected data structure');
         setPermissions([]);
       }
     } catch (error) {
-      console.error('Error fetching permissions:', error);
       message.warning('无法获取权限列表，将使用已有权限数据');
-      // 设置为空数组，不阻止UI渲染
       setPermissions([]);
     } finally {
       setPermLoading(false);
@@ -157,7 +151,6 @@ const RoleManagement = () => {
       const response = await api.get(`/admin/tenants/${tenantId}/users?per_page=1000`);
       setUsers(response.data.users);
     } catch (error) {
-      console.error('Error fetching users:', error);
     }
   };
 
@@ -171,7 +164,6 @@ const RoleManagement = () => {
       setSelectedUsers(response.data.role.users.map(u => u.id));
     } catch (error) {
       message.error('获取角色详情失败');
-      console.error('Error fetching role detail:', error);
     } finally {
       setLoading(false);
     }
@@ -183,9 +175,7 @@ const RoleManagement = () => {
     const checkAuth = async () => {
       try {
         const authInfo = await api.checkAuthInfo();
-        console.log('Auth info for role management:', authInfo);
       } catch (error) {
-        console.error('Failed to check auth info:', error);
       }
     };
     
@@ -266,7 +256,6 @@ const RoleManagement = () => {
       setModalVisible(false);
       fetchRoles(pagination.current, pagination.pageSize, searchName);
     } catch (error) {
-      console.error('Form submission error:', error);
       message.error('操作失败: ' + (error.response?.data?.message || error.message));
     }
   };
@@ -279,7 +268,6 @@ const RoleManagement = () => {
       fetchRoles(pagination.current, pagination.pageSize, searchName);
     } catch (error) {
       message.error('删除角色失败');
-      console.error('Error deleting role:', error);
     }
   };
 
@@ -295,7 +283,6 @@ const RoleManagement = () => {
       await fetchRoleDetail(detailRole.id);
     } catch (error) {
       message.error('更新权限失败');
-      console.error('Error updating permissions:', error);
     }
   };
 
@@ -311,7 +298,6 @@ const RoleManagement = () => {
       await fetchRoleDetail(detailRole.id);
     } catch (error) {
       message.error('更新用户失败');
-      console.error('Error updating users:', error);
     }
   };
 

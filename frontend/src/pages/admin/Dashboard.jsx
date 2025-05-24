@@ -97,15 +97,7 @@ const Dashboard = () => {
         { id: '5', user: 'admin@future.com', action: '添加新用户', target: 'staff@future.com', time: '2023-06-08T11:55:40Z' }
       ]);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      if (error.response && error.response.status === 401) {
-        message.error('登录已过期，请重新登录');
-        setTimeout(() => navigate('/login'), 1500);
-      } else if (error.response && error.response.status === 403) {
-        message.error('没有权限访问管理员统计信息');
-      } else {
-        message.error('获取仪表盘数据失败: ' + (error.message || '未知错误'));
-      }
+      message.error('获取仪表盘数据失败');
     } finally {
       setLoading(false);
     }
