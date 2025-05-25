@@ -598,4 +598,47 @@ class ColorCard(TenantModel):
         return f"SK{next_number:08d}"
     
     def __repr__(self):
-        return f'<ColorCard {self.color_name}({self.color_code})>' 
+        return f'<ColorCard {self.color_name}({self.color_code})>'
+
+
+class Unit(TenantModel):
+    """单位模型"""
+    __tablename__ = 'units'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    unit_name = db.Column(db.String(100), nullable=False, comment='单位名称')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'unit_name': self.unit_name,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            pass
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的单位列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.unit_name).all()
+    
+    def __repr__(self):
+        return f'<Unit {self.unit_name}>' 

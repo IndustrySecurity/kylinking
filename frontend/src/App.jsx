@@ -18,6 +18,7 @@ import MaterialCategories from './pages/base-archive/base-data/base-category/Mat
 import PackageMethodManagement from './pages/base-archive/PackageMethodManagement';
 import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
 import ColorCardManagement from './pages/base-archive/ColorCardManagement';
+import UnitManagement from './pages/base-archive/UnitManagement';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -175,6 +176,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <ColorCardManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础档案 - 单位管理 */}
+            <Route path="/base-archive/units" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <UnitManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

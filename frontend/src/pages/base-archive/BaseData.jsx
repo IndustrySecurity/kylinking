@@ -73,6 +73,13 @@ const BaseData = () => {
       color: '#eb2f96'
     },
     {
+      key: 'units',
+      title: '单位',
+      icon: <AppstoreOutlined />,
+      path: '/base-archive/units',
+      color: '#52c41a'
+    },
+    {
       key: 'departments',
       title: '部门',
       icon: <ApartmentOutlined />,

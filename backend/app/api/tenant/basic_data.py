@@ -930,4 +930,164 @@ def batch_update_color_cards():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 单位管理API
+@bp.route('/units', methods=['GET'])
+@jwt_required()
+def get_units():
+    """获取单位列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入服务
+        from app.services.package_method_service import UnitService
+        
+        # 获取单位列表
+        result = UnitService.get_units(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/units/<unit_id>', methods=['GET'])
+@jwt_required()
+def get_unit(unit_id):
+    """获取单位详情"""
+    try:
+        from app.services.package_method_service import UnitService
+        
+        unit = UnitService.get_unit(unit_id)
+        
+        return jsonify({
+            'success': True,
+            'data': unit
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/units', methods=['POST'])
+@jwt_required()
+def create_unit():
+    """创建单位"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('unit_name'):
+            return jsonify({'error': '单位名称不能为空'}), 400
+        
+        from app.services.package_method_service import UnitService
+        
+        unit = UnitService.create_unit(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': unit,
+            'message': '单位创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/units/<unit_id>', methods=['PUT'])
+@jwt_required()
+def update_unit(unit_id):
+    """更新单位"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import UnitService
+        
+        unit = UnitService.update_unit(unit_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': unit,
+            'message': '单位更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/units/<unit_id>', methods=['DELETE'])
+@jwt_required()
+def delete_unit(unit_id):
+    """删除单位"""
+    try:
+        from app.services.package_method_service import UnitService
+        
+        UnitService.delete_unit(unit_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '单位删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/units/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_units():
+    """批量更新单位"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.services.package_method_service import UnitService
+        
+        results = UnitService.batch_update_units(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 
