@@ -741,4 +741,68 @@ class SupplierCategoryManagement(TenantModel):
         return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
     
     def __repr__(self):
-        return f'<SupplierCategoryManagement {self.category_name}>' 
+        return f'<SupplierCategoryManagement {self.category_name}>'
+
+
+class Specification(TenantModel):
+    """规格模型"""
+    __tablename__ = 'specifications'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    spec_name = db.Column(db.String(100), nullable=False, comment='规格名称')
+    length = db.Column(db.Numeric(10, 3), nullable=False, comment='长(m)')
+    width = db.Column(db.Numeric(10, 3), nullable=False, comment='宽(mm)')
+    roll = db.Column(db.Numeric(10, 3), nullable=False, comment='卷')
+    area_sqm = db.Column(db.Numeric(15, 6), comment='面积(平方米)')
+    spec_format = db.Column(db.String(200), comment='规格格式(长×宽×卷)')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def calculate_area_and_format(self):
+        """计算面积和格式字符串"""
+        if self.length and self.width and self.roll:
+            # 长(m) × 宽(mm转换为m) × 卷 = 平方米
+            # 宽度从mm转换为m需要除以1000
+            width_in_meters = float(self.width) / 1000
+            self.area_sqm = float(self.length) * width_in_meters * float(self.roll)
+            
+            # 格式字符串：长×宽×卷
+            self.spec_format = f"{self.length}×{self.width}×{self.roll}"
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'spec_name': self.spec_name,
+            'length': float(self.length) if self.length else None,
+            'width': float(self.width) if self.width else None,
+            'roll': float(self.roll) if self.roll else None,
+            'area_sqm': float(self.area_sqm) if self.area_sqm else None,
+            'spec_format': self.spec_format,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            pass
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的规格列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.spec_name).all()
+    
+    def __repr__(self):
+        return f'<Specification {self.spec_name}>' 

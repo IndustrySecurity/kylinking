@@ -1410,4 +1410,167 @@ def batch_update_supplier_category_management():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 规格管理API
+@bp.route('/specifications', methods=['GET'])
+@jwt_required()
+def get_specifications():
+    """获取规格列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入服务
+        from app.services.package_method_service import SpecificationService
+        
+        # 获取规格列表
+        result = SpecificationService.get_specifications(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/specifications/<spec_id>', methods=['GET'])
+@jwt_required()
+def get_specification(spec_id):
+    """获取规格详情"""
+    try:
+        from app.services.package_method_service import SpecificationService
+        
+        specification = SpecificationService.get_specification(spec_id)
+        
+        return jsonify({
+            'success': True,
+            'data': specification
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/specifications', methods=['POST'])
+@jwt_required()
+def create_specification():
+    """创建规格"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('spec_name'):
+            return jsonify({'error': '规格名称不能为空'}), 400
+        
+        if not data.get('length') or not data.get('width') or not data.get('roll'):
+            return jsonify({'error': '长、宽、卷不能为空'}), 400
+        
+        from app.services.package_method_service import SpecificationService
+        
+        specification = SpecificationService.create_specification(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': specification,
+            'message': '规格创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/specifications/<spec_id>', methods=['PUT'])
+@jwt_required()
+def update_specification(spec_id):
+    """更新规格"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import SpecificationService
+        
+        specification = SpecificationService.update_specification(spec_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': specification,
+            'message': '规格更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/specifications/<spec_id>', methods=['DELETE'])
+@jwt_required()
+def delete_specification(spec_id):
+    """删除规格"""
+    try:
+        from app.services.package_method_service import SpecificationService
+        
+        SpecificationService.delete_specification(spec_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '规格删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/specifications/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_specifications():
+    """批量更新规格"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.services.package_method_service import SpecificationService
+        
+        results = SpecificationService.batch_update_specifications(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 

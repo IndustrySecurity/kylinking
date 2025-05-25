@@ -19,6 +19,7 @@ import PackageMethodManagement from './pages/base-archive/PackageMethodManagemen
 import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
 import ColorCardManagement from './pages/base-archive/ColorCardManagement';
 import UnitManagement from './pages/base-archive/UnitManagement';
+import SpecificationManagement from './pages/base-archive/SpecificationManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import Debug from './pages/auth/Debug';
@@ -109,6 +110,63 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="/base-archive/package-methods" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PackageMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/delivery-methods" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <DeliveryMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/color-cards" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ColorCardManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/units" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <UnitManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/specifications" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SpecificationManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/customer-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CustomerCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/supplier-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SupplierCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础档案 - 生产管理 */}
             <Route path="/base-archive/production-management" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -117,6 +175,7 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            {/* 基础档案 - 财务管理 */}
             <Route path="/base-archive/financial-management" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -151,60 +210,6 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <MaterialCategories />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 包装方式管理 */}
-            <Route path="/base-archive/package-methods" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PackageMethodManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 送货方式管理 */}
-            <Route path="/base-archive/delivery-methods" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DeliveryMethodManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 色卡管理 */}
-            <Route path="/base-archive/color-cards" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ColorCardManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 单位管理 */}
-            <Route path="/base-archive/units" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <UnitManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 客户分类管理 */}
-            <Route path="/base-archive/customer-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CustomerCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 供应商分类管理 */}
-            <Route path="/base-archive/supplier-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SupplierCategoryManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

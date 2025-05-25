@@ -12,7 +12,8 @@ import {
   InboxOutlined,
   TruckOutlined,
   BgColorsOutlined,
-  TagsOutlined
+  TagsOutlined,
+  ColumnWidthOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -78,6 +79,13 @@ const BaseData = () => {
       icon: <AppstoreOutlined />,
       path: '/base-archive/units',
       color: '#52c41a'
+    },
+    {
+      key: 'specifications',
+      title: '规格',
+      icon: <ColumnWidthOutlined />,
+      path: '/base-archive/specifications',
+      color: '#13c2c2'
     },
     {
       key: 'customerCategories',
