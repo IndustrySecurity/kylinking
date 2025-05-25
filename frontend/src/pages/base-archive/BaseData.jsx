@@ -10,7 +10,8 @@ import {
   AppstoreOutlined,
   ToolOutlined,
   InboxOutlined,
-  TruckOutlined
+  TruckOutlined,
+  BgColorsOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -63,6 +64,13 @@ const BaseData = () => {
       icon: <TruckOutlined />,
       path: '/base-archive/delivery-methods',
       color: '#1890ff'
+    },
+    {
+      key: 'colorCards',
+      title: '色卡',
+      icon: <BgColorsOutlined />,
+      path: '/base-archive/color-cards',
+      color: '#eb2f96'
     },
     {
       key: 'departments',

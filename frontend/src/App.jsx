@@ -17,6 +17,7 @@ import SupplierCategories from './pages/base-archive/base-data/base-category/Sup
 import MaterialCategories from './pages/base-archive/base-data/base-category/MaterialCategories';
 import PackageMethodManagement from './pages/base-archive/PackageMethodManagement';
 import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
+import ColorCardManagement from './pages/base-archive/ColorCardManagement';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -165,6 +166,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <DeliveryMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础档案 - 色卡管理 */}
+            <Route path="/base-archive/color-cards" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ColorCardManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

@@ -534,4 +534,68 @@ class DeliveryMethod(TenantModel):
         return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.delivery_name).all()
     
     def __repr__(self):
-        return f'<DeliveryMethod {self.delivery_name}>' 
+        return f'<DeliveryMethod {self.delivery_name}>'
+
+
+class ColorCard(TenantModel):
+    """色卡模型"""
+    __tablename__ = 'color_cards'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    color_code = db.Column(db.String(50), unique=True, nullable=False, comment='色卡编号(SK开头+8位数字)')
+    color_name = db.Column(db.String(100), nullable=False, comment='色卡名称')
+    color_value = db.Column(db.String(20), nullable=False, comment='色值(十六进制)')
+    remarks = db.Column(db.Text, comment='备注')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'color_code': self.color_code,
+            'color_name': self.color_name,
+            'color_value': self.color_value,
+            'remarks': self.remarks,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的色卡列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.color_name).all()
+    
+    @classmethod
+    def generate_color_code(cls):
+        """生成色卡编号 SK + 8位自增数字"""
+        # 获取当前最大编号
+        latest = cls.query.filter(
+            cls.color_code.like('SK%')
+        ).order_by(cls.color_code.desc()).first()
+        
+        if latest and latest.color_code.startswith('SK'):
+            try:
+                # 提取数字部分并加1
+                number_part = latest.color_code[2:]
+                next_number = int(number_part) + 1
+            except (ValueError, IndexError):
+                next_number = 1
+        else:
+            next_number = 1
+        
+        # 格式化为8位数字
+        return f"SK{next_number:08d}"
+    
+    def __repr__(self):
+        return f'<ColorCard {self.color_name}({self.color_code})>' 
