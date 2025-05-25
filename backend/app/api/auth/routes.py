@@ -64,6 +64,20 @@ def login():
     access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
     refresh_token = create_refresh_token(identity=str(user.id))
     
+    # 获取租户信息
+    tenant_info = None
+    if user.tenant_id:
+        from app.models.tenant import Tenant
+        tenant = Tenant.query.get(user.tenant_id)
+        if tenant:
+            tenant_info = {
+                "id": str(tenant.id),
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "schema_name": tenant.schema_name,
+                "is_active": tenant.is_active
+            }
+    
     return jsonify({
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -75,7 +89,8 @@ def login():
             "is_admin": user.is_admin,
             "is_superadmin": user.is_superadmin,
             "tenant_id": str(user.tenant_id) if user.tenant_id else None
-        }
+        },
+        "tenant": tenant_info
     }), 200
 
 
@@ -118,6 +133,20 @@ def admin_login():
     access_token = create_access_token(identity=str(user.id), additional_claims=additional_claims)
     refresh_token = create_refresh_token(identity=str(user.id))
     
+    # 获取租户信息
+    tenant_info = None
+    if user.tenant_id:
+        from app.models.tenant import Tenant
+        tenant = Tenant.query.get(user.tenant_id)
+        if tenant:
+            tenant_info = {
+                "id": str(tenant.id),
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "schema_name": tenant.schema_name,
+                "is_active": tenant.is_active
+            }
+    
     return jsonify({
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -129,7 +158,8 @@ def admin_login():
             "is_admin": user.is_admin,
             "is_superadmin": user.is_superadmin,
             "tenant_id": str(user.tenant_id) if user.tenant_id else None
-        }
+        },
+        "tenant": tenant_info
     }), 200
 
 

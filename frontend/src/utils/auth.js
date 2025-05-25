@@ -99,6 +99,7 @@ export const saveAuthInfo = (authData) => {
       saveUser(authData.user);
     }
     
+    // 保存租户信息（如果API返回了租户信息）
     if (authData.tenant) {
       localStorage.setItem('tenant', JSON.stringify(authData.tenant));
     }
@@ -178,7 +179,7 @@ export const isTokenExpired = (token) => {
 // 检查令牌是否有效（与后端验证）
 export const validateTokenWithBackend = async (token) => {
   try {
-    const response = await fetch('/api/auth/debug/token', {
+    const response = await fetch('/auth/debug/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

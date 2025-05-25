@@ -10,6 +10,15 @@ from app.models.module import (
     TenantFieldConfig, 
     TenantExtension
 )
+from app.models.basic_data import (
+    CustomerCategory,
+    Customer,
+    SupplierCategory, 
+    Supplier,
+    ProductCategory,
+    Product,
+    PackageMethod
+)
 
 # 添加其他可能的模型导入
 
@@ -25,5 +34,12 @@ __all__ = [
     'ModuleField',
     'TenantModule',
     'TenantFieldConfig',
-    'TenantExtension'
+    'TenantExtension',
+    'CustomerCategory',
+    'Customer',
+    'SupplierCategory', 
+    'Supplier',
+    'ProductCategory',
+    'Product',
+    'PackageMethod'
 ] 

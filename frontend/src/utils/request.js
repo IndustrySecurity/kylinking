@@ -18,6 +18,20 @@ request.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // 从localStorage获取租户信息并设置租户ID头部
+    const tenantStr = localStorage.getItem('tenant');
+    if (tenantStr) {
+      try {
+        const tenant = JSON.parse(tenantStr);
+        if (tenant && tenant.slug) {
+          config.headers['X-Tenant-ID'] = tenant.slug;
+        }
+      } catch (error) {
+        console.error('Failed to parse tenant info:', error);
+      }
+    }
+    
     return config;
   },
   (error) => {
@@ -30,19 +44,23 @@ request.interceptors.response.use(
   (response) => {
     const { data } = response;
     
-    // 如果响应成功
-    if (data.code === 0) {
+    // 适配后端返回格式：{ success: true, data: {...} }
+    if (data.success === true) {
       return data.data;
     }
     
     // 处理业务错误
-    message.error(data.message || '请求失败');
-    return Promise.reject(new Error(data.message || '请求失败'));
+    const errorMessage = data.error || data.message || '请求失败';
+    message.error(errorMessage);
+    return Promise.reject(new Error(errorMessage));
   },
   (error) => {
     // 处理HTTP错误
     if (error.response) {
-      const { status } = error.response;
+      const { status, data } = error.response;
+      
+      // 尝试从响应中获取错误信息
+      const errorMessage = data?.error || data?.message || '请求失败';
       
       switch (status) {
         case 401:
@@ -57,10 +75,10 @@ request.interceptors.response.use(
           message.error('请求的资源不存在');
           break;
         case 500:
-          message.error('服务器错误');
+          message.error(errorMessage);
           break;
         default:
-          message.error('网络错误');
+          message.error(errorMessage);
       }
     } else {
       message.error('网络连接失败');

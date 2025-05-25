@@ -71,7 +71,7 @@ def register_blueprints(app):
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(tenant_bp, url_prefix='/api')
+    app.register_blueprint(tenant_bp, url_prefix='/api/tenant')
 
 
 def register_error_handlers(app):

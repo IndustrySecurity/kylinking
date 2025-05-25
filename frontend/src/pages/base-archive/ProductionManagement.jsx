@@ -214,7 +214,10 @@ const ProductionManagement = () => {
                   <Button 
                     type="primary" 
                     style={{ backgroundColor: item.color, borderColor: item.color }}
-                    onClick={() => handleItemClick(item.path)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // 阻止事件冒泡到Card
+                      handleItemClick(item.path);
+                    }}
                   >
                     管理{item.title}
                   </Button>
@@ -243,7 +246,10 @@ const ProductionManagement = () => {
                   <Button 
                     type="primary" 
                     style={{ backgroundColor: item.color, borderColor: item.color }}
-                    onClick={() => handleItemClick(item.path)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // 阻止事件冒泡到Card
+                      handleItemClick(item.path);
+                    }}
                   >
                     管理{item.title}
                   </Button>

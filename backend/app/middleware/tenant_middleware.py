@@ -23,40 +23,43 @@ class TenantMiddleware:
             
             # 解析请求头中的租户ID
             tenant_id = request.headers.get(current_app.config['TENANT_HEADER'])
+            current_app.logger.info(f"Request to {request.path}, X-Tenant-ID: {tenant_id}")
+            
             if tenant_id:
                 g.tenant_id = tenant_id
-                # 查询数据库获取租户schema
-                schema_name = self._get_schema_for_tenant(tenant_id)
+                # 查询数据库获取租户schema（这里tenant_id实际上是slug）
+                schema_name = self._get_schema_for_tenant_slug(tenant_id)
                 if schema_name:
                     g.schema_name = schema_name
+                    current_app.logger.info(f"Set schema to: {schema_name} for tenant slug: {tenant_id}")
             
             # 如果没有租户ID，尝试从域名解析
             elif not tenant_id and request.host:
                 schema_name = self._get_schema_from_domain(request.host)
                 if schema_name:
                     g.schema_name = schema_name
+                    current_app.logger.info(f"Set schema to: {schema_name} from domain: {request.host}")
             
             # 设置租户上下文
             self.tenant_context.set_schema(g.schema_name)
+            current_app.logger.info(f"Final schema set in context: {g.schema_name}")
             
             return self.wsgi_app(environ, start_response)
     
-    def _get_schema_for_tenant(self, tenant_id):
+    def _get_schema_for_tenant_slug(self, tenant_slug):
         """
-        根据租户ID获取schema名称
-        :param tenant_id: 租户ID
+        根据租户slug获取schema名称
+        :param tenant_slug: 租户slug
         :return: schema名称
         """
-        # 此处需要在数据库中查询租户信息，但为了避免循环导入，可以使用原生SQL
-        # 在实际应用中，可以缓存租户信息以提高性能
         with self.app.app_context():
             from app.extensions import db
             from sqlalchemy import text
             
             try:
                 schema_name = None
-                sql = text(f"SELECT schema_name FROM {current_app.config['SYSTEM_SCHEMA']}.tenants WHERE id = :tenant_id AND is_active = TRUE")
-                result = db.session.execute(sql, {"tenant_id": tenant_id})
+                sql = text(f"SELECT schema_name FROM {current_app.config['SYSTEM_SCHEMA']}.tenants WHERE slug = :tenant_slug AND is_active = TRUE")
+                result = db.session.execute(sql, {"tenant_slug": tenant_slug})
                 record = result.first()
                 
                 if record:
@@ -64,7 +67,7 @@ class TenantMiddleware:
                 
                 return schema_name
             except Exception as e:
-                current_app.logger.error(f"Error fetching schema for tenant {tenant_id}: {str(e)}")
+                current_app.logger.error(f"Error fetching schema for tenant slug {tenant_slug}: {str(e)}")
                 return None
     
     def _get_schema_from_domain(self, domain):

@@ -8,7 +8,8 @@ import {
   ApartmentOutlined,
   IdcardOutlined,
   AppstoreOutlined,
-  ToolOutlined
+  ToolOutlined,
+  InboxOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -49,6 +50,13 @@ const BaseData = () => {
       color: '#722ed1'
     },
     {
+      key: 'packageMethods',
+      title: '包装方式',
+      icon: <InboxOutlined />,
+      path: '/base-archive/package-methods',
+      color: '#faad14'
+    },
+    {
       key: 'departments',
       title: '部门',
       icon: <ApartmentOutlined />,
@@ -60,7 +68,7 @@ const BaseData = () => {
       title: '职位',
       icon: <IdcardOutlined />,
       path: '/base-archive/base-data/positions',
-      color: '#faad14'
+      color: '#f5222d'
     },
     {
       key: 'employees',
@@ -140,7 +148,10 @@ const BaseData = () => {
                   <Button 
                     type="primary" 
                     style={{ backgroundColor: item.color, borderColor: item.color }}
-                    onClick={() => handleItemClick(item.path)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // 阻止事件冒泡到Card
+                      handleItemClick(item.path);
+                    }}
                   >
                     管理{item.title}
                   </Button>
@@ -169,7 +180,10 @@ const BaseData = () => {
                   <Button 
                     type="primary" 
                     style={{ backgroundColor: item.color, borderColor: item.color }}
-                    onClick={() => handleItemClick(item.path)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // 阻止事件冒泡到Card
+                      handleItemClick(item.path);
+                    }}
                   >
                     管理{item.title}
                   </Button>

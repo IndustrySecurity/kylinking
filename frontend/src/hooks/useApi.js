@@ -83,7 +83,7 @@ export const useApi = () => {
               // 刷新token失败，登出并重定向到登录页
               // 如果重试刷新令牌失败，只有在非admin页面才自动登出
               // 这样可以防止管理页面突然跳转
-              if (!originalRequest.url.includes('/api/admin/')) {
+              if (!originalRequest.url.includes('/admin/')) {
                 authUtils.clearAuthInfo();
                 setIsLoggedIn(false);
                 message.error('登录已过期，请重新登录');
@@ -249,7 +249,7 @@ export const useApi = () => {
   const checkAuthInfo = async () => {
     try {
       // 尝试调用调试API
-      const response = await axiosInstance.get('/api/admin/debug/auth');
+      const response = await axiosInstance.get('/admin/debug/auth');
       return response.data;
     } catch (error) {
       return { error: error.message };

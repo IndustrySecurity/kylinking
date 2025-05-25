@@ -1,6 +1,6 @@
 import request from '../utils/request';
 
-const BASE_URL = '/api/admin/tenants';
+const BASE_URL = '/admin/tenants';
 
 export const tenantApi = {
   // 获取租户列表
@@ -30,4 +30,6 @@ export const tenantApi = {
 
   // 启用/禁用租户
   toggleTenantStatus: (id, status) => {
- 
+    return request.put(`${BASE_URL}/${id}/status`, { status });
+  }
+}; 
