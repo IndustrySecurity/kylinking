@@ -597,4 +597,169 @@ def batch_update_package_methods():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ===== 送货方式管理 API =====
+
+@bp.route('/delivery-methods', methods=['GET'])
+@jwt_required()
+def get_delivery_methods():
+    """获取送货方式列表"""
+    try:
+        from app.services.package_method_service import DeliveryMethodService
+        
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 100)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户和租户信息
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        
+        if not tenant_id:
+            return jsonify({'error': '租户信息缺失'}), 400
+        
+        # 获取送货方式列表
+        result = DeliveryMethodService.get_delivery_methods(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/delivery-methods/<delivery_method_id>', methods=['GET'])
+@jwt_required()
+def get_delivery_method(delivery_method_id):
+    """获取送货方式详情"""
+    try:
+        from app.services.package_method_service import DeliveryMethodService
+        
+        delivery_method = DeliveryMethodService.get_delivery_method(delivery_method_id)
+        
+        return jsonify({
+            'success': True,
+            'data': delivery_method
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/delivery-methods', methods=['POST'])
+@jwt_required()
+def create_delivery_method():
+    """创建送货方式"""
+    try:
+        from app.services.package_method_service import DeliveryMethodService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('delivery_name'):
+            return jsonify({'error': '送货方式名称不能为空'}), 400
+        
+        delivery_method = DeliveryMethodService.create_delivery_method(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': delivery_method,
+            'message': '送货方式创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/delivery-methods/<delivery_method_id>', methods=['PUT'])
+@jwt_required()
+def update_delivery_method(delivery_method_id):
+    """更新送货方式"""
+    try:
+        from app.services.package_method_service import DeliveryMethodService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        delivery_method = DeliveryMethodService.update_delivery_method(delivery_method_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': delivery_method,
+            'message': '送货方式更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/delivery-methods/<delivery_method_id>', methods=['DELETE'])
+@jwt_required()
+def delete_delivery_method(delivery_method_id):
+    """删除送货方式"""
+    try:
+        from app.services.package_method_service import DeliveryMethodService
+        
+        DeliveryMethodService.delete_delivery_method(delivery_method_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '送货方式删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/delivery-methods/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_delivery_methods():
+    """批量更新送货方式（用于可编辑表格）"""
+    try:
+        from app.services.package_method_service import DeliveryMethodService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        results = DeliveryMethodService.batch_update_delivery_methods(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个送货方式'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 

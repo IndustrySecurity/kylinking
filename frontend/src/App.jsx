@@ -16,6 +16,7 @@ import ProductCategories from './pages/base-archive/base-data/base-category/Prod
 import SupplierCategories from './pages/base-archive/base-data/base-category/SupplierCategories';
 import MaterialCategories from './pages/base-archive/base-data/base-category/MaterialCategories';
 import PackageMethodManagement from './pages/base-archive/PackageMethodManagement';
+import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -155,6 +156,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <PackageMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础档案 - 送货方式管理 */}
+            <Route path="/base-archive/delivery-methods" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <DeliveryMethodManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

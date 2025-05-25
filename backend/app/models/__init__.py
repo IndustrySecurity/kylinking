@@ -17,7 +17,8 @@ from app.models.basic_data import (
     Supplier,
     ProductCategory,
     Product,
-    PackageMethod
+    PackageMethod,
+    DeliveryMethod
 )
 
 # 添加其他可能的模型导入
@@ -41,5 +42,6 @@ __all__ = [
     'Supplier',
     'ProductCategory',
     'Product',
-    'PackageMethod'
+    'PackageMethod',
+    'DeliveryMethod'
 ] 

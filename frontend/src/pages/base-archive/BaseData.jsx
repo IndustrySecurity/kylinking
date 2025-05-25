@@ -9,7 +9,8 @@ import {
   IdcardOutlined,
   AppstoreOutlined,
   ToolOutlined,
-  InboxOutlined
+  InboxOutlined,
+  TruckOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -55,6 +56,13 @@ const BaseData = () => {
       icon: <InboxOutlined />,
       path: '/base-archive/package-methods',
       color: '#faad14'
+    },
+    {
+      key: 'deliveryMethods',
+      title: '送货方式',
+      icon: <TruckOutlined />,
+      path: '/base-archive/delivery-methods',
+      color: '#1890ff'
     },
     {
       key: 'departments',
