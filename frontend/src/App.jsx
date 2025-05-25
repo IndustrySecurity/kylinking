@@ -19,6 +19,8 @@ import PackageMethodManagement from './pages/base-archive/PackageMethodManagemen
 import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
 import ColorCardManagement from './pages/base-archive/ColorCardManagement';
 import UnitManagement from './pages/base-archive/UnitManagement';
+import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
+import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -185,6 +187,24 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <UnitManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础档案 - 客户分类管理 */}
+            <Route path="/base-archive/customer-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CustomerCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 基础档案 - 供应商分类管理 */}
+            <Route path="/base-archive/supplier-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SupplierCategoryManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

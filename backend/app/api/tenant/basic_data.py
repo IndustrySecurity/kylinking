@@ -1090,4 +1090,324 @@ def batch_update_units():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 客户分类管理API
+@bp.route('/customer-category-management', methods=['GET'])
+@jwt_required()
+def get_customer_category_management():
+    """获取客户分类列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入服务
+        from app.services.package_method_service import CustomerCategoryManagementService
+        
+        # 获取客户分类列表
+        result = CustomerCategoryManagementService.get_customer_categories(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/customer-category-management/<category_id>', methods=['GET'])
+@jwt_required()
+def get_customer_category_management_detail(category_id):
+    """获取客户分类详情"""
+    try:
+        from app.services.package_method_service import CustomerCategoryManagementService
+        
+        category = CustomerCategoryManagementService.get_customer_category(category_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/customer-category-management', methods=['POST'])
+@jwt_required()
+def create_customer_category_management():
+    """创建客户分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('category_name'):
+            return jsonify({'error': '客户分类名称不能为空'}), 400
+        
+        from app.services.package_method_service import CustomerCategoryManagementService
+        
+        category = CustomerCategoryManagementService.create_customer_category(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '客户分类创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/customer-category-management/<category_id>', methods=['PUT'])
+@jwt_required()
+def update_customer_category_management(category_id):
+    """更新客户分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import CustomerCategoryManagementService
+        
+        category = CustomerCategoryManagementService.update_customer_category(category_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '客户分类更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/customer-category-management/<category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_customer_category_management(category_id):
+    """删除客户分类"""
+    try:
+        from app.services.package_method_service import CustomerCategoryManagementService
+        
+        CustomerCategoryManagementService.delete_customer_category(category_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '客户分类删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/customer-category-management/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_customer_category_management():
+    """批量更新客户分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.services.package_method_service import CustomerCategoryManagementService
+        
+        results = CustomerCategoryManagementService.batch_update_customer_categories(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 供应商分类管理API
+@bp.route('/supplier-category-management', methods=['GET'])
+@jwt_required()
+def get_supplier_category_management():
+    """获取供应商分类列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入服务
+        from app.services.package_method_service import SupplierCategoryManagementService
+        
+        # 获取供应商分类列表
+        result = SupplierCategoryManagementService.get_supplier_categories(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/supplier-category-management/<category_id>', methods=['GET'])
+@jwt_required()
+def get_supplier_category_management_detail(category_id):
+    """获取供应商分类详情"""
+    try:
+        from app.services.package_method_service import SupplierCategoryManagementService
+        
+        category = SupplierCategoryManagementService.get_supplier_category(category_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/supplier-category-management', methods=['POST'])
+@jwt_required()
+def create_supplier_category_management():
+    """创建供应商分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('category_name'):
+            return jsonify({'error': '供应商分类名称不能为空'}), 400
+        
+        from app.services.package_method_service import SupplierCategoryManagementService
+        
+        category = SupplierCategoryManagementService.create_supplier_category(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '供应商分类创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/supplier-category-management/<category_id>', methods=['PUT'])
+@jwt_required()
+def update_supplier_category_management(category_id):
+    """更新供应商分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import SupplierCategoryManagementService
+        
+        category = SupplierCategoryManagementService.update_supplier_category(category_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '供应商分类更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/supplier-category-management/<category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_supplier_category_management(category_id):
+    """删除供应商分类"""
+    try:
+        from app.services.package_method_service import SupplierCategoryManagementService
+        
+        SupplierCategoryManagementService.delete_supplier_category(category_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '供应商分类删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/supplier-category-management/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_supplier_category_management():
+    """批量更新供应商分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.services.package_method_service import SupplierCategoryManagementService
+        
+        results = SupplierCategoryManagementService.batch_update_supplier_categories(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 

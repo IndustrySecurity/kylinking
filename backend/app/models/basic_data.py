@@ -641,4 +641,104 @@ class Unit(TenantModel):
         return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.unit_name).all()
     
     def __repr__(self):
-        return f'<Unit {self.unit_name}>' 
+        return f'<Unit {self.unit_name}>'
+
+
+class CustomerCategoryManagement(TenantModel):
+    """客户分类管理模型"""
+    __tablename__ = 'customer_category_management'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category_name = db.Column(db.String(100), nullable=False, comment='客户分类名称')
+    category_code = db.Column(db.String(50), nullable=True, comment='客户分类编码')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'category_name': self.category_name,
+            'category_code': self.category_code,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            pass
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的客户分类列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
+    
+    def __repr__(self):
+        return f'<CustomerCategoryManagement {self.category_name}>'
+
+
+class SupplierCategoryManagement(TenantModel):
+    """供应商分类管理模型"""
+    __tablename__ = 'supplier_category_management'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category_name = db.Column(db.String(100), nullable=False, comment='供应商分类名称')
+    category_code = db.Column(db.String(50), nullable=True, comment='供应商分类编码')
+    description = db.Column(db.Text, comment='描述')
+    
+    # 特殊业务字段
+    is_plate_making = db.Column(db.Boolean, default=False, comment='制版')
+    is_outsourcing = db.Column(db.Boolean, default=False, comment='外发')
+    is_knife_plate = db.Column(db.Boolean, default=False, comment='刀板')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'category_name': self.category_name,
+            'category_code': self.category_code,
+            'description': self.description,
+            'is_plate_making': self.is_plate_making,
+            'is_outsourcing': self.is_outsourcing,
+            'is_knife_plate': self.is_knife_plate,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            pass
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的供应商分类列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
+    
+    def __repr__(self):
+        return f'<SupplierCategoryManagement {self.category_name}>' 

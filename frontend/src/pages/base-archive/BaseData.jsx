@@ -11,12 +11,12 @@ import {
   ToolOutlined,
   InboxOutlined,
   TruckOutlined,
-  BgColorsOutlined
+  BgColorsOutlined,
+  TagsOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 const { Title } = Typography;
-const { TabPane } = Tabs;
 
 const BaseData = () => {
   const navigate = useNavigate();
@@ -78,6 +78,20 @@ const BaseData = () => {
       icon: <AppstoreOutlined />,
       path: '/base-archive/units',
       color: '#52c41a'
+    },
+    {
+      key: 'customerCategories',
+      title: '客户分类',
+      icon: <TagsOutlined />,
+      path: '/base-archive/customer-category-management',
+      color: '#13c2c2'
+    },
+    {
+      key: 'supplierCategories',
+      title: '供应商分类',
+      icon: <BankOutlined />,
+      path: '/base-archive/supplier-category-management',
+      color: '#fa8c16'
     },
     {
       key: 'departments',
@@ -146,76 +160,58 @@ const BaseData = () => {
     navigate(path);
   };
 
+  // 渲染卡片组件
+  const renderCards = (items) => (
+    <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+      {items.map(item => (
+        <Col xs={24} sm={12} md={8} lg={6} key={item.key}>
+          <Card 
+            hoverable
+            style={{ textAlign: 'center' }}
+            onClick={() => handleItemClick(item.path)}
+          >
+            <div style={{ 
+              fontSize: 48, 
+              color: item.color,
+              marginBottom: 16 
+            }}>
+              {item.icon}
+            </div>
+            <Title level={4}>{item.title}</Title>
+            <Button 
+              type="primary" 
+              style={{ backgroundColor: item.color, borderColor: item.color }}
+              onClick={(e) => {
+                e.stopPropagation(); // 阻止事件冒泡到Card
+                handleItemClick(item.path);
+              }}
+            >
+              管理{item.title}
+            </Button>
+          </Card>
+        </Col>
+      ))}
+    </Row>
+  );
+
+  // Tabs配置
+  const tabItems = [
+    {
+      key: 'baseData',
+      label: '基础数据',
+      children: renderCards(dataItems)
+    },
+    {
+      key: 'baseCategory',
+      label: '基础分类',
+      children: renderCards(categoryItems)
+    }
+  ];
+
   return (
     <div>
       <Title level={2}>基础档案</Title>
-      
-      <Tabs defaultActiveKey="baseData">
-        <TabPane tab="基础数据" key="baseData">
-          <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-            {dataItems.map(item => (
-              <Col xs={24} sm={12} md={8} lg={6} key={item.key}>
-                <Card 
-                  hoverable
-                  style={{ textAlign: 'center' }}
-                  onClick={() => handleItemClick(item.path)}
-                >
-                  <div style={{ 
-                    fontSize: 48, 
-                    color: item.color,
-                    marginBottom: 16 
-                  }}>
-                    {item.icon}
-                  </div>
-                  <Title level={4}>{item.title}</Title>
-                  <Button 
-                    type="primary" 
-                    style={{ backgroundColor: item.color, borderColor: item.color }}
-                    onClick={(e) => {
-                      e.stopPropagation(); // 阻止事件冒泡到Card
-                      handleItemClick(item.path);
-                    }}
-                  >
-                    管理{item.title}
-                  </Button>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-        <TabPane tab="基础分类" key="baseCategory">
-          <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-            {categoryItems.map(item => (
-              <Col xs={24} sm={12} md={8} lg={6} key={item.key}>
-                <Card 
-                  hoverable
-                  style={{ textAlign: 'center' }}
-                  onClick={() => handleItemClick(item.path)}
-                >
-                  <div style={{ 
-                    fontSize: 48, 
-                    color: item.color,
-                    marginBottom: 16 
-                  }}>
-                    {item.icon}
-                  </div>
-                  <Title level={4}>{item.title}</Title>
-                  <Button 
-                    type="primary" 
-                    style={{ backgroundColor: item.color, borderColor: item.color }}
-                    onClick={(e) => {
-                      e.stopPropagation(); // 阻止事件冒泡到Card
-                      handleItemClick(item.path);
-                    }}
-                  >
-                    管理{item.title}
-                  </Button>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </TabPane>
-      </Tabs>
+      <Tabs defaultActiveKey="baseData" items={tabItems} />
     </div>
   );
 };
