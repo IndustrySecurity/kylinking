@@ -1573,4 +1573,312 @@ def batch_update_specifications():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 币别管理API
+@bp.route('/currencies', methods=['GET'])
+@jwt_required()
+def get_currencies():
+    """获取币别列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入Currency模型
+        from app.models.basic_data import Currency
+        
+        # 构建查询
+        query = Currency.query
+        
+        # 搜索过滤
+        if search:
+            query = query.filter(
+                db.or_(
+                    Currency.currency_code.contains(search),
+                    Currency.currency_name.contains(search)
+                )
+            )
+        
+        # 启用状态过滤
+        if enabled_only:
+            query = query.filter(Currency.is_enabled == True)
+        
+        # 分页
+        pagination = query.order_by(Currency.sort_order, Currency.currency_code).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        # 构建响应数据
+        result = {
+            'currencies': [currency.to_dict() for currency in pagination.items],
+            'total': pagination.total,
+            'current_page': page,
+            'per_page': per_page,
+            'pages': pagination.pages
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_currencies():
+    """获取启用的币别列表（用于下拉选择）"""
+    try:
+        from app.models.basic_data import Currency
+        
+        currencies = Currency.get_enabled_list()
+        
+        return jsonify({
+            'success': True,
+            'data': [currency.to_dict() for currency in currencies]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies/<currency_id>', methods=['GET'])
+@jwt_required()
+def get_currency(currency_id):
+    """获取币别详情"""
+    try:
+        from app.models.basic_data import Currency
+        
+        currency = Currency.query.get_or_404(currency_id)
+        
+        return jsonify({
+            'success': True,
+            'data': currency.to_dict()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies', methods=['POST'])
+@jwt_required()
+def create_currency():
+    """创建币别"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('currency_code'):
+            return jsonify({'error': '币别代码不能为空'}), 400
+        
+        if not data.get('currency_name'):
+            return jsonify({'error': '币别名称不能为空'}), 400
+        
+        if not data.get('exchange_rate'):
+            return jsonify({'error': '汇率不能为空'}), 400
+        
+        from app.models.basic_data import Currency
+        
+        # 检查代码是否已存在
+        existing = Currency.query.filter_by(currency_code=data['currency_code']).first()
+        if existing:
+            return jsonify({'error': '币别代码已存在'}), 400
+        
+        # 创建币别
+        currency = Currency(
+            currency_code=data['currency_code'],
+            currency_name=data['currency_name'],
+            symbol=data.get('symbol'),
+            exchange_rate=data['exchange_rate'],
+            is_base_currency=data.get('is_base_currency', False),
+            decimal_places=data.get('decimal_places', 2),
+            description=data.get('description'),
+            sort_order=data.get('sort_order', 0),
+            is_enabled=data.get('is_enabled', True),
+            created_by=uuid.UUID(current_user_id),
+            updated_by=uuid.UUID(current_user_id)
+        )
+        
+        # 如果设置为本位币，需要取消其他币别的本位币标记
+        if currency.is_base_currency:
+            Currency.query.filter_by(is_base_currency=True).update({'is_base_currency': False})
+        
+        db.session.add(currency)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': currency.to_dict(),
+            'message': '币别创建成功'
+        }), 201
+        
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies/<currency_id>', methods=['PUT'])
+@jwt_required()
+def update_currency(currency_id):
+    """更新币别"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.models.basic_data import Currency
+        
+        currency = Currency.query.get_or_404(currency_id)
+        
+        # 检查代码是否与其他币别冲突
+        if data.get('currency_code') and data['currency_code'] != currency.currency_code:
+            existing = Currency.query.filter_by(currency_code=data['currency_code']).first()
+            if existing:
+                return jsonify({'error': '币别代码已存在'}), 400
+        
+        # 更新字段
+        for field in ['currency_code', 'currency_name', 'symbol', 'exchange_rate', 
+                      'is_base_currency', 'decimal_places', 'description', 
+                      'sort_order', 'is_enabled']:
+            if field in data:
+                setattr(currency, field, data[field])
+        
+        currency.updated_by = uuid.UUID(current_user_id)
+        
+        # 如果设置为本位币，需要取消其他币别的本位币标记
+        if currency.is_base_currency:
+            Currency.query.filter(Currency.id != currency.id).update({'is_base_currency': False})
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': currency.to_dict(),
+            'message': '币别更新成功'
+        })
+        
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies/<currency_id>', methods=['DELETE'])
+@jwt_required()
+def delete_currency(currency_id):
+    """删除币别"""
+    try:
+        from app.models.basic_data import Currency
+        
+        currency = Currency.query.get_or_404(currency_id)
+        
+        # 检查是否为本位币（本位币不允许删除）
+        if currency.is_base_currency:
+            return jsonify({'error': '本位币不允许删除'}), 400
+        
+        # TODO: 检查是否被其他业务数据引用
+        
+        db.session.delete(currency)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '币别删除成功'
+        })
+        
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies/<currency_id>/set-base', methods=['POST'])
+@jwt_required()
+def set_base_currency(currency_id):
+    """设置为本位币"""
+    try:
+        from app.models.basic_data import Currency
+        
+        currency = Currency.query.get_or_404(currency_id)
+        currency.set_as_base_currency()
+        
+        return jsonify({
+            'success': True,
+            'data': currency.to_dict(),
+            'message': '本位币设置成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/currencies/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_currencies():
+    """批量更新币别"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.models.basic_data import Currency
+        
+        results = []
+        
+        for item in data:
+            if not item.get('id'):
+                continue
+            
+            currency = Currency.query.get(item['id'])
+            if not currency:
+                continue
+            
+            # 更新字段
+            for field in ['currency_code', 'currency_name', 'symbol', 'exchange_rate', 
+                          'is_base_currency', 'decimal_places', 'description', 
+                          'sort_order', 'is_enabled']:
+                if field in item:
+                    setattr(currency, field, item[field])
+            
+            currency.updated_by = uuid.UUID(current_user_id)
+            results.append(currency.to_dict())
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新成功'
+        })
+        
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500 

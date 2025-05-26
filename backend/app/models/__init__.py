@@ -21,7 +21,8 @@ from app.models.basic_data import (
     DeliveryMethod,
     ColorCard,
     Unit,
-    Specification
+    Specification,
+    Currency
 )
 
 # 添加其他可能的模型导入
@@ -49,5 +50,6 @@ __all__ = [
     'DeliveryMethod',
     'ColorCard',
     'Unit',
-    'Specification'
+    'Specification',
+    'Currency'
 ] 

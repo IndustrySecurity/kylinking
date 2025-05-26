@@ -11,10 +11,6 @@ import Login from './pages/auth/Login';
 import BaseData from './pages/base-archive/BaseData';
 import ProductionManagement from './pages/base-archive/ProductionManagement';
 import FinancialManagement from './pages/base-archive/FinancialManagement';
-import CustomerCategories from './pages/base-archive/base-data/base-category/CustomerCategories';
-import ProductCategories from './pages/base-archive/base-data/base-category/ProductCategories';
-import SupplierCategories from './pages/base-archive/base-data/base-category/SupplierCategories';
-import MaterialCategories from './pages/base-archive/base-data/base-category/MaterialCategories';
 import PackageMethodManagement from './pages/base-archive/PackageMethodManagement';
 import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
 import ColorCardManagement from './pages/base-archive/ColorCardManagement';
@@ -22,6 +18,7 @@ import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
+import Currency from './pages/base-archive/financial-management/Currency';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -184,35 +181,15 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 基础分类路由 */}
-            <Route path="/base-archive/base-data/base-category/customer-categories" element={
+            {/* 财务管理子页面 */}
+            <Route path="/base-archive/financial-management/currency" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <CustomerCategories />
+                  <Currency />
                 </MainLayout>
               </ProtectedRoute>
             } />
-            <Route path="/base-archive/base-data/base-category/product-categories" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProductCategories />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/base-archive/base-data/base-category/supplier-categories" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SupplierCategories />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/base-archive/base-data/base-category/material-categories" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialCategories />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
+
             
             {/* 生产档案路由 */}
             <Route path="/production/archive/packaging" element={

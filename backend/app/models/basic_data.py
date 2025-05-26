@@ -805,4 +805,70 @@ class Specification(TenantModel):
         return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.spec_name).all()
     
     def __repr__(self):
-        return f'<Specification {self.spec_name}>' 
+        return f'<Specification {self.spec_name}>'
+
+
+class Currency(TenantModel):
+    """币别模型"""
+    __tablename__ = 'currencies'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    currency_code = db.Column(db.String(10), unique=True, nullable=False, comment='币别代码(如CNY,USD)')
+    currency_name = db.Column(db.String(100), nullable=False, comment='币别名称')
+    symbol = db.Column(db.String(10), comment='货币符号(如¥,$)')
+    exchange_rate = db.Column(db.Numeric(10, 4), nullable=False, default=1.0000, comment='汇率')
+    is_base_currency = db.Column(db.Boolean, default=False, comment='是否本位币')
+    decimal_places = db.Column(db.Integer, default=2, comment='小数位数')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'currency_code': self.currency_code,
+            'currency_name': self.currency_name,
+            'symbol': self.symbol,
+            'exchange_rate': float(self.exchange_rate) if self.exchange_rate else 1.0,
+            'is_base_currency': self.is_base_currency,
+            'decimal_places': self.decimal_places,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            pass
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的币别列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.currency_code).all()
+    
+    @classmethod
+    def get_base_currency(cls):
+        """获取本位币"""
+        return cls.query.filter_by(is_base_currency=True, is_enabled=True).first()
+    
+    def set_as_base_currency(self):
+        """设置为本位币（会将其他币别的本位币标记移除）"""
+        # 先将所有币别的本位币标记设为False
+        Currency.query.filter_by(is_base_currency=True).update({'is_base_currency': False})
+        # 设置当前币别为本位币
+        self.is_base_currency = True
+        db.session.commit()
+    
+    def __repr__(self):
+        return f'<Currency {self.currency_name}({self.currency_code})>' 
