@@ -815,10 +815,8 @@ class Currency(TenantModel):
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     currency_code = db.Column(db.String(10), unique=True, nullable=False, comment='币别代码(如CNY,USD)')
     currency_name = db.Column(db.String(100), nullable=False, comment='币别名称')
-    symbol = db.Column(db.String(10), comment='货币符号(如¥,$)')
     exchange_rate = db.Column(db.Numeric(10, 4), nullable=False, default=1.0000, comment='汇率')
     is_base_currency = db.Column(db.Boolean, default=False, comment='是否本位币')
-    decimal_places = db.Column(db.Integer, default=2, comment='小数位数')
     description = db.Column(db.Text, comment='描述')
     sort_order = db.Column(db.Integer, default=0, comment='显示排序')
     is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
@@ -833,10 +831,8 @@ class Currency(TenantModel):
             'id': str(self.id),
             'currency_code': self.currency_code,
             'currency_name': self.currency_name,
-            'symbol': self.symbol,
             'exchange_rate': float(self.exchange_rate) if self.exchange_rate else 1.0,
             'is_base_currency': self.is_base_currency,
-            'decimal_places': self.decimal_places,
             'description': self.description,
             'sort_order': self.sort_order,
             'is_enabled': self.is_enabled,

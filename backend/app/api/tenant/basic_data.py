@@ -1588,8 +1588,13 @@ def get_currencies():
         search = request.args.get('search')
         enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
         
-        # 获取当前用户信息
+        # 获取当前用户和租户信息
         current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        
+        if not tenant_id:
+            return jsonify({'error': '租户信息缺失'}), 400
         
         # 导入Currency模型
         from app.models.basic_data import Currency
@@ -1701,10 +1706,8 @@ def create_currency():
         currency = Currency(
             currency_code=data['currency_code'],
             currency_name=data['currency_name'],
-            symbol=data.get('symbol'),
             exchange_rate=data['exchange_rate'],
             is_base_currency=data.get('is_base_currency', False),
-            decimal_places=data.get('decimal_places', 2),
             description=data.get('description'),
             sort_order=data.get('sort_order', 0),
             is_enabled=data.get('is_enabled', True),
@@ -1755,8 +1758,8 @@ def update_currency(currency_id):
                 return jsonify({'error': '币别代码已存在'}), 400
         
         # 更新字段
-        for field in ['currency_code', 'currency_name', 'symbol', 'exchange_rate', 
-                      'is_base_currency', 'decimal_places', 'description', 
+        for field in ['currency_code', 'currency_name', 'exchange_rate', 
+                      'is_base_currency', 'description', 
                       'sort_order', 'is_enabled']:
             if field in data:
                 setattr(currency, field, data[field])
@@ -1859,8 +1862,8 @@ def batch_update_currencies():
                 continue
             
             # 更新字段
-            for field in ['currency_code', 'currency_name', 'symbol', 'exchange_rate', 
-                          'is_base_currency', 'decimal_places', 'description', 
+            for field in ['currency_code', 'currency_name', 'exchange_rate', 
+                          'is_base_currency', 'description', 
                           'sort_order', 'is_enabled']:
                 if field in item:
                     setattr(currency, field, item[field])
