@@ -19,6 +19,7 @@ import SpecificationManagement from './pages/base-archive/SpecificationManagemen
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
+import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -186,6 +187,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <Currency />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/financial-management/tax-rate" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <TaxRate />
                 </MainLayout>
               </ProtectedRoute>
             } />

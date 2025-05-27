@@ -1596,38 +1596,15 @@ def get_currencies():
         if not tenant_id:
             return jsonify({'error': '租户信息缺失'}), 400
         
-        # 导入Currency模型
-        from app.models.basic_data import Currency
+        # 使用CurrencyService获取币别列表
+        from app.services.package_method_service import CurrencyService
         
-        # 构建查询
-        query = Currency.query
-        
-        # 搜索过滤
-        if search:
-            query = query.filter(
-                db.or_(
-                    Currency.currency_code.contains(search),
-                    Currency.currency_name.contains(search)
-                )
-            )
-        
-        # 启用状态过滤
-        if enabled_only:
-            query = query.filter(Currency.is_enabled == True)
-        
-        # 分页
-        pagination = query.order_by(Currency.sort_order, Currency.currency_code).paginate(
-            page=page, per_page=per_page, error_out=False
+        result = CurrencyService.get_currencies(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
         )
-        
-        # 构建响应数据
-        result = {
-            'currencies': [currency.to_dict() for currency in pagination.items],
-            'total': pagination.total,
-            'current_page': page,
-            'per_page': per_page,
-            'pages': pagination.pages
-        }
         
         return jsonify({
             'success': True,
@@ -1643,13 +1620,13 @@ def get_currencies():
 def get_enabled_currencies():
     """获取启用的币别列表（用于下拉选择）"""
     try:
-        from app.models.basic_data import Currency
+        from app.services.package_method_service import CurrencyService
         
-        currencies = Currency.get_enabled_list()
+        currencies = CurrencyService.get_enabled_currencies()
         
         return jsonify({
             'success': True,
-            'data': [currency.to_dict() for currency in currencies]
+            'data': currencies
         })
         
     except Exception as e:
@@ -1661,15 +1638,17 @@ def get_enabled_currencies():
 def get_currency(currency_id):
     """获取币别详情"""
     try:
-        from app.models.basic_data import Currency
+        from app.services.package_method_service import CurrencyService
         
-        currency = Currency.query.get_or_404(currency_id)
+        currency = CurrencyService.get_currency(currency_id)
         
         return jsonify({
             'success': True,
-            'data': currency.to_dict()
+            'data': currency
         })
         
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1685,54 +1664,19 @@ def create_currency():
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
-        # 验证必填字段
-        if not data.get('currency_code'):
-            return jsonify({'error': '币别代码不能为空'}), 400
+        from app.services.package_method_service import CurrencyService
         
-        if not data.get('currency_name'):
-            return jsonify({'error': '币别名称不能为空'}), 400
-        
-        if not data.get('exchange_rate'):
-            return jsonify({'error': '汇率不能为空'}), 400
-        
-        from app.models.basic_data import Currency
-        
-        # 检查代码是否已存在
-        existing = Currency.query.filter_by(currency_code=data['currency_code']).first()
-        if existing:
-            return jsonify({'error': '币别代码已存在'}), 400
-        
-        # 创建币别
-        currency = Currency(
-            currency_code=data['currency_code'],
-            currency_name=data['currency_name'],
-            exchange_rate=data['exchange_rate'],
-            is_base_currency=data.get('is_base_currency', False),
-            description=data.get('description'),
-            sort_order=data.get('sort_order', 0),
-            is_enabled=data.get('is_enabled', True),
-            created_by=uuid.UUID(current_user_id),
-            updated_by=uuid.UUID(current_user_id)
-        )
-        
-        # 如果设置为本位币，需要取消其他币别的本位币标记
-        if currency.is_base_currency:
-            Currency.query.filter_by(is_base_currency=True).update({'is_base_currency': False})
-        
-        db.session.add(currency)
-        db.session.commit()
+        currency = CurrencyService.create_currency(data, current_user_id)
         
         return jsonify({
             'success': True,
-            'data': currency.to_dict(),
+            'data': currency,
             'message': '币别创建成功'
         }), 201
         
     except ValueError as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1747,42 +1691,19 @@ def update_currency(currency_id):
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
-        from app.models.basic_data import Currency
+        from app.services.package_method_service import CurrencyService
         
-        currency = Currency.query.get_or_404(currency_id)
-        
-        # 检查代码是否与其他币别冲突
-        if data.get('currency_code') and data['currency_code'] != currency.currency_code:
-            existing = Currency.query.filter_by(currency_code=data['currency_code']).first()
-            if existing:
-                return jsonify({'error': '币别代码已存在'}), 400
-        
-        # 更新字段
-        for field in ['currency_code', 'currency_name', 'exchange_rate', 
-                      'is_base_currency', 'description', 
-                      'sort_order', 'is_enabled']:
-            if field in data:
-                setattr(currency, field, data[field])
-        
-        currency.updated_by = uuid.UUID(current_user_id)
-        
-        # 如果设置为本位币，需要取消其他币别的本位币标记
-        if currency.is_base_currency:
-            Currency.query.filter(Currency.id != currency.id).update({'is_base_currency': False})
-        
-        db.session.commit()
+        currency = CurrencyService.update_currency(currency_id, data, current_user_id)
         
         return jsonify({
             'success': True,
-            'data': currency.to_dict(),
+            'data': currency,
             'message': '币别更新成功'
         })
         
     except ValueError as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1791,18 +1712,9 @@ def update_currency(currency_id):
 def delete_currency(currency_id):
     """删除币别"""
     try:
-        from app.models.basic_data import Currency
+        from app.services.package_method_service import CurrencyService
         
-        currency = Currency.query.get_or_404(currency_id)
-        
-        # 检查是否为本位币（本位币不允许删除）
-        if currency.is_base_currency:
-            return jsonify({'error': '本位币不允许删除'}), 400
-        
-        # TODO: 检查是否被其他业务数据引用
-        
-        db.session.delete(currency)
-        db.session.commit()
+        CurrencyService.delete_currency(currency_id)
         
         return jsonify({
             'success': True,
@@ -1810,10 +1722,8 @@ def delete_currency(currency_id):
         })
         
     except ValueError as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1822,19 +1732,19 @@ def delete_currency(currency_id):
 def set_base_currency(currency_id):
     """设置为本位币"""
     try:
-        from app.models.basic_data import Currency
+        from app.services.package_method_service import CurrencyService
         
-        currency = Currency.query.get_or_404(currency_id)
-        currency.set_as_base_currency()
+        currency = CurrencyService.set_base_currency(currency_id)
         
         return jsonify({
             'success': True,
-            'data': currency.to_dict(),
+            'data': currency,
             'message': '本位币设置成功'
         })
         
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1849,29 +1759,9 @@ def batch_update_currencies():
         if not data or not isinstance(data, list):
             return jsonify({'error': '请求数据格式错误'}), 400
         
-        from app.models.basic_data import Currency
+        from app.services.package_method_service import CurrencyService
         
-        results = []
-        
-        for item in data:
-            if not item.get('id'):
-                continue
-            
-            currency = Currency.query.get(item['id'])
-            if not currency:
-                continue
-            
-            # 更新字段
-            for field in ['currency_code', 'currency_name', 'exchange_rate', 
-                          'is_base_currency', 'description', 
-                          'sort_order', 'is_enabled']:
-                if field in item:
-                    setattr(currency, field, item[field])
-            
-            currency.updated_by = uuid.UUID(current_user_id)
-            results.append(currency.to_dict())
-        
-        db.session.commit()
+        results = CurrencyService.batch_update_currencies(data, current_user_id)
         
         return jsonify({
             'success': True,
@@ -1880,8 +1770,196 @@ def batch_update_currencies():
         })
         
     except ValueError as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# 税率管理API
+@bp.route('/tax-rates', methods=['GET'])
+@jwt_required()
+def get_tax_rates():
+    """获取税率列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        from app.services.package_method_service import TaxRateService
+        
+        result = TaxRateService.get_tax_rates(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_tax_rates():
+    """获取启用的税率列表（用于下拉选择）"""
+    try:
+        from app.services.package_method_service import TaxRateService
+        
+        tax_rates = TaxRateService.get_enabled_tax_rates()
+        
+        return jsonify({
+            'success': True,
+            'data': tax_rates
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates/<tax_rate_id>', methods=['GET'])
+@jwt_required()
+def get_tax_rate(tax_rate_id):
+    """获取税率详情"""
+    try:
+        from app.services.package_method_service import TaxRateService
+        
+        tax_rate = TaxRateService.get_tax_rate(tax_rate_id)
+        
+        return jsonify({
+            'success': True,
+            'data': tax_rate
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates', methods=['POST'])
+@jwt_required()
+def create_tax_rate():
+    """创建税率"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import TaxRateService
+        
+        tax_rate = TaxRateService.create_tax_rate(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': tax_rate,
+            'message': '税率创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates/<tax_rate_id>', methods=['PUT'])
+@jwt_required()
+def update_tax_rate(tax_rate_id):
+    """更新税率"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import TaxRateService
+        
+        tax_rate = TaxRateService.update_tax_rate(tax_rate_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': tax_rate,
+            'message': '税率更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates/<tax_rate_id>', methods=['DELETE'])
+@jwt_required()
+def delete_tax_rate(tax_rate_id):
+    """删除税率"""
+    try:
+        from app.services.package_method_service import TaxRateService
+        
+        TaxRateService.delete_tax_rate(tax_rate_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '税率删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates/<tax_rate_id>/set-default', methods=['POST'])
+@jwt_required()
+def set_default_tax_rate(tax_rate_id):
+    """设置为默认税率"""
+    try:
+        from app.services.package_method_service import TaxRateService
+        
+        tax_rate = TaxRateService.set_default_tax_rate(tax_rate_id)
+        
+        return jsonify({
+            'success': True,
+            'data': tax_rate,
+            'message': '默认税率设置成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/tax-rates/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_tax_rates():
+    """批量更新税率"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.services.package_method_service import TaxRateService
+        
+        results = TaxRateService.batch_update_tax_rates(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功处理 {len(results)} 条税率记录'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 

@@ -867,4 +867,68 @@ class Currency(TenantModel):
         db.session.commit()
     
     def __repr__(self):
-        return f'<Currency {self.currency_name}({self.currency_code})>' 
+        return f'<Currency {self.currency_name}({self.currency_code})>'
+
+
+class TaxRate(TenantModel):
+    """税率管理模型"""
+    __tablename__ = 'tax_rates'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    tax_name = db.Column(db.String(100), nullable=False, comment='税收')
+    tax_rate = db.Column(db.Numeric(5, 2), nullable=False, comment='税率%')
+    is_default = db.Column(db.Boolean, default=False, comment='评审默认')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'tax_name': self.tax_name,
+            'tax_rate': float(self.tax_rate) if self.tax_rate else 0,
+            'is_default': self.is_default,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            data.update({
+                'created_by': str(self.created_by) if self.created_by else None,
+                'updated_by': str(self.updated_by) if self.updated_by else None,
+            })
+        
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的税率列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.tax_name).all()
+    
+    @classmethod
+    def get_default_tax_rate(cls):
+        """获取默认税率"""
+        return cls.query.filter_by(is_default=True, is_enabled=True).first()
+    
+    def set_as_default(self):
+        """设置为默认税率"""
+        # 先取消其他税率的默认状态
+        cls = self.__class__
+        cls.query.filter_by(is_default=True).update({'is_default': False})
+        # 设置当前税率为默认
+        self.is_default = True
+        db.session.commit()
+    
+    def __repr__(self):
+        return f'<TaxRate {self.tax_name}: {self.tax_rate}%>' 

@@ -26,13 +26,13 @@ import {
   CheckOutlined,
   CloseOutlined,
   StarOutlined,
-  DollarOutlined
+  PercentageOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/currency';
+import { taxRateApi } from '../../../api/taxRate';
 
 const { Title } = Typography;
 
-const Currency = () => {
+const TaxRate = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
@@ -56,7 +56,7 @@ const Currency = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      const response = await taxRateApi.getTaxRates({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
@@ -64,10 +64,10 @@ const Currency = () => {
       });
 
       // response 已经是 data 部分了（由 request.js 拦截器处理）
-      const { currencies, total, current_page } = response;
+      const { tax_rates, total, current_page } = response;
       
       // 为每行数据添加key
-      const dataWithKeys = currencies.map((item, index) => ({
+      const dataWithKeys = tax_rates.map((item, index) => ({
         ...item,
         key: item.id || `temp_${index}`
       }));
@@ -115,13 +115,12 @@ const Currency = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
+      tax_name: '',
+      tax_rate: 0,
       description: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
+      is_default: false,
       ...record,
     });
     setEditingKey(record.key);
@@ -148,10 +147,10 @@ const Currency = () => {
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+          response = await taxRateApi.updateTaxRate(item.id, row);
         } else {
           // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await taxRateApi.createTaxRate(row);
         }
 
         // response 已经是 data 部分了（由 request.js 拦截器处理）
@@ -181,7 +180,7 @@ const Currency = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        await currencyApi.deleteCurrency(record.id);
+        await taxRateApi.deleteTaxRate(record.id);
         message.success('删除成功');
       }
       
@@ -193,38 +192,32 @@ const Currency = () => {
     }
   };
 
-  // 设置为本位币
-  const handleSetBase = async (key) => {
+  // 设置为默认税率
+  const handleSetDefault = async (key) => {
     try {
       const record = data.find(item => item.key === key);
       if (record.id && !record.id.startsWith('temp_')) {
-        await currencyApi.setBaseCurrency(record.id);
-        message.success('设置本位币成功');
-        loadData(); // 重新加载数据以更新状态
+        await taxRateApi.setDefaultTaxRate(record.id);
+        message.success('设置默认税率成功');
+        // 重新加载数据
+        loadData();
       }
     } catch (error) {
-      message.error('设置本位币失败：' + (error.response?.data?.error || error.message));
+      message.error('设置默认税率失败：' + (error.response?.data?.error || error.message));
     }
   };
 
   // 添加新行
   const handleAdd = () => {
-    const newKey = `temp_${Date.now()}`;
     const newData = {
-      key: newKey,
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
+      key: `temp_${Date.now()}`,
+      tax_name: '',
+      tax_rate: 0,
+      is_default: false,
       description: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
-      created_by_name: '',
-      created_at: '',
-      updated_by_name: '',
-      updated_at: ''
     };
-    
     setData([newData, ...data]);
     edit(newData);
   };
@@ -242,24 +235,23 @@ const Currency = () => {
   }) => {
     let inputNode;
     
-    switch (inputType) {
-      case 'number':
-        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
-        break;
-      case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
-        break;
-      case 'integer':
-        inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
-        break;
-      case 'switch':
-        inputNode = <Switch />;
-        break;
-      case 'textarea':
-        inputNode = <Input.TextArea rows={2} />;
-        break;
-      default:
-        inputNode = <Input />;
+    if (inputType === 'number') {
+      inputNode = (
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0}
+          max={100}
+          precision={2}
+          formatter={value => `${value}%`}
+          parser={value => value.replace('%', '')}
+        />
+      );
+    } else if (inputType === 'switch') {
+      inputNode = <Switch />;
+    } else if (inputType === 'sort') {
+      inputNode = <InputNumber style={{ width: '100%' }} min={0} />;
+    } else {
+      inputNode = <Input />;
     }
 
     return (
@@ -270,18 +262,19 @@ const Currency = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['currency_code', 'currency_name', 'exchange_rate'].includes(dataIndex),
+                required: ['tax_name', 'tax_rate'].includes(dataIndex),
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'currency_code' ? [
-                { max: 10, message: '币别代码不能超过10个字符' }
-              ] : []),
-              ...(dataIndex === 'currency_name' ? [
-                { max: 100, message: '币别名称不能超过100个字符' }
-              ] : []),
-              ...(dataIndex === 'exchange_rate' ? [
-                { type: 'number', min: 0.0001, message: '汇率必须大于0' }
-              ] : [])
+              ...(dataIndex === 'tax_name' ? [{
+                max: 100,
+                message: '税收名称不能超过100个字符'
+              }] : []),
+              ...(dataIndex === 'tax_rate' ? [{
+                type: 'number',
+                min: 0,
+                max: 100,
+                message: '税率必须在0-100之间'
+              }] : [])
             ]}
           >
             {inputNode}
@@ -296,58 +289,49 @@ const Currency = () => {
   // 表格列定义
   const columns = [
     {
-      title: '币别代码',
-      dataIndex: 'currency_code',
-      key: 'currency_code',
-      width: 120,
+      title: '税收',
+      dataIndex: 'tax_name',
+      key: 'tax_name',
+      width: 200,
       editable: true,
-      render: (text, record) => {
-        const editable = isEditing(record);
-        return editable ? text : (
-          <span style={{ fontWeight: 500 }}>
-            {text}
-            {record.is_base_currency && (
-              <Tag color="gold" style={{ marginLeft: 8 }}>
-                <StarOutlined /> 本位币
-              </Tag>
-            )}
-          </span>
-        );
-      }
+      render: (text, record) => (
+        <Space>
+          {text}
+          {record.is_default && (
+            <Tag color="gold" icon={<StarOutlined />}>
+              默认
+            </Tag>
+          )}
+        </Space>
+      ),
     },
     {
-      title: '币别名称',
-      dataIndex: 'currency_name',
-      key: 'currency_name',
-      width: 150,
-      editable: true,
-      render: (text, record) => {
-        const editable = isEditing(record);
-        return editable ? text : (
-          <span style={{ fontWeight: 500 }}>{text}</span>
-        );
-      }
-    },
-    {
-      title: '汇率',
-      dataIndex: 'exchange_rate',
-      key: 'exchange_rate',
+      title: '税率(%)',
+      dataIndex: 'tax_rate',
+      key: 'tax_rate',
       width: 120,
       editable: true,
-      inputType: 'decimal',
-      align: 'right',
-      render: (value, record) => {
-        const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
-      }
+      render: (value) => `${value}%`,
+    },
+    {
+      title: '评审默认',
+      dataIndex: 'is_default',
+      key: 'is_default',
+      width: 100,
+      editable: true,
+      render: (value, record) => (
+        <Switch
+          checked={value}
+          disabled={!isEditing(record)}
+          size="small"
+        />
+      ),
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
-      width: 200,
       editable: true,
-      inputType: 'textarea',
       ellipsis: {
         showTitle: false,
       },
@@ -355,54 +339,29 @@ const Currency = () => {
         <Tooltip placement="topLeft" title={text}>
           {text}
         </Tooltip>
-      )
+      ),
     },
     {
-      title: '显示排序',
+      title: '排序',
       dataIndex: 'sort_order',
       key: 'sort_order',
-      width: 100,
+      width: 80,
       editable: true,
-      inputType: 'number',
-      align: 'center'
     },
     {
       title: '是否启用',
       dataIndex: 'is_enabled',
       key: 'is_enabled',
-      width: 100,
+      width: 80,
       editable: true,
-      inputType: 'switch',
       align: 'center',
-      render: (enabled, record) => {
-        const editable = isEditing(record);
-        return editable ? enabled : (
-          <Switch 
-            checked={enabled} 
-            disabled 
-            size="small"
-          />
-        );
-      }
-    },
-    {
-      title: '是否本位币',
-      dataIndex: 'is_base_currency',
-      key: 'is_base_currency',
-      width: 120,
-      editable: true,
-      inputType: 'switch',
-      align: 'center',
-      render: (isBase, record) => {
-        const editable = isEditing(record);
-        return editable ? isBase : (
-          <Switch 
-            checked={isBase} 
-            disabled 
-            size="small"
-          />
-        );
-      }
+      render: (value, record) => (
+        <Switch
+          checked={value}
+          disabled={!isEditing(record)}
+          size="small"
+        />
+      ),
     },
     {
       title: '创建人',
@@ -472,34 +431,32 @@ const Currency = () => {
             >
               编辑
             </Button>
-            {!record.is_base_currency && (
+            {!record.is_default && (
               <Button
                 type="link"
                 size="small"
                 icon={<StarOutlined />}
                 disabled={editingKey !== ''}
-                onClick={() => handleSetBase(record.key)}
+                onClick={() => handleSetDefault(record.key)}
               >
-                设为本位币
+                设为默认
               </Button>
             )}
-            {!record.is_base_currency && (
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+            <Popconfirm
+              title="确定删除这条记录吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
               >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
-            )}
+                删除
+              </Button>
+            </Popconfirm>
           </Space>
         );
       },
@@ -511,11 +468,21 @@ const Currency = () => {
     if (!col.editable) {
       return col;
     }
+    
+    let inputType = 'text';
+    if (col.dataIndex === 'tax_rate') {
+      inputType = 'number';
+    } else if (col.dataIndex === 'is_enabled' || col.dataIndex === 'is_default') {
+      inputType = 'switch';
+    } else if (col.dataIndex === 'sort_order') {
+      inputType = 'sort';
+    }
+
     return {
       ...col,
       onCell: (record) => ({
         record,
-        inputType: col.inputType || 'text',
+        inputType,
         dataIndex: col.dataIndex,
         title: col.title,
         editing: isEditing(record),
@@ -530,15 +497,15 @@ const Currency = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0 }}>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                币别管理
+                <PercentageOutlined style={{ marginRight: 8 }} />
+                税率管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索币别代码、名称或描述"
+                  placeholder="搜索税收名称、描述"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
@@ -583,9 +550,9 @@ const Currency = () => {
             columns={mergedColumns}
             rowClassName="editable-row"
             pagination={pagination}
-            loading={loading}
             onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            loading={loading}
+            scroll={{ x: 1600 }}
             size="small"
           />
         </Form>
@@ -594,4 +561,4 @@ const Currency = () => {
   );
 };
 
-export default Currency; 
+export default TaxRate; 

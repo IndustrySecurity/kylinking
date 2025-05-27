@@ -2407,3 +2407,737 @@ class SpecificationService:
         ).order_by(Specification.sort_order, Specification.spec_name).all()
         
         return [spec.to_dict() for spec in specifications] 
+
+# 币别管理API
+class CurrencyService:
+    """币别管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in CurrencyService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_currencies(page=1, per_page=20, search=None, enabled_only=False):
+        """获取币别列表"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        
+        # 构建基础查询
+        base_query = f"""
+        SELECT 
+            id, currency_code, currency_name, exchange_rate, is_base_currency,
+            description, sort_order, is_enabled, created_by, updated_by, 
+            created_at, updated_at
+        FROM {schema_name}.currencies
+        """
+        
+        # 添加搜索条件
+        where_conditions = []
+        params = {}
+        
+        if search:
+            where_conditions.append("""
+                (currency_code ILIKE :search OR 
+                 currency_name ILIKE :search OR 
+                 description ILIKE :search)
+            """)
+            params['search'] = f'%{search}%'
+        
+        if enabled_only:
+            where_conditions.append("is_enabled = true")
+        
+        # 构建完整查询
+        if where_conditions:
+            base_query += " WHERE " + " AND ".join(where_conditions)
+        
+        base_query += " ORDER BY sort_order, created_at"
+        
+        # 计算总数
+        count_query = f"""
+        SELECT COUNT(*) as total
+        FROM {schema_name}.currencies
+        """
+        if where_conditions:
+            count_query += " WHERE " + " AND ".join(where_conditions)
+        
+        # 执行查询
+        try:
+            # 获取总数
+            count_result = db.session.execute(text(count_query), params)
+            total = count_result.scalar()
+            
+            # 计算分页
+            offset = (page - 1) * per_page
+            params['limit'] = per_page
+            params['offset'] = offset
+            
+            # 添加分页
+            paginated_query = base_query + " LIMIT :limit OFFSET :offset"
+            
+            # 执行分页查询
+            result = db.session.execute(text(paginated_query), params)
+            rows = result.fetchall()
+            
+            currencies = []
+            for row in rows:
+                currency_data = {
+                    'id': str(row.id),
+                    'currency_code': row.currency_code,
+                    'currency_name': row.currency_name,
+                    'exchange_rate': float(row.exchange_rate) if row.exchange_rate else None,
+                    'is_base_currency': row.is_base_currency,
+                    'description': row.description,
+                    'sort_order': row.sort_order,
+                    'is_enabled': row.is_enabled,
+                    'created_by': str(row.created_by) if row.created_by else None,
+                    'updated_by': str(row.updated_by) if row.updated_by else None,
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                    'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+                }
+                
+                # 获取创建人和修改人用户名
+                if row.created_by:
+                    created_user = User.query.get(row.created_by)
+                    if created_user:
+                        currency_data['created_by_name'] = created_user.get_full_name()
+                    else:
+                        currency_data['created_by_name'] = '未知用户'
+                else:
+                    currency_data['created_by_name'] = '系统'
+                    
+                if row.updated_by:
+                    updated_user = User.query.get(row.updated_by)
+                    if updated_user:
+                        currency_data['updated_by_name'] = updated_user.get_full_name()
+                    else:
+                        currency_data['updated_by_name'] = '未知用户'
+                else:
+                    currency_data['updated_by_name'] = ''
+                
+                currencies.append(currency_data)
+            
+            # 计算分页信息
+            pages = (total + per_page - 1) // per_page
+            has_next = page < pages
+            has_prev = page > 1
+            
+            return {
+                'currencies': currencies,
+                'total': total,
+                'pages': pages,
+                'current_page': page,
+                'per_page': per_page,
+                'has_next': has_next,
+                'has_prev': has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"Error querying currencies: {str(e)}")
+            raise ValueError(f'查询币别失败: {str(e)}')
+    
+    @staticmethod
+    def get_currency(currency_id):
+        """获取币别详情"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        try:
+            currency_uuid = uuid.UUID(currency_id)
+        except ValueError:
+            raise ValueError('无效的币别ID')
+        
+        from app.models.basic_data import Currency
+        currency = Currency.query.get(currency_uuid)
+        if not currency:
+            raise ValueError('币别不存在')
+        
+        currency_data = currency.to_dict()
+        
+        # 获取创建人和修改人用户名
+        if currency.created_by:
+            created_user = User.query.get(currency.created_by)
+            if created_user:
+                currency_data['created_by_name'] = created_user.get_full_name()
+            else:
+                currency_data['created_by_name'] = '未知用户'
+        
+        if currency.updated_by:
+            updated_user = User.query.get(currency.updated_by)
+            if updated_user:
+                currency_data['updated_by_name'] = updated_user.get_full_name()
+            else:
+                currency_data['updated_by_name'] = '未知用户'
+        
+        return currency_data
+    
+    @staticmethod
+    def create_currency(data, created_by):
+        """创建币别"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        # 验证数据
+        if not data.get('currency_code'):
+            raise ValueError('币别代码不能为空')
+        
+        if not data.get('currency_name'):
+            raise ValueError('币别名称不能为空')
+        
+        if not data.get('exchange_rate'):
+            raise ValueError('汇率不能为空')
+        
+        from app.models.basic_data import Currency
+        
+        # 检查币别代码是否重复
+        existing = Currency.query.filter_by(
+            currency_code=data['currency_code']
+        ).first()
+        if existing:
+            raise ValueError('币别代码已存在')
+        
+        try:
+            created_by_uuid = uuid.UUID(created_by)
+        except ValueError:
+            raise ValueError('无效的创建用户ID')
+        
+        # 创建币别
+        currency = Currency(
+            currency_code=data['currency_code'],
+            currency_name=data['currency_name'],
+            exchange_rate=data['exchange_rate'],
+            is_base_currency=data.get('is_base_currency', False),
+            description=data.get('description'),
+            sort_order=data.get('sort_order', 0),
+            is_enabled=data.get('is_enabled', True),
+            created_by=created_by_uuid,
+            updated_by=created_by_uuid
+        )
+        
+        # 如果设置为本位币，需要取消其他币别的本位币标记
+        if currency.is_base_currency:
+            Currency.query.filter_by(is_base_currency=True).update({'is_base_currency': False})
+        
+        try:
+            db.session.add(currency)
+            db.session.commit()
+            return currency.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'创建币别失败: {str(e)}')
+    
+    @staticmethod
+    def update_currency(currency_id, data, updated_by):
+        """更新币别"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        try:
+            currency_uuid = uuid.UUID(currency_id)
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的ID')
+        
+        from app.models.basic_data import Currency
+        currency = Currency.query.get(currency_uuid)
+        if not currency:
+            raise ValueError('币别不存在')
+        
+        # 检查币别代码是否重复（排除自己）
+        if 'currency_code' in data and data['currency_code'] != currency.currency_code:
+            existing = Currency.query.filter(
+                Currency.currency_code == data['currency_code'],
+                Currency.id != currency_uuid
+            ).first()
+            if existing:
+                raise ValueError('币别代码已存在')
+        
+        # 更新字段
+        for key, value in data.items():
+            if hasattr(currency, key):
+                setattr(currency, key, value)
+        
+        currency.updated_by = updated_by_uuid
+        
+        # 如果设置为本位币，需要取消其他币别的本位币标记
+        if currency.is_base_currency:
+            Currency.query.filter(Currency.id != currency.id).update({'is_base_currency': False})
+        
+        try:
+            db.session.commit()
+            return currency.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'更新币别失败: {str(e)}')
+    
+    @staticmethod
+    def delete_currency(currency_id):
+        """删除币别"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        try:
+            currency_uuid = uuid.UUID(currency_id)
+        except ValueError:
+            raise ValueError('无效的币别ID')
+        
+        from app.models.basic_data import Currency
+        currency = Currency.query.get(currency_uuid)
+        if not currency:
+            raise ValueError('币别不存在')
+        
+        # 检查是否为本位币（本位币不允许删除）
+        if currency.is_base_currency:
+            raise ValueError('本位币不允许删除')
+        
+        try:
+            db.session.delete(currency)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'删除币别失败: {str(e)}')
+    
+    @staticmethod
+    def set_base_currency(currency_id):
+        """设置为本位币"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        try:
+            currency_uuid = uuid.UUID(currency_id)
+        except ValueError:
+            raise ValueError('无效的币别ID')
+        
+        from app.models.basic_data import Currency
+        currency = Currency.query.get(currency_uuid)
+        if not currency:
+            raise ValueError('币别不存在')
+        
+        try:
+            currency.set_as_base_currency()
+            return currency.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'设置本位币失败: {str(e)}')
+    
+    @staticmethod
+    def batch_update_currencies(data_list, updated_by):
+        """批量更新币别（用于可编辑表格）"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        try:
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的用户ID')
+        
+        results = []
+        errors = []
+        
+        for index, data in enumerate(data_list):
+            try:
+                if 'id' in data and data['id']:
+                    # 更新现有记录
+                    currency = CurrencyService.update_currency(
+                        data['id'], data, updated_by
+                    )
+                    results.append(currency)
+                else:
+                    # 创建新记录
+                    currency = CurrencyService.create_currency(
+                        data, updated_by
+                    )
+                    results.append(currency)
+            except ValueError as e:
+                errors.append({
+                    'index': index,
+                    'error': str(e),
+                    'data': data
+                })
+        
+        if errors:
+            # 如果有错误，回滚事务
+            db.session.rollback()
+            raise ValueError(f'批量更新失败，错误详情: {errors}')
+        
+        return results
+    
+    @staticmethod
+    def get_enabled_currencies():
+        """获取启用的币别列表（用于下拉选择）"""
+        # 设置schema
+        CurrencyService._set_schema()
+        
+        from app.models.basic_data import Currency
+        currencies = Currency.query.filter_by(
+            is_enabled=True
+        ).order_by(Currency.sort_order, Currency.currency_name).all()
+        
+        return [currency.to_dict() for currency in currencies]
+
+
+class TaxRateService:
+    """税率管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in TaxRateService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_tax_rates(page=1, per_page=20, search=None, enabled_only=False):
+        """获取税率列表"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        
+        # 构建基础查询
+        base_query = f"""
+        SELECT 
+            id, tax_name, tax_rate, is_default, description, sort_order, 
+            is_enabled, created_by, updated_by, created_at, updated_at
+        FROM {schema_name}.tax_rates
+        """
+        
+        # 添加搜索条件
+        where_conditions = []
+        params = {}
+        
+        if search:
+            where_conditions.append("""
+                (tax_name ILIKE :search OR 
+                 description ILIKE :search)
+            """)
+            params['search'] = f'%{search}%'
+        
+        if enabled_only:
+            where_conditions.append("is_enabled = true")
+        
+        # 构建完整查询
+        if where_conditions:
+            base_query += " WHERE " + " AND ".join(where_conditions)
+        
+        base_query += " ORDER BY sort_order, created_at"
+        
+        # 计算总数
+        count_query = f"""
+        SELECT COUNT(*) as total
+        FROM {schema_name}.tax_rates
+        """
+        if where_conditions:
+            count_query += " WHERE " + " AND ".join(where_conditions)
+        
+        # 执行查询
+        try:
+            # 获取总数
+            count_result = db.session.execute(text(count_query), params)
+            total = count_result.scalar()
+            
+            # 计算分页
+            offset = (page - 1) * per_page
+            params['limit'] = per_page
+            params['offset'] = offset
+            
+            # 添加分页
+            paginated_query = base_query + " LIMIT :limit OFFSET :offset"
+            
+            # 执行分页查询
+            result = db.session.execute(text(paginated_query), params)
+            rows = result.fetchall()
+            
+            tax_rates = []
+            for row in rows:
+                tax_rate_data = {
+                    'id': str(row.id),
+                    'tax_name': row.tax_name,
+                    'tax_rate': float(row.tax_rate) if row.tax_rate else 0,
+                    'is_default': row.is_default,
+                    'description': row.description,
+                    'sort_order': row.sort_order,
+                    'is_enabled': row.is_enabled,
+                    'created_by': str(row.created_by) if row.created_by else None,
+                    'updated_by': str(row.updated_by) if row.updated_by else None,
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                    'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+                }
+                
+                # 获取创建人和修改人用户名
+                if row.created_by:
+                    created_user = User.query.get(row.created_by)
+                    if created_user:
+                        tax_rate_data['created_by_name'] = created_user.get_full_name()
+                    else:
+                        tax_rate_data['created_by_name'] = '未知用户'
+                else:
+                    tax_rate_data['created_by_name'] = '系统'
+                    
+                if row.updated_by:
+                    updated_user = User.query.get(row.updated_by)
+                    if updated_user:
+                        tax_rate_data['updated_by_name'] = updated_user.get_full_name()
+                    else:
+                        tax_rate_data['updated_by_name'] = '未知用户'
+                else:
+                    tax_rate_data['updated_by_name'] = ''
+                
+                tax_rates.append(tax_rate_data)
+            
+            # 计算分页信息
+            pages = (total + per_page - 1) // per_page
+            has_next = page < pages
+            has_prev = page > 1
+            
+            return {
+                'tax_rates': tax_rates,
+                'total': total,
+                'pages': pages,
+                'current_page': page,
+                'per_page': per_page,
+                'has_next': has_next,
+                'has_prev': has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"Error querying tax rates: {str(e)}")
+            raise ValueError(f'查询税率失败: {str(e)}')
+    
+    @staticmethod
+    def get_tax_rate(tax_rate_id):
+        """获取税率详情"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        try:
+            tax_rate_uuid = uuid.UUID(tax_rate_id)
+        except ValueError:
+            raise ValueError('无效的税率ID')
+        
+        from app.models.basic_data import TaxRate
+        tax_rate = TaxRate.query.get(tax_rate_uuid)
+        if not tax_rate:
+            raise ValueError('税率不存在')
+        
+        tax_rate_data = tax_rate.to_dict()
+        
+        # 获取创建人和修改人用户名
+        if tax_rate.created_by:
+            created_user = User.query.get(tax_rate.created_by)
+            if created_user:
+                tax_rate_data['created_by_name'] = created_user.get_full_name()
+            else:
+                tax_rate_data['created_by_name'] = '未知用户'
+        
+        if tax_rate.updated_by:
+            updated_user = User.query.get(tax_rate.updated_by)
+            if updated_user:
+                tax_rate_data['updated_by_name'] = updated_user.get_full_name()
+            else:
+                tax_rate_data['updated_by_name'] = '未知用户'
+        
+        return tax_rate_data
+    
+    @staticmethod
+    def create_tax_rate(data, created_by):
+        """创建税率"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        # 验证数据
+        if not data.get('tax_name'):
+            raise ValueError('税收名称不能为空')
+        
+        if data.get('tax_rate') is None:
+            raise ValueError('税率不能为空')
+        
+        from app.models.basic_data import TaxRate
+        
+        # 检查税收名称是否重复
+        existing = TaxRate.query.filter_by(
+            tax_name=data['tax_name']
+        ).first()
+        if existing:
+            raise ValueError('税收名称已存在')
+        
+        try:
+            created_by_uuid = uuid.UUID(created_by)
+        except ValueError:
+            raise ValueError('无效的创建用户ID')
+        
+        # 创建税率
+        tax_rate = TaxRate(
+            tax_name=data['tax_name'],
+            tax_rate=data['tax_rate'],
+            is_default=data.get('is_default', False),
+            description=data.get('description'),
+            sort_order=data.get('sort_order', 0),
+            is_enabled=data.get('is_enabled', True),
+            created_by=created_by_uuid
+        )
+        
+        # 如果设置为默认，需要取消其他税率的默认标记
+        if tax_rate.is_default:
+            TaxRate.query.filter_by(is_default=True).update({'is_default': False})
+        
+        try:
+            db.session.add(tax_rate)
+            db.session.commit()
+            return tax_rate.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'创建税率失败: {str(e)}')
+    
+    @staticmethod
+    def update_tax_rate(tax_rate_id, data, updated_by):
+        """更新税率"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        try:
+            tax_rate_uuid = uuid.UUID(tax_rate_id)
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的ID')
+        
+        from app.models.basic_data import TaxRate
+        tax_rate = TaxRate.query.get(tax_rate_uuid)
+        if not tax_rate:
+            raise ValueError('税率不存在')
+        
+        # 检查税收名称是否重复（排除自己）
+        if 'tax_name' in data and data['tax_name'] != tax_rate.tax_name:
+            existing = TaxRate.query.filter(
+                TaxRate.tax_name == data['tax_name'],
+                TaxRate.id != tax_rate_uuid
+            ).first()
+            if existing:
+                raise ValueError('税收名称已存在')
+        
+        # 更新字段
+        for key, value in data.items():
+            if hasattr(tax_rate, key):
+                setattr(tax_rate, key, value)
+        
+        tax_rate.updated_by = updated_by_uuid
+        
+        # 如果设置为默认，需要取消其他税率的默认标记
+        if tax_rate.is_default:
+            TaxRate.query.filter(TaxRate.id != tax_rate.id).update({'is_default': False})
+        
+        try:
+            db.session.commit()
+            return tax_rate.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'更新税率失败: {str(e)}')
+    
+    @staticmethod
+    def delete_tax_rate(tax_rate_id):
+        """删除税率"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        try:
+            tax_rate_uuid = uuid.UUID(tax_rate_id)
+        except ValueError:
+            raise ValueError('无效的税率ID')
+        
+        from app.models.basic_data import TaxRate
+        tax_rate = TaxRate.query.get(tax_rate_uuid)
+        if not tax_rate:
+            raise ValueError('税率不存在')
+        
+        try:
+            db.session.delete(tax_rate)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'删除税率失败: {str(e)}')
+    
+    @staticmethod
+    def set_default_tax_rate(tax_rate_id):
+        """设置为默认税率"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        try:
+            tax_rate_uuid = uuid.UUID(tax_rate_id)
+        except ValueError:
+            raise ValueError('无效的税率ID')
+        
+        from app.models.basic_data import TaxRate
+        tax_rate = TaxRate.query.get(tax_rate_uuid)
+        if not tax_rate:
+            raise ValueError('税率不存在')
+        
+        try:
+            tax_rate.set_as_default()
+            return tax_rate.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'设置默认税率失败: {str(e)}')
+    
+    @staticmethod
+    def batch_update_tax_rates(data_list, updated_by):
+        """批量更新税率（用于可编辑表格）"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        try:
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的用户ID')
+        
+        results = []
+        errors = []
+        
+        for index, data in enumerate(data_list):
+            try:
+                if 'id' in data and data['id']:
+                    # 更新现有记录
+                    tax_rate = TaxRateService.update_tax_rate(
+                        data['id'], data, updated_by
+                    )
+                    results.append(tax_rate)
+                else:
+                    # 创建新记录
+                    tax_rate = TaxRateService.create_tax_rate(
+                        data, updated_by
+                    )
+                    results.append(tax_rate)
+            except ValueError as e:
+                errors.append({
+                    'index': index,
+                    'error': str(e),
+                    'data': data
+                })
+        
+        if errors:
+            # 如果有错误，回滚事务
+            db.session.rollback()
+            raise ValueError(f'批量更新失败，错误详情: {errors}')
+        
+        return results
+    
+    @staticmethod
+    def get_enabled_tax_rates():
+        """获取启用的税率列表（用于下拉选择）"""
+        # 设置schema
+        TaxRateService._set_schema()
+        
+        from app.models.basic_data import TaxRate
+        tax_rates = TaxRate.query.filter_by(
+            is_enabled=True
+        ).order_by(TaxRate.sort_order, TaxRate.tax_name).all()
+        
+        return [tax_rate.to_dict() for tax_rate in tax_rates]
