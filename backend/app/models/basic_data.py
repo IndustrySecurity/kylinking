@@ -978,4 +978,128 @@ class SettlementMethod(TenantModel):
         return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.created_at).all()
     
     def __repr__(self):
-        return f'<SettlementMethod {self.settlement_name}>' 
+        return f'<SettlementMethod {self.settlement_name}>'
+
+
+class AccountManagement(TenantModel):
+    """账户管理模型"""
+    __tablename__ = 'account_management'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 专享字段
+    account_name = db.Column(db.String(200), nullable=False, comment='账户名称')
+    account_type = db.Column(db.String(50), nullable=False, comment='账户类型')
+    currency_id = db.Column(UUID(as_uuid=True), comment='币别ID')
+    bank_name = db.Column(db.String(200), comment='开户银行')
+    bank_account = db.Column(db.String(100), comment='银行账户')
+    opening_date = db.Column(db.Date, comment='开户日期')
+    opening_address = db.Column(db.String(500), comment='开户地址')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'account_name': self.account_name,
+            'account_type': self.account_type,
+            'currency_id': str(self.currency_id) if self.currency_id else None,
+            'bank_name': self.bank_name,
+            'bank_account': self.bank_account,
+            'opening_date': self.opening_date.isoformat() if self.opening_date else None,
+            'opening_address': self.opening_address,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            result.update({
+                'created_by': str(self.created_by) if self.created_by else None,
+                'updated_by': str(self.updated_by) if self.updated_by else None,
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的账户列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.created_at).all()
+    
+    def __repr__(self):
+        return f'<AccountManagement {self.account_name}>'
+
+
+class PaymentMethod(TenantModel):
+    """付款方式模型"""
+    __tablename__ = 'payment_methods'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 专享字段
+    payment_name = db.Column(db.String(100), nullable=False, comment='付款方式')
+    cash_on_delivery = db.Column(db.Boolean, default=False, comment='货到付款')
+    monthly_settlement = db.Column(db.Boolean, default=False, comment='月结')
+    next_month_settlement = db.Column(db.Boolean, default=False, comment='次月结')
+    cash_on_delivery_days = db.Column(db.Integer, default=0, comment='货到付款日')
+    monthly_settlement_days = db.Column(db.Integer, default=0, comment='月结天数')
+    monthly_reconciliation_day = db.Column(db.Integer, default=0, comment='每月对账日')
+    next_month_settlement_count = db.Column(db.Integer, default=0, comment='次月月结数')
+    monthly_payment_day = db.Column(db.Integer, default=0, comment='每月付款日')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'payment_name': self.payment_name,
+            'cash_on_delivery': self.cash_on_delivery,
+            'monthly_settlement': self.monthly_settlement,
+            'next_month_settlement': self.next_month_settlement,
+            'cash_on_delivery_days': self.cash_on_delivery_days,
+            'monthly_settlement_days': self.monthly_settlement_days,
+            'monthly_reconciliation_day': self.monthly_reconciliation_day,
+            'next_month_settlement_count': self.next_month_settlement_count,
+            'monthly_payment_day': self.monthly_payment_day,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            result.update({
+                'created_by_name': '',  # 需要根据created_by查询用户名
+                'updated_by_name': '',  # 需要根据updated_by查询用户名
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的付款方式列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.payment_name).all()
+    
+    def __repr__(self):
+        return f'<PaymentMethod {self.payment_name}>'

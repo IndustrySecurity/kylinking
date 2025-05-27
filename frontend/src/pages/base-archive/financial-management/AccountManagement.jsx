@@ -13,7 +13,9 @@ import {
   Row,
   Col,
   Tooltip,
-  Typography
+  Typography,
+  Select,
+  DatePicker
 } from 'antd';
 import {
   PlusOutlined,
@@ -22,14 +24,17 @@ import {
   ReloadOutlined,
   SaveOutlined,
   SearchOutlined,
-  TransactionOutlined
+  BankOutlined
 } from '@ant-design/icons';
-import { settlementMethodApi } from '../../../api/settlementMethod';
+import accountManagementApi from '../../../api/accountManagement';
+import { currencyApi } from '../../../api/currency';
+import dayjs from 'dayjs';
 
 const { Search } = Input;
 const { Title } = Typography;
+const { Option } = Select;
 
-const SettlementMethod = () => {
+const AccountManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -40,7 +45,30 @@ const SettlementMethod = () => {
   });
   const [editingKey, setEditingKey] = useState('');
   const [form] = Form.useForm();
+  const [currencies, setCurrencies] = useState([]);
+  const [baseCurrency, setBaseCurrency] = useState(null);
   const searchInputRef = React.useRef(null);
+
+  // 账户类型选项
+  const accountTypeOptions = [
+    { label: '现金', value: '现金' },
+    { label: '支票', value: '支票' },
+    { label: '银行', value: '银行' },
+  ];
+
+  // 获取币别列表
+  const fetchCurrencies = async () => {
+    try {
+      const result = await currencyApi.getEnabledCurrencies();
+      setCurrencies(result || []);
+      
+      // 查找本位币
+      const baseCurrencyItem = (result || []).find(currency => currency.is_base_currency);
+      setBaseCurrency(baseCurrencyItem);
+    } catch (error) {
+      console.error('获取币别列表失败:', error);
+    }
+  };
 
   // 获取数据
   const fetchData = async (page = 1, pageSize = 20, search = '') => {
@@ -54,15 +82,15 @@ const SettlementMethod = () => {
         params.search = search;
       }
 
-      const result = await settlementMethodApi.getSettlementMethods(params);
-      setData(result.settlement_methods || []);
+      const result = await accountManagementApi.getAccounts(params);
+      setData(result.accounts || []);
       setPagination({
         current: page,
         pageSize,
         total: result.total || 0,
       });
     } catch (error) {
-      console.error('获取结算方式列表失败:', error);
+      console.error('获取账户列表失败:', error);
       message.error('获取数据失败');
     } finally {
       setLoading(false);
@@ -71,6 +99,7 @@ const SettlementMethod = () => {
 
   useEffect(() => {
     fetchData();
+    fetchCurrencies();
   }, []);
 
   // 搜索
@@ -99,11 +128,18 @@ const SettlementMethod = () => {
 
   const edit = (record) => {
     form.setFieldsValue({
-      settlement_name: '',
+      account_name: '',
+      account_type: '',
+      currency_id: baseCurrency ? baseCurrency.id : null,
+      bank_name: '',
+      bank_account: '',
+      opening_date: null,
+      opening_address: '',
       description: '',
       sort_order: 0,
       is_enabled: true,
       ...record,
+      opening_date: record.opening_date ? dayjs(record.opening_date) : null,
     });
     setEditingKey(record.id);
   };
@@ -120,17 +156,21 @@ const SettlementMethod = () => {
       const index = newData.findIndex((item) => id === item.id);
 
       if (index > -1) {
-        const item = newData[index];
+        // 处理日期格式
+        const submitData = {
+          ...row,
+          opening_date: row.opening_date ? row.opening_date.format('YYYY-MM-DD') : null,
+        };
         
         // 如果是新增的临时记录
         if (id.startsWith('temp_')) {
-          await settlementMethodApi.createSettlementMethod(row);
+          await accountManagementApi.createAccount(submitData);
           message.success('创建成功');
           setEditingKey('');
           fetchData(pagination.current, pagination.pageSize, searchText);
         } else {
           // 更新现有记录
-          await settlementMethodApi.updateSettlementMethod(id, row);
+          await accountManagementApi.updateAccount(id, submitData);
           message.success('更新成功');
           setEditingKey('');
           fetchData(pagination.current, pagination.pageSize, searchText);
@@ -152,7 +192,7 @@ const SettlementMethod = () => {
         return;
       }
 
-      await settlementMethodApi.deleteSettlementMethod(id);
+      await accountManagementApi.deleteAccount(id);
       message.success('删除成功');
       fetchData(pagination.current, pagination.pageSize, searchText);
     } catch (error) {
@@ -165,7 +205,15 @@ const SettlementMethod = () => {
   const handleAdd = () => {
     const newData = {
       id: `temp_${Date.now()}`,
-      settlement_name: '',
+      account_name: '',
+      account_type: '',
+      currency_id: baseCurrency ? baseCurrency.id : null,
+      currency_name: baseCurrency ? baseCurrency.currency_name : '',
+      currency_code: baseCurrency ? baseCurrency.currency_code : '',
+      bank_name: '',
+      bank_account: '',
+      opening_date: null,
+      opening_address: '',
       description: '',
       sort_order: 0,
       is_enabled: true,
@@ -195,6 +243,32 @@ const SettlementMethod = () => {
       inputNode = <InputNumber style={{ width: '100%' }} min={0} />;
     } else if (inputType === 'switch') {
       inputNode = <Switch />;
+    } else if (inputType === 'select') {
+      if (dataIndex === 'account_type') {
+        inputNode = (
+          <Select style={{ width: '100%' }} placeholder="请选择账户类型">
+            {accountTypeOptions.map(option => (
+              <Option key={option.value} value={option.value}>
+                {option.label}
+              </Option>
+            ))}
+          </Select>
+        );
+      } else if (dataIndex === 'currency_id') {
+        inputNode = (
+          <Select style={{ width: '100%' }} placeholder="请选择币别" allowClear>
+            {currencies.map(currency => (
+              <Option key={currency.id} value={currency.id}>
+                {currency.currency_name} ({currency.currency_code})
+              </Option>
+            ))}
+          </Select>
+        );
+      }
+    } else if (inputType === 'date') {
+      inputNode = <DatePicker style={{ width: '100%' }} placeholder="请选择开户日期" />;
+    } else if (inputType === 'textarea') {
+      inputNode = <Input.TextArea rows={2} />;
     } else {
       inputNode = <Input />;
     }
@@ -207,12 +281,16 @@ const SettlementMethod = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['settlement_name'].includes(dataIndex),
+                required: ['account_name', 'account_type'].includes(dataIndex),
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'settlement_name' ? [{
+              ...(dataIndex === 'account_name' ? [{
+                max: 200,
+                message: '账户名称不能超过200个字符'
+              }] : []),
+              ...(dataIndex === 'bank_account' ? [{
                 max: 100,
-                message: '结算方式名称不能超过100个字符'
+                message: '银行账户不能超过100个字符'
               }] : [])
             ]}
           >
@@ -228,17 +306,95 @@ const SettlementMethod = () => {
   // 表格列定义
   const columns = [
     {
-      title: '结算方式',
-      dataIndex: 'settlement_name',
-      key: 'settlement_name',
+      title: '账户名称',
+      dataIndex: 'account_name',
+      key: 'account_name',
       width: 200,
       editable: true,
+    },
+    {
+      title: '账户类型',
+      dataIndex: 'account_type',
+      key: 'account_type',
+      width: 120,
+      editable: true,
+      inputType: 'select',
+    },
+    {
+      title: '币别',
+      dataIndex: 'currency_id',
+      key: 'currency_id',
+      width: 120,
+      editable: true,
+      inputType: 'select',
+      render: (text, record) => {
+        // 如果有币别信息，显示币别名称和代码
+        if (record.currency_name && record.currency_code) {
+          return `${record.currency_name} (${record.currency_code})`;
+        }
+        // 如果只有currency_id，从currencies列表中查找对应的币别信息
+        if (text && currencies.length > 0) {
+          const currency = currencies.find(c => c.id === text);
+          if (currency) {
+            return `${currency.currency_name} (${currency.currency_code})`;
+          }
+        }
+        return '-';
+      },
+    },
+    {
+      title: '开户银行',
+      dataIndex: 'bank_name',
+      key: 'bank_name',
+      width: 180,
+      editable: true,
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text) => (
+        <Tooltip placement="topLeft" title={text}>
+          {text}
+        </Tooltip>
+      ),
+    },
+    {
+      title: '银行账户',
+      dataIndex: 'bank_account',
+      key: 'bank_account',
+      width: 180,
+      editable: true,
+    },
+    {
+      title: '开户日期',
+      dataIndex: 'opening_date',
+      key: 'opening_date',
+      width: 120,
+      align: 'center',
+      editable: true,
+      inputType: 'date',
+      render: (text) => text ? dayjs(text).format('YYYY-MM-DD') : '-',
+    },
+    {
+      title: '开户地址',
+      dataIndex: 'opening_address',
+      key: 'opening_address',
+      editable: true,
+      inputType: 'textarea',
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text) => (
+        <Tooltip placement="topLeft" title={text}>
+          {text}
+        </Tooltip>
+      ),
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
       editable: true,
+      inputType: 'textarea',
       ellipsis: {
         showTitle: false,
       },
@@ -255,6 +411,7 @@ const SettlementMethod = () => {
       width: 80,
       align: 'center',
       editable: true,
+      inputType: 'number',
     },
     {
       title: '是否启用',
@@ -263,6 +420,7 @@ const SettlementMethod = () => {
       width: 80,
       align: 'center',
       editable: true,
+      inputType: 'switch',
       render: (value, record) => (
         <Switch
           checked={value}
@@ -365,18 +523,11 @@ const SettlementMethod = () => {
       return col;
     }
     
-    let inputType = 'text';
-    if (col.dataIndex === 'sort_order') {
-      inputType = 'number';
-    } else if (col.dataIndex === 'is_enabled') {
-      inputType = 'switch';
-    }
-
     return {
       ...col,
       onCell: (record) => ({
         record,
-        inputType,
+        inputType: col.inputType || 'text',
         dataIndex: col.dataIndex,
         title: col.title,
         editing: isEditing(record),
@@ -391,19 +542,19 @@ const SettlementMethod = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0 }}>
-                <TransactionOutlined style={{ marginRight: 8 }} />
-                结算方式管理
+                <BankOutlined style={{ marginRight: 8 }} />
+                账户管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索结算方式名称、描述"
+                  placeholder="搜索账户名称、银行名称、账户号码"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
-                  style={{ width: 250 }}
+                  style={{ width: 280 }}
                   prefix={<SearchOutlined />}
                 />
                 <Button onClick={handleSearch} type="primary">
@@ -453,7 +604,7 @@ const SettlementMethod = () => {
                 `第 ${range[0]}-${range[1]} 条/共 ${total} 条`,
             }}
             onChange={handleTableChange}
-            scroll={{ x: 1600 }}
+            scroll={{ x: 1800 }}
             size="small"
           />
         </Form>
@@ -462,4 +613,4 @@ const SettlementMethod = () => {
   );
 };
 
-export default SettlementMethod; 
+export default AccountManagement; 

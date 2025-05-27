@@ -2132,3 +2132,343 @@ def batch_update_settlement_methods():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# 账户管理API
+@bp.route('/account-management', methods=['GET'])
+@jwt_required()
+def get_accounts():
+    """获取账户列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        from app.services.package_method_service import AccountManagementService
+        
+        result = AccountManagementService.get_accounts(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/account-management/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_accounts():
+    """获取启用的账户列表（用于下拉选择）"""
+    try:
+        from app.services.package_method_service import AccountManagementService
+        
+        accounts = AccountManagementService.get_enabled_accounts()
+        
+        return jsonify({
+            'success': True,
+            'data': accounts
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/account-management/<account_id>', methods=['GET'])
+@jwt_required()
+def get_account(account_id):
+    """获取账户详情"""
+    try:
+        from app.services.package_method_service import AccountManagementService
+        
+        account = AccountManagementService.get_account(account_id)
+        
+        return jsonify({
+            'success': True,
+            'data': account
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/account-management', methods=['POST'])
+@jwt_required()
+def create_account():
+    """创建账户"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import AccountManagementService
+        
+        account = AccountManagementService.create_account(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': account,
+            'message': '账户创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/account-management/<account_id>', methods=['PUT'])
+@jwt_required()
+def update_account(account_id):
+    """更新账户"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.package_method_service import AccountManagementService
+        
+        account = AccountManagementService.update_account(account_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': account,
+            'message': '账户更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/account-management/<account_id>', methods=['DELETE'])
+@jwt_required()
+def delete_account(account_id):
+    """删除账户"""
+    try:
+        from app.services.package_method_service import AccountManagementService
+        
+        AccountManagementService.delete_account(account_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '账户删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/account-management/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_accounts():
+    """批量更新账户"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        from app.services.package_method_service import AccountManagementService
+        
+        results = AccountManagementService.batch_update_accounts(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功处理 {len(results)} 条账户记录'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 付款方式管理API
+@bp.route('/payment-methods', methods=['GET'])
+@jwt_required()
+def get_payment_methods():
+    """获取付款方式列表"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        result = PaymentMethodService.get_payment_methods(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/payment-methods/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_payment_methods():
+    """获取启用的付款方式列表"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        payment_methods = PaymentMethodService.get_enabled_payment_methods()
+        
+        return jsonify({
+            'success': True,
+            'data': payment_methods
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/payment-methods/<payment_method_id>', methods=['GET'])
+@jwt_required()
+def get_payment_method(payment_method_id):
+    """获取付款方式详情"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        payment_method = PaymentMethodService.get_payment_method(payment_method_id)
+        
+        return jsonify({
+            'success': True,
+            'data': payment_method
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/payment-methods', methods=['POST'])
+@jwt_required()
+def create_payment_method():
+    """创建付款方式"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        payment_method = PaymentMethodService.create_payment_method(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': payment_method,
+            'message': '付款方式创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/payment-methods/<payment_method_id>', methods=['PUT'])
+@jwt_required()
+def update_payment_method(payment_method_id):
+    """更新付款方式"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        payment_method = PaymentMethodService.update_payment_method(payment_method_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': payment_method,
+            'message': '付款方式更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/payment-methods/<payment_method_id>', methods=['DELETE'])
+@jwt_required()
+def delete_payment_method(payment_method_id):
+    """删除付款方式"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        PaymentMethodService.delete_payment_method(payment_method_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '付款方式删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/payment-methods/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_payment_methods():
+    """批量更新付款方式"""
+    try:
+        from app.services.package_method_service import PaymentMethodService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        results = PaymentMethodService.batch_update_payment_methods(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功处理 {len(results)} 条付款方式记录'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

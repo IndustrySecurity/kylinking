@@ -33,9 +33,9 @@ const FinancialManagement = () => {
     },
     {
       key: 'account',
-      title: '账户',
+      title: '账户管理',
       icon: <BankOutlined />,
-      path: '/base-archive/financial-management/account',
+      path: '/base-archive/financial-management/account-management',
       color: '#fa8c16'
     },
     {
@@ -49,7 +49,7 @@ const FinancialManagement = () => {
       key: 'payment',
       title: '付款方式',
       icon: <CreditCardOutlined />,
-      path: '/base-archive/financial-management/payment',
+      path: '/base-archive/financial-management/payment-method',
       color: '#eb2f96'
     }
   ];

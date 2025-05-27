@@ -141,6 +141,17 @@ const TaxRate = () => {
 
       if (index > -1) {
         const item = newData[index];
+        
+        // 如果设置为默认税率，需要先取消其他默认税率的设置
+        if (row.is_default) {
+          // 在本地数据中取消其他项的默认设置
+          newData.forEach((dataItem, dataIndex) => {
+            if (dataIndex !== index && dataItem.is_default) {
+              dataItem.is_default = false;
+            }
+          });
+        }
+        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
@@ -163,6 +174,13 @@ const TaxRate = () => {
         setData(newData);
         setEditingKey('');
         message.success('保存成功');
+        
+        // 如果设置了默认税率，重新加载数据以确保服务器端的唯一性处理生效
+        if (row.is_default) {
+          setTimeout(() => {
+            loadData();
+          }, 500);
+        }
       }
     } catch (error) {
       if (error.errorFields) {
@@ -192,20 +210,7 @@ const TaxRate = () => {
     }
   };
 
-  // 设置为默认税率
-  const handleSetDefault = async (key) => {
-    try {
-      const record = data.find(item => item.key === key);
-      if (record.id && !record.id.startsWith('temp_')) {
-        await taxRateApi.setDefaultTaxRate(record.id);
-        message.success('设置默认税率成功');
-        // 重新加载数据
-        loadData();
-      }
-    } catch (error) {
-      message.error('设置默认税率失败：' + (error.response?.data?.error || error.message));
-    }
-  };
+
 
   // 添加新行
   const handleAdd = () => {
@@ -431,17 +436,6 @@ const TaxRate = () => {
             >
               编辑
             </Button>
-            {!record.is_default && (
-              <Button
-                type="link"
-                size="small"
-                icon={<StarOutlined />}
-                disabled={editingKey !== ''}
-                onClick={() => handleSetDefault(record.key)}
-              >
-                设为默认
-              </Button>
-            )}
             <Popconfirm
               title="确定删除这条记录吗？"
               onConfirm={() => handleDelete(record.key)}

@@ -142,6 +142,17 @@ const Currency = () => {
 
       if (index > -1) {
         const item = newData[index];
+        
+        // 如果设置为本位币，需要先取消其他本位币的设置
+        if (row.is_base_currency) {
+          // 在本地数据中取消其他项的本位币设置
+          newData.forEach((dataItem, dataIndex) => {
+            if (dataIndex !== index && dataItem.is_base_currency) {
+              dataItem.is_base_currency = false;
+            }
+          });
+        }
+        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
@@ -164,6 +175,13 @@ const Currency = () => {
         setData(newData);
         setEditingKey('');
         message.success('保存成功');
+        
+        // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
+        if (row.is_base_currency) {
+          setTimeout(() => {
+            loadData();
+          }, 500);
+        }
       }
     } catch (error) {
       if (error.errorFields) {
@@ -193,19 +211,7 @@ const Currency = () => {
     }
   };
 
-  // 设置为本位币
-  const handleSetBase = async (key) => {
-    try {
-      const record = data.find(item => item.key === key);
-      if (record.id && !record.id.startsWith('temp_')) {
-        await currencyApi.setBaseCurrency(record.id);
-        message.success('设置本位币成功');
-        loadData(); // 重新加载数据以更新状态
-      }
-    } catch (error) {
-      message.error('设置本位币失败：' + (error.response?.data?.error || error.message));
-    }
-  };
+
 
   // 添加新行
   const handleAdd = () => {
@@ -472,34 +478,21 @@ const Currency = () => {
             >
               编辑
             </Button>
-            {!record.is_base_currency && (
+            <Popconfirm
+              title="确定删除这个币别吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
               <Button
                 type="link"
                 size="small"
-                icon={<StarOutlined />}
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
-                onClick={() => handleSetBase(record.key)}
               >
-                设为本位币
+                删除
               </Button>
-            )}
-            {!record.is_base_currency && (
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
-                disabled={editingKey !== ''}
-              >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
-            )}
+            </Popconfirm>
           </Space>
         );
       },

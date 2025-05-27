@@ -21,6 +21,8 @@ import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryMan
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
+import AccountManagement from './pages/base-archive/financial-management/AccountManagement';
+import PaymentMethod from './pages/base-archive/financial-management/PaymentMethod';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -204,6 +206,22 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <SettlementMethod />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/financial-management/account-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <AccountManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/financial-management/payment-method" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PaymentMethod />
                 </MainLayout>
               </ProtectedRoute>
             } />
