@@ -20,6 +20,7 @@ import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryMan
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
+import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
 import Debug from './pages/auth/Debug';
 import { useApi } from './hooks/useApi';
 import './index.css';
@@ -195,6 +196,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <TaxRate />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/financial-management/settlement-method" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SettlementMethod />
                 </MainLayout>
               </ProtectedRoute>
             } />

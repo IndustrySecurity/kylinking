@@ -42,7 +42,7 @@ const FinancialManagement = () => {
       key: 'settlement',
       title: '结算方式',
       icon: <TransactionOutlined />,
-      path: '/base-archive/financial-management/settlement',
+      path: '/base-archive/financial-management/settlement-method',
       color: '#722ed1'
     },
     {
