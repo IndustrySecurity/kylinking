@@ -2820,3 +2820,178 @@ def batch_update_quote_freights():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# 材料分类管理API
+@bp.route('/material-categories', methods=['GET'])
+@jwt_required()
+def get_material_categories():
+    """获取材料分类列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '')
+        material_type = request.args.get('material_type', '')
+        is_enabled = request.args.get('is_enabled', '')
+        
+        # 转换is_enabled参数
+        if is_enabled.lower() == 'true':
+            is_enabled = True
+        elif is_enabled.lower() == 'false':
+            is_enabled = False
+        else:
+            is_enabled = None
+        
+        # 获取材料分类列表
+        result = MaterialCategoryService.get_material_categories(
+            page=page,
+            per_page=per_page,
+            search=search,
+            material_type=material_type,
+            is_enabled=is_enabled
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/<category_id>', methods=['GET'])
+@jwt_required()
+def get_material_category(category_id):
+    """获取材料分类详情"""
+    try:
+        category = MaterialCategoryService.get_material_category_by_id(category_id)
+        
+        if not category:
+            return jsonify({'error': '材料分类不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': category
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories', methods=['POST'])
+@jwt_required()
+def create_material_category():
+    """创建材料分类"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('material_name'):
+            return jsonify({'error': '材料分类名称不能为空'}), 400
+        
+        if not data.get('material_type'):
+            return jsonify({'error': '材料属性不能为空'}), 400
+        
+        category = MaterialCategoryService.create_material_category(data)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '材料分类创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/<category_id>', methods=['PUT'])
+@jwt_required()
+def update_material_category(category_id):
+    """更新材料分类"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        category = MaterialCategoryService.update_material_category(category_id, data)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '材料分类更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/<category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_material_category(category_id):
+    """删除材料分类"""
+    try:
+        MaterialCategoryService.delete_material_category(category_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '材料分类删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_material_categories():
+    """批量更新材料分类"""
+    try:
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        results = MaterialCategoryService.batch_update_material_categories(data)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新完成'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/options', methods=['GET'])
+@jwt_required()
+def get_material_category_options():
+    """获取材料分类选项数据"""
+    try:
+        # 获取材料属性选项
+        material_types = MaterialCategoryService.get_material_types()
+        
+        # 获取单位选项
+        units = MaterialCategoryService.get_units()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'material_types': material_types,
+                'units': units
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

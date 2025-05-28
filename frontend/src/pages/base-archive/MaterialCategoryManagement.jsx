@@ -102,7 +102,6 @@ const DraggableColumnHeader = ({ children, onMove, moveKey, ...restProps }) => {
 const MaterialCategoryManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [editingKey, setEditingKey] = useState('');
   const [searchText, setSearchText] = useState('');
   const [materialTypeFilter, setMaterialTypeFilter] = useState('');
   const [enabledFilter, setEnabledFilter] = useState('');
@@ -125,6 +124,7 @@ const MaterialCategoryManagement = () => {
 
   // 弹窗和抽屉状态
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [columnSettingVisible, setColumnSettingVisible] = useState(false);
   const [currentRecord, setCurrentRecord] = useState(null);
   const [isCompactMode, setIsCompactMode] = useState(false);
@@ -190,9 +190,9 @@ const MaterialCategoryManagement = () => {
     }
   };
 
-  // 字段配置
+  // 字段配置 - 移除固定列设置
   const fieldConfig = {
-    material_name: { title: '材料分类', width: 150, fixed: 'left', required: true },
+    material_name: { title: '材料分类', width: 150, required: true },
     material_type: { title: '材料属性', width: 100 },
     base_unit_name: { title: '单位', width: 80 },
     auxiliary_unit_name: { title: '辅助单位', width: 100 },
@@ -210,8 +210,8 @@ const MaterialCategoryManagement = () => {
     account_subject: { title: '科目', width: 100 },
     warning_days: { title: '预警天数', width: 100 },
     display_order: { title: '排序', width: 80 },
-    is_active: { title: '启用', width: 80, fixed: 'right' },
-    action: { title: '操作', width: 150, fixed: 'right' }
+    is_active: { title: '启用', width: 80 },
+    action: { title: '操作', width: 150 }
   };
 
   // 获取显示的列
@@ -257,9 +257,6 @@ const MaterialCategoryManagement = () => {
     setColumnOrder(newOrder);
     localStorage.setItem('materialCategory_columnOrder', JSON.stringify(newOrder));
   };
-
-  // 判断是否在编辑状态
-  const isEditing = (record) => record.key === editingKey;
 
   // 加载选项数据
   const loadOptions = async () => {
@@ -341,21 +338,49 @@ const MaterialCategoryManagement = () => {
     setDetailModalVisible(true);
   };
 
-  // 开始编辑
+  // 开始编辑 - 使用Modal
   const edit = (record) => {
+    setCurrentRecord(record);
     form.setFieldsValue({
       ...record,
     });
-    setEditingKey(record.key);
+    setEditModalVisible(true);
   };
 
   // 取消编辑
   const cancel = () => {
-    setEditingKey('');
+    setEditModalVisible(false);
     form.resetFields();
   };
 
-  // 保存编辑
+  // 保存编辑 - Modal版本
+  const saveModal = async () => {
+    try {
+      const values = await form.validateFields();
+      
+      let response;
+      if (currentRecord.id && !currentRecord.id.startsWith('temp_')) {
+        response = await materialCategoryApi.updateMaterialCategory(currentRecord.id, values);
+        message.success('更新成功');
+      } else {
+        response = await materialCategoryApi.createMaterialCategory(values);
+        message.success('创建成功');
+      }
+
+      setEditModalVisible(false);
+      form.resetFields();
+      setCurrentRecord(null);
+      loadData(); // 重新加载数据
+    } catch (error) {
+      if (error.errorFields) {
+        message.error('请检查输入内容');
+      } else {
+        message.error('保存失败：' + (error.response?.data?.error || error.message));
+      }
+    }
+  };
+
+  // 保存编辑 - 内联版本（保留用于兼容）
   const save = async (key) => {
     try {
       const row = await form.validateFields();
@@ -379,7 +404,6 @@ const MaterialCategoryManagement = () => {
           key: response.id
         });
         setData(newData);
-        setEditingKey('');
         message.success('保存成功');
       }
     } catch (error) {
@@ -408,11 +432,10 @@ const MaterialCategoryManagement = () => {
     }
   };
 
-  // 添加新行
+  // 添加新行 - 使用Modal
   const handleAdd = () => {
-    const newKey = `temp_${Date.now()}`;
-    const newData = {
-      key: newKey,
+    const newRecord = {
+      key: `temp_${Date.now()}`,
       material_name: '',
       material_type: '主材',
       density: null,
@@ -453,8 +476,9 @@ const MaterialCategoryManagement = () => {
       is_active: true,
     };
     
-    setData([newData, ...data]);
-    edit(newData);
+    setCurrentRecord(newRecord);
+    form.setFieldsValue(newRecord);
+    setEditModalVisible(true);
   };
 
   // 保存列配置
@@ -463,65 +487,6 @@ const MaterialCategoryManagement = () => {
     localStorage.setItem('materialCategory_columnConfig', JSON.stringify(config));
     setColumnSettingVisible(false);
     message.success('列配置已保存');
-  };
-
-  // 可编辑单元格组件
-  const EditableCell = ({
-    editing,
-    dataIndex,
-    title,
-    inputType,
-    record,
-    index,
-    children,
-    options: cellOptions,
-    ...restProps
-  }) => {
-    let inputNode;
-    
-    if (!editing) {
-      return <td {...restProps}>{children}</td>;
-    }
-
-    switch (inputType) {
-      case 'number':
-        inputNode = <InputNumber style={{ width: '100%' }} />;
-        break;
-      case 'select':
-        inputNode = (
-          <Select style={{ width: '100%' }}>
-            {cellOptions?.map(option => (
-              <Option key={option.value || option.id} value={option.value || option.id}>
-                {option.label || option.name}
-              </Option>
-            ))}
-          </Select>
-        );
-        break;
-      case 'switch':
-        inputNode = <Switch />;
-        break;
-      default:
-        inputNode = <Input />;
-    }
-
-    return (
-      <td {...restProps}>
-        <Form.Item
-          name={dataIndex}
-          style={{ margin: 0 }}
-          rules={[
-            {
-              required: fieldConfig[dataIndex]?.required,
-              message: `请输入${title}!`,
-            },
-          ]}
-          valuePropName={inputType === 'switch' ? 'checked' : 'value'}
-        >
-          {inputNode}
-        </Form.Item>
-      </td>
-    );
   };
 
   // 生成表格列
@@ -537,29 +502,8 @@ const MaterialCategoryManagement = () => {
           title: config.title,
           dataIndex: key,
           width: config.width,
-          fixed: config.fixed,
           render: (_, record) => {
-            const editable = isEditing(record);
-            return editable ? (
-              <Space>
-                <Button
-                  icon={<CheckOutlined />}
-                  type="link"
-                  size="small"
-                  onClick={() => save(record.key)}
-                >
-                  保存
-                </Button>
-                <Button
-                  icon={<CloseOutlined />}
-                  type="link"
-                  size="small"
-                  onClick={cancel}
-                >
-                  取消
-                </Button>
-              </Space>
-            ) : (
+            return (
               <Space>
                 <Button
                   icon={<EyeOutlined />}
@@ -573,7 +517,6 @@ const MaterialCategoryManagement = () => {
                   icon={<EditOutlined />}
                   type="link"
                   size="small"
-                  disabled={editingKey !== ''}
                   onClick={() => edit(record)}
                 >
                   编辑
@@ -589,7 +532,6 @@ const MaterialCategoryManagement = () => {
                     type="link"
                     size="small"
                     danger
-                    disabled={editingKey !== ''}
                   >
                     删除
                   </Button>
@@ -601,41 +543,30 @@ const MaterialCategoryManagement = () => {
       }
 
       // 处理特殊字段的渲染和编辑
-      let render, inputType, cellOptions;
+      let render;
       
       if (key === 'is_active') {
         render = (value) => <Switch checked={value} disabled />;
-        inputType = 'switch';
       } else if (key === 'show_on_kanban') {
         render = (value) => <Switch checked={value} disabled />;
-        inputType = 'switch';
       } else if (key === 'material_type') {
         render = (value) => <Tag color={value === '主材' ? 'blue' : 'green'}>{value}</Tag>;
-        inputType = 'select';
-        cellOptions = options.material_types?.map(type => ({ value: type, label: type }));
       } else if (['base_unit_id', 'auxiliary_unit_id', 'sales_unit_id'].includes(key)) {
-        inputType = 'select';
-        cellOptions = options.units;
+        render = (value) => {
+          const unit = options.units?.find(u => u.id === value);
+          return unit ? unit.name : '-';
+        };
       } else if (['density', 'square_weight', 'latest_purchase_price', 'sales_price', 'product_quote_price', 'cost_price', 'carton_param1', 'carton_param2', 'carton_param3', 'carton_param4'].includes(key)) {
-        inputType = 'number';
+        render = (value) => value ? Number(value).toFixed(2) : '-';
       } else if (['shelf_life', 'warning_days', 'display_order'].includes(key)) {
-        inputType = 'number';
+        render = (value) => value || '-';
       }
 
       const column = {
         title: config.title,
         dataIndex: key,
         width: config.width,
-        fixed: config.fixed,
         render,
-        onCell: (record) => ({
-          record,
-          inputType,
-          dataIndex: key,
-          title: config.title,
-          editing: isEditing(record),
-          options: cellOptions,
-        }),
       };
 
       // 添加拖拽功能到列头
@@ -776,27 +707,21 @@ const MaterialCategoryManagement = () => {
           </div>
 
           {/* 表格 */}
-          <Form form={form} component={false}>
-            <Table
-              components={{
-                header: {
-                  cell: DraggableColumnHeader,
-                },
-                body: {
-                  cell: EditableCell,
-                },
-              }}
-              bordered
-              dataSource={data}
-              columns={generateColumns()}
-              rowClassName="editable-row"
-              pagination={pagination}
-              loading={loading}
-              onChange={handleTableChange}
-              scroll={{ x: 1500, y: 600 }}
-              size={isCompactMode ? 'small' : 'middle'}
-            />
-          </Form>
+          <Table
+            components={{
+              header: {
+                cell: DraggableColumnHeader,
+              },
+            }}
+            bordered
+            dataSource={data}
+            columns={generateColumns()}
+            pagination={pagination}
+            loading={loading}
+            onChange={handleTableChange}
+            scroll={{ x: 1500, y: 600 }}
+            size={isCompactMode ? 'small' : 'middle'}
+          />
 
           {/* 详情弹窗 */}
           <Modal
@@ -843,6 +768,90 @@ const MaterialCategoryManagement = () => {
                                 <Switch disabled /> : 
                                 <Input disabled />
                               }
+                            </Form.Item>
+                          </Col>
+                        );
+                      })}
+                    </Row>
+                  </TabPane>
+                ))}
+              </Tabs>
+            </Form>
+          </Modal>
+
+          {/* 编辑弹窗 */}
+          <Modal
+            title={
+              <Space>
+                <span>{currentRecord?.id && !currentRecord.id.startsWith('temp_') ? '编辑材料分类' : '新增材料分类'}</span>
+                {currentRecord && currentRecord.material_type && (
+                  <Tag color={currentRecord.material_type === '主材' ? 'blue' : 'green'}>
+                    {currentRecord.material_type}
+                  </Tag>
+                )}
+              </Space>
+            }
+            open={editModalVisible}
+            onCancel={cancel}
+            onOk={saveModal}
+            okText="保存"
+            cancelText="取消"
+            width={1200}
+            confirmLoading={loading}
+          >
+            <Form form={form} layout="vertical">
+              <Tabs defaultActiveKey="basic">
+                {Object.entries(fieldGroups).map(([groupKey, group]) => (
+                  <TabPane 
+                    tab={
+                      <Space>
+                        <span>{group.icon}</span>
+                        <span>{group.title}</span>
+                      </Space>
+                    } 
+                    key={groupKey}
+                  >
+                    <Row gutter={16}>
+                      {group.fields.map(field => {
+                        const config = fieldConfig[field];
+                        if (!config) return null;
+                        
+                        let formItem;
+                        if (field === 'material_type') {
+                          formItem = (
+                            <Select placeholder="请选择材料属性">
+                              {options.material_types?.map(type => (
+                                <Option key={type} value={type}>{type}</Option>
+                              ))}
+                            </Select>
+                          );
+                        } else if (['base_unit_id', 'auxiliary_unit_id', 'sales_unit_id'].includes(field)) {
+                          formItem = (
+                            <Select placeholder="请选择单位" allowClear>
+                              {options.units?.map(unit => (
+                                <Option key={unit.id} value={unit.id}>{unit.name}</Option>
+                              ))}
+                            </Select>
+                          );
+                        } else if (field.startsWith('is_') || field.includes('enable') || field === 'show_on_kanban') {
+                          formItem = <Switch />;
+                        } else if (['density', 'square_weight', 'latest_purchase_price', 'sales_price', 'product_quote_price', 'cost_price', 'carton_param1', 'carton_param2', 'carton_param3', 'carton_param4'].includes(field)) {
+                          formItem = <InputNumber style={{ width: '100%' }} placeholder={`请输入${config.title}`} />;
+                        } else if (['shelf_life', 'warning_days', 'display_order'].includes(field)) {
+                          formItem = <InputNumber style={{ width: '100%' }} placeholder={`请输入${config.title}`} />;
+                        } else {
+                          formItem = <Input placeholder={`请输入${config.title}`} />;
+                        }
+                        
+                        return (
+                          <Col span={8} key={field}>
+                            <Form.Item 
+                              label={config.title} 
+                              name={field}
+                              rules={config.required ? [{ required: true, message: `请输入${config.title}` }] : []}
+                              valuePropName={field.startsWith('is_') || field.includes('enable') || field === 'show_on_kanban' ? 'checked' : 'value'}
+                            >
+                              {formItem}
                             </Form.Item>
                           </Col>
                         );

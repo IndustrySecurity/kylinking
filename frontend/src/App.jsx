@@ -18,6 +18,7 @@ import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
+import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
 import InkOptionManagement from './pages/base-archive/InkOptionManagement';
 import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
@@ -165,6 +166,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <SupplierCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/material-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialCategoryManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

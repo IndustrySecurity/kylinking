@@ -1191,3 +1191,146 @@ class QuoteFreight(TenantModel):
     
     def __repr__(self):
         return f'<QuoteFreight {self.region}>'
+
+
+class MaterialCategory(TenantModel):
+    """材料分类模型"""
+    __tablename__ = 'material_categories'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    material_name = db.Column(db.String(100), nullable=False, comment='材料分类名称')
+    material_type = db.Column(db.String(20), nullable=False, comment='材料属性(主材/辅材)')
+    
+    # 单位信息
+    base_unit_id = db.Column(UUID(as_uuid=True), comment='基本单位ID')
+    auxiliary_unit_id = db.Column(UUID(as_uuid=True), comment='辅助单位ID')
+    sales_unit_id = db.Column(UUID(as_uuid=True), comment='销售单位ID')
+    
+    # 物理属性
+    density = db.Column(db.Numeric(10, 4), comment='密度')
+    square_weight = db.Column(db.Numeric(10, 4), comment='平方克重')
+    shelf_life = db.Column(db.Integer, comment='保质期(天)')
+    
+    # 检验质量
+    inspection_standard = db.Column(db.String(200), comment='检验标准')
+    quality_grade = db.Column(db.String(100), comment='质量等级')
+    
+    # 价格信息
+    latest_purchase_price = db.Column(db.Numeric(15, 4), comment='最近采购价')
+    sales_price = db.Column(db.Numeric(15, 4), comment='销售价')
+    product_quote_price = db.Column(db.Numeric(15, 4), comment='产品报价')
+    cost_price = db.Column(db.Numeric(15, 4), comment='成本价格')
+    
+    # 业务配置
+    show_on_kanban = db.Column(db.Boolean, default=False, comment='看板显示')
+    account_subject = db.Column(db.String(100), comment='科目')
+    code_prefix = db.Column(db.String(10), default='M', comment='编码前缀')
+    warning_days = db.Column(db.Integer, comment='预警天数')
+    
+    # 纸箱参数
+    carton_param1 = db.Column(db.Numeric(10, 3), comment='纸箱参数1')
+    carton_param2 = db.Column(db.Numeric(10, 3), comment='纸箱参数2')
+    carton_param3 = db.Column(db.Numeric(10, 3), comment='纸箱参数3')
+    carton_param4 = db.Column(db.Numeric(10, 3), comment='纸箱参数4')
+    
+    # 材料属性标识
+    enable_batch = db.Column(db.Boolean, default=False, comment='启用批次')
+    enable_barcode = db.Column(db.Boolean, default=False, comment='启用条码')
+    is_ink = db.Column(db.Boolean, default=False, comment='是否油墨')
+    is_accessory = db.Column(db.Boolean, default=False, comment='是否辅料')
+    is_consumable = db.Column(db.Boolean, default=False, comment='是否耗材')
+    is_recyclable = db.Column(db.Boolean, default=False, comment='是否可回收')
+    is_hazardous = db.Column(db.Boolean, default=False, comment='是否危险品')
+    is_imported = db.Column(db.Boolean, default=False, comment='是否进口')
+    is_customized = db.Column(db.Boolean, default=False, comment='是否定制')
+    is_seasonal = db.Column(db.Boolean, default=False, comment='是否季节性')
+    is_fragile = db.Column(db.Boolean, default=False, comment='是否易碎')
+    is_perishable = db.Column(db.Boolean, default=False, comment='是否易腐')
+    is_temperature_sensitive = db.Column(db.Boolean, default=False, comment='是否温度敏感')
+    is_moisture_sensitive = db.Column(db.Boolean, default=False, comment='是否湿度敏感')
+    is_light_sensitive = db.Column(db.Boolean, default=False, comment='是否光敏感')
+    requires_special_storage = db.Column(db.Boolean, default=False, comment='是否需要特殊存储')
+    requires_certification = db.Column(db.Boolean, default=False, comment='是否需要认证')
+    
+    # 通用字段
+    display_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_active = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    __table_args__ = (
+        db.CheckConstraint("material_type IN ('主材', '辅材')", name='material_categories_type_check'),
+    )
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'material_name': self.material_name,
+            'material_type': self.material_type,
+            'base_unit_id': str(self.base_unit_id) if self.base_unit_id else None,
+            'auxiliary_unit_id': str(self.auxiliary_unit_id) if self.auxiliary_unit_id else None,
+            'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'density': float(self.density) if self.density else None,
+            'square_weight': float(self.square_weight) if self.square_weight else None,
+            'shelf_life': self.shelf_life,
+            'inspection_standard': self.inspection_standard,
+            'quality_grade': self.quality_grade,
+            'latest_purchase_price': float(self.latest_purchase_price) if self.latest_purchase_price else None,
+            'sales_price': float(self.sales_price) if self.sales_price else None,
+            'product_quote_price': float(self.product_quote_price) if self.product_quote_price else None,
+            'cost_price': float(self.cost_price) if self.cost_price else None,
+            'show_on_kanban': self.show_on_kanban,
+            'account_subject': self.account_subject,
+            'code_prefix': self.code_prefix,
+            'warning_days': self.warning_days,
+            'carton_param1': float(self.carton_param1) if self.carton_param1 else None,
+            'carton_param2': float(self.carton_param2) if self.carton_param2 else None,
+            'carton_param3': float(self.carton_param3) if self.carton_param3 else None,
+            'carton_param4': float(self.carton_param4) if self.carton_param4 else None,
+            'enable_batch': self.enable_batch,
+            'enable_barcode': self.enable_barcode,
+            'is_ink': self.is_ink,
+            'is_accessory': self.is_accessory,
+            'is_consumable': self.is_consumable,
+            'is_recyclable': self.is_recyclable,
+            'is_hazardous': self.is_hazardous,
+            'is_imported': self.is_imported,
+            'is_customized': self.is_customized,
+            'is_seasonal': self.is_seasonal,
+            'is_fragile': self.is_fragile,
+            'is_perishable': self.is_perishable,
+            'is_temperature_sensitive': self.is_temperature_sensitive,
+            'is_moisture_sensitive': self.is_moisture_sensitive,
+            'is_light_sensitive': self.is_light_sensitive,
+            'requires_special_storage': self.requires_special_storage,
+            'requires_certification': self.requires_certification,
+            'display_order': self.display_order,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            created_user = User.get_by_id(self.created_by) if self.created_by else None
+            updated_user = User.get_by_id(self.updated_by) if self.updated_by else None
+            
+            result.update({
+                'created_by_name': created_user.get_full_name() if created_user else None,
+                'updated_by_name': updated_user.get_full_name() if updated_user else None,
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的材料分类列表"""
+        return cls.query.filter_by(is_active=True).order_by(cls.display_order, cls.material_name).all()
+    
+    def __repr__(self):
+        return f'<MaterialCategory {self.material_name}>'

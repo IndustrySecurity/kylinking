@@ -56,7 +56,7 @@ const BaseData = () => {
       key: 'materialCategories',
       title: '材料分类',
       icon: <AppstoreOutlined />,
-      path: '/base-archive/material-categories',
+      path: '/base-archive/material-category-management',
       color: '#722ed1'
     },
     {
