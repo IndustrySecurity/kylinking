@@ -18,6 +18,7 @@ import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
+import InkOptionManagement from './pages/base-archive/InkOptionManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -163,6 +164,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <SupplierCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/ink-options" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <InkOptionManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

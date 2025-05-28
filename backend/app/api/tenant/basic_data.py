@@ -2471,4 +2471,181 @@ def batch_update_payment_methods():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        return jsonify({'error': str(e)}), 500 
+
+# 油墨选项管理API
+@bp.route('/ink-options', methods=['GET'])
+@jwt_required()
+def get_ink_options():
+    """获取油墨选项列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入服务
+        from app.services.package_method_service import InkOptionService
+        
+        # 获取油墨选项列表
+        result = InkOptionService.get_ink_options(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ink-options/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_ink_options():
+    """获取启用的油墨选项列表（用于下拉选择）"""
+    try:
+        from app.services.package_method_service import InkOptionService
+        
+        options = InkOptionService.get_enabled_ink_options()
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ink-options/<option_id>', methods=['GET'])
+@jwt_required()
+def get_ink_option(option_id):
+    """获取油墨选项详情"""
+    try:
+        from app.services.package_method_service import InkOptionService
+        
+        option = InkOptionService.get_ink_option(option_id)
+        
+        return jsonify({
+            'success': True,
+            'data': option
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ink-options', methods=['POST'])
+@jwt_required()
+def create_ink_option():
+    """创建油墨选项"""
+    try:
+        from app.services.package_method_service import InkOptionService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('option_name'):
+            return jsonify({'error': '选项名称不能为空'}), 400
+        
+        option = InkOptionService.create_ink_option(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': option,
+            'message': '油墨选项创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ink-options/<option_id>', methods=['PUT'])
+@jwt_required()
+def update_ink_option(option_id):
+    """更新油墨选项"""
+    try:
+        from app.services.package_method_service import InkOptionService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        option = InkOptionService.update_ink_option(option_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': option,
+            'message': '油墨选项更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ink-options/<option_id>', methods=['DELETE'])
+@jwt_required()
+def delete_ink_option(option_id):
+    """删除油墨选项"""
+    try:
+        from app.services.package_method_service import InkOptionService
+        
+        InkOptionService.delete_ink_option(option_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '油墨选项删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/ink-options/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_ink_options():
+    """批量更新油墨选项"""
+    try:
+        from app.services.package_method_service import InkOptionService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        results = InkOptionService.batch_update_ink_options(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个油墨选项'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 

@@ -165,7 +165,7 @@ const ProductionManagement = () => {
       key: 'inkOptions',
       title: '油墨选项',
       icon: <BgColorsOutlined />,
-      path: '/production/config/ink-options',
+      path: '/base-archive/ink-options',
       color: '#f5222d'
     },
     {
