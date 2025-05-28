@@ -1146,3 +1146,48 @@ class InkOption(TenantModel):
     
     def __repr__(self):
         return f'<InkOption {self.option_name}>'
+
+
+class QuoteFreight(TenantModel):
+    """报价运费模型"""
+    __tablename__ = 'quote_freights'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    region = db.Column(db.String(100), nullable=False, comment='区域')
+    percentage = db.Column(db.Numeric(5, 2), nullable=False, default=0, comment='百分比')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    description = db.Column(db.Text, comment='描述')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'region': self.region,
+            'percentage': float(self.percentage) if self.percentage else 0,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'description': self.description,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户信息的查询逻辑
+            pass
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价运费列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.region).all()
+    
+    def __repr__(self):
+        return f'<QuoteFreight {self.region}>'

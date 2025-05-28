@@ -2649,3 +2649,173 @@ def batch_update_ink_options():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+# 报价运费管理API
+@bp.route('/quote-freights', methods=['GET'])
+@jwt_required()
+def get_quote_freights():
+    """获取报价运费列表"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '')
+        enabled_only = request.args.get('enabled_only', False, type=bool)
+        
+        # 获取报价运费列表
+        result = QuoteFreightService.get_quote_freights(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-freights/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_quote_freights():
+    """获取启用的报价运费列表（用于下拉选择）"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        freights = QuoteFreightService.get_enabled_quote_freights()
+        
+        return jsonify({
+            'success': True,
+            'data': freights
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-freights/<freight_id>', methods=['GET'])
+@jwt_required()
+def get_quote_freight(freight_id):
+    """获取报价运费详情"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        freight = QuoteFreightService.get_quote_freight(freight_id)
+        
+        return jsonify({
+            'success': True,
+            'data': freight
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-freights', methods=['POST'])
+@jwt_required()
+def create_quote_freight():
+    """创建报价运费"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        freight = QuoteFreightService.create_quote_freight(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': freight,
+            'message': '报价运费创建成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-freights/<freight_id>', methods=['PUT'])
+@jwt_required()
+def update_quote_freight(freight_id):
+    """更新报价运费"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        freight = QuoteFreightService.update_quote_freight(freight_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': freight,
+            'message': '报价运费更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-freights/<freight_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote_freight(freight_id):
+    """删除报价运费"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        QuoteFreightService.delete_quote_freight(freight_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '报价运费删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-freights/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_quote_freights():
+    """批量更新报价运费"""
+    try:
+        from app.services.package_method_service import QuoteFreightService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        results = QuoteFreightService.batch_update_quote_freights(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个报价运费'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

@@ -172,7 +172,7 @@ const ProductionManagement = () => {
       key: 'quoteFreight',
       title: '报价运费',
       icon: <CarOutlined />,
-      path: '/production/config/quote-freight',
+      path: '/base-archive/quote-freights',
       color: '#2f54eb'
     },
     {

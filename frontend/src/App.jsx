@@ -19,6 +19,7 @@ import SpecificationManagement from './pages/base-archive/SpecificationManagemen
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import InkOptionManagement from './pages/base-archive/InkOptionManagement';
+import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -172,6 +173,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <InkOptionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/quote-freights" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteFreightManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
