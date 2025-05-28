@@ -10,6 +10,7 @@ from app.services.basic_data_service import (
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService
 )
+from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
 from app.extensions import db
 import uuid

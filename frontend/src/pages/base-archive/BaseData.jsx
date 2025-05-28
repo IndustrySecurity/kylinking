@@ -53,6 +53,13 @@ const BaseData = () => {
       color: '#722ed1'
     },
     {
+      key: 'materialCategories',
+      title: '材料分类',
+      icon: <AppstoreOutlined />,
+      path: '/base-archive/material-categories',
+      color: '#722ed1'
+    },
+    {
       key: 'packageMethods',
       title: '包装方式',
       icon: <InboxOutlined />,

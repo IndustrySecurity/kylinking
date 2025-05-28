@@ -510,7 +510,7 @@ const TenantModuleConfig = () => {
       {/* 字段配置模态框 */}
       <Modal
         title={`${selectedModule?.display_name} - 字段配置`}
-        visible={fieldModalVisible}
+        open={fieldModalVisible}
         onCancel={() => setFieldModalVisible(false)}
         width={1000}
         footer={null}
@@ -527,7 +527,7 @@ const TenantModuleConfig = () => {
       {/* 扩展管理抽屉 */}
       <Drawer
         title="扩展管理"
-        visible={extensionDrawerVisible}
+        open={extensionDrawerVisible}
         onClose={() => setExtensionDrawerVisible(false)}
         width={600}
       >
