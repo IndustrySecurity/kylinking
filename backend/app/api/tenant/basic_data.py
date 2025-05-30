@@ -3170,3 +3170,181 @@ def batch_update_product_categories():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# 报损类型管理API
+@bp.route('/loss-types', methods=['GET'])
+@jwt_required()
+def get_loss_types():
+    """获取报损类型列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户信息
+        current_user_id = get_jwt_identity()
+        
+        # 导入服务
+        from app.services.package_method_service import LossTypeService
+        
+        # 获取报损类型列表
+        result = LossTypeService.get_loss_types(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/loss-types/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_loss_types():
+    """获取启用的报损类型列表（用于下拉选择）"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        loss_types = LossTypeService.get_enabled_loss_types()
+        
+        return jsonify({
+            'success': True,
+            'data': loss_types
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/loss-types/<loss_type_id>', methods=['GET'])
+@jwt_required()
+def get_loss_type(loss_type_id):
+    """获取报损类型详情"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        loss_type = LossTypeService.get_loss_type(loss_type_id)
+        
+        return jsonify({
+            'success': True,
+            'data': loss_type
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/loss-types', methods=['POST'])
+@jwt_required()
+def create_loss_type():
+    """创建报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('loss_type_name'):
+            return jsonify({'error': '报损类型名称不能为空'}), 400
+        
+        loss_type = LossTypeService.create_loss_type(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': loss_type,
+            'message': '报损类型创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/loss-types/<loss_type_id>', methods=['PUT'])
+@jwt_required()
+def update_loss_type(loss_type_id):
+    """更新报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        loss_type = LossTypeService.update_loss_type(loss_type_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': loss_type,
+            'message': '报损类型更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/loss-types/<loss_type_id>', methods=['DELETE'])
+@jwt_required()
+def delete_loss_type(loss_type_id):
+    """删除报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        LossTypeService.delete_loss_type(loss_type_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '报损类型删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/loss-types/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_loss_types():
+    """批量更新报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        results = LossTypeService.batch_update_loss_types(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个报损类型'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

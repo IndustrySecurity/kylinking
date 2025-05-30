@@ -84,7 +84,7 @@ const ProductionManagement = () => {
       key: 'lossType',
       title: '报损类型',
       icon: <WarningOutlined />,
-      path: '/production/archive/loss-type',
+      path: '/base-archive/loss-type-management',
       color: '#f5222d'
     },
     {

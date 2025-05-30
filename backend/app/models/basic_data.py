@@ -1359,3 +1359,62 @@ class MaterialCategory(TenantModel):
     
     def __repr__(self):
         return f'<MaterialCategory {self.material_name}>'
+
+
+class LossType(TenantModel):
+    """报损类型模型"""
+    __tablename__ = 'loss_types'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    loss_type_name = db.Column(db.String(100), nullable=False, comment='报损类型名称')
+    process_id = db.Column(UUID(as_uuid=True), comment='工序ID')
+    loss_category_id = db.Column(UUID(as_uuid=True), comment='报损分类ID')
+    is_assessment = db.Column(db.Boolean, default=False, comment='是否考核')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'loss_type_name': self.loss_type_name,
+            'process_id': str(self.process_id) if self.process_id else None,
+            'loss_category_id': str(self.loss_category_id) if self.loss_category_id else None,
+            'is_assessment': self.is_assessment,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            if self.created_by:
+                created_user = User.query.get(self.created_by)
+                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            else:
+                data['created_by_name'] = '系统'
+                
+            if self.updated_by:
+                updated_user = User.query.get(self.updated_by)
+                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            else:
+                data['updated_by_name'] = ''
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报损类型列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.loss_type_name).all()
+    
+    def __repr__(self):
+        return f'<LossType {self.loss_type_name}>'
