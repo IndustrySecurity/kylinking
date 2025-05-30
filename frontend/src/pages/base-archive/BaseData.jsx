@@ -144,7 +144,7 @@ const BaseData = () => {
       key: 'productCategories',
       title: '产品分类',
       icon: <ShoppingOutlined />,
-      path: '/base-archive/base-data/base-category/product-categories',
+      path: '/base-archive/product-categories',
       color: '#52c41a'
     },
     {

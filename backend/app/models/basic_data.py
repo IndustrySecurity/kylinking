@@ -282,38 +282,63 @@ class Supplier(BaseModel):
         }
 
 
-class ProductCategory(BaseModel):
+class ProductCategory(TenantModel):
     """产品分类模型"""
     __tablename__ = 'product_categories'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category_code = db.Column(db.String(50), unique=True, nullable=False)
-    category_name = db.Column(db.String(100), nullable=False)
-    parent_id = db.Column(UUID(as_uuid=True), db.ForeignKey('product_categories.id'))
-    level = db.Column(db.Integer, default=1)
-    sort_order = db.Column(db.Integer, default=0)
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
     
-    # 自引用关系
-    children = db.relationship('ProductCategory', 
-                             backref=db.backref('parent', remote_side=[id]),
-                             lazy='dynamic')
+    # 基本信息
+    category_name = db.Column(db.String(255), nullable=False, comment='产品分类名称')
+    subject_name = db.Column(db.String(100), comment='科目名称')
+    is_blown_film = db.Column(db.Boolean, default=False, comment='是否吹膜')
+    delivery_days = db.Column(db.Integer, comment='交货天数')
     
-    def to_dict(self):
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
         """转换为字典"""
-        return {
+        result = {
             'id': str(self.id),
-            'category_code': self.category_code,
             'category_name': self.category_name,
-            'parent_id': str(self.parent_id) if self.parent_id else None,
-            'level': self.level,
-            'sort_order': self.sort_order,
+            'subject_name': self.subject_name,
+            'is_blown_film': self.is_blown_film,
+            'delivery_days': self.delivery_days,
             'description': self.description,
-            'is_active': self.is_active,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'children_count': self.children.count()
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+        
+        if include_user_info:
+            from app.models.user import User
+            created_user = User.get_by_id(self.created_by) if self.created_by else None
+            updated_user = User.get_by_id(self.updated_by) if self.updated_by else None
+            
+            result.update({
+                'created_by_name': created_user.get_full_name() if created_user else None,
+                'updated_by_name': updated_user.get_full_name() if updated_user else None,
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的产品分类列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
+    
+    def __repr__(self):
+        return f'<ProductCategory {self.category_name}>'
 
 
 class Product(BaseModel):
