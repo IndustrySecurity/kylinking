@@ -61,7 +61,6 @@ def upgrade():
                 
                 EXECUTE format('
                     CREATE INDEX IF NOT EXISTS idx_ink_options_option_name ON %I.ink_options(option_name);
-                    CREATE INDEX IF NOT EXISTS idx_ink_options_option_type ON %I.ink_options(option_type);
                     CREATE INDEX IF NOT EXISTS idx_ink_options_sort_order ON %I.ink_options(sort_order);
                     CREATE INDEX IF NOT EXISTS idx_ink_options_is_enabled ON %I.ink_options(is_enabled);
                     CREATE INDEX IF NOT EXISTS idx_ink_options_created_at ON %I.ink_options(created_at);

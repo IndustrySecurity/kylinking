@@ -4228,8 +4228,8 @@ class InkOptionService:
         # 构建基础查询
         base_query = f"""
         SELECT 
-            id, option_name, option_type, option_value, sort_order, 
-            is_manual_input, is_enabled, description, created_by, updated_by, created_at, updated_at
+            id, option_name, sort_order, 
+            is_enabled, description, created_by, updated_by, created_at, updated_at
         FROM {schema_name}.ink_options
         """
         
@@ -4240,7 +4240,6 @@ class InkOptionService:
         if search:
             where_conditions.append("""
                 (option_name ILIKE :search OR 
-                 option_value ILIKE :search OR 
                  description ILIKE :search)
             """)
             params['search'] = f'%{search}%'
@@ -4285,10 +4284,7 @@ class InkOptionService:
                 option_data = {
                     'id': str(row.id),
                     'option_name': row.option_name,
-                    'option_type': row.option_type,
-                    'option_value': row.option_value,
                     'sort_order': row.sort_order,
-                    'is_manual_input': row.is_manual_input,
                     'is_enabled': row.is_enabled,
                     'description': row.description,
                     'created_by': str(row.created_by) if row.created_by else None,
