@@ -8,7 +8,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
     SupplierService, ProductService,
-    TenantFieldConfigIntegrationService
+    TenantFieldConfigIntegrationService,
+    CalculationParameterService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -2991,6 +2992,163 @@ def get_material_category_options():
                 'material_types': material_types,
                 'units': units
             }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# 计算参数管理API
+@bp.route('/calculation-parameters', methods=['GET'])
+@jwt_required()
+def get_calculation_parameters():
+    """获取计算参数列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '')
+        
+        # 获取计算参数列表
+        result = CalculationParameterService.get_calculation_parameters(
+            page=page,
+            per_page=per_page,
+            search=search
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/calculation-parameters/<param_id>', methods=['GET'])
+@jwt_required()
+def get_calculation_parameter(param_id):
+    """获取计算参数详情"""
+    try:
+        param = CalculationParameterService.get_calculation_parameter(param_id)
+        
+        return jsonify({
+            'success': True,
+            'data': param
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/calculation-parameters', methods=['POST'])
+@jwt_required()
+def create_calculation_parameter():
+    """创建计算参数"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('parameter_name'):
+            return jsonify({'error': '计算参数名称不能为空'}), 400
+        
+        param = CalculationParameterService.create_calculation_parameter(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': param,
+            'message': '计算参数创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/calculation-parameters/<param_id>', methods=['PUT'])
+@jwt_required()
+def update_calculation_parameter(param_id):
+    """更新计算参数"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        param = CalculationParameterService.update_calculation_parameter(param_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': param,
+            'message': '计算参数更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/calculation-parameters/<param_id>', methods=['DELETE'])
+@jwt_required()
+def delete_calculation_parameter(param_id):
+    """删除计算参数"""
+    try:
+        CalculationParameterService.delete_calculation_parameter(param_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '计算参数删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/calculation-parameters/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_calculation_parameters():
+    """批量更新计算参数"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        results = CalculationParameterService.batch_update_calculation_parameters(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个计算参数'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/calculation-parameters/options', methods=['GET'])
+@jwt_required()
+def get_calculation_parameter_options():
+    """获取计算参数选项数据"""
+    try:
+        options = CalculationParameterService.get_calculation_parameter_options()
+        
+        return jsonify({
+            'success': True,
+            'data': options
         })
         
     except Exception as e:

@@ -113,13 +113,6 @@ const ProductionManagement = () => {
   // 生产配置项配置
   const configItems = [
     {
-      key: 'calcParams',
-      title: '计算参数',
-      icon: <CalculatorOutlined />,
-      path: '/production/config/calc-params',
-      color: '#1890ff'
-    },
-    {
       key: 'calcScheme',
       title: '计算方案',
       icon: <SettingOutlined />,

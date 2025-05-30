@@ -13,7 +13,8 @@ import {
   TruckOutlined,
   BgColorsOutlined,
   TagsOutlined,
-  ColumnWidthOutlined
+  ColumnWidthOutlined,
+  CalculatorOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -107,6 +108,13 @@ const BaseData = () => {
       icon: <BankOutlined />,
       path: '/base-archive/supplier-category-management',
       color: '#fa8c16'
+    },
+    {
+      key: 'calculationParameters',
+      title: '计算参数',
+      icon: <CalculatorOutlined />,
+      path: '/base-archive/calculation-parameters',
+      color: '#f759ab'
     },
     {
       key: 'departments',
