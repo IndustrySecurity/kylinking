@@ -133,7 +133,6 @@ const AccountManagement = () => {
       currency_id: baseCurrency ? baseCurrency.id : null,
       bank_name: '',
       bank_account: '',
-      opening_date: null,
       opening_address: '',
       description: '',
       sort_order: 0,

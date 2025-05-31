@@ -1534,3 +1534,62 @@ class Machine(TenantModel):
     
     def __repr__(self):
         return f'<Machine {self.machine_name}>'
+
+
+class QuoteInk(TenantModel):
+    """报价油墨模型"""
+    __tablename__ = 'quote_inks'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    category_name = db.Column(db.String(100), nullable=False, comment='分类名称')
+    square_price = db.Column(db.Numeric(10, 4), comment='平方价')
+    unit_price_formula = db.Column(db.String(200), comment='单价计算公式')
+    gram_weight = db.Column(db.Numeric(10, 4), comment='克重')
+    
+    # 类型标识
+    is_ink = db.Column(db.Boolean, default=False, comment='油墨')
+    is_solvent = db.Column(db.Boolean, default=False, comment='溶剂')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'category_name': self.category_name,
+            'square_price': float(self.square_price) if self.square_price else None,
+            'unit_price_formula': self.unit_price_formula,
+            'gram_weight': float(self.gram_weight) if self.gram_weight else None,
+            'is_ink': self.is_ink,
+            'is_solvent': self.is_solvent,
+            'sort_order': self.sort_order,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            result.update({
+                'created_by_name': getattr(self.created_by_user, 'username', '') if hasattr(self, 'created_by_user') and self.created_by_user else '',
+                'updated_by_name': getattr(self.updated_by_user, 'username', '') if hasattr(self, 'updated_by_user') and self.updated_by_user else '',
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价油墨列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
+    
+    def __repr__(self):
+        return f'<QuoteInk {self.category_name}>'

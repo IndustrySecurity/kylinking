@@ -44,8 +44,13 @@ request.interceptors.response.use(
   (response) => {
     const { data } = response;
     
-    // 适配后端返回格式：{ success: true, data: {...} }
+    // 适配后端返回格式1：{ success: true, data: {...} }
     if (data.success === true) {
+      return data.data;
+    }
+    
+    // 适配后端返回格式2：{ code: 200, message: '获取成功', data: {...} }
+    if (data.code === 200) {
       return data.data;
     }
     

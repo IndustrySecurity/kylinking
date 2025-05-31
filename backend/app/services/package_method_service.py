@@ -5777,3 +5777,219 @@ class MachineService:
         except Exception as e:
             print(f"获取启用机台列表失败: {str(e)}")
             raise e
+
+
+class QuoteInkService:
+    """报价油墨服务类"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置租户schema"""
+        from flask import g
+        if hasattr(g, 'tenant_slug') and g.tenant_slug:
+            db.session.execute(text(f"SET search_path TO {g.tenant_slug}, public"))
+        else:
+            # 默认使用wanle schema
+            db.session.execute(text("SET search_path TO wanle, public"))
+
+    @staticmethod
+    def get_quote_inks(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报价油墨列表"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            query = QuoteInk.query
+            
+            # 搜索过滤
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(
+                    db.or_(
+                        QuoteInk.category_name.ilike(search_pattern),
+                        QuoteInk.unit_price_formula.ilike(search_pattern),
+                        QuoteInk.description.ilike(search_pattern)
+                    )
+                )
+            
+            # 启用状态过滤
+            if enabled_only:
+                query = query.filter(QuoteInk.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(QuoteInk.sort_order, QuoteInk.category_name)
+            
+            # 分页
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+            
+            quote_inks = [quote_ink.to_dict() for quote_ink in pagination.items]
+            
+            return {
+                'items': quote_inks,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"获取报价油墨列表失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_quote_ink(quote_ink_id):
+        """获取单个报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_ink = QuoteInk.query.get(quote_ink_id)
+            if not quote_ink:
+                raise ValueError("报价油墨不存在")
+            
+            return quote_ink.to_dict()
+            
+        except Exception as e:
+            current_app.logger.error(f"获取报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def create_quote_ink(data, created_by):
+        """创建报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            # 验证必填字段
+            if not data.get('category_name'):
+                raise ValueError("分类名称不能为空")
+            
+            quote_ink = QuoteInk(
+                category_name=data.get('category_name'),
+                square_price=data.get('square_price'),
+                unit_price_formula=data.get('unit_price_formula'),
+                gram_weight=data.get('gram_weight'),
+                is_ink=data.get('is_ink', False),
+                is_solvent=data.get('is_solvent', False),
+                sort_order=data.get('sort_order', 0),
+                description=data.get('description'),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(quote_ink)
+            db.session.commit()
+            
+            return quote_ink.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"创建报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def update_quote_ink(quote_ink_id, data, updated_by):
+        """更新报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_ink = QuoteInk.query.get(quote_ink_id)
+            if not quote_ink:
+                raise ValueError("报价油墨不存在")
+            
+            # 更新字段
+            if 'category_name' in data:
+                quote_ink.category_name = data['category_name']
+            if 'square_price' in data:
+                quote_ink.square_price = data['square_price']
+            if 'unit_price_formula' in data:
+                quote_ink.unit_price_formula = data['unit_price_formula']
+            if 'gram_weight' in data:
+                quote_ink.gram_weight = data['gram_weight']
+            if 'is_ink' in data:
+                quote_ink.is_ink = data['is_ink']
+            if 'is_solvent' in data:
+                quote_ink.is_solvent = data['is_solvent']
+            if 'sort_order' in data:
+                quote_ink.sort_order = data['sort_order']
+            if 'description' in data:
+                quote_ink.description = data['description']
+            if 'is_enabled' in data:
+                quote_ink.is_enabled = data['is_enabled']
+            
+            quote_ink.updated_by = updated_by
+            
+            db.session.commit()
+            
+            return quote_ink.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"更新报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def delete_quote_ink(quote_ink_id):
+        """删除报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_ink = QuoteInk.query.get(quote_ink_id)
+            if not quote_ink:
+                raise ValueError("报价油墨不存在")
+            
+            db.session.delete(quote_ink)
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"删除报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def batch_update_quote_inks(data_list, updated_by):
+        """批量更新报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            results = []
+            for data in data_list:
+                if data.get('id'):
+                    # 更新现有记录
+                    quote_ink = QuoteInk.query.get(data['id'])
+                    if quote_ink:
+                        result = QuoteInkService.update_quote_ink(data['id'], data, updated_by)
+                        results.append(result)
+                else:
+                    # 创建新记录
+                    result = QuoteInkService.create_quote_ink(data, updated_by)
+                    results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            current_app.logger.error(f"批量更新报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_enabled_quote_inks():
+        """获取启用的报价油墨列表"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_inks = QuoteInk.get_enabled_list()
+            return [quote_ink.to_dict() for quote_ink in quote_inks]
+            
+        except Exception as e:
+            current_app.logger.error(f"获取启用报价油墨列表失败: {str(e)}")
+            raise e

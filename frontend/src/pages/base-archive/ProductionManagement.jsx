@@ -137,7 +137,7 @@ const ProductionManagement = () => {
       key: 'quoteInk',
       title: '报价油墨',
       icon: <ExperimentOutlined />,
-      path: '/production/config/quote-ink',
+      path: '/base-archive/quote-inks',
       color: '#722ed1'
     },
     {

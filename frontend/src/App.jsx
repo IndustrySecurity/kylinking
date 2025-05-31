@@ -17,6 +17,7 @@ import ColorCardManagement from './pages/base-archive/ColorCardManagement';
 import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
 import MachineManagement from './pages/base-archive/MachineManagement';
+import QuoteInkManagement from './pages/base-archive/QuoteInkManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
@@ -227,6 +228,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <MachineManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价油墨管理 */}
+            <Route path="/base-archive/quote-inks" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteInkManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
