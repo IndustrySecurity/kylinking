@@ -3753,3 +3753,366 @@ def get_calculation_scheme_options():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# 材料分类管理API
+@bp.route('/material-categories', methods=['GET'])
+@jwt_required()
+def get_material_categories():
+    """获取材料分类列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '')
+        material_type = request.args.get('material_type', '')
+        is_enabled_str = request.args.get('is_enabled', '')
+        
+        # 处理is_enabled参数
+        is_enabled = None
+        if is_enabled_str.lower() == 'true':
+            is_enabled = True
+        elif is_enabled_str.lower() == 'false':
+            is_enabled = False
+        
+        # 获取材料分类列表
+        result = MaterialCategoryService.get_material_categories(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            material_type=material_type if material_type else None,
+            is_enabled=is_enabled
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/<category_id>', methods=['GET'])
+@jwt_required()
+def get_material_category(category_id):
+    """获取材料分类详情"""
+    try:
+        category = MaterialCategoryService.get_material_category_by_id(category_id)
+        
+        if not category:
+            return jsonify({'error': '材料分类不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': category
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories', methods=['POST'])
+@jwt_required()
+def create_material_category():
+    """创建材料分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('material_name'):
+            return jsonify({'error': '材料分类名称不能为空'}), 400
+        
+        if not data.get('material_type'):
+            return jsonify({'error': '材料属性不能为空'}), 400
+        
+        category = MaterialCategoryService.create_material_category(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '材料分类创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/<category_id>', methods=['PUT'])
+@jwt_required()
+def update_material_category(category_id):
+    """更新材料分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        category = MaterialCategoryService.update_material_category(category_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '材料分类更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/<category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_material_category(category_id):
+    """删除材料分类"""
+    try:
+        MaterialCategoryService.delete_material_category(category_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '材料分类删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_material_categories():
+    """批量更新材料分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        # 为每个更新记录添加updated_by信息
+        for item in data:
+            item['updated_by'] = current_user_id
+        
+        results = MaterialCategoryService.batch_update_material_categories(data)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个材料分类'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-categories/options', methods=['GET'])
+@jwt_required()
+def get_material_category_options():
+    """获取材料分类选项数据"""
+    try:
+        # 获取材料属性选项
+        material_types = MaterialCategoryService.get_material_types()
+        
+        # 获取单位选项
+        units = MaterialCategoryService.get_units()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'material_types': material_types,
+                'units': units
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 产品分类管理API
+@bp.route('/product-categories', methods=['GET'])
+@jwt_required()
+def get_product_categories():
+    """获取产品分类列表"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '')
+        enabled_only_str = request.args.get('enabled_only', '')
+        
+        # 处理enabled_only参数
+        enabled_only = enabled_only_str.lower() == 'true' if enabled_only_str else False
+        
+        # 获取产品分类列表
+        result = ProductCategoryService.get_product_categories(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-categories/<product_category_id>', methods=['GET'])
+@jwt_required()
+def get_product_category(product_category_id):
+    """获取产品分类详情"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        category = ProductCategoryService.get_product_category(product_category_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-categories', methods=['POST'])
+@jwt_required()
+def create_product_category():
+    """创建产品分类"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('category_name'):
+            return jsonify({'error': '产品分类名称不能为空'}), 400
+        
+        category = ProductCategoryService.create_product_category(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '产品分类创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-categories/<product_category_id>', methods=['PUT'])
+@jwt_required()
+def update_product_category(product_category_id):
+    """更新产品分类"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        category = ProductCategoryService.update_product_category(product_category_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category,
+            'message': '产品分类更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-categories/<product_category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_product_category(product_category_id):
+    """删除产品分类"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        ProductCategoryService.delete_product_category(product_category_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '产品分类删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-categories/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_product_categories():
+    """批量更新产品分类"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据必须是数组'}), 400
+        
+        results = ProductCategoryService.batch_update_product_categories(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': f'成功更新 {len(results)} 个产品分类'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-categories/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_product_categories():
+    """获取启用的产品分类列表"""
+    try:
+        from app.services.package_method_service import ProductCategoryService
+        
+        categories = ProductCategoryService.get_enabled_product_categories()
+        
+        return jsonify({
+            'success': True,
+            'data': categories
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

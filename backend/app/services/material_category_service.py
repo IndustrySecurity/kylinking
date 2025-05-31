@@ -118,12 +118,13 @@ class MaterialCategoryService:
         return category_dict
     
     @staticmethod
-    def create_material_category(data):
+    def create_material_category(data, created_by=None):
         """
         创建材料分类
         
         Args:
             data: 材料分类数据
+            created_by: 创建者ID
             
         Returns:
             dict: 创建的材料分类信息
@@ -147,6 +148,11 @@ class MaterialCategoryService:
                 unit = Unit.get_by_id(unit_id)
                 if not unit:
                     raise ValueError(f'{unit_field}对应的单位不存在')
+        
+        # 获取创建者ID
+        user_id = created_by
+        if not user_id and hasattr(g, 'current_user') and g.current_user:
+            user_id = g.current_user.id
         
         # 创建材料分类
         category = MaterialCategory(
@@ -191,7 +197,7 @@ class MaterialCategoryService:
             requires_certification=data.get('requires_certification', False),
             display_order=data.get('display_order', 0),
             is_active=data.get('is_active', True),
-            created_by=g.current_user.id
+            created_by=user_id
         )
         
         db.session.add(category)
@@ -200,13 +206,14 @@ class MaterialCategoryService:
         return MaterialCategoryService.get_material_category_by_id(category.id)
     
     @staticmethod
-    def update_material_category(category_id, data):
+    def update_material_category(category_id, data, updated_by=None):
         """
         更新材料分类
         
         Args:
             category_id: 材料分类ID
             data: 更新数据
+            updated_by: 更新者ID
             
         Returns:
             dict: 更新后的材料分类信息
@@ -227,9 +234,6 @@ class MaterialCategoryService:
         if 'material_type' in data and data['material_type'] not in ['主材', '辅材']:
             raise ValueError('材料属性必须是"主材"或"辅材"')
         
-
-
-        
         # 验证单位ID是否存在
         for unit_field in ['base_unit_id', 'auxiliary_unit_id', 'sales_unit_id']:
             if unit_field in data and data[unit_field]:
@@ -242,7 +246,12 @@ class MaterialCategoryService:
             if hasattr(category, field) and field not in ['id', 'created_by', 'created_at']:
                 setattr(category, field, value)
         
-        category.updated_by = g.current_user.id
+        # 设置更新者
+        user_id = updated_by
+        if not user_id and hasattr(g, 'current_user') and g.current_user:
+            user_id = g.current_user.id
+        
+        category.updated_by = user_id
         db.session.commit()
         
         return MaterialCategoryService.get_material_category_by_id(category.id)
@@ -290,7 +299,9 @@ class MaterialCategoryService:
                 continue
             
             try:
-                result = MaterialCategoryService.update_material_category(category_id, update_data)
+                # 提取updated_by参数
+                updated_by = update_data.pop('updated_by', None)
+                result = MaterialCategoryService.update_material_category(category_id, update_data, updated_by)
                 results.append(result)
             except Exception as e:
                 # 记录错误但继续处理其他记录
