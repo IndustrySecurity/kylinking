@@ -1418,3 +1418,119 @@ class LossType(TenantModel):
     
     def __repr__(self):
         return f'<LossType {self.loss_type_name}>'
+
+
+class Machine(TenantModel):
+    """机台模型"""
+    __tablename__ = 'machines'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    machine_code = db.Column(db.String(50), unique=True, nullable=False, comment='机台编号(自动生成)')
+    machine_name = db.Column(db.String(100), nullable=False, comment='机台名称')
+    model = db.Column(db.String(100), comment='型号')
+    
+    # 门幅参数
+    min_width = db.Column(db.Numeric(10, 2), comment='最小上机门幅(mm)')
+    max_width = db.Column(db.Numeric(10, 2), comment='最大上机门幅(mm)')
+    
+    # 生产参数
+    production_speed = db.Column(db.Numeric(10, 2), comment='生产均速(m/h)')
+    preparation_time = db.Column(db.Numeric(8, 2), comment='准备时间(h)')
+    difficulty_factor = db.Column(db.Numeric(8, 4), comment='难易系数')
+    circulation_card_id = db.Column(db.String(100), comment='流转卡标识')
+    max_colors = db.Column(db.Integer, comment='最大印色')
+    kanban_display = db.Column(db.String(200), comment='看板显示')
+    
+    # 产能配置
+    capacity_formula = db.Column(db.String(200), comment='产能公式')
+    gas_unit_price = db.Column(db.Numeric(10, 4), comment='燃气单价')
+    power_consumption = db.Column(db.Numeric(10, 2), comment='功耗(kw)')
+    electricity_cost_per_hour = db.Column(db.Numeric(10, 4), comment='电费(/h)')
+    output_conversion_factor = db.Column(db.Numeric(8, 4), comment='产量换算倍数')
+    plate_change_time = db.Column(db.Numeric(8, 2), comment='换版时间')
+    
+    # MES配置
+    mes_barcode_prefix = db.Column(db.String(20), comment='MES条码前缀')
+    is_curing_room = db.Column(db.Boolean, default=False, comment='是否熟化室')
+    
+    # 材料配置
+    material_name = db.Column(db.String(200), comment='材料名称')
+    
+    # 通用字段
+    remarks = db.Column(db.Text, comment='备注')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'machine_code': self.machine_code,
+            'machine_name': self.machine_name,
+            'model': self.model,
+            'min_width': float(self.min_width) if self.min_width else None,
+            'max_width': float(self.max_width) if self.max_width else None,
+            'production_speed': float(self.production_speed) if self.production_speed else None,
+            'preparation_time': float(self.preparation_time) if self.preparation_time else None,
+            'difficulty_factor': float(self.difficulty_factor) if self.difficulty_factor else None,
+            'circulation_card_id': self.circulation_card_id,
+            'max_colors': self.max_colors,
+            'kanban_display': self.kanban_display,
+            'capacity_formula': self.capacity_formula,
+            'gas_unit_price': float(self.gas_unit_price) if self.gas_unit_price else None,
+            'power_consumption': float(self.power_consumption) if self.power_consumption else None,
+            'electricity_cost_per_hour': float(self.electricity_cost_per_hour) if self.electricity_cost_per_hour else None,
+            'output_conversion_factor': float(self.output_conversion_factor) if self.output_conversion_factor else None,
+            'plate_change_time': float(self.plate_change_time) if self.plate_change_time else None,
+            'mes_barcode_prefix': self.mes_barcode_prefix,
+            'is_curing_room': self.is_curing_room,
+            'material_name': self.material_name,
+            'remarks': self.remarks,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            result.update({
+                'created_by_name': getattr(self.created_by_user, 'username', '') if hasattr(self, 'created_by_user') and self.created_by_user else '',
+                'updated_by_name': getattr(self.updated_by_user, 'username', '') if hasattr(self, 'updated_by_user') and self.updated_by_user else '',
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的机台列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.machine_name).all()
+    
+    @classmethod
+    def generate_machine_code(cls):
+        """生成机台编号"""
+        from sqlalchemy import func
+        
+        # 获取当前最大编号
+        max_code = db.session.query(func.max(cls.machine_code)).scalar()
+        
+        if max_code:
+            # 提取数字部分并加1
+            try:
+                num_part = int(max_code.replace('MT', ''))
+                new_num = num_part + 1
+            except (ValueError, AttributeError):
+                new_num = 1
+        else:
+            new_num = 1
+        
+        # 生成新编号，格式：MT + 4位数字
+        return f"MT{new_num:04d}"
+    
+    def __repr__(self):
+        return f'<Machine {self.machine_name}>'

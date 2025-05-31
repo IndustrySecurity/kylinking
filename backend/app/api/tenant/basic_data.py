@@ -3348,3 +3348,180 @@ def batch_update_loss_types():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# 机台管理API
+@bp.route('/machines', methods=['GET'])
+@jwt_required()
+def get_machines():
+    """获取机台列表"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取机台列表
+        result = MachineService.get_machines(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取机台列表失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/machines/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_machines():
+    """获取启用的机台列表"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        machines = MachineService.get_enabled_machines()
+        
+        return jsonify({
+            'success': True,
+            'data': machines
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取启用机台列表失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/machines/<machine_id>', methods=['GET'])
+@jwt_required()
+def get_machine(machine_id):
+    """获取单个机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        machine = MachineService.get_machine(machine_id)
+        if not machine:
+            return jsonify({'error': '机台不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': machine
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取机台失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/machines', methods=['POST'])
+@jwt_required()
+def create_machine():
+    """创建机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        if not data.get('machine_name'):
+            return jsonify({'error': '机台名称不能为空'}), 400
+        
+        machine = MachineService.create_machine(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': machine,
+            'message': '机台创建成功'
+        }), 201
+        
+    except Exception as e:
+        current_app.logger.error(f"创建机台失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/machines/<machine_id>', methods=['PUT'])
+@jwt_required()
+def update_machine(machine_id):
+    """更新机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        machine = MachineService.update_machine(machine_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': machine,
+            'message': '机台更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        current_app.logger.error(f"更新机台失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/machines/<machine_id>', methods=['DELETE'])
+@jwt_required()
+def delete_machine(machine_id):
+    """删除机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        MachineService.delete_machine(machine_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '机台删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        current_app.logger.error(f"删除机台失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/machines/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_machines():
+    """批量更新机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        machines = MachineService.batch_update_machines(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': machines,
+            'message': '批量更新成功'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"批量更新机台失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500

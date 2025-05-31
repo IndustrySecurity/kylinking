@@ -16,6 +16,7 @@ import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagem
 import ColorCardManagement from './pages/base-archive/ColorCardManagement';
 import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
+import MachineManagement from './pages/base-archive/MachineManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
@@ -217,6 +218,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <ProductionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 机台管理 */}
+            <Route path="/base-archive/machines" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MachineManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

@@ -56,7 +56,7 @@ const ProductionManagement = () => {
       key: 'machine',
       title: '机台',
       icon: <DesktopOutlined />,
-      path: '/production/archive/machine',
+      path: '/base-archive/machines',
       color: '#722ed1'
     },
     {

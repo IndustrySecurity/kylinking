@@ -5488,3 +5488,292 @@ class LossTypeService:
         ).order_by(LossType.sort_order, LossType.loss_type_name).all()
         
         return [lt.to_dict() for lt in loss_types]
+
+
+class MachineService:
+    """机台服务类"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置租户schema"""
+        from flask import g
+        if hasattr(g, 'tenant_slug') and g.tenant_slug:
+            db.session.execute(text(f"SET search_path TO {g.tenant_slug}, public"))
+        else:
+            # 默认使用wanle schema
+            db.session.execute(text("SET search_path TO wanle, public"))
+
+    @staticmethod
+    def get_machines(page=1, per_page=20, search=None, enabled_only=False):
+        """获取机台列表"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            query = Machine.query
+            
+            # 搜索过滤
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(
+                    db.or_(
+                        Machine.machine_name.ilike(search_pattern),
+                        Machine.machine_code.ilike(search_pattern),
+                        Machine.model.ilike(search_pattern)
+                    )
+                )
+            
+            # 启用状态过滤
+            if enabled_only:
+                query = query.filter(Machine.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(Machine.sort_order, Machine.machine_name)
+            
+            # 分页
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+            
+            machines = [machine.to_dict() for machine in pagination.items]
+            
+            return {
+                'items': machines,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"获取机台列表失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_machine(machine_id):
+        """获取单个机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machine = Machine.query.get(machine_id)
+            if not machine:
+                return None
+            
+            # 获取用户信息
+            from app.models.auth import User
+            user_ids = []
+            if machine.created_by:
+                user_ids.append(machine.created_by)
+            if machine.updated_by:
+                user_ids.append(machine.updated_by)
+            
+            users = {}
+            if user_ids:
+                user_list = User.query.filter(User.id.in_(user_ids)).all()
+                users = {str(user.id): user.username for user in user_list}
+            
+            machine_dict = machine.to_dict()
+            machine_dict['created_by_name'] = users.get(str(machine.created_by), '')
+            machine_dict['updated_by_name'] = users.get(str(machine.updated_by), '')
+            
+            return machine_dict
+            
+        except Exception as e:
+            print(f"获取机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def create_machine(data, created_by):
+        """创建机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            # 生成机台编号
+            machine_code = Machine.generate_machine_code()
+            
+            # 创建机台
+            machine = Machine(
+                machine_code=machine_code,
+                machine_name=data.get('machine_name'),
+                model=data.get('model'),
+                min_width=data.get('min_width'),
+                max_width=data.get('max_width'),
+                production_speed=data.get('production_speed'),
+                preparation_time=data.get('preparation_time'),
+                difficulty_factor=data.get('difficulty_factor'),
+                circulation_card_id=data.get('circulation_card_id'),
+                max_colors=data.get('max_colors'),
+                kanban_display=data.get('kanban_display'),
+                capacity_formula=data.get('capacity_formula'),
+                gas_unit_price=data.get('gas_unit_price'),
+                power_consumption=data.get('power_consumption'),
+                electricity_cost_per_hour=data.get('electricity_cost_per_hour'),
+                output_conversion_factor=data.get('output_conversion_factor'),
+                plate_change_time=data.get('plate_change_time'),
+                mes_barcode_prefix=data.get('mes_barcode_prefix'),
+                is_curing_room=data.get('is_curing_room', False),
+                material_name=data.get('material_name'),
+                remarks=data.get('remarks'),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(machine)
+            db.session.commit()
+            
+            return machine.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"创建机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def update_machine(machine_id, data, updated_by):
+        """更新机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machine = Machine.query.get(machine_id)
+            if not machine:
+                raise ValueError("机台不存在")
+            
+            # 更新字段
+            if 'machine_name' in data:
+                machine.machine_name = data['machine_name']
+            if 'model' in data:
+                machine.model = data['model']
+            if 'min_width' in data:
+                machine.min_width = data['min_width']
+            if 'max_width' in data:
+                machine.max_width = data['max_width']
+            if 'production_speed' in data:
+                machine.production_speed = data['production_speed']
+            if 'preparation_time' in data:
+                machine.preparation_time = data['preparation_time']
+            if 'difficulty_factor' in data:
+                machine.difficulty_factor = data['difficulty_factor']
+            if 'circulation_card_id' in data:
+                machine.circulation_card_id = data['circulation_card_id']
+            if 'max_colors' in data:
+                machine.max_colors = data['max_colors']
+            if 'kanban_display' in data:
+                machine.kanban_display = data['kanban_display']
+            if 'capacity_formula' in data:
+                machine.capacity_formula = data['capacity_formula']
+            if 'gas_unit_price' in data:
+                machine.gas_unit_price = data['gas_unit_price']
+            if 'power_consumption' in data:
+                machine.power_consumption = data['power_consumption']
+            if 'electricity_cost_per_hour' in data:
+                machine.electricity_cost_per_hour = data['electricity_cost_per_hour']
+            if 'output_conversion_factor' in data:
+                machine.output_conversion_factor = data['output_conversion_factor']
+            if 'plate_change_time' in data:
+                machine.plate_change_time = data['plate_change_time']
+            if 'mes_barcode_prefix' in data:
+                machine.mes_barcode_prefix = data['mes_barcode_prefix']
+            if 'is_curing_room' in data:
+                machine.is_curing_room = data['is_curing_room']
+            if 'material_name' in data:
+                machine.material_name = data['material_name']
+            if 'remarks' in data:
+                machine.remarks = data['remarks']
+            if 'sort_order' in data:
+                machine.sort_order = data['sort_order']
+            if 'is_enabled' in data:
+                machine.is_enabled = data['is_enabled']
+            
+            machine.updated_by = updated_by
+            
+            db.session.commit()
+            
+            return machine.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"更新机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def delete_machine(machine_id):
+        """删除机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machine = Machine.query.get(machine_id)
+            if not machine:
+                raise ValueError("机台不存在")
+            
+            db.session.delete(machine)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"删除机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def batch_update_machines(data_list, updated_by):
+        """批量更新机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            updated_machines = []
+            
+            for item in data_list:
+                machine_id = item.get('id')
+                if not machine_id:
+                    continue
+                
+                machine = Machine.query.get(machine_id)
+                if not machine:
+                    continue
+                
+                # 更新字段
+                for field in ['machine_name', 'model', 'min_width', 'max_width', 'production_speed',
+                             'preparation_time', 'difficulty_factor', 'circulation_card_id', 'max_colors',
+                             'kanban_display', 'capacity_formula', 'gas_unit_price', 'power_consumption',
+                             'electricity_cost_per_hour', 'output_conversion_factor', 'plate_change_time',
+                             'mes_barcode_prefix', 'is_curing_room', 'material_name', 'remarks',
+                             'sort_order', 'is_enabled']:
+                    if field in item:
+                        setattr(machine, field, item[field])
+                
+                machine.updated_by = updated_by
+                updated_machines.append(machine.to_dict())
+            
+            db.session.commit()
+            
+            return updated_machines
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"批量更新机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_enabled_machines():
+        """获取启用的机台列表"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machines = Machine.get_enabled_list()
+            return [machine.to_dict() for machine in machines]
+            
+        except Exception as e:
+            print(f"获取启用机台列表失败: {str(e)}")
+            raise e
