@@ -4,7 +4,8 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position
+from app.models.user import User
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
 from sqlalchemy.exc import IntegrityError
@@ -1334,4 +1335,247 @@ class DepartmentService:
         try:
             return Department.get_department_tree()
         except Exception as e:
-            raise ValueError(f"获取部门树形结构失败: {str(e)}") 
+            raise ValueError(f"获取部门树形结构失败: {str(e)}")
+
+
+class PositionService:
+    """职位管理服务"""
+    
+    @staticmethod
+    def get_positions(page=1, per_page=20, search=None, department_id=None):
+        """获取职位列表"""
+        try:
+            # 构建查询
+            query = db.session.query(Position)
+            
+            # 搜索条件
+            if search:
+                query = query.filter(Position.position_name.like(f'%{search}%'))
+            
+            # 部门筛选
+            if department_id:
+                query = query.filter(Position.department_id == uuid.UUID(department_id))
+            
+            # 排序
+            query = query.order_by(Position.sort_order, Position.position_name)
+            
+            # 分页
+            total = query.count()
+            positions = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            # 添加用户信息
+            for position in positions:
+                if position.created_by:
+                    creator = db.session.query(User).get(position.created_by)
+                    position.created_by_name = creator.get_full_name() if creator else '未知用户'
+                if position.updated_by:
+                    updater = db.session.query(User).get(position.updated_by)
+                    position.updated_by_name = updater.get_full_name() if updater else '未知用户'
+            
+            return {
+                'positions': [pos.to_dict() for pos in positions],
+                'total': total,
+                'current_page': page,
+                'per_page': per_page,
+                'pages': (total + per_page - 1) // per_page
+            }
+            
+        except Exception as e:
+            raise ValueError(f"获取职位列表失败: {str(e)}")
+    
+    @staticmethod
+    def get_position(position_id):
+        """获取职位详情"""
+        try:
+            position = db.session.query(Position).get(uuid.UUID(position_id))
+            if not position:
+                raise ValueError("职位不存在")
+            
+            # 添加用户信息
+            if position.created_by:
+                creator = db.session.query(User).get(position.created_by)
+                position.created_by_name = creator.get_full_name() if creator else '未知用户'
+            if position.updated_by:
+                updater = db.session.query(User).get(position.updated_by)
+                position.updated_by_name = updater.get_full_name() if updater else '未知用户'
+            
+            return position.to_dict()
+            
+        except Exception as e:
+            raise ValueError(f"获取职位详情失败: {str(e)}")
+    
+    @staticmethod
+    def create_position(data, created_by):
+        """创建职位"""
+        try:
+            # 验证部门
+            department = db.session.query(Department).get(uuid.UUID(data['department_id']))
+            if not department:
+                raise ValueError("部门不存在")
+            if not department.is_enabled:
+                raise ValueError("部门未启用")
+            
+            # 验证上级职位
+            parent_position_id = None
+            if data.get('parent_position_id'):
+                parent_position_id = uuid.UUID(data['parent_position_id'])
+                parent_position = db.session.query(Position).get(parent_position_id)
+                if not parent_position:
+                    raise ValueError("上级职位不存在")
+                if not parent_position.is_enabled:
+                    raise ValueError("上级职位未启用")
+            
+            # 创建职位对象
+            position = Position(
+                position_name=data['position_name'],
+                department_id=uuid.UUID(data['department_id']),
+                parent_position_id=parent_position_id,
+                hourly_wage=data.get('hourly_wage'),
+                standard_pass_rate=data.get('standard_pass_rate'),
+                is_supervisor=data.get('is_supervisor', False),
+                is_machine_operator=data.get('is_machine_operator', False),
+                description=data.get('description', ''),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(position)
+            db.session.commit()
+            
+            # 添加用户信息
+            creator = db.session.query(User).get(position.created_by)
+            position.created_by_name = creator.get_full_name() if creator else '未知用户'
+            
+            return position.to_dict()
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"创建职位失败: {str(e)}")
+    
+    @staticmethod
+    def update_position(position_id, data, updated_by):
+        """更新职位"""
+        try:
+            position = db.session.query(Position).get(uuid.UUID(position_id))
+            if not position:
+                raise ValueError("职位不存在")
+            
+            # 验证部门
+            if 'department_id' in data:
+                department = db.session.query(Department).get(uuid.UUID(data['department_id']))
+                if not department:
+                    raise ValueError("部门不存在")
+                if not department.is_enabled:
+                    raise ValueError("部门未启用")
+            
+            # 验证上级职位
+            if 'parent_position_id' in data:
+                parent_position_id = None
+                if data['parent_position_id']:
+                    parent_position_id = uuid.UUID(data['parent_position_id'])
+                    # 防止循环引用
+                    if parent_position_id == position.id:
+                        raise ValueError("不能将自己设置为上级职位")
+                    
+                    parent_position = db.session.query(Position).get(parent_position_id)
+                    if not parent_position:
+                        raise ValueError("上级职位不存在")
+                    if not parent_position.is_enabled:
+                        raise ValueError("上级职位未启用")
+                    
+                    # 检查是否会形成循环引用
+                    current_parent = parent_position
+                    while current_parent:
+                        if current_parent.parent_position_id == position.id:
+                            raise ValueError("设置此上级职位会形成循环引用")
+                        current_parent = current_parent.parent_position
+                
+                data['parent_position_id'] = parent_position_id
+            
+            # 更新字段
+            update_fields = [
+                'position_name', 'department_id', 'parent_position_id', 
+                'hourly_wage', 'standard_pass_rate', 'is_supervisor', 
+                'is_machine_operator', 'description', 'sort_order', 'is_enabled'
+            ]
+            
+            for field in update_fields:
+                if field in data:
+                    setattr(position, field, data[field])
+            
+            position.updated_by = uuid.UUID(updated_by)
+            position.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            # 添加用户信息
+            if position.updated_by:
+                updater = db.session.query(User).get(position.updated_by)
+                position.updated_by_name = updater.get_full_name() if updater else '未知用户'
+            
+            return position.to_dict()
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"更新职位失败: {str(e)}")
+    
+    @staticmethod
+    def delete_position(position_id):
+        """删除职位"""
+        try:
+            position = db.session.query(Position).get(uuid.UUID(position_id))
+            if not position:
+                raise ValueError("职位不存在")
+            
+            # 检查是否有下级职位
+            children_count = db.session.query(Position).filter(Position.parent_position_id == position.id).count()
+            if children_count > 0:
+                raise ValueError("存在下级职位，无法删除")
+            
+            db.session.delete(position)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"删除职位失败: {str(e)}")
+    
+    @staticmethod
+    def get_position_options(department_id=None):
+        """获取职位选项数据"""
+        try:
+            query = db.session.query(Position).filter(Position.is_enabled == True)
+            
+            # 按部门筛选
+            if department_id:
+                query = query.filter(Position.department_id == uuid.UUID(department_id))
+            
+            positions = query.order_by(Position.sort_order, Position.position_name).all()
+            
+            return [
+                {
+                    'value': str(pos.id),
+                    'label': pos.position_name,
+                    'department_id': str(pos.department_id),
+                    'department_name': pos.department.dept_name if pos.department else None
+                }
+                for pos in positions
+            ]
+        except Exception as e:
+            raise ValueError(f"获取职位选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_department_options():
+        """获取部门选项数据"""
+        try:
+            return DepartmentService.get_department_options()
+        except Exception as e:
+            raise ValueError(f"获取部门选项失败: {str(e)}") 

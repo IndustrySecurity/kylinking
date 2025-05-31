@@ -31,6 +31,7 @@ import InkOptionManagement from './pages/base-archive/InkOptionManagement';
 import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
 import LossTypeManagement from './pages/base-archive/LossTypeManagement';
 import DepartmentManagement from './pages/base-archive/DepartmentManagement';
+import PositionManagement from './pages/base-archive/PositionManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -208,6 +209,22 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <DepartmentManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/positions" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PositionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-data/positions" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PositionManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

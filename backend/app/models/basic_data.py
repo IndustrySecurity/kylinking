@@ -2013,3 +2013,94 @@ class Department(TenantModel):
     
     def __repr__(self):
         return f'<Department {self.dept_name}({self.dept_code})>'
+
+
+class Position(TenantModel):
+    """职位管理模型"""
+    __tablename__ = 'positions'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    position_name = db.Column(db.String(100), nullable=False, comment='职位名称')
+    department_id = db.Column(UUID(as_uuid=True), db.ForeignKey('departments.id'), nullable=False, comment='部门ID')
+    parent_position_id = db.Column(UUID(as_uuid=True), db.ForeignKey('positions.id'), nullable=True, comment='上级职位ID')
+    
+    # 薪资和绩效
+    hourly_wage = db.Column(db.Numeric(10, 2), comment='职位工资/小时')
+    standard_pass_rate = db.Column(db.Numeric(5, 2), comment='标准合格率(%)')
+    
+    # 职位标识
+    is_supervisor = db.Column(db.Boolean, default=False, comment='是否主管')
+    is_machine_operator = db.Column(db.Boolean, default=False, comment='是否机长')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    department = db.relationship('Department', backref='positions', lazy='select')
+    parent_position = db.relationship('Position', remote_side=[id], backref='sub_positions')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'position_name': self.position_name,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department_name': self.department.dept_name if self.department else None,
+            'parent_position_id': str(self.parent_position_id) if self.parent_position_id else None,
+            'parent_position_name': self.parent_position.position_name if self.parent_position else None,
+            'hourly_wage': float(self.hourly_wage) if self.hourly_wage else None,
+            'standard_pass_rate': float(self.standard_pass_rate) if self.standard_pass_rate else None,
+            'is_supervisor': self.is_supervisor,
+            'is_machine_operator': self.is_machine_operator,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            
+            # 获取创建人信息
+            created_by_name = None
+            if self.created_by:
+                try:
+                    created_user = db.session.query(User).filter_by(id=self.created_by).first()
+                    created_by_name = created_user.get_full_name() if created_user else None
+                except Exception:
+                    created_by_name = None
+            
+            # 获取修改人信息
+            updated_by_name = None
+            if self.updated_by:
+                try:
+                    updated_user = db.session.query(User).filter_by(id=self.updated_by).first()
+                    updated_by_name = updated_user.get_full_name() if updated_user else None
+                except Exception:
+                    updated_by_name = None
+            
+            result.update({
+                'created_by_name': created_by_name,
+                'updated_by_name': updated_by_name,
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的职位列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.position_name).all()
+    
+    def __repr__(self):
+        return f'<Position {self.position_name}>'

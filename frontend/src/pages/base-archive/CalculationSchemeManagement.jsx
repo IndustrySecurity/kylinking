@@ -103,9 +103,15 @@ const CalculationSchemeManagement = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { calculation_schemes, total, current_page } = response.data.data;
+        const { schemes, total, current_page } = response.data.data;
         
-        setData(calculation_schemes || []);
+        // 为每行数据添加key
+        const dataWithKeys = (schemes || []).map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
           total,
@@ -200,12 +206,17 @@ const CalculationSchemeManagement = () => {
         scheme_formula: currentFormula
       };
 
+      let response;
       if (editingScheme) {
-        await calculationSchemeApi.updateCalculationScheme(editingScheme.id, formData);
-        message.success('更新成功');
+        response = await calculationSchemeApi.updateCalculationScheme(editingScheme.id, formData);
+        if (response.data.success) {
+          message.success('更新成功');
+        }
       } else {
-        await calculationSchemeApi.createCalculationScheme(formData);
-        message.success('创建成功');
+        response = await calculationSchemeApi.createCalculationScheme(formData);
+        if (response.data.success) {
+          message.success('创建成功');
+        }
       }
 
       setModalVisible(false);
@@ -222,9 +233,11 @@ const CalculationSchemeManagement = () => {
   // 删除方案
   const handleDelete = async (id) => {
     try {
-      await calculationSchemeApi.deleteCalculationScheme(id);
-      message.success('删除成功');
-      loadData();
+      const response = await calculationSchemeApi.deleteCalculationScheme(id);
+      if (response.data.success) {
+        message.success('删除成功');
+        loadData();
+      }
     } catch (error) {
       message.error('删除失败：' + (error.response?.data?.error || error.message));
     }
@@ -697,7 +710,7 @@ const CalculationSchemeManagement = () => {
         <Table
           dataSource={data}
           columns={columns}
-          rowKey="id"
+          rowKey="key"
           pagination={pagination}
           loading={loading}
           onChange={handleTableChange}

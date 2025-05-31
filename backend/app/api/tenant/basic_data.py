@@ -9,7 +9,7 @@ from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService,
-    CalculationParameterService, CalculationSchemeService, DepartmentService
+    CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -4283,6 +4283,144 @@ def get_department_tree():
         return jsonify({
             'success': True,
             'data': tree
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# 职位管理接口
+@bp.route('/positions', methods=['GET'])
+@jwt_required()
+def get_positions():
+    """获取职位列表"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '')
+        department_id = request.args.get('department_id', '')
+        
+        result = PositionService.get_positions(
+            page=page,
+            per_page=per_page,
+            search=search,
+            department_id=department_id if department_id else None
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/positions/<position_id>', methods=['GET'])
+@jwt_required()
+def get_position(position_id):
+    """获取职位详情"""
+    try:
+        result = PositionService.get_position(position_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/positions', methods=['POST'])
+@jwt_required()
+def create_position():
+    """创建职位"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+            
+        if not data.get('position_name'):
+            return jsonify({'error': '职位名称不能为空'}), 400
+            
+        if not data.get('department_id'):
+            return jsonify({'error': '部门不能为空'}), 400
+        
+        result = PositionService.create_position(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '职位创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/positions/<position_id>', methods=['PUT'])
+@jwt_required()
+def update_position(position_id):
+    """更新职位"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        result = PositionService.update_position(position_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '职位更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/positions/<position_id>', methods=['DELETE'])
+@jwt_required()
+def delete_position(position_id):
+    """删除职位"""
+    try:
+        PositionService.delete_position(position_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '职位删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/positions/options', methods=['GET'])
+@jwt_required()
+def get_position_options():
+    """获取职位选项数据"""
+    try:
+        department_id = request.args.get('department_id')
+        
+        result = PositionService.get_position_options(department_id)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'positions': result
+            }
         })
         
     except Exception as e:
