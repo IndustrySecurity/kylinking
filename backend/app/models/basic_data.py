@@ -1593,3 +1593,66 @@ class QuoteInk(TenantModel):
     
     def __repr__(self):
         return f'<QuoteInk {self.category_name}>'
+
+
+class QuoteMaterial(TenantModel):
+    """报价材料模型"""
+    __tablename__ = 'quote_materials'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    material_name = db.Column(db.String(100), nullable=False, comment='材料名称')
+    density = db.Column(db.Numeric(10, 4), comment='密度')
+    kg_price = db.Column(db.Numeric(15, 4), comment='公斤价')
+    
+    # 层级选项
+    layer_1_optional = db.Column(db.Boolean, default=False, comment='一层可选')
+    layer_2_optional = db.Column(db.Boolean, default=False, comment='二层可选')
+    layer_3_optional = db.Column(db.Boolean, default=False, comment='三层可选')
+    layer_4_optional = db.Column(db.Boolean, default=False, comment='四层可选')
+    layer_5_optional = db.Column(db.Boolean, default=False, comment='五层可选')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    remarks = db.Column(db.Text, comment='备注')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'material_name': self.material_name,
+            'density': float(self.density) if self.density else None,
+            'kg_price': float(self.kg_price) if self.kg_price else None,
+            'layer_1_optional': self.layer_1_optional,
+            'layer_2_optional': self.layer_2_optional,
+            'layer_3_optional': self.layer_3_optional,
+            'layer_4_optional': self.layer_4_optional,
+            'layer_5_optional': self.layer_5_optional,
+            'sort_order': self.sort_order,
+            'remarks': self.remarks,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户名信息，需要关联用户表
+            pass
+            
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价材料列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.created_at).all()
+    
+    def __repr__(self):
+        return f'<QuoteMaterial {self.material_name}>'

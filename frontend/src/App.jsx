@@ -18,6 +18,7 @@ import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
 import MachineManagement from './pages/base-archive/MachineManagement';
 import QuoteInkManagement from './pages/base-archive/QuoteInkManagement';
+import QuoteMaterialManagement from './pages/base-archive/QuoteMaterialManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
@@ -237,6 +238,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <QuoteInkManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价材料管理 */}
+            <Route path="/base-archive/quote-materials" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteMaterialManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

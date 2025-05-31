@@ -144,7 +144,7 @@ const ProductionManagement = () => {
       key: 'quoteMaterial',
       title: '报价材料',
       icon: <ShoppingOutlined />,
-      path: '/production/config/quote-material',
+      path: '/base-archive/quote-materials',
       color: '#eb2f96'
     },
     {
