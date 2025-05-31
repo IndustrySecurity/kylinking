@@ -60,11 +60,15 @@ const AccountManagement = () => {
   const fetchCurrencies = async () => {
     try {
       const result = await currencyApi.getEnabledCurrencies();
-      setCurrencies(result || []);
-      
-      // 查找本位币
-      const baseCurrencyItem = (result || []).find(currency => currency.is_base_currency);
-      setBaseCurrency(baseCurrencyItem);
+      // 正确处理后端响应格式
+      if (result.data && result.data.success) {
+        const currencies = result.data.data.currencies || [];
+        setCurrencies(currencies);
+        
+        // 查找本位币
+        const baseCurrencyItem = currencies.find(currency => currency.is_base_currency);
+        setBaseCurrency(baseCurrencyItem);
+      }
     } catch (error) {
       console.error('获取币别列表失败:', error);
     }
@@ -83,12 +87,16 @@ const AccountManagement = () => {
       }
 
       const result = await accountManagementApi.getAccounts(params);
-      setData(result.accounts || []);
-      setPagination({
-        current: page,
-        pageSize,
-        total: result.total || 0,
-      });
+      // 正确处理后端响应格式
+      if (result.data && result.data.success) {
+        const { accounts, total, current_page } = result.data.data;
+        setData(accounts || []);
+        setPagination({
+          current: current_page || page,
+          pageSize,
+          total: total || 0,
+        });
+      }
     } catch (error) {
       console.error('获取账户列表失败:', error);
       message.error('获取数据失败');

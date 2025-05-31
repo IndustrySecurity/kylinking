@@ -63,21 +63,23 @@ const QuoteInkManagement = () => {
         ...params
       });
 
-      // 响应拦截器已经返回了data部分，直接使用
-      const { items, total, current_page } = response;
-      
-      // 为每行数据添加key
-      const dataWithKeys = items.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total: total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { quote_inks, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = quote_inks.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
       message.error('加载数据失败');
@@ -157,16 +159,18 @@ const QuoteInkManagement = () => {
           response = await createQuoteInk(row);
         }
 
-        // 响应拦截器已经返回了data部分，直接使用
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
-        setEditingKey('');
-        message.success('保存成功');
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
+          setEditingKey('');
+          message.success('保存成功');
+        }
       }
     } catch (error) {
       if (error.errorFields) {

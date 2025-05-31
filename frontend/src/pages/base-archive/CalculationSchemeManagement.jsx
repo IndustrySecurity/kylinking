@@ -101,14 +101,17 @@ const CalculationSchemeManagement = () => {
         ...params
       });
 
-      const { calculation_schemes, total, current_page } = response;
-      
-      setData(calculation_schemes || []);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { calculation_schemes, total, current_page } = response.data.data;
+        
+        setData(calculation_schemes || []);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
@@ -121,11 +124,15 @@ const CalculationSchemeManagement = () => {
     try {
       // 加载方案分类
       const categoriesResponse = await calculationSchemeApi.getSchemeCategories();
-      setSchemeCategories(categoriesResponse.scheme_categories || []);
+      if (categoriesResponse.data.success) {
+        setSchemeCategories(categoriesResponse.data.data.scheme_categories || []);
+      }
 
       // 加载计算参数
       const parametersResponse = await calculationParameterApi.getCalculationParameterOptions();
-      setCalculationParameters(parametersResponse.calculation_parameters || []);
+      if (parametersResponse.data.success) {
+        setCalculationParameters(parametersResponse.data.data.calculation_parameters || []);
+      }
     } catch (error) {
       message.error('加载选项数据失败：' + (error.response?.data?.error || error.message));
     }

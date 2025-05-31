@@ -63,21 +63,23 @@ const TaxRate = () => {
         ...params
       });
 
-      // response 已经是 data 部分了（由 request.js 拦截器处理）
-      const { tax_rates, total, current_page } = response;
-      
-      // 为每行数据添加key
-      const dataWithKeys = tax_rates.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { tax_rates, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = tax_rates.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
@@ -164,22 +166,24 @@ const TaxRate = () => {
           response = await taxRateApi.createTaxRate(row);
         }
 
-        // response 已经是 data 部分了（由 request.js 拦截器处理）
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
-        setEditingKey('');
-        message.success('保存成功');
-        
-        // 如果设置了默认税率，重新加载数据以确保服务器端的唯一性处理生效
-        if (row.is_default) {
-          setTimeout(() => {
-            loadData();
-          }, 500);
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
+          setEditingKey('');
+          message.success('保存成功');
+          
+          // 如果设置了默认税率，重新加载数据以确保服务器端的唯一性处理生效
+          if (row.is_default) {
+            setTimeout(() => {
+              loadData();
+            }, 500);
+          }
         }
       }
     } catch (error) {
@@ -198,8 +202,10 @@ const TaxRate = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        await taxRateApi.deleteTaxRate(record.id);
-        message.success('删除成功');
+        const response = await taxRateApi.deleteTaxRate(record.id);
+        if (response.data.success) {
+          message.success('删除成功');
+        }
       }
       
       // 删除本地记录

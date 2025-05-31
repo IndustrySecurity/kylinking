@@ -66,25 +66,27 @@ const ProductCategoryManagement = () => {
 
       console.log('API response:', response); // 添加调试信息
 
-      // 响应拦截器已经返回了data部分，response就是包含product_categories的对象
-      const { product_categories, total, current_page } = response;
-      
-      console.log('Extracted data:', { product_categories, total, current_page }); // 添加调试信息
-      
-      // 为每行数据添加key
-      const dataWithKeys = product_categories.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      console.log('Data with keys:', dataWithKeys); // 添加调试信息
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { product_categories, total, current_page } = response.data.data;
+        
+        console.log('Extracted data:', { product_categories, total, current_page }); // 添加调试信息
+        
+        // 为每行数据添加key
+        const dataWithKeys = product_categories.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        console.log('Data with keys:', dataWithKeys); // 添加调试信息
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       console.error('Load data error:', error); // 添加调试信息
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
@@ -166,16 +168,18 @@ const ProductCategoryManagement = () => {
           response = await productCategoryApi.createProductCategory(row);
         }
 
-        // 响应拦截器已经返回了data部分，直接使用
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
-        setEditingKey('');
-        message.success('保存成功');
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
+          setEditingKey('');
+          message.success('保存成功');
+        }
       }
     } catch (error) {
       console.error('Save error:', error); // 添加调试信息
@@ -194,8 +198,10 @@ const ProductCategoryManagement = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        await productCategoryApi.deleteProductCategory(record.id);
-        message.success('删除成功');
+        const response = await productCategoryApi.deleteProductCategory(record.id);
+        if (response.data.success) {
+          message.success('删除成功');
+        }
       }
       
       // 删除本地记录

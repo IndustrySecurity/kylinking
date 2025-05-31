@@ -104,20 +104,23 @@ const CalculationParameterManagement = () => {
         ...params
       });
 
-      const { calculation_parameters, total, current_page } = response;
-      
-      // 为每行数据添加key
-      const dataWithKeys = calculation_parameters.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { calculation_parameters, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = calculation_parameters.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
@@ -196,15 +199,18 @@ const CalculationParameterManagement = () => {
           response = await calculationParameterApi.createCalculationParameter(row);
         }
 
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
-        setEditingKey('');
-        message.success('保存成功');
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
+          setEditingKey('');
+          message.success('保存成功');
+        }
       }
     } catch (error) {
       if (error.errorFields) {
@@ -222,8 +228,10 @@ const CalculationParameterManagement = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        await calculationParameterApi.deleteCalculationParameter(record.id);
-        message.success('删除成功');
+        const response = await calculationParameterApi.deleteCalculationParameter(record.id);
+        if (response.data.success) {
+          message.success('删除成功');
+        }
       }
       
       // 删除本地记录

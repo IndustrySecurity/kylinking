@@ -1145,7 +1145,7 @@ class DepartmentService:
         return {
             'departments': [dept.to_dict(include_user_info=True) for dept in departments],
             'total': total,
-            'page': page,
+            'current_page': page,
             'per_page': per_page,
             'pages': (total + per_page - 1) // per_page
         }

@@ -62,21 +62,23 @@ const SupplierCategoryManagement = () => {
         ...params
       });
 
-      // 响应拦截器已经返回了data部分，直接使用
-      const { supplier_categories, total, current_page } = response;
-      
-      // 为每行数据添加key
-      const dataWithKeys = supplier_categories.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { supplier_categories, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = supplier_categories.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
@@ -154,16 +156,18 @@ const SupplierCategoryManagement = () => {
           response = await supplierCategoryApi.createSupplierCategory(row);
         }
 
-        // 响应拦截器已经返回了data部分，直接使用
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
-        setEditingKey('');
-        message.success('保存成功');
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
+          setEditingKey('');
+          message.success('保存成功');
+        }
       }
     } catch (error) {
       if (error.errorFields) {
@@ -181,8 +185,10 @@ const SupplierCategoryManagement = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        await supplierCategoryApi.deleteSupplierCategory(record.id);
-        message.success('删除成功');
+        const response = await supplierCategoryApi.deleteSupplierCategory(record.id);
+        if (response.data.success) {
+          message.success('删除成功');
+        }
       }
       
       // 删除本地记录

@@ -62,20 +62,23 @@ const QuoteMaterialManagement = () => {
         ...params
       });
 
-      const { quote_materials, total, current_page } = response;
-      
-      // 为每行数据添加key
-      const dataWithKeys = quote_materials.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { quote_materials, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = quote_materials.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
       message.error('加载数据失败：' + (error.response?.data?.message || error.message));

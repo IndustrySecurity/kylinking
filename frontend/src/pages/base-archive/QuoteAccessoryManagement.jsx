@@ -74,20 +74,23 @@ const QuoteAccessoryManagement = () => {
         ...params
       });
 
-      const { quote_accessories, total, current_page } = response;
-      
-      // 为每行数据添加key
-      const dataWithKeys = quote_accessories.map((item, index) => ({
-        ...item,
-        key: item.id || `temp_${index}`
-      }));
-      
-      setData(dataWithKeys);
-      setPagination(prev => ({
-        ...prev,
-        total,
-        current: current_page
-      }));
+      // 正确处理后端响应格式
+      if (response.data.success) {
+        const { quote_accessories, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = quote_accessories.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
       message.error('加载数据失败：' + (error.response?.data?.message || error.message));
@@ -164,15 +167,18 @@ const QuoteAccessoryManagement = () => {
           response = await quoteAccessoryApi.createQuoteAccessory(row);
         }
 
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
-        setEditingKey('');
-        message.success('保存成功');
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
+          setEditingKey('');
+          message.success('保存成功');
+        }
       }
     } catch (error) {
       if (error.errorFields) {
@@ -191,8 +197,10 @@ const QuoteAccessoryManagement = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        await quoteAccessoryApi.deleteQuoteAccessory(record.id);
-        message.success('删除成功');
+        const response = await quoteAccessoryApi.deleteQuoteAccessory(record.id);
+        if (response.data.success) {
+          message.success('删除成功');
+        }
       }
       
       // 删除本地记录

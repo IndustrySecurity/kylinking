@@ -55,12 +55,16 @@ const SettlementMethod = () => {
       }
 
       const result = await settlementMethodApi.getSettlementMethods(params);
-      setData(result.settlement_methods || []);
-      setPagination({
-        current: page,
-        pageSize,
-        total: result.total || 0,
-      });
+      // 正确处理后端响应格式
+      if (result.data && result.data.success) {
+        const { settlement_methods, total, current_page } = result.data.data;
+        setData(settlement_methods || []);
+        setPagination({
+          current: current_page || page,
+          pageSize,
+          total: total || 0,
+        });
+      }
     } catch (error) {
       console.error('获取结算方式列表失败:', error);
       message.error('获取数据失败');
