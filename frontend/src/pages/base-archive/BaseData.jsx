@@ -69,9 +69,9 @@ const BaseData = () => {
     },
     {
       key: 'departments',
-      title: '部门',
+      title: '部门管理',
       icon: <ApartmentOutlined />,
-      path: '/base-archive/base-data/departments',
+      path: '/base-archive/departments',
       color: '#eb2f96'
     },
     {

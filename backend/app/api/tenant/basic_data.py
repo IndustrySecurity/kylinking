@@ -9,7 +9,7 @@ from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService,
-    CalculationParameterService, CalculationSchemeService
+    CalculationParameterService, CalculationSchemeService, DepartmentService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -4105,13 +4105,184 @@ def batch_update_product_categories():
 def get_enabled_product_categories():
     """获取启用的产品分类列表"""
     try:
-        from app.services.package_method_service import ProductCategoryService
+        from app.models.basic_data import ProductCategory
         
-        categories = ProductCategoryService.get_enabled_product_categories()
+        product_categories = ProductCategory.get_enabled_list()
         
         return jsonify({
             'success': True,
-            'data': categories
+            'data': [category.to_dict() for category in product_categories]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 部门管理路由
+@bp.route('/departments', methods=['GET'])
+@jwt_required()
+def get_departments():
+    """获取部门列表"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        
+        result = DepartmentService.get_departments(
+            page=page,
+            per_page=per_page,
+            search=search
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments/<dept_id>', methods=['GET'])
+@jwt_required()
+def get_department(dept_id):
+    """获取部门详情"""
+    try:
+        department = DepartmentService.get_department(dept_id)
+        
+        return jsonify({
+            'success': True,
+            'data': department
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments', methods=['POST'])
+@jwt_required()
+def create_department():
+    """创建部门"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        if not data.get('dept_name'):
+            return jsonify({'error': '部门名称不能为空'}), 400
+        
+        department = DepartmentService.create_department(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': department,
+            'message': '部门创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments/<dept_id>', methods=['PUT'])
+@jwt_required()
+def update_department(dept_id):
+    """更新部门"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        department = DepartmentService.update_department(dept_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': department,
+            'message': '部门更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments/<dept_id>', methods=['DELETE'])
+@jwt_required()
+def delete_department(dept_id):
+    """删除部门"""
+    try:
+        DepartmentService.delete_department(dept_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '部门删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_departments():
+    """批量更新部门"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        departments = DepartmentService.batch_update_departments(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': departments,
+            'message': '部门批量更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments/options', methods=['GET'])
+@jwt_required()
+def get_department_options():
+    """获取部门选项数据"""
+    try:
+        options = DepartmentService.get_department_options()
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/departments/tree', methods=['GET'])
+@jwt_required()
+def get_department_tree():
+    """获取部门树形结构"""
+    try:
+        tree = DepartmentService.get_department_tree()
+        
+        return jsonify({
+            'success': True,
+            'data': tree
         })
         
     except Exception as e:

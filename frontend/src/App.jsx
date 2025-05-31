@@ -30,6 +30,7 @@ import ProductCategoryManagement from './pages/base-archive/ProductCategoryManag
 import InkOptionManagement from './pages/base-archive/InkOptionManagement';
 import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
 import LossTypeManagement from './pages/base-archive/LossTypeManagement';
+import DepartmentManagement from './pages/base-archive/DepartmentManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -199,6 +200,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <CalculationSchemeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/departments" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <DepartmentManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

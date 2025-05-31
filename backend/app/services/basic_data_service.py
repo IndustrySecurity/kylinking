@@ -4,7 +4,7 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
 from sqlalchemy.exc import IntegrityError
@@ -840,75 +840,62 @@ class CalculationSchemeService:
     @staticmethod
     def get_calculation_schemes(page=1, per_page=20, search=None, category=None):
         """获取计算方案列表"""
-        from app.models.basic_data import CalculationScheme
-        
-        query = CalculationScheme.query
+        query = db.session.query(CalculationScheme)
         
         # 搜索条件
         if search:
             search_pattern = f"%{search}%"
-            query = query.filter(
-                CalculationScheme.scheme_name.ilike(search_pattern)
-            )
+            query = query.filter(or_(
+                CalculationScheme.scheme_name.ilike(search_pattern),
+                CalculationScheme.description.ilike(search_pattern)
+            ))
         
         # 分类筛选
         if category:
             query = query.filter(CalculationScheme.scheme_category == category)
         
+        # 只查询启用的记录
+        query = query.filter(CalculationScheme.is_enabled == True)
+        
         # 排序
-        query = query.order_by(CalculationScheme.sort_order, CalculationScheme.scheme_name)
+        query = query.order_by(CalculationScheme.sort_order, CalculationScheme.created_at.desc())
         
         # 分页
         total = query.count()
-        if per_page > 0:
-            calculation_schemes = query.offset((page - 1) * per_page).limit(per_page).all()
-        else:
-            calculation_schemes = query.all()
+        schemes = query.offset((page - 1) * per_page).limit(per_page).all()
         
         return {
-            'calculation_schemes': [scheme.to_dict(include_user_info=True) for scheme in calculation_schemes],
+            'schemes': [scheme.to_dict() for scheme in schemes],
             'total': total,
-            'current_page': page,
+            'page': page,
             'per_page': per_page,
-            'pages': (total + per_page - 1) // per_page if per_page > 0 else 1
+            'pages': (total + per_page - 1) // per_page
         }
     
     @staticmethod
     def get_calculation_scheme(scheme_id):
         """获取计算方案详情"""
-        from app.models.basic_data import CalculationScheme
-        
-        scheme = CalculationScheme.query.get(uuid.UUID(scheme_id))
+        scheme = db.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
         if not scheme:
             raise ValueError("计算方案不存在")
-        return scheme.to_dict(include_user_info=True)
+        return scheme.to_dict()
     
     @staticmethod
     def create_calculation_scheme(data, created_by):
         """创建计算方案"""
-        from app.models.basic_data import CalculationScheme
-        
         try:
-            # 验证必填字段
-            if not data.get('scheme_name'):
-                raise ValueError("方案名称不能为空")
-            
-            if not data.get('scheme_category'):
-                raise ValueError("方案分类不能为空")
-            
-            # 检查名称是否重复
-            existing = CalculationScheme.query.filter_by(
-                scheme_name=data['scheme_name']
-            ).first()
-            if existing:
-                raise ValueError("方案名称已存在")
+            # 验证公式
+            if data.get('scheme_formula'):
+                validation_result = CalculationSchemeService.validate_formula(data['scheme_formula'])
+                if not validation_result['is_valid']:
+                    raise ValueError(f"公式验证失败: {validation_result['error']}")
             
             # 创建计算方案对象
             scheme = CalculationScheme(
                 scheme_name=data['scheme_name'],
                 scheme_category=data['scheme_category'],
                 scheme_formula=data.get('scheme_formula', ''),
-                description=data.get('description'),
+                description=data.get('description', ''),
                 sort_order=data.get('sort_order', 0),
                 is_enabled=data.get('is_enabled', True),
                 created_by=uuid.UUID(created_by)
@@ -917,10 +904,12 @@ class CalculationSchemeService:
             db.session.add(scheme)
             db.session.commit()
             
-            return scheme.to_dict(include_user_info=True)
+            return scheme.to_dict()
             
         except IntegrityError as e:
             db.session.rollback()
+            if 'scheme_name' in str(e):
+                raise ValueError("方案名称已存在")
             raise ValueError("数据完整性错误")
         except Exception as e:
             db.session.rollback()
@@ -929,28 +918,16 @@ class CalculationSchemeService:
     @staticmethod
     def update_calculation_scheme(scheme_id, data, updated_by):
         """更新计算方案"""
-        from app.models.basic_data import CalculationScheme
-        
         try:
-            scheme = CalculationScheme.query.get(uuid.UUID(scheme_id))
+            scheme = db.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
             if not scheme:
                 raise ValueError("计算方案不存在")
             
-            # 验证必填字段
-            if 'scheme_name' in data and not data['scheme_name']:
-                raise ValueError("方案名称不能为空")
-            
-            if 'scheme_category' in data and not data['scheme_category']:
-                raise ValueError("方案分类不能为空")
-            
-            # 检查名称是否重复（排除自己）
-            if 'scheme_name' in data:
-                existing = CalculationScheme.query.filter(
-                    CalculationScheme.scheme_name == data['scheme_name'],
-                    CalculationScheme.id != scheme.id
-                ).first()
-                if existing:
-                    raise ValueError("方案名称已存在")
+            # 验证公式
+            if 'scheme_formula' in data and data['scheme_formula']:
+                validation_result = CalculationSchemeService.validate_formula(data['scheme_formula'])
+                if not validation_result['is_valid']:
+                    raise ValueError(f"公式验证失败: {validation_result['error']}")
             
             # 更新字段
             update_fields = ['scheme_name', 'scheme_category', 'scheme_formula', 'description', 'sort_order', 'is_enabled']
@@ -959,16 +936,17 @@ class CalculationSchemeService:
                 if field in data:
                     setattr(scheme, field, data[field])
             
-            # 更新审计字段
             scheme.updated_by = uuid.UUID(updated_by)
             scheme.updated_at = datetime.utcnow()
             
             db.session.commit()
             
-            return scheme.to_dict(include_user_info=True)
+            return scheme.to_dict()
             
         except IntegrityError as e:
             db.session.rollback()
+            if 'scheme_name' in str(e):
+                raise ValueError("方案名称已存在")
             raise ValueError("数据完整性错误")
         except Exception as e:
             db.session.rollback()
@@ -977,10 +955,8 @@ class CalculationSchemeService:
     @staticmethod
     def delete_calculation_scheme(scheme_id):
         """删除计算方案"""
-        from app.models.basic_data import CalculationScheme
-        
         try:
-            scheme = CalculationScheme.query.get(uuid.UUID(scheme_id))
+            scheme = db.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
             if not scheme:
                 raise ValueError("计算方案不存在")
             
@@ -996,181 +972,366 @@ class CalculationSchemeService:
     @staticmethod
     def get_scheme_categories():
         """获取方案分类选项"""
-        from app.models.basic_data import CalculationScheme
-        
         try:
-            return {
-                'scheme_categories': CalculationScheme.get_scheme_categories()
-            }
-            
+            return CalculationScheme.get_scheme_categories()
         except Exception as e:
             raise ValueError(f"获取方案分类失败: {str(e)}")
     
     @staticmethod
     def validate_formula(formula):
-        """验证计算公式"""
+        """验证公式语法"""
         try:
-            if not formula:
-                return {'valid': True, 'message': '公式为空'}
+            if not formula or not formula.strip():
+                return {'is_valid': True, 'error': None, 'warnings': []}
             
-            formula = formula.strip()
+            # 统计信息
+            param_count = len(re.findall(r'\[([^\]]+)\]', formula))
+            string_count = len(re.findall(r"'([^']*)'", formula))
+            line_count = formula.count('\n') + 1
+            
             errors = []
             warnings = []
             
-            # 1. 基本括号匹配检查
-            open_parens = formula.count('(')
-            close_parens = formula.count(')')
-            if open_parens != close_parens:
-                errors.append('括号不匹配')
-            
-            # 2. 中括号匹配检查（参数）
-            open_brackets = formula.count('[')
-            close_brackets = formula.count(']')
-            if open_brackets != close_brackets:
-                errors.append('参数中括号不匹配')
-            
-            # 3. 单引号匹配检查（字符串）
+            # 1. 检查括号匹配
+            round_brackets = formula.count('(') - formula.count(')')
+            square_brackets = formula.count('[') - formula.count(']')
             single_quotes = formula.count("'")
+            
+            if round_brackets != 0:
+                errors.append(f"圆括号不匹配，多了 {abs(round_brackets)} 个{'左' if round_brackets > 0 else '右'}括号")
+            
+            if square_brackets != 0:
+                errors.append(f"方括号不匹配，多了 {abs(square_brackets)} 个{'左' if square_brackets > 0 else '右'}括号")
+            
             if single_quotes % 2 != 0:
-                errors.append('字符串单引号不匹配')
+                errors.append("单引号不匹配，必须成对出现")
             
-            # 4. 参数有效性检查
-            parameter_pattern = r'\[([^\]]+)\]'
-            parameters_in_formula = re.findall(parameter_pattern, formula)
+            # 2. 检查参数引用格式
+            params = re.findall(r'\[([^\]]+)\]', formula)
+            for param in params:
+                if not param.strip():
+                    errors.append("发现空的参数引用: []")
+                elif not re.match(r'^[a-zA-Z\u4e00-\u9fa5][a-zA-Z0-9\u4e00-\u9fa5_]*$', param.strip()):
+                    warnings.append(f"参数名称格式建议优化: [{param}]")
             
-            if parameters_in_formula:
-                # 获取系统中有效的计算参数（使用类方法确保正确的租户过滤）
-                from app.models.basic_data import CalculationParameter
-                try:
-                    # 使用类方法获取启用的参数列表，这会自动应用租户过滤
-                    valid_parameters = CalculationParameter.get_enabled_list()
-                    valid_parameter_names = [p.parameter_name for p in valid_parameters]
-                    
-                    # 检查参数名称，支持精确匹配和大小写忽略匹配
-                    invalid_parameters = []
-                    for param_name in parameters_in_formula:
-                        # 先精确匹配
-                        if param_name not in valid_parameter_names:
-                            # 尝试大小写不敏感匹配
-                            param_lower = param_name.lower()
-                            valid_names_lower = [name.lower() for name in valid_parameter_names]
-                            if param_lower not in valid_names_lower:
-                                invalid_parameters.append(param_name)
-                    
-                    if invalid_parameters:
-                        errors.append(f'无效的参数: {", ".join(invalid_parameters)}')
-                        # 提供建议的参数名称
-                        if valid_parameter_names:
-                            warnings.append(f'可用的参数有: {", ".join(valid_parameter_names[:10])}{"..." if len(valid_parameter_names) > 10 else ""}')
-                        
-                except Exception as param_error:
-                    warnings.append(f'无法验证参数有效性: {str(param_error)}')
+            # 3. 检查字符串格式
+            strings = re.findall(r"'([^']*)'", formula)
+            for string in strings:
+                if not string.strip():
+                    warnings.append("发现空字符串: ''")
             
-            # 5. 检查公式中的字符串是否正确使用单引号
-            string_pattern = r"'[^']*'"
-            strings_in_formula = re.findall(string_pattern, formula)
+            # 4. 检查运算符
+            operators = ['如果', '那么', '否则', '结束', '并且', '或者', '>', '<', '>=', '<=', '=', '<>', '+', '-', '*', '/']
+            invalid_chars = re.findall(r'[^\w\s\[\]\'"().,><=+\-*/#%\u4e00-\u9fa5]', formula)
+            if invalid_chars:
+                unique_chars = list(set(invalid_chars))
+                warnings.append(f"发现特殊字符，请确认是否正确: {', '.join(unique_chars)}")
             
-            # 移除字符串和参数后检查剩余字符
-            formula_without_strings = formula
-            for string_val in strings_in_formula:
-                formula_without_strings = formula_without_strings.replace(string_val, '__STRING__')
+            # 5. 检查基本语法结构
+            if '如果' in formula:
+                if_count = formula.count('如果')
+                then_count = formula.count('那么')
+                end_count = formula.count('结束')
+                
+                if if_count != then_count:
+                    errors.append(f"'如果'和'那么'数量不匹配: 如果({if_count}) vs 那么({then_count})")
+                
+                if if_count != end_count:
+                    errors.append(f"'如果'和'结束'数量不匹配: 如果({if_count}) vs 结束({end_count})")
             
-            formula_without_params = re.sub(parameter_pattern, '__PARAM__', formula_without_strings)
-            
-            # 6. 检查是否包含非法字符
-            # 允许的字符：数字、运算符、括号、空格、中文关键词、占位符（包括大写字母）
-            allowed_pattern = r'^[0-9A-Za-z+\-*/()>=<.\s如果那么否则结束或者并且_]*$'
-            if not re.match(allowed_pattern, formula_without_params):
-                # 找出非法字符
-                valid_chars = re.findall(r'[0-9A-Za-z+\-*/()>=<.\s如果那么否则结束或者并且_]', formula_without_params)
-                all_chars = list(formula_without_params)
-                invalid_chars = list(set([c for c in all_chars if c not in valid_chars]))
-                if invalid_chars:
-                    errors.append(f'包含非法字符: {", ".join(invalid_chars)}')
-            
-            # 7. 检查逻辑结构
-            # 检查"如果...那么...否则...结束"结构
-            if_count = formula.count('如果')
-            then_count = formula.count('那么') 
-            else_count = formula.count('否则')
-            end_count = formula.count('结束')
-            
-            # 基本的逻辑结构检查
-            if if_count > 0:
-                if then_count < if_count:
-                    warnings.append('每个"如果"应该对应一个"那么"')
-                if end_count < if_count:
-                    warnings.append('每个"如果"应该对应一个"结束"')
-            
-            # 8. 检查运算符使用
-            # 检查连续的运算符
-            consecutive_operators = re.findall(r'[+\-*/>=<]{2,}', formula)
-            if consecutive_operators:
-                errors.append('存在连续的运算符')
-            
-            # 9. 检查数字格式
-            number_pattern = r'\d+\.?\d*'
-            numbers = re.findall(number_pattern, formula)
+            # 6. 数字格式检查
+            numbers = re.findall(r'\b\d+\.?\d*\b', formula)
             for num in numbers:
                 try:
                     float(num)
                 except ValueError:
-                    errors.append(f'数字格式错误: {num}')
+                    errors.append(f"数字格式错误: {num}")
             
-            # 10. 语法建议检查
-            # 检查运算符前后空格
-            operators_without_space = re.findall(r'\S[+\-*/>=<]\S', formula)
-            if operators_without_space:
-                warnings.append('建议在运算符前后添加空格以提高可读性')
+            # 7. 参数存在性检查（检查参数是否在系统中定义）
+            from app.models.basic_data import CalculationParameter
+            existing_params = db.session.query(CalculationParameter.parameter_name).filter(
+                CalculationParameter.is_enabled == True
+            ).all()
+            existing_param_names = [p[0] for p in existing_params]
             
-            # 检查参数前后空格
-            params_without_space = re.findall(r'\S\[[^\]]+\]\S', formula)
-            if params_without_space:
-                warnings.append('建议在参数前后添加空格以提高可读性')
+            for param in params:
+                param_name = param.strip()
+                # 检查精确匹配
+                if param_name not in existing_param_names:
+                    # 检查大小写不一致的情况
+                    similar_params = [p for p in existing_param_names if p.lower() == param_name.lower()]
+                    if similar_params:
+                        warnings.append(f"参数 '[{param_name}]' 大小写可能不正确，系统中存在: {similar_params}")
+                    else:
+                        errors.append(f"参数 '[{param_name}]' 在系统中不存在或未启用")
             
-            # 11. 额外的参数名称检查
-            if parameters_in_formula:
-                # 检查参数名称是否包含特殊字符
-                for param_name in parameters_in_formula:
-                    if re.search(r'[^\w\u4e00-\u9fff]', param_name):
-                        warnings.append(f'参数名称 "{param_name}" 包含特殊字符，建议只使用字母、数字和中文')
+            # 8. 格式建议
+            if formula and not re.search(r'\s', formula):
+                warnings.append("建议在运算符前后添加空格以提高可读性")
             
-            if errors:
-                return {
-                    'valid': False, 
-                    'message': '; '.join(errors),
-                    'warnings': warnings
+            is_valid = len(errors) == 0
+            
+            result = {
+                'is_valid': is_valid,
+                'error': '; '.join(errors) if errors else None,
+                'warnings': warnings,
+                'statistics': {
+                    'param_count': param_count,
+                    'string_count': string_count,
+                    'line_count': line_count,
+                    'char_count': len(formula)
                 }
-            
-            return {
-                'valid': True, 
-                'message': '公式语法正确',
-                'warnings': warnings
             }
             
+            return result
+            
         except Exception as e:
-            return {'valid': False, 'message': f'公式验证失败: {str(e)}'}
+            return {
+                'is_valid': False,
+                'error': f"验证过程出错: {str(e)}",
+                'warnings': [],
+                'statistics': {
+                    'param_count': 0,
+                    'string_count': 0,
+                    'line_count': 0,
+                    'char_count': 0
+                }
+            }
     
     @staticmethod
     def get_calculation_scheme_options():
         """获取计算方案选项数据"""
-        from app.models.basic_data import CalculationScheme
-        
         try:
-            # 获取启用的计算方案
-            enabled_schemes = CalculationScheme.get_enabled_list()
+            schemes = CalculationScheme.get_enabled_list()
+            return [
+                {
+                    'value': str(scheme.id),
+                    'label': scheme.scheme_name,
+                    'category': scheme.scheme_category
+                }
+                for scheme in schemes
+            ]
+        except Exception as e:
+            raise ValueError(f"获取计算方案选项失败: {str(e)}")
+
+
+class DepartmentService:
+    """部门管理服务"""
+    
+    @staticmethod
+    def get_departments(page=1, per_page=20, search=None):
+        """获取部门列表"""
+        query = db.session.query(Department)
+        
+        # 搜索条件
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(or_(
+                Department.dept_code.ilike(search_pattern),
+                Department.dept_name.ilike(search_pattern),
+                Department.description.ilike(search_pattern)
+            ))
+        
+        # 只查询启用的记录
+        query = query.filter(Department.is_enabled == True)
+        
+        # 排序
+        query = query.order_by(Department.sort_order, Department.dept_name)
+        
+        # 分页
+        total = query.count()
+        departments = query.offset((page - 1) * per_page).limit(per_page).all()
+        
+        return {
+            'departments': [dept.to_dict(include_user_info=True) for dept in departments],
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page
+        }
+    
+    @staticmethod
+    def get_department(dept_id):
+        """获取部门详情"""
+        department = db.session.query(Department).get(uuid.UUID(dept_id))
+        if not department:
+            raise ValueError("部门不存在")
+        return department.to_dict(include_user_info=True)
+    
+    @staticmethod
+    def create_department(data, created_by):
+        """创建部门"""
+        try:
+            # 生成部门编号
+            if not data.get('dept_code'):
+                data['dept_code'] = Department.generate_dept_code()
             
-            return {
-                'calculation_schemes': [
-                    {
-                        'id': str(scheme.id),
-                        'scheme_name': scheme.scheme_name,
-                        'scheme_category': scheme.scheme_category,
-                        'sort_order': scheme.sort_order
-                    }
-                    for scheme in enabled_schemes
-                ]
-            }
+            # 验证上级部门
+            parent_id = None
+            if data.get('parent_id'):
+                parent_id = uuid.UUID(data['parent_id'])
+                parent_dept = db.session.query(Department).get(parent_id)
+                if not parent_dept:
+                    raise ValueError("上级部门不存在")
+                if not parent_dept.is_enabled:
+                    raise ValueError("上级部门未启用")
+            
+            # 创建部门对象
+            department = Department(
+                dept_code=data['dept_code'],
+                dept_name=data['dept_name'],
+                parent_id=parent_id,
+                is_blown_film=data.get('is_blown_film', False),
+                description=data.get('description', ''),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(department)
+            db.session.commit()
+            
+            return department.to_dict(include_user_info=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'dept_code' in str(e):
+                raise ValueError("部门编号已存在")
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"创建部门失败: {str(e)}")
+    
+    @staticmethod
+    def update_department(dept_id, data, updated_by):
+        """更新部门"""
+        try:
+            department = db.session.query(Department).get(uuid.UUID(dept_id))
+            if not department:
+                raise ValueError("部门不存在")
+            
+            # 验证上级部门
+            if 'parent_id' in data:
+                parent_id = None
+                if data['parent_id']:
+                    parent_id = uuid.UUID(data['parent_id'])
+                    # 防止循环引用
+                    if parent_id == department.id:
+                        raise ValueError("不能将自己设置为上级部门")
+                    
+                    parent_dept = db.session.query(Department).get(parent_id)
+                    if not parent_dept:
+                        raise ValueError("上级部门不存在")
+                    if not parent_dept.is_enabled:
+                        raise ValueError("上级部门未启用")
+                    
+                    # 检查是否会形成循环引用
+                    current_parent = parent_dept
+                    while current_parent:
+                        if current_parent.parent_id == department.id:
+                            raise ValueError("设置此上级部门会形成循环引用")
+                        current_parent = current_parent.parent
+                
+                data['parent_id'] = parent_id
+            
+            # 更新字段
+            update_fields = ['dept_name', 'parent_id', 'is_blown_film', 'description', 'sort_order', 'is_enabled']
+            
+            for field in update_fields:
+                if field in data:
+                    setattr(department, field, data[field])
+            
+            department.updated_by = uuid.UUID(updated_by)
+            department.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return department.to_dict(include_user_info=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'dept_code' in str(e):
+                raise ValueError("部门编号已存在")
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"更新部门失败: {str(e)}")
+    
+    @staticmethod
+    def delete_department(dept_id):
+        """删除部门"""
+        try:
+            department = db.session.query(Department).get(uuid.UUID(dept_id))
+            if not department:
+                raise ValueError("部门不存在")
+            
+            # 检查是否有子部门
+            children_count = db.session.query(Department).filter(Department.parent_id == department.id).count()
+            if children_count > 0:
+                raise ValueError("存在子部门，无法删除")
+            
+            db.session.delete(department)
+            db.session.commit()
+            
+            return True
             
         except Exception as e:
-            raise ValueError(f"获取计算方案选项失败: {str(e)}") 
+            db.session.rollback()
+            raise ValueError(f"删除部门失败: {str(e)}")
+    
+    @staticmethod
+    def batch_update_departments(updates, updated_by):
+        """批量更新部门"""
+        try:
+            updated_departments = []
+            
+            for update_data in updates:
+                dept_id = update_data.get('id')
+                if not dept_id:
+                    continue
+                
+                department = db.session.query(Department).get(uuid.UUID(dept_id))
+                if not department:
+                    continue
+                
+                # 更新字段
+                update_fields = ['dept_name', 'is_blown_film', 'description', 'sort_order', 'is_enabled']
+                for field in update_fields:
+                    if field in update_data:
+                        setattr(department, field, update_data[field])
+                
+                department.updated_by = uuid.UUID(updated_by)
+                department.updated_at = datetime.utcnow()
+                updated_departments.append(department)
+            
+            db.session.commit()
+            
+            return [dept.to_dict(include_user_info=True) for dept in updated_departments]
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"批量更新部门失败: {str(e)}")
+    
+    @staticmethod
+    def get_department_options():
+        """获取部门选项数据"""
+        try:
+            departments = Department.get_enabled_list()
+            return [
+                {
+                    'value': str(dept.id),
+                    'label': dept.dept_name,
+                    'code': dept.dept_code
+                }
+                for dept in departments
+            ]
+        except Exception as e:
+            raise ValueError(f"获取部门选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_department_tree():
+        """获取部门树形结构"""
+        try:
+            return Department.get_department_tree()
+        except Exception as e:
+            raise ValueError(f"获取部门树形结构失败: {str(e)}") 

@@ -1891,3 +1891,125 @@ class QuoteLoss(TenantModel):
     
     def __repr__(self):
         return f'<QuoteLoss {self.bag_type}-{self.layer_count}层>'
+
+
+class Department(TenantModel):
+    """部门管理模型"""
+    __tablename__ = 'departments'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 专享字段
+    dept_code = db.Column(db.String(50), unique=True, nullable=False, comment='部门编号')
+    dept_name = db.Column(db.String(100), nullable=False, comment='部门名称')
+    parent_id = db.Column(UUID(as_uuid=True), db.ForeignKey('departments.id'), comment='上级部门ID')
+    is_blown_film = db.Column(db.Boolean, default=False, comment='是否吹膜')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 自引用关系
+    parent = db.relationship('Department', remote_side=[id], backref='children')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'dept_code': self.dept_code,
+            'dept_name': self.dept_name,
+            'parent_id': str(self.parent_id) if self.parent_id else None,
+            'parent_name': self.parent.dept_name if self.parent else None,
+            'is_blown_film': self.is_blown_film,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            
+            # 获取创建人信息
+            created_by_name = None
+            if self.created_by:
+                try:
+                    created_user = db.session.query(User).filter_by(id=self.created_by).first()
+                    created_by_name = created_user.get_full_name() if created_user else None
+                except Exception:
+                    created_by_name = None
+            
+            # 获取修改人信息
+            updated_by_name = None
+            if self.updated_by:
+                try:
+                    updated_user = db.session.query(User).filter_by(id=self.updated_by).first()
+                    updated_by_name = updated_user.get_full_name() if updated_user else None
+                except Exception:
+                    updated_by_name = None
+            
+            result.update({
+                'created_by_name': created_by_name,
+                'updated_by_name': updated_by_name,
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的部门列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.dept_name).all()
+    
+    @classmethod
+    def get_department_tree(cls):
+        """获取部门树形结构"""
+        departments = cls.get_enabled_list()
+        
+        # 构建树形结构
+        dept_dict = {dept.id: dept.to_dict() for dept in departments}
+        tree = []
+        
+        for dept in departments:
+            dept_data = dept_dict[dept.id]
+            if dept.parent_id:
+                parent = dept_dict.get(dept.parent_id)
+                if parent:
+                    if 'children' not in parent:
+                        parent['children'] = []
+                    parent['children'].append(dept_data)
+            else:
+                tree.append(dept_data)
+        
+        return tree
+    
+    @classmethod
+    def generate_dept_code(cls):
+        """生成部门编号 DEPT + 4位自增数字"""
+        from sqlalchemy import func
+        
+        # 获取当前最大编号
+        max_code = db.session.query(func.max(cls.dept_code)).scalar()
+        
+        if max_code and max_code.startswith('DEPT'):
+            try:
+                # 提取数字部分并加1
+                number_part = max_code[4:]
+                next_number = int(number_part) + 1
+            except (ValueError, IndexError):
+                next_number = 1
+        else:
+            next_number = 1
+        
+        # 格式化为4位数字
+        return f"DEPT{next_number:04d}"
+    
+    def __repr__(self):
+        return f'<Department {self.dept_name}({self.dept_code})>'

@@ -42,22 +42,9 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
-    const { data } = response;
-    
-    // 适配后端返回格式1：{ success: true, data: {...} }
-    if (data.success === true) {
-      return data.data;
-    }
-    
-    // 适配后端返回格式2：{ code: 200, message: '获取成功', data: {...} }
-    if (data.code === 200) {
-      return data.data;
-    }
-    
-    // 处理业务错误
-    const errorMessage = data.error || data.message || '请求失败';
-    message.error(errorMessage);
-    return Promise.reject(new Error(errorMessage));
+    // 直接返回response，保持原始结构
+    // 让业务代码自己处理response.data.success和response.data.data
+    return response;
   },
   (error) => {
     // 处理HTTP错误
