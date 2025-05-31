@@ -54,13 +54,6 @@ const BaseData = () => {
       color: '#722ed1'
     },
     {
-      key: 'materialCategories',
-      title: '材料分类',
-      icon: <AppstoreOutlined />,
-      path: '/base-archive/material-category-management',
-      color: '#722ed1'
-    },
-    {
       key: 'packageMethods',
       title: '包装方式',
       icon: <InboxOutlined />,
@@ -152,7 +145,7 @@ const BaseData = () => {
       key: 'customerCategories',
       title: '客户分类',
       icon: <UserOutlined />,
-      path: '/base-archive/base-data/base-category/customer-categories',
+      path: '/base-archive/customer-category-management',
       color: '#1890ff'
     },
     {
@@ -166,14 +159,14 @@ const BaseData = () => {
       key: 'supplierCategories',
       title: '供应商分类',
       icon: <BankOutlined />,
-      path: '/base-archive/base-data/base-category/supplier-categories',
+      path: '/base-archive/supplier-category-management',
       color: '#fa8c16'
     },
     {
       key: 'materialCategories',
       title: '材料分类',
       icon: <AppstoreOutlined />,
-      path: '/base-archive/base-data/base-category/material-categories',
+      path: '/base-archive/material-category-management',
       color: '#722ed1'
     },
     {
