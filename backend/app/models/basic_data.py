@@ -2104,3 +2104,189 @@ class Position(TenantModel):
     
     def __repr__(self):
         return f'<Position {self.position_name}>'
+
+
+class Employee(TenantModel):
+    """员工管理模型"""
+    __tablename__ = 'employees'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    employee_id = db.Column(db.String(50), unique=True, nullable=False, comment='员工工号')
+    employee_name = db.Column(db.String(100), nullable=False, comment='员工姓名')
+    position_id = db.Column(UUID(as_uuid=True), db.ForeignKey('positions.id'), comment='职位ID')
+    department_id = db.Column(UUID(as_uuid=True), db.ForeignKey('departments.id'), comment='部门ID(根据职位自动填入)')
+    
+    # 在职状态和基本信息
+    employment_status = db.Column(db.String(20), default='trial', comment='在职状态(trial试用/active在职/leave离职)')
+    business_type = db.Column(db.String(20), comment='业务类型(salesperson业务员/purchaser采购员/comprehensive综合/delivery_person送货员)')
+    gender = db.Column(db.String(10), comment='性别(male男/female女/confidential保密)')
+    mobile_phone = db.Column(db.String(20), comment='手机')
+    landline_phone = db.Column(db.String(20), comment='电话')
+    emergency_phone = db.Column(db.String(20), comment='紧急电话')
+    hire_date = db.Column(db.Date, comment='入职日期')
+    birth_date = db.Column(db.Date, comment='出生日期')
+    circulation_card_id = db.Column(db.String(50), comment='流转卡标识')
+    workshop_id = db.Column(db.String(50), comment='车间工号')
+    id_number = db.Column(db.String(50), comment='身份证号')
+    
+    # 工资信息
+    salary_1 = db.Column(db.Numeric(10, 2), default=0, comment='工资1')
+    salary_2 = db.Column(db.Numeric(10, 2), default=0, comment='工资2')
+    salary_3 = db.Column(db.Numeric(10, 2), default=0, comment='工资3')
+    salary_4 = db.Column(db.Numeric(10, 2), default=0, comment='工资4')
+    
+    # 籍贯和地址信息
+    native_place = db.Column(db.String(200), comment='籍贯')
+    ethnicity = db.Column(db.String(50), comment='民族')
+    province = db.Column(db.String(100), comment='省/自治区')
+    city = db.Column(db.String(100), comment='地/市')
+    district = db.Column(db.String(100), comment='区/县')
+    street = db.Column(db.String(100), comment='街/乡')
+    birth_address = db.Column(db.Text, comment='出生地址')
+    archive_location = db.Column(db.Text, comment='档案所在地')
+    household_registration = db.Column(db.Text, comment='户口所在地')
+    
+    # 合同和工作信息
+    evaluation_level = db.Column(db.String(50), comment='评量流程级别(finance财务/technology工艺/supply供应/marketing营销)')
+    leave_date = db.Column(db.Date, comment='离职日期')
+    seniority_wage = db.Column(db.Numeric(10, 2), comment='工龄工资')
+    assessment_wage = db.Column(db.Numeric(10, 2), comment='考核工资')
+    contract_start_date = db.Column(db.Date, comment='合同签订日期')
+    contract_end_date = db.Column(db.Date, comment='合同终止日期')
+    expiry_warning_date = db.Column(db.Date, comment='到期预警日期')
+    ufida_code = db.Column(db.String(100), comment='用友编码')
+    
+    # 系统配置
+    kingdee_push = db.Column(db.Boolean, default=False, comment='金蝶推送')
+    
+    # 备注
+    remarks = db.Column(db.Text, comment='备注')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    position = db.relationship('Position', backref='employees', lazy='select')
+    department = db.relationship('Department', backref='employees', lazy='select')
+    
+    __table_args__ = (
+        db.CheckConstraint("employment_status IN ('trial', 'active', 'leave')", name='employees_status_check'),
+        db.CheckConstraint("gender IN ('male', 'female', 'confidential')", name='employees_gender_check'),
+        db.CheckConstraint("business_type IN ('salesperson', 'purchaser', 'comprehensive', 'delivery_person')", name='employees_business_type_check'),
+        db.CheckConstraint("evaluation_level IN ('finance', 'technology', 'supply', 'marketing')", name='employees_evaluation_level_check'),
+    )
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'employee_id': self.employee_id,
+            'employee_name': self.employee_name,
+            'position_id': str(self.position_id) if self.position_id else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'employment_status': self.employment_status,
+            'business_type': self.business_type,
+            'gender': self.gender,
+            'mobile_phone': self.mobile_phone,
+            'landline_phone': self.landline_phone,
+            'emergency_phone': self.emergency_phone,
+            'hire_date': self.hire_date.isoformat() if self.hire_date else None,
+            'birth_date': self.birth_date.isoformat() if self.birth_date else None,
+            'circulation_card_id': self.circulation_card_id,
+            'workshop_id': self.workshop_id,
+            'id_number': self.id_number,
+            'salary_1': float(self.salary_1) if self.salary_1 else 0,
+            'salary_2': float(self.salary_2) if self.salary_2 else 0,
+            'salary_3': float(self.salary_3) if self.salary_3 else 0,
+            'salary_4': float(self.salary_4) if self.salary_4 else 0,
+            'native_place': self.native_place,
+            'ethnicity': self.ethnicity,
+            'province': self.province,
+            'city': self.city,
+            'district': self.district,
+            'street': self.street,
+            'birth_address': self.birth_address,
+            'archive_location': self.archive_location,
+            'household_registration': self.household_registration,
+            'evaluation_level': self.evaluation_level,
+            'leave_date': self.leave_date.isoformat() if self.leave_date else None,
+            'seniority_wage': float(self.seniority_wage) if self.seniority_wage else None,
+            'assessment_wage': float(self.assessment_wage) if self.assessment_wage else None,
+            'contract_start_date': self.contract_start_date.isoformat() if self.contract_start_date else None,
+            'contract_end_date': self.contract_end_date.isoformat() if self.contract_end_date else None,
+            'expiry_warning_date': self.expiry_warning_date.isoformat() if self.expiry_warning_date else None,
+            'ufida_code': self.ufida_code,
+            'kingdee_push': self.kingdee_push,
+            'remarks': self.remarks,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加关联对象信息（带错误处理）
+        try:
+            if self.position:
+                result['position'] = {
+                    'id': str(self.position.id),
+                    'position_name': self.position.position_name
+                }
+        except Exception as e:
+            result['position'] = None
+            
+        try:
+            if self.department:
+                result['department'] = {
+                    'id': str(self.department.id),
+                    'dept_name': self.department.dept_name
+                }
+        except Exception as e:
+            result['department'] = None
+        
+        # 如果需要用户信息
+        if include_user_info:
+            if hasattr(self, 'created_by_name'):
+                result['created_by_name'] = self.created_by_name
+            if hasattr(self, 'updated_by_name'):
+                result['updated_by_name'] = self.updated_by_name
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的员工列表"""
+        return cls.query.filter(cls.is_enabled == True).order_by(cls.sort_order, cls.employee_name).all()
+    
+    @classmethod 
+    def generate_employee_id(cls):
+        """生成员工工号"""
+        import datetime
+        
+        # 使用当前年份后两位 + 4位序号
+        year_suffix = str(datetime.datetime.now().year)[-2:]
+        
+        # 查询当前年份的最大序号
+        prefix = year_suffix
+        max_id = db.session.query(cls.employee_id).filter(
+            cls.employee_id.like(f'{prefix}%')
+        ).order_by(cls.employee_id.desc()).first()
+        
+        if max_id and max_id[0]:
+            try:
+                sequence = int(max_id[0][2:]) + 1  # 提取后4位并加1
+            except (ValueError, IndexError):
+                sequence = 1
+        else:
+            sequence = 1
+        
+        return f"{prefix}{sequence:04d}"
+    
+    def __repr__(self):
+        return f'<Employee {self.employee_id}: {self.employee_name}>'

@@ -62,4 +62,15 @@ const positionApi = {
   }
 };
 
-export default positionApi; 
+export default positionApi;
+
+// 具名导出
+export const {
+  getPositions,
+  getPosition,
+  createPosition,
+  updatePosition,
+  deletePosition,
+  getPositionOptions,
+  getDepartmentOptions
+} = positionApi; 

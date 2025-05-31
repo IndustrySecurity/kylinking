@@ -32,6 +32,7 @@ import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement'
 import LossTypeManagement from './pages/base-archive/LossTypeManagement';
 import DepartmentManagement from './pages/base-archive/DepartmentManagement';
 import PositionManagement from './pages/base-archive/PositionManagement';
+import EmployeeManagement from './pages/base-archive/EmployeeManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -225,6 +226,22 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <PositionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/employees" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <EmployeeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-data/employees" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <EmployeeManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

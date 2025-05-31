@@ -55,8 +55,8 @@ const ProductCategoryManagement = () => {
 
   // 加载数据
   const loadData = async (params = {}) => {
-    setLoading(true);
     try {
+      setLoading(true);
       const response = await productCategoryApi.getProductCategories({
         page: pagination.current,
         per_page: pagination.pageSize,
@@ -64,31 +64,24 @@ const ProductCategoryManagement = () => {
         ...params
       });
 
-      console.log('API response:', response); // 添加调试信息
-
-      // 正确处理后端响应格式
       if (response.data.success) {
         const { product_categories, total, current_page } = response.data.data;
         
-        console.log('Extracted data:', { product_categories, total, current_page }); // 添加调试信息
-        
-        // 为每行数据添加key
         const dataWithKeys = product_categories.map((item, index) => ({
           ...item,
-          key: item.id || `temp_${index}`
+          key: item.id || `temp-${index}`,
+          index: (current_page - 1) * pagination.pageSize + index + 1
         }));
-        
-        console.log('Data with keys:', dataWithKeys); // 添加调试信息
         
         setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
-          total,
-          current: current_page
+          current: current_page,
+          total: total
         }));
       }
     } catch (error) {
-      console.error('Load data error:', error); // 添加调试信息
+      console.error('Load data error:', error);
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
@@ -147,7 +140,6 @@ const ProductCategoryManagement = () => {
   const save = async (key) => {
     try {
       const row = await form.validateFields();
-      console.log('Form validation result:', row); // 添加调试信息
       
       const newData = [...data];
       const index = newData.findIndex((item) => key === item.key);
@@ -160,11 +152,9 @@ const ProductCategoryManagement = () => {
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          console.log('Updating existing record with data:', row); // 添加调试信息
           response = await productCategoryApi.updateProductCategory(item.id, row);
         } else {
           // 创建新记录
-          console.log('Creating new record with data:', row); // 添加调试信息
           response = await productCategoryApi.createProductCategory(row);
         }
 
@@ -182,7 +172,7 @@ const ProductCategoryManagement = () => {
         }
       }
     } catch (error) {
-      console.error('Save error:', error); // 添加调试信息
+      console.error('Save error:', error);
       if (error.errorFields) {
         message.error('请检查输入内容');
       } else {

@@ -5,11 +5,12 @@
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from .routes import tenant_required
 from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService,
-    CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService
+    CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService, EmployeeService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -4425,3 +4426,239 @@ def get_position_options():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== 员工管理 ====================
+
+@bp.route('/employees', methods=['GET'])
+@jwt_required()
+def get_employees():
+    """获取员工列表"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        department_id = request.args.get('department_id')
+        position_id = request.args.get('position_id')
+        employment_status = request.args.get('employment_status')
+        
+        result = EmployeeService.get_employees(
+            page=page,
+            per_page=per_page,
+            search=search,
+            department_id=department_id,
+            position_id=position_id,
+            employment_status=employment_status
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result['employees'],
+            'pagination': {
+                'page': result['current_page'],
+                'per_page': result['per_page'],
+                'total': result['total'],
+                'pages': result['pages']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/<employee_id>', methods=['GET'])
+@jwt_required()
+def get_employee(employee_id):
+    """获取员工详情"""
+    try:
+        result = EmployeeService.get_employee(employee_id)
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees', methods=['POST'])
+@jwt_required()
+def create_employee():
+    """创建员工"""
+    try:
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        result = EmployeeService.create_employee(data, user_id)
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/<employee_id>', methods=['PUT'])
+@jwt_required()
+def update_employee(employee_id):
+    """更新员工"""
+    try:
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        result = EmployeeService.update_employee(employee_id, data, user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/<employee_id>', methods=['DELETE'])
+@jwt_required()
+def delete_employee(employee_id):
+    """删除员工"""
+    try:
+        result = EmployeeService.delete_employee(employee_id)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_employees():
+    """批量更新员工"""
+    try:
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        updates = data.get('updates', [])
+        
+        result = EmployeeService.batch_update_employees(updates, user_id)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/options', methods=['GET'])
+@jwt_required()
+def get_employee_options():
+    """获取员工选项"""
+    try:
+        result = EmployeeService.get_employee_options()
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/employment-status-options', methods=['GET'])
+@jwt_required()
+def get_employment_status_options():
+    """获取在职状态选项"""
+    try:
+        options = EmployeeService.get_employment_status_options()
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/business-type-options', methods=['GET'])
+@jwt_required()
+def get_business_type_options():
+    """获取业务类型选项"""
+    try:
+        options = EmployeeService.get_business_type_options()
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/gender-options', methods=['GET'])
+@jwt_required()
+def get_gender_options():
+    """获取性别选项"""
+    try:
+        options = EmployeeService.get_gender_options()
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/evaluation-level-options', methods=['GET'])
+@jwt_required()
+def get_evaluation_level_options():
+    """获取评量流程级别选项"""
+    try:
+        options = EmployeeService.get_evaluation_level_options()
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/employees/next-employee-id', methods=['GET'])
+@jwt_required()
+def get_next_employee_id():
+    """获取下一个员工工号"""
+    try:
+        from app.models.basic_data import Employee
+        
+        # 生成下一个员工工号
+        next_id = Employee.generate_employee_id()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'employee_id': next_id
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500

@@ -184,7 +184,7 @@ const AccountManagement = () => {
         }
       }
     } catch (errInfo) {
-      console.log('验证失败:', errInfo);
+      // 表单验证失败，不做处理
     }
   };
 
