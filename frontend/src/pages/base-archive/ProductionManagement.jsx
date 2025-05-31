@@ -151,14 +151,14 @@ const ProductionManagement = () => {
       key: 'quoteAuxiliary',
       title: '报价辅材',
       icon: <ScissorOutlined />,
-      path: '/base-archive/quote-accessories',
+      path: '/production/config/quote-auxiliary',
       color: '#faad14'
     },
     {
       key: 'quoteLoss',
-      title: '报价损粍',
+      title: '报价损耗',
       icon: <WarningOutlined />,
-      path: '/production/config/quote-loss',
+      path: '/base-archive/quote-losses',
       color: '#13c2c2'
     },
     {

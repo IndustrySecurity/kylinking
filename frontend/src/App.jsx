@@ -20,6 +20,7 @@ import MachineManagement from './pages/base-archive/MachineManagement';
 import QuoteInkManagement from './pages/base-archive/QuoteInkManagement';
 import QuoteMaterialManagement from './pages/base-archive/QuoteMaterialManagement';
 import QuoteAccessoryManagement from './pages/base-archive/QuoteAccessoryManagement';
+import QuoteLossManagement from './pages/base-archive/QuoteLossManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
@@ -257,6 +258,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <QuoteAccessoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价损耗管理 */}
+            <Route path="/base-archive/quote-losses" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteLossManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

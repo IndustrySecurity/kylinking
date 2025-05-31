@@ -2821,909 +2821,6 @@ def batch_update_quote_freights():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# 材料分类管理API
-@bp.route('/material-categories', methods=['GET'])
-@jwt_required()
-def get_material_categories():
-    """获取材料分类列表"""
-    try:
-        # 获取查询参数
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 20)), 100)
-        search = request.args.get('search', '')
-        material_type = request.args.get('material_type', '')
-        is_enabled = request.args.get('is_enabled', '')
-        
-        # 转换is_enabled参数
-        if is_enabled.lower() == 'true':
-            is_enabled = True
-        elif is_enabled.lower() == 'false':
-            is_enabled = False
-        else:
-            is_enabled = None
-        
-        # 获取材料分类列表
-        result = MaterialCategoryService.get_material_categories(
-            page=page,
-            per_page=per_page,
-            search=search,
-            material_type=material_type,
-            is_enabled=is_enabled
-        )
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/material-categories/<category_id>', methods=['GET'])
-@jwt_required()
-def get_material_category(category_id):
-    """获取材料分类详情"""
-    try:
-        category = MaterialCategoryService.get_material_category_by_id(category_id)
-        
-        if not category:
-            return jsonify({'error': '材料分类不存在'}), 404
-        
-        return jsonify({
-            'success': True,
-            'data': category
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/material-categories', methods=['POST'])
-@jwt_required()
-def create_material_category():
-    """创建材料分类"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        # 验证必填字段
-        if not data.get('material_name'):
-            return jsonify({'error': '材料分类名称不能为空'}), 400
-        
-        if not data.get('material_type'):
-            return jsonify({'error': '材料属性不能为空'}), 400
-        
-        category = MaterialCategoryService.create_material_category(data)
-        
-        return jsonify({
-            'success': True,
-            'data': category,
-            'message': '材料分类创建成功'
-        }), 201
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/material-categories/<category_id>', methods=['PUT'])
-@jwt_required()
-def update_material_category(category_id):
-    """更新材料分类"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        category = MaterialCategoryService.update_material_category(category_id, data)
-        
-        return jsonify({
-            'success': True,
-            'data': category,
-            'message': '材料分类更新成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/material-categories/<category_id>', methods=['DELETE'])
-@jwt_required()
-def delete_material_category(category_id):
-    """删除材料分类"""
-    try:
-        MaterialCategoryService.delete_material_category(category_id)
-        
-        return jsonify({
-            'success': True,
-            'message': '材料分类删除成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/material-categories/batch', methods=['PUT'])
-@jwt_required()
-def batch_update_material_categories():
-    """批量更新材料分类"""
-    try:
-        data = request.get_json()
-        
-        if not data or not isinstance(data, list):
-            return jsonify({'error': '请求数据格式错误'}), 400
-        
-        results = MaterialCategoryService.batch_update_material_categories(data)
-        
-        return jsonify({
-            'success': True,
-            'data': results,
-            'message': '批量更新完成'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/material-categories/options', methods=['GET'])
-@jwt_required()
-def get_material_category_options():
-    """获取材料分类选项数据"""
-    try:
-        # 获取材料属性选项
-        material_types = MaterialCategoryService.get_material_types()
-        
-        # 获取单位选项
-        units = MaterialCategoryService.get_units()
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'material_types': material_types,
-                'units': units
-            }
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# ===== 产品分类管理 API =====
-
-@bp.route('/product-categories', methods=['GET'])
-@jwt_required()
-def get_product_categories():
-    """获取产品分类列表"""
-    try:
-        from app.services.package_method_service import ProductCategoryService
-        
-        # 获取查询参数
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 100)), 100)
-        search = request.args.get('search')
-        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
-        
-        # 获取当前用户和租户信息
-        current_user_id = get_jwt_identity()
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
-        
-        if not tenant_id:
-            return jsonify({'error': '租户信息缺失'}), 400
-        
-        # 获取产品分类列表
-        result = ProductCategoryService.get_product_categories(
-            page=page,
-            per_page=per_page,
-            search=search,
-            enabled_only=enabled_only
-        )
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/product-categories/<product_category_id>', methods=['GET'])
-@jwt_required()
-def get_product_category(product_category_id):
-    """获取产品分类详情"""
-    try:
-        from app.services.package_method_service import ProductCategoryService
-        
-        product_category = ProductCategoryService.get_product_category(product_category_id)
-        
-        return jsonify({
-            'success': True,
-            'data': product_category
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/product-categories', methods=['POST'])
-@jwt_required()
-def create_product_category():
-    """创建产品分类"""
-    try:
-        from app.services.package_method_service import ProductCategoryService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        # 添加调试日志
-        current_app.logger.info(f"Creating product category with data: {data}")
-        current_app.logger.info(f"Current user ID: {current_user_id}")
-        
-        if not data:
-            current_app.logger.error("Request data is empty")
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        # 验证必填字段
-        if not data.get('category_name'):
-            current_app.logger.error("Category name is missing")
-            return jsonify({'error': '产品分类名称不能为空'}), 400
-        
-        product_category = ProductCategoryService.create_product_category(data, current_user_id)
-        
-        current_app.logger.info(f"Product category created successfully: {product_category}")
-        
-        return jsonify({
-            'success': True,
-            'data': product_category,
-            'message': '产品分类创建成功'
-        }), 201
-        
-    except ValueError as e:
-        current_app.logger.error(f"ValueError in create_product_category: {str(e)}")
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        current_app.logger.error(f"Exception in create_product_category: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/product-categories/<product_category_id>', methods=['PUT'])
-@jwt_required()
-def update_product_category(product_category_id):
-    """更新产品分类"""
-    try:
-        from app.services.package_method_service import ProductCategoryService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        product_category = ProductCategoryService.update_product_category(product_category_id, data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': product_category,
-            'message': '产品分类更新成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/product-categories/<product_category_id>', methods=['DELETE'])
-@jwt_required()
-def delete_product_category(product_category_id):
-    """删除产品分类"""
-    try:
-        from app.services.package_method_service import ProductCategoryService
-        
-        ProductCategoryService.delete_product_category(product_category_id)
-        
-        return jsonify({
-            'success': True,
-            'message': '产品分类删除成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/product-categories/batch', methods=['PUT'])
-@jwt_required()
-def batch_update_product_categories():
-    """批量更新产品分类（用于可编辑表格）"""
-    try:
-        from app.services.package_method_service import ProductCategoryService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data or not isinstance(data, list):
-            return jsonify({'error': '请求数据必须是数组'}), 400
-        
-        results = ProductCategoryService.batch_update_product_categories(data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': results,
-            'message': f'成功更新 {len(results)} 个产品分类'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# 报损类型管理API
-@bp.route('/loss-types', methods=['GET'])
-@jwt_required()
-def get_loss_types():
-    """获取报损类型列表"""
-    try:
-        # 获取查询参数
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 20)), 100)
-        search = request.args.get('search')
-        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
-        
-        # 获取当前用户信息
-        current_user_id = get_jwt_identity()
-        
-        # 导入服务
-        from app.services.package_method_service import LossTypeService
-        
-        # 获取报损类型列表
-        result = LossTypeService.get_loss_types(
-            page=page,
-            per_page=per_page,
-            search=search,
-            enabled_only=enabled_only
-        )
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/loss-types/enabled', methods=['GET'])
-@jwt_required()
-def get_enabled_loss_types():
-    """获取启用的报损类型列表（用于下拉选择）"""
-    try:
-        from app.services.package_method_service import LossTypeService
-        
-        loss_types = LossTypeService.get_enabled_loss_types()
-        
-        return jsonify({
-            'success': True,
-            'data': loss_types
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/loss-types/<loss_type_id>', methods=['GET'])
-@jwt_required()
-def get_loss_type(loss_type_id):
-    """获取报损类型详情"""
-    try:
-        from app.services.package_method_service import LossTypeService
-        
-        loss_type = LossTypeService.get_loss_type(loss_type_id)
-        
-        return jsonify({
-            'success': True,
-            'data': loss_type
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/loss-types', methods=['POST'])
-@jwt_required()
-def create_loss_type():
-    """创建报损类型"""
-    try:
-        from app.services.package_method_service import LossTypeService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        # 验证必填字段
-        if not data.get('loss_type_name'):
-            return jsonify({'error': '报损类型名称不能为空'}), 400
-        
-        loss_type = LossTypeService.create_loss_type(data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': loss_type,
-            'message': '报损类型创建成功'
-        }), 201
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/loss-types/<loss_type_id>', methods=['PUT'])
-@jwt_required()
-def update_loss_type(loss_type_id):
-    """更新报损类型"""
-    try:
-        from app.services.package_method_service import LossTypeService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        loss_type = LossTypeService.update_loss_type(loss_type_id, data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': loss_type,
-            'message': '报损类型更新成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/loss-types/<loss_type_id>', methods=['DELETE'])
-@jwt_required()
-def delete_loss_type(loss_type_id):
-    """删除报损类型"""
-    try:
-        from app.services.package_method_service import LossTypeService
-        
-        LossTypeService.delete_loss_type(loss_type_id)
-        
-        return jsonify({
-            'success': True,
-            'message': '报损类型删除成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/loss-types/batch', methods=['PUT'])
-@jwt_required()
-def batch_update_loss_types():
-    """批量更新报损类型"""
-    try:
-        from app.services.package_method_service import LossTypeService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data or not isinstance(data, list):
-            return jsonify({'error': '请求数据必须是数组'}), 400
-        
-        results = LossTypeService.batch_update_loss_types(data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': results,
-            'message': f'成功更新 {len(results)} 个报损类型'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-# 机台管理API
-@bp.route('/machines', methods=['GET'])
-@jwt_required()
-def get_machines():
-    """获取机台列表"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        # 获取查询参数
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 20)), 100)
-        search = request.args.get('search')
-        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
-        
-        # 获取机台列表
-        result = MachineService.get_machines(
-            page=page,
-            per_page=per_page,
-            search=search,
-            enabled_only=enabled_only
-        )
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"获取机台列表失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/machines/enabled', methods=['GET'])
-@jwt_required()
-def get_enabled_machines():
-    """获取启用的机台列表"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        machines = MachineService.get_enabled_machines()
-        
-        return jsonify({
-            'success': True,
-            'data': machines
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"获取启用机台列表失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/machines/<machine_id>', methods=['GET'])
-@jwt_required()
-def get_machine(machine_id):
-    """获取单个机台"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        machine = MachineService.get_machine(machine_id)
-        if not machine:
-            return jsonify({'error': '机台不存在'}), 404
-        
-        return jsonify({
-            'success': True,
-            'data': machine
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"获取机台失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/machines', methods=['POST'])
-@jwt_required()
-def create_machine():
-    """创建机台"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        # 验证必填字段
-        if not data.get('machine_name'):
-            return jsonify({'error': '机台名称不能为空'}), 400
-        
-        machine = MachineService.create_machine(data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': machine,
-            'message': '机台创建成功'
-        }), 201
-        
-    except Exception as e:
-        current_app.logger.error(f"创建机台失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/machines/<machine_id>', methods=['PUT'])
-@jwt_required()
-def update_machine(machine_id):
-    """更新机台"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': '请求数据不能为空'}), 400
-        
-        machine = MachineService.update_machine(machine_id, data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': machine,
-            'message': '机台更新成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        current_app.logger.error(f"更新机台失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/machines/<machine_id>', methods=['DELETE'])
-@jwt_required()
-def delete_machine(machine_id):
-    """删除机台"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        MachineService.delete_machine(machine_id)
-        
-        return jsonify({
-            'success': True,
-            'message': '机台删除成功'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 404
-    except Exception as e:
-        current_app.logger.error(f"删除机台失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/machines/batch', methods=['PUT'])
-@jwt_required()
-def batch_update_machines():
-    """批量更新机台"""
-    try:
-        from app.services.package_method_service import MachineService
-        
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data or not isinstance(data, list):
-            return jsonify({'error': '请求数据格式错误'}), 400
-        
-        machines = MachineService.batch_update_machines(data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': machines,
-            'message': '批量更新成功'
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"批量更新机台失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# 报价油墨管理
-@bp.route('/quote-inks', methods=['GET'])
-@jwt_required()
-def get_quote_inks():
-    """获取报价油墨列表"""
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        search = request.args.get('search', '')
-        enabled_only = request.args.get('enabled_only', False, type=bool)
-        
-        from app.services.package_method_service import QuoteInkService
-        result = QuoteInkService.get_quote_inks(
-            page=page,
-            per_page=per_page,
-            search=search,
-            enabled_only=enabled_only
-        )
-        
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': result
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"获取报价油墨列表失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'获取失败: {str(e)}',
-            'data': None
-        }), 500
-
-@bp.route('/quote-inks/<quote_ink_id>', methods=['GET'])
-@jwt_required()
-def get_quote_ink(quote_ink_id):
-    """获取单个报价油墨"""
-    try:
-        from app.services.package_method_service import QuoteInkService
-        result = QuoteInkService.get_quote_ink(quote_ink_id)
-        
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': result
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'code': 404,
-            'message': str(e),
-            'data': None
-        }), 404
-    except Exception as e:
-        current_app.logger.error(f"获取报价油墨失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'获取失败: {str(e)}',
-            'data': None
-        }), 500
-
-@bp.route('/quote-inks', methods=['POST'])
-@jwt_required()
-def create_quote_ink():
-    """创建报价油墨"""
-    try:
-        data = request.get_json()
-        current_user_id = get_jwt_identity()
-        
-        from app.services.package_method_service import QuoteInkService
-        result = QuoteInkService.create_quote_ink(data, current_user_id)
-        
-        return jsonify({
-            'code': 200,
-            'message': '创建成功',
-            'data': result
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'code': 400,
-            'message': str(e),
-            'data': None
-        }), 400
-    except Exception as e:
-        current_app.logger.error(f"创建报价油墨失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'创建失败: {str(e)}',
-            'data': None
-        }), 500
-
-@bp.route('/quote-inks/<quote_ink_id>', methods=['PUT'])
-@jwt_required()
-def update_quote_ink(quote_ink_id):
-    """更新报价油墨"""
-    try:
-        data = request.get_json()
-        current_user_id = get_jwt_identity()
-        
-        from app.services.package_method_service import QuoteInkService
-        result = QuoteInkService.update_quote_ink(quote_ink_id, data, current_user_id)
-        
-        return jsonify({
-            'code': 200,
-            'message': '更新成功',
-            'data': result
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'code': 404,
-            'message': str(e),
-            'data': None
-        }), 404
-    except Exception as e:
-        current_app.logger.error(f"更新报价油墨失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'更新失败: {str(e)}',
-            'data': None
-        }), 500
-
-@bp.route('/quote-inks/<quote_ink_id>', methods=['DELETE'])
-@jwt_required()
-def delete_quote_ink(quote_ink_id):
-    """删除报价油墨"""
-    try:
-        from app.services.package_method_service import QuoteInkService
-        QuoteInkService.delete_quote_ink(quote_ink_id)
-        
-        return jsonify({
-            'code': 200,
-            'message': '删除成功',
-            'data': None
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'code': 404,
-            'message': str(e),
-            'data': None
-        }), 404
-    except Exception as e:
-        current_app.logger.error(f"删除报价油墨失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'删除失败: {str(e)}',
-            'data': None
-        }), 500
-
-@bp.route('/quote-inks/batch', methods=['PUT'])
-@jwt_required()
-def batch_update_quote_inks():
-    """批量更新报价油墨"""
-    try:
-        data_list = request.get_json()
-        current_user_id = get_jwt_identity()
-        
-        from app.services.package_method_service import QuoteInkService
-        results = QuoteInkService.batch_update_quote_inks(data_list, current_user_id)
-        
-        return jsonify({
-            'code': 200,
-            'message': '批量更新成功',
-            'data': results
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"批量更新报价油墨失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'批量更新失败: {str(e)}',
-            'data': None
-        }), 500
-
-@bp.route('/quote-inks/enabled', methods=['GET'])
-@jwt_required()
-def get_enabled_quote_inks():
-    """获取启用的报价油墨列表"""
-    try:
-        from app.services.package_method_service import QuoteInkService
-        result = QuoteInkService.get_enabled_quote_inks()
-        
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': result
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"获取启用报价油墨列表失败: {str(e)}")
-        return jsonify({
-            'code': 500,
-            'message': f'获取失败: {str(e)}',
-            'data': None
-        }), 500
-
 # 报价材料管理
 @bp.route('/quote-materials', methods=['GET'])
 @jwt_required()
@@ -4123,3 +3220,188 @@ def get_enabled_quote_accessories():
             'message': f'获取失败: {str(e)}',
             'data': None
         }), 500
+
+
+# ===== 报价损耗管理 API =====
+
+@bp.route('/quote-losses', methods=['GET'])
+@jwt_required()
+def get_quote_losses():
+    """获取报价损耗列表"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 100)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户和租户信息
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        
+        if not tenant_id:
+            return jsonify({'error': '租户信息缺失'}), 400
+        
+        # 获取报价损耗列表
+        result = QuoteLossService.get_quote_losses(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-losses/<quote_loss_id>', methods=['GET'])
+@jwt_required()
+def get_quote_loss(quote_loss_id):
+    """获取报价损耗详情"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        quote_loss = QuoteLossService.get_quote_loss(quote_loss_id)
+        
+        return jsonify({
+            'success': True,
+            'data': quote_loss
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-losses', methods=['POST'])
+@jwt_required()
+def create_quote_loss():
+    """创建报价损耗"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        required_fields = ['bag_type', 'layer_count', 'meter_range', 'loss_rate', 'cost']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field}不能为空'}), 400
+        
+        quote_loss = QuoteLossService.create_quote_loss(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': quote_loss,
+            'message': '报价损耗创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-losses/<quote_loss_id>', methods=['PUT'])
+@jwt_required()
+def update_quote_loss(quote_loss_id):
+    """更新报价损耗"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        quote_loss = QuoteLossService.update_quote_loss(quote_loss_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': quote_loss,
+            'message': '报价损耗更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-losses/<quote_loss_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote_loss(quote_loss_id):
+    """删除报价损耗"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        QuoteLossService.delete_quote_loss(quote_loss_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '报价损耗删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-losses/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_quote_losses():
+    """批量更新报价损耗"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        results = QuoteLossService.batch_update_quote_losses(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': results,
+            'message': '批量更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/quote-losses/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_quote_losses():
+    """获取启用的报价损耗列表"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        quote_losses = QuoteLossService.get_enabled_quote_losses()
+        
+        return jsonify({
+            'success': True,
+            'data': quote_losses
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
