@@ -1383,3 +1383,83 @@ class CalculationParameter(TenantModel):
     
     def __repr__(self):
         return f'<CalculationParameter {self.parameter_name}>'
+
+
+class CalculationScheme(TenantModel):
+    """计算方案模型"""
+    __tablename__ = 'calculation_schemes'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scheme_name = db.Column(db.String(100), nullable=False, comment='方案名称')
+    scheme_category = db.Column(db.String(50), nullable=False, comment='方案分类')
+    scheme_formula = db.Column(db.Text, comment='方案公式')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 方案分类常量
+    SCHEME_CATEGORIES = [
+        ('bag_spec', '袋型规格'),
+        ('bag_formula', '袋型公式'),
+        ('bag_quote', '袋型报价'),
+        ('material_usage', '材料用料'),
+        ('material_quote', '材料报价'),
+        ('process_quote', '工序报价'),
+        ('process_loss', '工序损耗'),
+        ('process_bonus', '工序节约奖'),
+        ('process_piece', '工序计件'),
+        ('process_other', '工序其它'),
+        ('multiple_formula', '倍送公式')
+    ]
+    
+    __table_args__ = (
+        db.CheckConstraint(
+            "scheme_category IN ('bag_spec', 'bag_formula', 'bag_quote', 'material_usage', 'material_quote', 'process_quote', 'process_loss', 'process_bonus', 'process_piece', 'process_other', 'multiple_formula')", 
+            name='calculation_schemes_category_check'
+        ),
+    )
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'scheme_name': self.scheme_name,
+            'scheme_category': self.scheme_category,
+            'scheme_formula': self.scheme_formula,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            created_user = User.get_by_id(self.created_by) if self.created_by else None
+            updated_user = User.get_by_id(self.updated_by) if self.updated_by else None
+            
+            data.update({
+                'created_by_name': created_user.get_full_name() if created_user else None,
+                'updated_by_name': updated_user.get_full_name() if updated_user else None,
+            })
+        
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的计算方案列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.scheme_name).all()
+    
+    @classmethod
+    def get_scheme_categories(cls):
+        """获取方案分类选项"""
+        return [{'value': value, 'label': label} for value, label in cls.SCHEME_CATEGORIES]
+    
+    def __repr__(self):
+        return f'<CalculationScheme {self.scheme_name}>'

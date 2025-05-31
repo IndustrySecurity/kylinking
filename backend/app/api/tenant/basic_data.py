@@ -9,7 +9,7 @@ from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService,
-    CalculationParameterService
+    CalculationParameterService, CalculationSchemeService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -3153,3 +3153,193 @@ def get_calculation_parameter_options():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# 计算方案管理API
+@bp.route('/calculation-schemes', methods=['GET'])
+@jwt_required()
+def get_calculation_schemes():
+    """获取计算方案列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '')
+        category = request.args.get('category', '')
+        
+        # 获取计算方案列表
+        result = CalculationSchemeService.get_calculation_schemes(
+            page=page,
+            per_page=per_page,
+            search=search,
+            category=category if category else None
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes/<scheme_id>', methods=['GET'])
+@jwt_required()
+def get_calculation_scheme(scheme_id):
+    """获取计算方案详情"""
+    try:
+        scheme = CalculationSchemeService.get_calculation_scheme(scheme_id)
+        
+        return jsonify({
+            'success': True,
+            'data': scheme
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes', methods=['POST'])
+@jwt_required()
+def create_calculation_scheme():
+    """创建计算方案"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        # 创建计算方案
+        scheme = CalculationSchemeService.create_calculation_scheme(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': scheme,
+            'message': '创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes/<scheme_id>', methods=['PUT'])
+@jwt_required()
+def update_calculation_scheme(scheme_id):
+    """更新计算方案"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        # 更新计算方案
+        scheme = CalculationSchemeService.update_calculation_scheme(scheme_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': scheme,
+            'message': '更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes/<scheme_id>', methods=['DELETE'])
+@jwt_required()
+def delete_calculation_scheme(scheme_id):
+    """删除计算方案"""
+    try:
+        CalculationSchemeService.delete_calculation_scheme(scheme_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes/categories', methods=['GET'])
+@jwt_required()
+def get_scheme_categories():
+    """获取方案分类选项"""
+    try:
+        result = CalculationSchemeService.get_scheme_categories()
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes/validate-formula', methods=['POST'])
+@jwt_required()
+def validate_formula():
+    """验证计算公式"""
+    try:
+        data = request.get_json()
+        formula = data.get('formula', '')
+        
+        result = CalculationSchemeService.validate_formula(formula)
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/calculation-schemes/options', methods=['GET'])
+@jwt_required()
+def get_calculation_scheme_options():
+    """获取计算方案选项数据"""
+    try:
+        result = CalculationSchemeService.get_calculation_scheme_options()
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

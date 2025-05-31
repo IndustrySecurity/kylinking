@@ -4,12 +4,13 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
 from sqlalchemy.exc import IntegrityError
 import uuid
 from datetime import datetime
+import re
 
 
 class BasicDataService:
@@ -830,4 +831,346 @@ class CalculationParameterService:
             }
             
         except Exception as e:
-            raise ValueError(f"获取计算参数选项失败: {str(e)}") 
+            raise ValueError(f"获取计算参数选项失败: {str(e)}")
+
+
+class CalculationSchemeService:
+    """计算方案服务"""
+    
+    @staticmethod
+    def get_calculation_schemes(page=1, per_page=20, search=None, category=None):
+        """获取计算方案列表"""
+        from app.models.basic_data import CalculationScheme
+        
+        query = CalculationScheme.query
+        
+        # 搜索条件
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.filter(
+                CalculationScheme.scheme_name.ilike(search_pattern)
+            )
+        
+        # 分类筛选
+        if category:
+            query = query.filter(CalculationScheme.scheme_category == category)
+        
+        # 排序
+        query = query.order_by(CalculationScheme.sort_order, CalculationScheme.scheme_name)
+        
+        # 分页
+        total = query.count()
+        if per_page > 0:
+            calculation_schemes = query.offset((page - 1) * per_page).limit(per_page).all()
+        else:
+            calculation_schemes = query.all()
+        
+        return {
+            'calculation_schemes': [scheme.to_dict(include_user_info=True) for scheme in calculation_schemes],
+            'total': total,
+            'current_page': page,
+            'per_page': per_page,
+            'pages': (total + per_page - 1) // per_page if per_page > 0 else 1
+        }
+    
+    @staticmethod
+    def get_calculation_scheme(scheme_id):
+        """获取计算方案详情"""
+        from app.models.basic_data import CalculationScheme
+        
+        scheme = CalculationScheme.query.get(uuid.UUID(scheme_id))
+        if not scheme:
+            raise ValueError("计算方案不存在")
+        return scheme.to_dict(include_user_info=True)
+    
+    @staticmethod
+    def create_calculation_scheme(data, created_by):
+        """创建计算方案"""
+        from app.models.basic_data import CalculationScheme
+        
+        try:
+            # 验证必填字段
+            if not data.get('scheme_name'):
+                raise ValueError("方案名称不能为空")
+            
+            if not data.get('scheme_category'):
+                raise ValueError("方案分类不能为空")
+            
+            # 检查名称是否重复
+            existing = CalculationScheme.query.filter_by(
+                scheme_name=data['scheme_name']
+            ).first()
+            if existing:
+                raise ValueError("方案名称已存在")
+            
+            # 创建计算方案对象
+            scheme = CalculationScheme(
+                scheme_name=data['scheme_name'],
+                scheme_category=data['scheme_category'],
+                scheme_formula=data.get('scheme_formula', ''),
+                description=data.get('description'),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(scheme)
+            db.session.commit()
+            
+            return scheme.to_dict(include_user_info=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"创建计算方案失败: {str(e)}")
+    
+    @staticmethod
+    def update_calculation_scheme(scheme_id, data, updated_by):
+        """更新计算方案"""
+        from app.models.basic_data import CalculationScheme
+        
+        try:
+            scheme = CalculationScheme.query.get(uuid.UUID(scheme_id))
+            if not scheme:
+                raise ValueError("计算方案不存在")
+            
+            # 验证必填字段
+            if 'scheme_name' in data and not data['scheme_name']:
+                raise ValueError("方案名称不能为空")
+            
+            if 'scheme_category' in data and not data['scheme_category']:
+                raise ValueError("方案分类不能为空")
+            
+            # 检查名称是否重复（排除自己）
+            if 'scheme_name' in data:
+                existing = CalculationScheme.query.filter(
+                    CalculationScheme.scheme_name == data['scheme_name'],
+                    CalculationScheme.id != scheme.id
+                ).first()
+                if existing:
+                    raise ValueError("方案名称已存在")
+            
+            # 更新字段
+            update_fields = ['scheme_name', 'scheme_category', 'scheme_formula', 'description', 'sort_order', 'is_enabled']
+            
+            for field in update_fields:
+                if field in data:
+                    setattr(scheme, field, data[field])
+            
+            # 更新审计字段
+            scheme.updated_by = uuid.UUID(updated_by)
+            scheme.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return scheme.to_dict(include_user_info=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"更新计算方案失败: {str(e)}")
+    
+    @staticmethod
+    def delete_calculation_scheme(scheme_id):
+        """删除计算方案"""
+        from app.models.basic_data import CalculationScheme
+        
+        try:
+            scheme = CalculationScheme.query.get(uuid.UUID(scheme_id))
+            if not scheme:
+                raise ValueError("计算方案不存在")
+            
+            db.session.delete(scheme)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"删除计算方案失败: {str(e)}")
+    
+    @staticmethod
+    def get_scheme_categories():
+        """获取方案分类选项"""
+        from app.models.basic_data import CalculationScheme
+        
+        try:
+            return {
+                'scheme_categories': CalculationScheme.get_scheme_categories()
+            }
+            
+        except Exception as e:
+            raise ValueError(f"获取方案分类失败: {str(e)}")
+    
+    @staticmethod
+    def validate_formula(formula):
+        """验证计算公式"""
+        try:
+            if not formula:
+                return {'valid': True, 'message': '公式为空'}
+            
+            formula = formula.strip()
+            errors = []
+            warnings = []
+            
+            # 1. 基本括号匹配检查
+            open_parens = formula.count('(')
+            close_parens = formula.count(')')
+            if open_parens != close_parens:
+                errors.append('括号不匹配')
+            
+            # 2. 中括号匹配检查（参数）
+            open_brackets = formula.count('[')
+            close_brackets = formula.count(']')
+            if open_brackets != close_brackets:
+                errors.append('参数中括号不匹配')
+            
+            # 3. 单引号匹配检查（字符串）
+            single_quotes = formula.count("'")
+            if single_quotes % 2 != 0:
+                errors.append('字符串单引号不匹配')
+            
+            # 4. 参数有效性检查
+            parameter_pattern = r'\[([^\]]+)\]'
+            parameters_in_formula = re.findall(parameter_pattern, formula)
+            
+            if parameters_in_formula:
+                # 获取系统中有效的计算参数（使用类方法确保正确的租户过滤）
+                from app.models.basic_data import CalculationParameter
+                try:
+                    # 使用类方法获取启用的参数列表，这会自动应用租户过滤
+                    valid_parameters = CalculationParameter.get_enabled_list()
+                    valid_parameter_names = [p.parameter_name for p in valid_parameters]
+                    
+                    # 检查参数名称，支持精确匹配和大小写忽略匹配
+                    invalid_parameters = []
+                    for param_name in parameters_in_formula:
+                        # 先精确匹配
+                        if param_name not in valid_parameter_names:
+                            # 尝试大小写不敏感匹配
+                            param_lower = param_name.lower()
+                            valid_names_lower = [name.lower() for name in valid_parameter_names]
+                            if param_lower not in valid_names_lower:
+                                invalid_parameters.append(param_name)
+                    
+                    if invalid_parameters:
+                        errors.append(f'无效的参数: {", ".join(invalid_parameters)}')
+                        # 提供建议的参数名称
+                        if valid_parameter_names:
+                            warnings.append(f'可用的参数有: {", ".join(valid_parameter_names[:10])}{"..." if len(valid_parameter_names) > 10 else ""}')
+                        
+                except Exception as param_error:
+                    warnings.append(f'无法验证参数有效性: {str(param_error)}')
+            
+            # 5. 检查公式中的字符串是否正确使用单引号
+            string_pattern = r"'[^']*'"
+            strings_in_formula = re.findall(string_pattern, formula)
+            
+            # 移除字符串和参数后检查剩余字符
+            formula_without_strings = formula
+            for string_val in strings_in_formula:
+                formula_without_strings = formula_without_strings.replace(string_val, '__STRING__')
+            
+            formula_without_params = re.sub(parameter_pattern, '__PARAM__', formula_without_strings)
+            
+            # 6. 检查是否包含非法字符
+            # 允许的字符：数字、运算符、括号、空格、中文关键词、占位符（包括大写字母）
+            allowed_pattern = r'^[0-9A-Za-z+\-*/()>=<.\s如果那么否则结束或者并且_]*$'
+            if not re.match(allowed_pattern, formula_without_params):
+                # 找出非法字符
+                valid_chars = re.findall(r'[0-9A-Za-z+\-*/()>=<.\s如果那么否则结束或者并且_]', formula_without_params)
+                all_chars = list(formula_without_params)
+                invalid_chars = list(set([c for c in all_chars if c not in valid_chars]))
+                if invalid_chars:
+                    errors.append(f'包含非法字符: {", ".join(invalid_chars)}')
+            
+            # 7. 检查逻辑结构
+            # 检查"如果...那么...否则...结束"结构
+            if_count = formula.count('如果')
+            then_count = formula.count('那么') 
+            else_count = formula.count('否则')
+            end_count = formula.count('结束')
+            
+            # 基本的逻辑结构检查
+            if if_count > 0:
+                if then_count < if_count:
+                    warnings.append('每个"如果"应该对应一个"那么"')
+                if end_count < if_count:
+                    warnings.append('每个"如果"应该对应一个"结束"')
+            
+            # 8. 检查运算符使用
+            # 检查连续的运算符
+            consecutive_operators = re.findall(r'[+\-*/>=<]{2,}', formula)
+            if consecutive_operators:
+                errors.append('存在连续的运算符')
+            
+            # 9. 检查数字格式
+            number_pattern = r'\d+\.?\d*'
+            numbers = re.findall(number_pattern, formula)
+            for num in numbers:
+                try:
+                    float(num)
+                except ValueError:
+                    errors.append(f'数字格式错误: {num}')
+            
+            # 10. 语法建议检查
+            # 检查运算符前后空格
+            operators_without_space = re.findall(r'\S[+\-*/>=<]\S', formula)
+            if operators_without_space:
+                warnings.append('建议在运算符前后添加空格以提高可读性')
+            
+            # 检查参数前后空格
+            params_without_space = re.findall(r'\S\[[^\]]+\]\S', formula)
+            if params_without_space:
+                warnings.append('建议在参数前后添加空格以提高可读性')
+            
+            # 11. 额外的参数名称检查
+            if parameters_in_formula:
+                # 检查参数名称是否包含特殊字符
+                for param_name in parameters_in_formula:
+                    if re.search(r'[^\w\u4e00-\u9fff]', param_name):
+                        warnings.append(f'参数名称 "{param_name}" 包含特殊字符，建议只使用字母、数字和中文')
+            
+            if errors:
+                return {
+                    'valid': False, 
+                    'message': '; '.join(errors),
+                    'warnings': warnings
+                }
+            
+            return {
+                'valid': True, 
+                'message': '公式语法正确',
+                'warnings': warnings
+            }
+            
+        except Exception as e:
+            return {'valid': False, 'message': f'公式验证失败: {str(e)}'}
+    
+    @staticmethod
+    def get_calculation_scheme_options():
+        """获取计算方案选项数据"""
+        from app.models.basic_data import CalculationScheme
+        
+        try:
+            # 获取启用的计算方案
+            enabled_schemes = CalculationScheme.get_enabled_list()
+            
+            return {
+                'calculation_schemes': [
+                    {
+                        'id': str(scheme.id),
+                        'scheme_name': scheme.scheme_name,
+                        'scheme_category': scheme.scheme_category,
+                        'sort_order': scheme.sort_order
+                    }
+                    for scheme in enabled_schemes
+                ]
+            }
+            
+        except Exception as e:
+            raise ValueError(f"获取计算方案选项失败: {str(e)}") 
