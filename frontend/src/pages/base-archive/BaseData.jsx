@@ -54,55 +54,6 @@ const BaseData = () => {
       color: '#722ed1'
     },
     {
-      key: 'packageMethods',
-      title: '包装方式',
-      icon: <InboxOutlined />,
-      path: '/base-archive/package-methods',
-      color: '#faad14'
-    },
-    {
-      key: 'deliveryMethods',
-      title: '送货方式',
-      icon: <TruckOutlined />,
-      path: '/base-archive/delivery-methods',
-      color: '#1890ff'
-    },
-    {
-      key: 'colorCards',
-      title: '色卡',
-      icon: <BgColorsOutlined />,
-      path: '/base-archive/color-cards',
-      color: '#eb2f96'
-    },
-    {
-      key: 'units',
-      title: '单位',
-      icon: <AppstoreOutlined />,
-      path: '/base-archive/units',
-      color: '#52c41a'
-    },
-    {
-      key: 'specifications',
-      title: '规格',
-      icon: <ColumnWidthOutlined />,
-      path: '/base-archive/specifications',
-      color: '#13c2c2'
-    },
-    {
-      key: 'customerCategories',
-      title: '客户分类',
-      icon: <TagsOutlined />,
-      path: '/base-archive/customer-category-management',
-      color: '#13c2c2'
-    },
-    {
-      key: 'supplierCategories',
-      title: '供应商分类',
-      icon: <BankOutlined />,
-      path: '/base-archive/supplier-category-management',
-      color: '#fa8c16'
-    },
-    {
       key: 'calculationParameters',
       title: '计算参数',
       icon: <CalculatorOutlined />,

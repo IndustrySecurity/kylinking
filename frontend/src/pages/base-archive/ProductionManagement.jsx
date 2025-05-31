@@ -70,14 +70,14 @@ const ProductionManagement = () => {
       key: 'packaging',
       title: '包装方式',
       icon: <InboxOutlined />,
-      path: '/production/archive/packaging',
+      path: '/base-archive/package-methods',
       color: '#faad14'
     },
     {
       key: 'delivery',
       title: '送货方式',
       icon: <CarOutlined />,
-      path: '/production/archive/delivery',
+      path: '/base-archive/delivery-methods',
       color: '#13c2c2'
     },
     {
@@ -91,21 +91,21 @@ const ProductionManagement = () => {
       key: 'colorCard',
       title: '色卡',
       icon: <BgColorsOutlined />,
-      path: '/production/archive/color-card',
+      path: '/base-archive/color-cards',
       color: '#2f54eb'
     },
     {
       key: 'unit',
       title: '单位',
       icon: <ColumnWidthOutlined />,
-      path: '/production/archive/unit',
+      path: '/base-archive/units',
       color: '#fadb14'
     },
     {
       key: 'specification',
       title: '规格',
       icon: <FormatPainterOutlined />,
-      path: '/production/archive/specification',
+      path: '/base-archive/specifications',
       color: '#a0d911'
     }
   ];
