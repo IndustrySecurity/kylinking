@@ -22,7 +22,8 @@ from app.models.basic_data import (
     ColorCard,
     Unit,
     Specification,
-    Currency
+    Currency,
+    LossType
 )
 
 # 添加其他可能的模型导入
@@ -51,5 +52,6 @@ __all__ = [
     'ColorCard',
     'Unit',
     'Specification',
-    'Currency'
+    'Currency',
+    'LossType'
 ] 

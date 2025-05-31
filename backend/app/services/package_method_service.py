@@ -9,6 +9,8 @@ from app.extensions import db
 from sqlalchemy import and_, or_, text
 from flask import g, current_app
 import uuid
+from flask_jwt_extended import get_jwt_identity
+from datetime import datetime
 
 
 class PackageMethodService:
@@ -4927,3 +4929,2028 @@ class QuoteFreightService:
         ).order_by(QuoteFreight.sort_order, QuoteFreight.region).all()
         
         return [freight.to_dict() for freight in freights]
+
+
+class ProductCategoryService:
+    """产品分类管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in ProductCategoryService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_product_categories(page=1, per_page=20, search=None, enabled_only=False):
+        """获取产品分类列表"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        
+        # 构建基础查询
+        base_query = f"""
+        SELECT 
+            id, category_name, subject_name, is_blown_film, delivery_days,
+            description, sort_order, is_enabled, created_by, updated_by, created_at, updated_at
+        FROM {schema_name}.product_categories
+        """
+        
+        # 添加搜索条件
+        where_conditions = []
+        params = {}
+        
+        if search:
+            where_conditions.append("""
+                (category_name ILIKE :search OR 
+                 subject_name ILIKE :search OR 
+                 description ILIKE :search)
+            """)
+            params['search'] = f'%{search}%'
+        
+        if enabled_only:
+            where_conditions.append("is_enabled = true")
+        
+        # 构建完整查询
+        if where_conditions:
+            base_query += " WHERE " + " AND ".join(where_conditions)
+        
+        base_query += " ORDER BY sort_order, created_at"
+        
+        # 计算总数
+        count_query = f"""
+        SELECT COUNT(*) as total
+        FROM {schema_name}.product_categories
+        """
+        if where_conditions:
+            count_query += " WHERE " + " AND ".join(where_conditions)
+        
+        # 执行查询
+        try:
+            # 获取总数
+            count_result = db.session.execute(text(count_query), params)
+            total = count_result.scalar()
+            
+            # 计算分页
+            offset = (page - 1) * per_page
+            params['limit'] = per_page
+            params['offset'] = offset
+            
+            # 添加分页
+            paginated_query = base_query + " LIMIT :limit OFFSET :offset"
+            
+            # 执行分页查询
+            result = db.session.execute(text(paginated_query), params)
+            rows = result.fetchall()
+            
+            product_categories = []
+            for row in rows:
+                product_category_data = {
+                    'id': str(row.id),
+                    'category_name': row.category_name,
+                    'subject_name': row.subject_name,
+                    'is_blown_film': row.is_blown_film,
+                    'delivery_days': row.delivery_days,
+                    'description': row.description,
+                    'sort_order': row.sort_order,
+                    'is_enabled': row.is_enabled,
+                    'created_by': str(row.created_by) if row.created_by else None,
+                    'updated_by': str(row.updated_by) if row.updated_by else None,
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                    'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+                }
+                
+                # 获取创建人和修改人用户名
+                if row.created_by:
+                    created_user = User.query.get(row.created_by)
+                    if created_user:
+                        product_category_data['created_by_name'] = created_user.get_full_name()
+                    else:
+                        product_category_data['created_by_name'] = '未知用户'
+                else:
+                    product_category_data['created_by_name'] = '系统'
+                    
+                if row.updated_by:
+                    updated_user = User.query.get(row.updated_by)
+                    if updated_user:
+                        product_category_data['updated_by_name'] = updated_user.get_full_name()
+                    else:
+                        product_category_data['updated_by_name'] = '未知用户'
+                else:
+                    product_category_data['updated_by_name'] = ''
+                
+                product_categories.append(product_category_data)
+            
+            # 计算分页信息
+            pages = (total + per_page - 1) // per_page
+            has_next = page < pages
+            has_prev = page > 1
+            
+            return {
+                'product_categories': product_categories,
+                'total': total,
+                'pages': pages,
+                'current_page': page,
+                'per_page': per_page,
+                'has_next': has_next,
+                'has_prev': has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"Error querying product categories: {str(e)}")
+            raise ValueError(f'查询产品分类失败: {str(e)}')
+    
+    @staticmethod
+    def get_product_category(product_category_id):
+        """获取产品分类详情"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        try:
+            product_category_uuid = uuid.UUID(product_category_id)
+        except ValueError:
+            raise ValueError('无效的产品分类ID')
+        
+        from app.models.basic_data import ProductCategory
+        product_category = ProductCategory.query.get(product_category_uuid)
+        if not product_category:
+            raise ValueError('产品分类不存在')
+        
+        product_category_data = product_category.to_dict()
+        
+        # 获取创建人和修改人用户名
+        if product_category.created_by:
+            created_user = User.query.get(product_category.created_by)
+            if created_user:
+                product_category_data['created_by_name'] = created_user.get_full_name()
+            else:
+                product_category_data['created_by_name'] = '未知用户'
+        
+        if product_category.updated_by:
+            updated_user = User.query.get(product_category.updated_by)
+            if updated_user:
+                product_category_data['updated_by_name'] = updated_user.get_full_name()
+            else:
+                product_category_data['updated_by_name'] = '未知用户'
+        
+        return product_category_data
+    
+    @staticmethod
+    def create_product_category(data, created_by):
+        """创建产品分类"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        # 验证数据
+        if not data.get('category_name'):
+            raise ValueError('产品分类名称不能为空')
+        
+        from app.models.basic_data import ProductCategory
+        
+        # 检查产品分类名称是否重复
+        existing = ProductCategory.query.filter_by(
+            category_name=data['category_name']
+        ).first()
+        if existing:
+            raise ValueError('产品分类名称已存在')
+        
+        try:
+            created_by_uuid = uuid.UUID(created_by)
+        except ValueError:
+            raise ValueError('无效的创建用户ID')
+        
+        # 创建产品分类
+        product_category = ProductCategory(
+            category_name=data['category_name'],
+            subject_name=data.get('subject_name'),
+            is_blown_film=data.get('is_blown_film', False),
+            delivery_days=data.get('delivery_days'),
+            description=data.get('description'),
+            sort_order=data.get('sort_order', 0),
+            is_enabled=data.get('is_enabled', True),
+            created_by=created_by_uuid
+        )
+        
+        try:
+            db.session.add(product_category)
+            db.session.commit()
+            return product_category.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'创建产品分类失败: {str(e)}')
+    
+    @staticmethod
+    def update_product_category(product_category_id, data, updated_by):
+        """更新产品分类"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        try:
+            product_category_uuid = uuid.UUID(product_category_id)
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的ID')
+        
+        from app.models.basic_data import ProductCategory
+        product_category = ProductCategory.query.get(product_category_uuid)
+        if not product_category:
+            raise ValueError('产品分类不存在')
+        
+        # 检查产品分类名称是否重复（排除自己）
+        if 'category_name' in data and data['category_name'] != product_category.category_name:
+            existing = ProductCategory.query.filter(
+                and_(
+                    ProductCategory.category_name == data['category_name'],
+                    ProductCategory.id != product_category_uuid
+                )
+            ).first()
+            if existing:
+                raise ValueError('产品分类名称已存在')
+        
+        # 更新字段
+        for key, value in data.items():
+            if hasattr(product_category, key):
+                setattr(product_category, key, value)
+        
+        product_category.updated_by = updated_by_uuid
+        
+        try:
+            db.session.commit()
+            return product_category.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'更新产品分类失败: {str(e)}')
+    
+    @staticmethod
+    def delete_product_category(product_category_id):
+        """删除产品分类"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        try:
+            product_category_uuid = uuid.UUID(product_category_id)
+        except ValueError:
+            raise ValueError('无效的产品分类ID')
+        
+        from app.models.basic_data import ProductCategory
+        product_category = ProductCategory.query.get(product_category_uuid)
+        if not product_category:
+            raise ValueError('产品分类不存在')
+        
+        try:
+            db.session.delete(product_category)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'删除产品分类失败: {str(e)}')
+    
+    @staticmethod
+    def batch_update_product_categories(data_list, updated_by):
+        """批量更新产品分类（用于可编辑表格）"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        try:
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的用户ID')
+        
+        results = []
+        errors = []
+        
+        for index, data in enumerate(data_list):
+            try:
+                if 'id' in data and data['id']:
+                    # 更新现有记录
+                    product_category = ProductCategoryService.update_product_category(
+                        data['id'], data, updated_by
+                    )
+                    results.append(product_category)
+                else:
+                    # 创建新记录
+                    product_category = ProductCategoryService.create_product_category(
+                        data, updated_by
+                    )
+                    results.append(product_category)
+            except ValueError as e:
+                errors.append({
+                    'index': index,
+                    'error': str(e),
+                    'data': data
+                })
+        
+        if errors:
+            # 如果有错误，回滚事务
+            db.session.rollback()
+            raise ValueError(f'批量更新失败，错误详情: {errors}')
+        
+        return results
+    
+    @staticmethod
+    def get_enabled_product_categories():
+        """获取启用的产品分类列表（用于下拉选择）"""
+        # 设置schema
+        ProductCategoryService._set_schema()
+        
+        from app.models.basic_data import ProductCategory
+        product_categories = ProductCategory.query.filter_by(
+            is_enabled=True
+        ).order_by(ProductCategory.sort_order, ProductCategory.category_name).all()
+        
+        return [pc.to_dict() for pc in product_categories]
+
+
+class LossTypeService:
+    """报损类型管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_loss_types(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报损类型列表"""
+        # 设置schema
+        LossTypeService._set_schema()
+        
+        from app.models.basic_data import LossType
+        
+        # 构建查询
+        query = LossType.query
+        
+        # 搜索条件
+        if search:
+            query = query.filter(LossType.loss_type_name.ilike(f'%{search}%'))
+        
+        # 启用状态过滤
+        if enabled_only:
+            query = query.filter(LossType.is_enabled == True)
+        
+        # 排序
+        query = query.order_by(LossType.sort_order, LossType.created_at)
+        
+        # 分页
+        pagination = query.paginate(
+            page=page,
+            per_page=per_page,
+            error_out=False
+        )
+        
+        loss_types = []
+        for loss_type in pagination.items:
+            loss_type_data = loss_type.to_dict()
+            
+            # 简化用户名显示
+            loss_type_data['created_by_name'] = '系统用户'
+            loss_type_data['updated_by_name'] = '系统用户' if loss_type.updated_by else ''
+            
+            loss_types.append(loss_type_data)
+        
+        return {
+            'items': loss_types,
+            'total': pagination.total,
+            'pages': pagination.pages,
+            'current_page': pagination.page,
+            'per_page': pagination.per_page,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev
+        }
+    
+    @staticmethod
+    def create_loss_type(data, created_by):
+        """创建报损类型"""
+        # 设置schema
+        LossTypeService._set_schema()
+        
+        # 验证数据
+        if not data.get('loss_type_name'):
+            raise ValueError('报损类型名称不能为空')
+        
+        from app.models.basic_data import LossType
+        
+        # 检查报损类型名称是否重复
+        existing = LossType.query.filter_by(
+            loss_type_name=data['loss_type_name']
+        ).first()
+        if existing:
+            raise ValueError('报损类型名称已存在')
+        
+        try:
+            created_by_uuid = uuid.UUID(created_by)
+        except ValueError:
+            raise ValueError('无效的创建用户ID')
+        
+        # 创建报损类型
+        loss_type = LossType(
+            loss_type_name=data['loss_type_name'],
+            process_id=uuid.UUID(data['process_id']) if data.get('process_id') else None,
+            loss_category_id=uuid.UUID(data['loss_category_id']) if data.get('loss_category_id') else None,
+            is_assessment=data.get('is_assessment', False),
+            description=data.get('description'),
+            sort_order=data.get('sort_order', 0),
+            is_enabled=data.get('is_enabled', True),
+            created_by=created_by_uuid
+        )
+        
+        try:
+            db.session.add(loss_type)
+            db.session.commit()
+            return loss_type.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'创建报损类型失败: {str(e)}')
+    
+    @staticmethod
+    def update_loss_type(loss_type_id, data, updated_by):
+        """更新报损类型"""
+        # 设置schema
+        LossTypeService._set_schema()
+        
+        try:
+            loss_type_uuid = uuid.UUID(loss_type_id)
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的ID')
+        
+        from app.models.basic_data import LossType
+        loss_type = LossType.query.get(loss_type_uuid)
+        if not loss_type:
+            raise ValueError('报损类型不存在')
+        
+        # 检查报损类型名称是否重复（排除自己）
+        if 'loss_type_name' in data and data['loss_type_name'] != loss_type.loss_type_name:
+            existing = LossType.query.filter(
+                and_(
+                    LossType.loss_type_name == data['loss_type_name'],
+                    LossType.id != loss_type_uuid
+                )
+            ).first()
+            if existing:
+                raise ValueError('报损类型名称已存在')
+        
+        # 更新字段
+        for key, value in data.items():
+            if key == 'process_id' and value:
+                setattr(loss_type, key, uuid.UUID(value))
+            elif key == 'loss_category_id' and value:
+                setattr(loss_type, key, uuid.UUID(value))
+            elif hasattr(loss_type, key):
+                setattr(loss_type, key, value)
+        
+        loss_type.updated_by = updated_by_uuid
+        
+        try:
+            db.session.commit()
+            return loss_type.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'更新报损类型失败: {str(e)}')
+    
+    @staticmethod
+    def delete_loss_type(loss_type_id):
+        """删除报损类型"""
+        # 设置schema
+        LossTypeService._set_schema()
+        
+        try:
+            loss_type_uuid = uuid.UUID(loss_type_id)
+        except ValueError:
+            raise ValueError('无效的报损类型ID')
+        
+        from app.models.basic_data import LossType
+        loss_type = LossType.query.get(loss_type_uuid)
+        if not loss_type:
+            raise ValueError('报损类型不存在')
+        
+        try:
+            db.session.delete(loss_type)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'删除报损类型失败: {str(e)}')
+    
+    @staticmethod
+    def batch_update_loss_types(data_list, updated_by):
+        """批量更新报损类型（用于可编辑表格）"""
+        # 设置schema
+        LossTypeService._set_schema()
+        
+        try:
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的用户ID')
+        
+        results = []
+        errors = []
+        
+        for index, data in enumerate(data_list):
+            try:
+                if 'id' in data and data['id']:
+                    # 更新现有记录
+                    loss_type = LossTypeService.update_loss_type(
+                        data['id'], data, updated_by
+                    )
+                    results.append(loss_type)
+                else:
+                    # 创建新记录
+                    loss_type = LossTypeService.create_loss_type(
+                        data, updated_by
+                    )
+                    results.append(loss_type)
+            except ValueError as e:
+                errors.append({
+                    'index': index,
+                    'error': str(e),
+                    'data': data
+                })
+        
+        if errors:
+            # 如果有错误，回滚事务
+            db.session.rollback()
+            raise ValueError(f'批量更新失败，错误详情: {errors}')
+        
+        return results
+    
+    @staticmethod
+    def get_enabled_loss_types():
+        """获取启用的报损类型列表（用于下拉选择）"""
+        # 设置schema
+        LossTypeService._set_schema()
+        
+        from app.models.basic_data import LossType
+        loss_types = LossType.query.filter_by(
+            is_enabled=True
+        ).order_by(LossType.sort_order, LossType.loss_type_name).all()
+        
+        return [lt.to_dict() for lt in loss_types]
+
+
+class MachineService:
+    """机台服务类"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置租户schema"""
+        from flask import g
+        if hasattr(g, 'tenant_slug') and g.tenant_slug:
+            db.session.execute(text(f"SET search_path TO {g.tenant_slug}, public"))
+        else:
+            # 默认使用wanle schema
+            db.session.execute(text("SET search_path TO wanle, public"))
+
+    @staticmethod
+    def get_machines(page=1, per_page=20, search=None, enabled_only=False):
+        """获取机台列表"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            query = Machine.query
+            
+            # 搜索过滤
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(
+                    db.or_(
+                        Machine.machine_name.ilike(search_pattern),
+                        Machine.machine_code.ilike(search_pattern),
+                        Machine.model.ilike(search_pattern)
+                    )
+                )
+            
+            # 启用状态过滤
+            if enabled_only:
+                query = query.filter(Machine.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(Machine.sort_order, Machine.machine_name)
+            
+            # 分页
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+            
+            machines = [machine.to_dict() for machine in pagination.items]
+            
+            return {
+                'items': machines,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"获取机台列表失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_machine(machine_id):
+        """获取单个机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machine = Machine.query.get(machine_id)
+            if not machine:
+                return None
+            
+            # 获取用户信息
+            from app.models.auth import User
+            user_ids = []
+            if machine.created_by:
+                user_ids.append(machine.created_by)
+            if machine.updated_by:
+                user_ids.append(machine.updated_by)
+            
+            users = {}
+            if user_ids:
+                user_list = User.query.filter(User.id.in_(user_ids)).all()
+                users = {str(user.id): user.username for user in user_list}
+            
+            machine_dict = machine.to_dict()
+            machine_dict['created_by_name'] = users.get(str(machine.created_by), '')
+            machine_dict['updated_by_name'] = users.get(str(machine.updated_by), '')
+            
+            return machine_dict
+            
+        except Exception as e:
+            print(f"获取机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def create_machine(data, created_by):
+        """创建机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            # 生成机台编号
+            machine_code = Machine.generate_machine_code()
+            
+            # 创建机台
+            machine = Machine(
+                machine_code=machine_code,
+                machine_name=data.get('machine_name'),
+                model=data.get('model'),
+                min_width=data.get('min_width'),
+                max_width=data.get('max_width'),
+                production_speed=data.get('production_speed'),
+                preparation_time=data.get('preparation_time'),
+                difficulty_factor=data.get('difficulty_factor'),
+                circulation_card_id=data.get('circulation_card_id'),
+                max_colors=data.get('max_colors'),
+                kanban_display=data.get('kanban_display'),
+                capacity_formula=data.get('capacity_formula'),
+                gas_unit_price=data.get('gas_unit_price'),
+                power_consumption=data.get('power_consumption'),
+                electricity_cost_per_hour=data.get('electricity_cost_per_hour'),
+                output_conversion_factor=data.get('output_conversion_factor'),
+                plate_change_time=data.get('plate_change_time'),
+                mes_barcode_prefix=data.get('mes_barcode_prefix'),
+                is_curing_room=data.get('is_curing_room', False),
+                material_name=data.get('material_name'),
+                remarks=data.get('remarks'),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(machine)
+            db.session.commit()
+            
+            return machine.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"创建机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def update_machine(machine_id, data, updated_by):
+        """更新机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machine = Machine.query.get(machine_id)
+            if not machine:
+                raise ValueError("机台不存在")
+            
+            # 更新字段
+            if 'machine_name' in data:
+                machine.machine_name = data['machine_name']
+            if 'model' in data:
+                machine.model = data['model']
+            if 'min_width' in data:
+                machine.min_width = data['min_width']
+            if 'max_width' in data:
+                machine.max_width = data['max_width']
+            if 'production_speed' in data:
+                machine.production_speed = data['production_speed']
+            if 'preparation_time' in data:
+                machine.preparation_time = data['preparation_time']
+            if 'difficulty_factor' in data:
+                machine.difficulty_factor = data['difficulty_factor']
+            if 'circulation_card_id' in data:
+                machine.circulation_card_id = data['circulation_card_id']
+            if 'max_colors' in data:
+                machine.max_colors = data['max_colors']
+            if 'kanban_display' in data:
+                machine.kanban_display = data['kanban_display']
+            if 'capacity_formula' in data:
+                machine.capacity_formula = data['capacity_formula']
+            if 'gas_unit_price' in data:
+                machine.gas_unit_price = data['gas_unit_price']
+            if 'power_consumption' in data:
+                machine.power_consumption = data['power_consumption']
+            if 'electricity_cost_per_hour' in data:
+                machine.electricity_cost_per_hour = data['electricity_cost_per_hour']
+            if 'output_conversion_factor' in data:
+                machine.output_conversion_factor = data['output_conversion_factor']
+            if 'plate_change_time' in data:
+                machine.plate_change_time = data['plate_change_time']
+            if 'mes_barcode_prefix' in data:
+                machine.mes_barcode_prefix = data['mes_barcode_prefix']
+            if 'is_curing_room' in data:
+                machine.is_curing_room = data['is_curing_room']
+            if 'material_name' in data:
+                machine.material_name = data['material_name']
+            if 'remarks' in data:
+                machine.remarks = data['remarks']
+            if 'sort_order' in data:
+                machine.sort_order = data['sort_order']
+            if 'is_enabled' in data:
+                machine.is_enabled = data['is_enabled']
+            
+            machine.updated_by = updated_by
+            
+            db.session.commit()
+            
+            return machine.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"更新机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def delete_machine(machine_id):
+        """删除机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machine = Machine.query.get(machine_id)
+            if not machine:
+                raise ValueError("机台不存在")
+            
+            db.session.delete(machine)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"删除机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def batch_update_machines(data_list, updated_by):
+        """批量更新机台"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            updated_machines = []
+            
+            for item in data_list:
+                machine_id = item.get('id')
+                if not machine_id:
+                    continue
+                
+                machine = Machine.query.get(machine_id)
+                if not machine:
+                    continue
+                
+                # 更新字段
+                for field in ['machine_name', 'model', 'min_width', 'max_width', 'production_speed',
+                             'preparation_time', 'difficulty_factor', 'circulation_card_id', 'max_colors',
+                             'kanban_display', 'capacity_formula', 'gas_unit_price', 'power_consumption',
+                             'electricity_cost_per_hour', 'output_conversion_factor', 'plate_change_time',
+                             'mes_barcode_prefix', 'is_curing_room', 'material_name', 'remarks',
+                             'sort_order', 'is_enabled']:
+                    if field in item:
+                        setattr(machine, field, item[field])
+                
+                machine.updated_by = updated_by
+                updated_machines.append(machine.to_dict())
+            
+            db.session.commit()
+            
+            return updated_machines
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"批量更新机台失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_enabled_machines():
+        """获取启用的机台列表"""
+        try:
+            MachineService._set_schema()
+            from app.models.basic_data import Machine
+            
+            machines = Machine.get_enabled_list()
+            return [machine.to_dict() for machine in machines]
+            
+        except Exception as e:
+            print(f"获取启用机台列表失败: {str(e)}")
+            raise e
+
+
+class QuoteInkService:
+    """报价油墨服务类"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置租户schema"""
+        from flask import g
+        if hasattr(g, 'tenant_slug') and g.tenant_slug:
+            db.session.execute(text(f"SET search_path TO {g.tenant_slug}, public"))
+        else:
+            # 默认使用wanle schema
+            db.session.execute(text("SET search_path TO wanle, public"))
+
+    @staticmethod
+    def get_quote_inks(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报价油墨列表"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            query = QuoteInk.query
+            
+            # 搜索过滤
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(
+                    db.or_(
+                        QuoteInk.category_name.ilike(search_pattern),
+                        QuoteInk.unit_price_formula.ilike(search_pattern),
+                        QuoteInk.description.ilike(search_pattern)
+                    )
+                )
+            
+            # 启用状态过滤
+            if enabled_only:
+                query = query.filter(QuoteInk.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(QuoteInk.sort_order, QuoteInk.category_name)
+            
+            # 分页
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+            
+            quote_inks = [quote_ink.to_dict() for quote_ink in pagination.items]
+            
+            return {
+                'items': quote_inks,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"获取报价油墨列表失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_quote_ink(quote_ink_id):
+        """获取单个报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_ink = QuoteInk.query.get(quote_ink_id)
+            if not quote_ink:
+                raise ValueError("报价油墨不存在")
+            
+            return quote_ink.to_dict()
+            
+        except Exception as e:
+            current_app.logger.error(f"获取报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def create_quote_ink(data, created_by):
+        """创建报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            # 验证必填字段
+            if not data.get('category_name'):
+                raise ValueError("分类名称不能为空")
+            
+            quote_ink = QuoteInk(
+                category_name=data.get('category_name'),
+                square_price=data.get('square_price'),
+                unit_price_formula=data.get('unit_price_formula'),
+                gram_weight=data.get('gram_weight'),
+                is_ink=data.get('is_ink', False),
+                is_solvent=data.get('is_solvent', False),
+                sort_order=data.get('sort_order', 0),
+                description=data.get('description'),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(quote_ink)
+            db.session.commit()
+            
+            return quote_ink.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"创建报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def update_quote_ink(quote_ink_id, data, updated_by):
+        """更新报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_ink = QuoteInk.query.get(quote_ink_id)
+            if not quote_ink:
+                raise ValueError("报价油墨不存在")
+            
+            # 更新字段
+            if 'category_name' in data:
+                quote_ink.category_name = data['category_name']
+            if 'square_price' in data:
+                quote_ink.square_price = data['square_price']
+            if 'unit_price_formula' in data:
+                quote_ink.unit_price_formula = data['unit_price_formula']
+            if 'gram_weight' in data:
+                quote_ink.gram_weight = data['gram_weight']
+            if 'is_ink' in data:
+                quote_ink.is_ink = data['is_ink']
+            if 'is_solvent' in data:
+                quote_ink.is_solvent = data['is_solvent']
+            if 'sort_order' in data:
+                quote_ink.sort_order = data['sort_order']
+            if 'description' in data:
+                quote_ink.description = data['description']
+            if 'is_enabled' in data:
+                quote_ink.is_enabled = data['is_enabled']
+            
+            quote_ink.updated_by = updated_by
+            
+            db.session.commit()
+            
+            return quote_ink.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"更新报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def delete_quote_ink(quote_ink_id):
+        """删除报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_ink = QuoteInk.query.get(quote_ink_id)
+            if not quote_ink:
+                raise ValueError("报价油墨不存在")
+            
+            db.session.delete(quote_ink)
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"删除报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def batch_update_quote_inks(data_list, updated_by):
+        """批量更新报价油墨"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            results = []
+            for data in data_list:
+                if data.get('id'):
+                    # 更新现有记录
+                    quote_ink = QuoteInk.query.get(data['id'])
+                    if quote_ink:
+                        result = QuoteInkService.update_quote_ink(data['id'], data, updated_by)
+                        results.append(result)
+                else:
+                    # 创建新记录
+                    result = QuoteInkService.create_quote_ink(data, updated_by)
+                    results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            current_app.logger.error(f"批量更新报价油墨失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_enabled_quote_inks():
+        """获取启用的报价油墨列表"""
+        try:
+            QuoteInkService._set_schema()
+            from app.models.basic_data import QuoteInk
+            
+            quote_inks = QuoteInk.get_enabled_list()
+            return [quote_ink.to_dict() for quote_ink in quote_inks]
+            
+        except Exception as e:
+            current_app.logger.error(f"获取启用报价油墨列表失败: {str(e)}")
+            raise e
+
+
+class QuoteMaterialService:
+    """报价材料管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in QuoteMaterialService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_quote_materials(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报价材料列表"""
+        from app.models.basic_data import QuoteMaterial
+        from app.models.user import User
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        
+        # 构建基础查询
+        base_query = f"""
+        SELECT 
+            id, material_name, density, kg_price, layer_1_optional, layer_2_optional,
+            layer_3_optional, layer_4_optional, layer_5_optional, sort_order, 
+            remarks, is_enabled, created_by, updated_by, created_at, updated_at
+        FROM {schema_name}.quote_materials
+        """
+        
+        # 添加搜索条件
+        where_conditions = []
+        params = {}
+        
+        if search:
+            where_conditions.append("""
+                (material_name ILIKE :search OR 
+                 remarks ILIKE :search)
+            """)
+            params['search'] = f'%{search}%'
+        
+        if enabled_only:
+            where_conditions.append("is_enabled = true")
+        
+        # 构建完整查询
+        if where_conditions:
+            base_query += " WHERE " + " AND ".join(where_conditions)
+        
+        base_query += " ORDER BY sort_order, created_at"
+        
+        # 计算总数
+        count_query = f"""
+        SELECT COUNT(*) as total
+        FROM {schema_name}.quote_materials
+        """
+        if where_conditions:
+            count_query += " WHERE " + " AND ".join(where_conditions)
+        
+        # 执行查询
+        try:
+            # 获取总数
+            count_result = db.session.execute(text(count_query), params)
+            total = count_result.scalar()
+            
+            # 计算分页
+            offset = (page - 1) * per_page
+            params['limit'] = per_page
+            params['offset'] = offset
+            
+            # 添加分页
+            paginated_query = base_query + " LIMIT :limit OFFSET :offset"
+            
+            # 执行分页查询
+            result = db.session.execute(text(paginated_query), params)
+            rows = result.fetchall()
+            
+            quote_materials = []
+            for row in rows:
+                quote_material_data = {
+                    'id': str(row.id),
+                    'material_name': row.material_name,
+                    'density': float(row.density) if row.density else None,
+                    'kg_price': float(row.kg_price) if row.kg_price else None,
+                    'layer_1_optional': row.layer_1_optional,
+                    'layer_2_optional': row.layer_2_optional,
+                    'layer_3_optional': row.layer_3_optional,
+                    'layer_4_optional': row.layer_4_optional,
+                    'layer_5_optional': row.layer_5_optional,
+                    'sort_order': row.sort_order,
+                    'remarks': row.remarks,
+                    'is_enabled': row.is_enabled,
+                    'created_by': str(row.created_by) if row.created_by else None,
+                    'updated_by': str(row.updated_by) if row.updated_by else None,
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                    'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+                }
+                
+                # 获取创建人和修改人用户名
+                if row.created_by:
+                    created_user = User.query.get(row.created_by)
+                    if created_user:
+                        quote_material_data['created_by_name'] = created_user.get_full_name()
+                    else:
+                        quote_material_data['created_by_name'] = '未知用户'
+                else:
+                    quote_material_data['created_by_name'] = '系统'
+                    
+                if row.updated_by:
+                    updated_user = User.query.get(row.updated_by)
+                    if updated_user:
+                        quote_material_data['updated_by_name'] = updated_user.get_full_name()
+                    else:
+                        quote_material_data['updated_by_name'] = '未知用户'
+                else:
+                    quote_material_data['updated_by_name'] = ''
+                
+                quote_materials.append(quote_material_data)
+            
+            # 计算分页信息
+            pages = (total + per_page - 1) // per_page
+            has_next = page < pages
+            has_prev = page > 1
+            
+            return {
+                'quote_materials': quote_materials,
+                'total': total,
+                'pages': pages,
+                'current_page': page,
+                'per_page': per_page,
+                'has_next': has_next,
+                'has_prev': has_prev
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"Error querying quote materials: {str(e)}")
+            raise ValueError(f'查询报价材料失败: {str(e)}')
+    
+    @staticmethod
+    def get_quote_material(quote_material_id):
+        """获取报价材料详情"""
+        from app.models.basic_data import QuoteMaterial
+        from app.models.user import User
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        try:
+            quote_material_uuid = uuid.UUID(quote_material_id)
+        except ValueError:
+            raise ValueError('无效的报价材料ID')
+        
+        quote_material = QuoteMaterial.query.get(quote_material_uuid)
+        if not quote_material:
+            raise ValueError('报价材料不存在')
+        
+        quote_material_data = quote_material.to_dict()
+        
+        # 获取创建人和修改人用户名
+        if quote_material.created_by:
+            created_user = User.query.get(quote_material.created_by)
+            if created_user:
+                quote_material_data['created_by_name'] = created_user.get_full_name()
+            else:
+                quote_material_data['created_by_name'] = '未知用户'
+        
+        if quote_material.updated_by:
+            updated_user = User.query.get(quote_material.updated_by)
+            if updated_user:
+                quote_material_data['updated_by_name'] = updated_user.get_full_name()
+            else:
+                quote_material_data['updated_by_name'] = '未知用户'
+        
+        return quote_material_data
+    
+    @staticmethod
+    def create_quote_material(data, created_by):
+        """创建报价材料"""
+        from app.models.basic_data import QuoteMaterial
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        # 验证数据
+        if not data.get('material_name'):
+            raise ValueError('材料名称不能为空')
+        
+        # 检查材料名称是否重复
+        existing = QuoteMaterial.query.filter_by(
+            material_name=data['material_name']
+        ).first()
+        if existing:
+            raise ValueError('材料名称已存在')
+        
+        try:
+            # 创建报价材料
+            quote_material = QuoteMaterial(
+                material_name=data['material_name'],
+                density=data.get('density'),
+                kg_price=data.get('kg_price'),
+                layer_1_optional=data.get('layer_1_optional', False),
+                layer_2_optional=data.get('layer_2_optional', False),
+                layer_3_optional=data.get('layer_3_optional', False),
+                layer_4_optional=data.get('layer_4_optional', False),
+                layer_5_optional=data.get('layer_5_optional', False),
+                sort_order=data.get('sort_order', 0),
+                remarks=data.get('remarks'),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(quote_material)
+            db.session.commit()
+            
+            return quote_material.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating quote material: {str(e)}")
+            raise ValueError(f'创建报价材料失败: {str(e)}')
+    
+    @staticmethod
+    def update_quote_material(quote_material_id, data, updated_by):
+        """更新报价材料"""
+        from app.models.basic_data import QuoteMaterial
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        try:
+            quote_material_uuid = uuid.UUID(quote_material_id)
+        except ValueError:
+            raise ValueError('无效的报价材料ID')
+        
+        quote_material = QuoteMaterial.query.get(quote_material_uuid)
+        if not quote_material:
+            raise ValueError('报价材料不存在')
+        
+        # 验证数据
+        if not data.get('material_name'):
+            raise ValueError('材料名称不能为空')
+        
+        # 检查材料名称是否重复（排除自己）
+        existing = QuoteMaterial.query.filter(
+            QuoteMaterial.material_name == data['material_name'],
+            QuoteMaterial.id != quote_material_uuid
+        ).first()
+        if existing:
+            raise ValueError('材料名称已存在')
+        
+        try:
+            # 更新字段
+            quote_material.material_name = data['material_name']
+            quote_material.density = data.get('density')
+            quote_material.kg_price = data.get('kg_price')
+            quote_material.layer_1_optional = data.get('layer_1_optional', False)
+            quote_material.layer_2_optional = data.get('layer_2_optional', False)
+            quote_material.layer_3_optional = data.get('layer_3_optional', False)
+            quote_material.layer_4_optional = data.get('layer_4_optional', False)
+            quote_material.layer_5_optional = data.get('layer_5_optional', False)
+            quote_material.sort_order = data.get('sort_order', 0)
+            quote_material.remarks = data.get('remarks')
+            quote_material.is_enabled = data.get('is_enabled', True)
+            quote_material.updated_by = updated_by
+            
+            db.session.commit()
+            
+            return quote_material.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating quote material: {str(e)}")
+            raise ValueError(f'更新报价材料失败: {str(e)}')
+    
+    @staticmethod
+    def delete_quote_material(quote_material_id):
+        """删除报价材料"""
+        from app.models.basic_data import QuoteMaterial
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        try:
+            quote_material_uuid = uuid.UUID(quote_material_id)
+        except ValueError:
+            raise ValueError('无效的报价材料ID')
+        
+        quote_material = QuoteMaterial.query.get(quote_material_uuid)
+        if not quote_material:
+            raise ValueError('报价材料不存在')
+        
+        try:
+            db.session.delete(quote_material)
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error deleting quote material: {str(e)}")
+            raise ValueError(f'删除报价材料失败: {str(e)}')
+    
+    @staticmethod
+    def batch_update_quote_materials(data_list, updated_by):
+        """批量更新报价材料"""
+        from app.models.basic_data import QuoteMaterial
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        try:
+            for data in data_list:
+                quote_material_id = data.get('id')
+                if not quote_material_id:
+                    continue
+                
+                quote_material_uuid = uuid.UUID(quote_material_id)
+                quote_material = QuoteMaterial.query.get(quote_material_uuid)
+                if quote_material:
+                    # 更新字段
+                    if 'material_name' in data:
+                        quote_material.material_name = data['material_name']
+                    if 'density' in data:
+                        quote_material.density = data['density']
+                    if 'kg_price' in data:
+                        quote_material.kg_price = data['kg_price']
+                    if 'layer_1_optional' in data:
+                        quote_material.layer_1_optional = data['layer_1_optional']
+                    if 'layer_2_optional' in data:
+                        quote_material.layer_2_optional = data['layer_2_optional']
+                    if 'layer_3_optional' in data:
+                        quote_material.layer_3_optional = data['layer_3_optional']
+                    if 'layer_4_optional' in data:
+                        quote_material.layer_4_optional = data['layer_4_optional']
+                    if 'layer_5_optional' in data:
+                        quote_material.layer_5_optional = data['layer_5_optional']
+                    if 'sort_order' in data:
+                        quote_material.sort_order = data['sort_order']
+                    if 'remarks' in data:
+                        quote_material.remarks = data['remarks']
+                    if 'is_enabled' in data:
+                        quote_material.is_enabled = data['is_enabled']
+                    
+                    quote_material.updated_by = updated_by
+            
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error batch updating quote materials: {str(e)}")
+            raise ValueError(f'批量更新报价材料失败: {str(e)}')
+    
+    @staticmethod
+    def get_enabled_quote_materials():
+        """获取启用的报价材料列表"""
+        from app.models.basic_data import QuoteMaterial
+        
+        # 设置schema
+        QuoteMaterialService._set_schema()
+        
+        quote_materials = QuoteMaterial.get_enabled_list()
+        return [quote_material.to_dict() for quote_material in quote_materials]
+
+
+class QuoteAccessoryService:
+    """报价辅材管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in QuoteAccessoryService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_quote_accessories(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报价辅材列表"""
+        from app.models.basic_data import QuoteAccessory
+        from app.models.user import User
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        current_app.logger.info(f"Getting quote accessories for schema: {schema_name}")
+        
+        try:
+            # 构建查询
+            query = QuoteAccessory.query
+            
+            # 搜索条件
+            if search:
+                search_pattern = f'%{search}%'
+                query = query.filter(
+                    db.or_(
+                        QuoteAccessory.material_name.ilike(search_pattern),
+                        QuoteAccessory.description.ilike(search_pattern),
+                        QuoteAccessory.unit_price_formula.ilike(search_pattern)
+                    )
+                )
+            
+            # 启用状态过滤
+            if enabled_only:
+                query = query.filter(QuoteAccessory.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(QuoteAccessory.sort_order, QuoteAccessory.created_at)
+            
+            # 分页
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+            
+            # 转换为字典
+            quote_accessories = []
+            for item in pagination.items:
+                quote_accessory_dict = item.to_dict()
+                
+                # 添加创建者和更新者信息
+                if item.created_by:
+                    created_user = User.query.get(item.created_by)
+                    quote_accessory_dict['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+                else:
+                    quote_accessory_dict['created_by_name'] = '系统'
+                
+                if item.updated_by:
+                    updated_user = User.query.get(item.updated_by)
+                    quote_accessory_dict['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+                else:
+                    quote_accessory_dict['updated_by_name'] = ''
+                
+                quote_accessories.append(quote_accessory_dict)
+            
+            result = {
+                'quote_accessories': quote_accessories,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_prev': pagination.has_prev,
+                'has_next': pagination.has_next
+            }
+            
+            current_app.logger.info(f"Found {len(quote_accessories)} quote accessories")
+            return result
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting quote accessories: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def get_quote_accessory(quote_accessory_id):
+        """获取单个报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+            if not quote_accessory:
+                return None
+            
+            return quote_accessory.to_dict(include_user_info=True)
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting quote accessory {quote_accessory_id}: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def create_quote_accessory(data, created_by):
+        """创建报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory(
+                material_name=data.get('material_name'),
+                unit_price=data.get('unit_price'),
+                unit_price_formula=data.get('unit_price_formula'),
+                sort_order=data.get('sort_order', 0),
+                description=data.get('description'),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(quote_accessory)
+            db.session.commit()
+            
+            current_app.logger.info(f"Created quote accessory: {quote_accessory.material_name}")
+            return quote_accessory.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating quote accessory: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def update_quote_accessory(quote_accessory_id, data, updated_by):
+        """更新报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+            if not quote_accessory:
+                return None
+            
+            # 更新字段
+            if 'material_name' in data:
+                quote_accessory.material_name = data['material_name']
+            if 'unit_price' in data:
+                quote_accessory.unit_price = data['unit_price']
+            if 'unit_price_formula' in data:
+                quote_accessory.unit_price_formula = data['unit_price_formula']
+            if 'sort_order' in data:
+                quote_accessory.sort_order = data['sort_order']
+            if 'description' in data:
+                quote_accessory.description = data['description']
+            if 'is_enabled' in data:
+                quote_accessory.is_enabled = data['is_enabled']
+            
+            quote_accessory.updated_by = updated_by
+            quote_accessory.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            current_app.logger.info(f"Updated quote accessory: {quote_accessory.material_name}")
+            return quote_accessory.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating quote accessory {quote_accessory_id}: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def delete_quote_accessory(quote_accessory_id):
+        """删除报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+            if not quote_accessory:
+                return False
+            
+            material_name = quote_accessory.material_name
+            db.session.delete(quote_accessory)
+            db.session.commit()
+            
+            current_app.logger.info(f"Deleted quote accessory: {material_name}")
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error deleting quote accessory {quote_accessory_id}: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def batch_update_quote_accessories(data_list, updated_by):
+        """批量更新报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            updated_count = 0
+            for item_data in data_list:
+                quote_accessory_id = item_data.get('id')
+                if quote_accessory_id:
+                    quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+                    if quote_accessory:
+                        # 更新字段
+                        for field in ['material_name', 'unit_price', 'unit_price_formula', 'sort_order', 'description', 'is_enabled']:
+                            if field in item_data:
+                                setattr(quote_accessory, field, item_data[field])
+                        
+                        quote_accessory.updated_by = updated_by
+                        quote_accessory.updated_at = datetime.utcnow()
+                        updated_count += 1
+            
+            db.session.commit()
+            current_app.logger.info(f"Batch updated {updated_count} quote accessories")
+            return updated_count
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error batch updating quote accessories: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def get_enabled_quote_accessories():
+        """获取启用的报价辅材列表"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessories = QuoteAccessory.get_enabled_list()
+            return [item.to_dict() for item in quote_accessories]
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting enabled quote accessories: {str(e)}")
+            raise e
+
+
+class QuoteLossService:
+    """报价损耗管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in QuoteLossService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_quote_losses(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报价损耗列表"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        
+        # 构建基础查询
+        base_query = f"""
+        SELECT 
+            id, bag_type, layer_count, meter_range, loss_rate, cost,
+            description, sort_order, is_enabled, created_by, updated_by, created_at, updated_at
+        FROM {schema_name}.quote_losses
+        """
+        
+        # 添加搜索条件
+        where_conditions = []
+        params = {}
+        
+        if search:
+            where_conditions.append("""
+                (bag_type ILIKE :search OR 
+                 description ILIKE :search OR 
+                 CAST(layer_count AS TEXT) ILIKE :search)
+            """)
+            params['search'] = f'%{search}%'
+        
+        if enabled_only:
+            where_conditions.append("is_enabled = true")
+        
+        # 构建完整查询
+        if where_conditions:
+            base_query += " WHERE " + " AND ".join(where_conditions)
+        
+        base_query += " ORDER BY sort_order, created_at"
+        
+        # 计算总数
+        count_query = f"""
+        SELECT COUNT(*) as total
+        FROM {schema_name}.quote_losses
+        """
+        if where_conditions:
+            count_query += " WHERE " + " AND ".join(where_conditions)
+        
+        # 执行查询
+        try:
+            # 获取总数
+            count_result = db.session.execute(text(count_query), params)
+            total = count_result.scalar()
+            
+            # 计算分页
+            offset = (page - 1) * per_page
+            params['limit'] = per_page
+            params['offset'] = offset
+            
+            # 添加分页
+            paginated_query = base_query + " LIMIT :limit OFFSET :offset"
+            
+            # 执行分页查询
+            result = db.session.execute(text(paginated_query), params)
+            rows = result.fetchall()
+            
+            quote_losses = []
+            for row in rows:
+                quote_loss_data = {
+                    'id': str(row.id),
+                    'bag_type': row.bag_type,
+                    'layer_count': row.layer_count,
+                    'meter_range': float(row.meter_range) if row.meter_range else None,
+                    'loss_rate': float(row.loss_rate) if row.loss_rate else None,
+                    'cost': float(row.cost) if row.cost else None,
+                    'description': row.description,
+                    'sort_order': row.sort_order,
+                    'is_enabled': row.is_enabled,
+                    'created_by': str(row.created_by) if row.created_by else None,
+                    'updated_by': str(row.updated_by) if row.updated_by else None,
+                    'created_at': row.created_at.isoformat() if row.created_at else None,
+                    'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+                }
+                
+                # 获取创建人和修改人用户名
+                if row.created_by:
+                    created_user = User.query.get(row.created_by)
+                    if created_user:
+                        quote_loss_data['created_by_name'] = created_user.get_full_name()
+                    else:
+                        quote_loss_data['created_by_name'] = '未知用户'
+                else:
+                    quote_loss_data['created_by_name'] = '系统'
+                
+                if row.updated_by:
+                    updated_user = User.query.get(row.updated_by)
+                    if updated_user:
+                        quote_loss_data['updated_by_name'] = updated_user.get_full_name()
+                    else:
+                        quote_loss_data['updated_by_name'] = '未知用户'
+                else:
+                    quote_loss_data['updated_by_name'] = None
+                
+                quote_losses.append(quote_loss_data)
+            
+            return {
+                'quote_losses': quote_losses,
+                'total': total,
+                'current_page': page,
+                'per_page': per_page,
+                'total_pages': (total + per_page - 1) // per_page
+            }
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting quote losses: {str(e)}")
+            raise ValueError(f'获取报价损耗列表失败: {str(e)}')
+    
+    @staticmethod
+    def get_quote_loss(quote_loss_id):
+        """获取报价损耗详情"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        try:
+            quote_loss_uuid = uuid.UUID(quote_loss_id)
+        except ValueError:
+            raise ValueError('无效的报价损耗ID')
+        
+        from app.models.basic_data import QuoteLoss
+        quote_loss = QuoteLoss.query.get(quote_loss_uuid)
+        if not quote_loss:
+            raise ValueError('报价损耗不存在')
+        
+        quote_loss_data = quote_loss.to_dict()
+        
+        # 获取创建人和修改人用户名
+        if quote_loss.created_by:
+            created_user = User.query.get(quote_loss.created_by)
+            if created_user:
+                quote_loss_data['created_by_name'] = created_user.get_full_name()
+            else:
+                quote_loss_data['created_by_name'] = '未知用户'
+        
+        if quote_loss.updated_by:
+            updated_user = User.query.get(quote_loss.updated_by)
+            if updated_user:
+                quote_loss_data['updated_by_name'] = updated_user.get_full_name()
+            else:
+                quote_loss_data['updated_by_name'] = '未知用户'
+        
+        return quote_loss_data
+    
+    @staticmethod
+    def create_quote_loss(data, created_by):
+        """创建报价损耗"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        # 验证数据
+        if not data.get('bag_type'):
+            raise ValueError('袋型不能为空')
+        if not data.get('layer_count'):
+            raise ValueError('层数不能为空')
+        if not data.get('meter_range'):
+            raise ValueError('米数区间不能为空')
+        if not data.get('loss_rate'):
+            raise ValueError('损耗不能为空')
+        if not data.get('cost'):
+            raise ValueError('费用不能为空')
+        
+        # 检查是否重复（袋型+层数+米数区间的组合应该唯一）
+        from app.models.basic_data import QuoteLoss
+        existing = QuoteLoss.query.filter_by(
+            bag_type=data['bag_type'],
+            layer_count=data['layer_count'],
+            meter_range=data['meter_range']
+        ).first()
+        if existing:
+            raise ValueError('相同袋型、层数和米数区间的记录已存在')
+        
+        try:
+            created_by_uuid = uuid.UUID(created_by)
+        except ValueError:
+            raise ValueError('无效的创建用户ID')
+        
+        # 创建报价损耗
+        quote_loss = QuoteLoss(
+            bag_type=data['bag_type'],
+            layer_count=data['layer_count'],
+            meter_range=data['meter_range'],
+            loss_rate=data['loss_rate'],
+            cost=data['cost'],
+            description=data.get('description'),
+            sort_order=data.get('sort_order', 0),
+            is_enabled=data.get('is_enabled', True),
+            created_by=created_by_uuid
+        )
+        
+        try:
+            db.session.add(quote_loss)
+            db.session.commit()
+            return quote_loss.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'创建报价损耗失败: {str(e)}')
+    
+    @staticmethod
+    def update_quote_loss(quote_loss_id, data, updated_by):
+        """更新报价损耗"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        try:
+            quote_loss_uuid = uuid.UUID(quote_loss_id)
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的ID')
+        
+        from app.models.basic_data import QuoteLoss
+        quote_loss = QuoteLoss.query.get(quote_loss_uuid)
+        if not quote_loss:
+            raise ValueError('报价损耗不存在')
+        
+        # 检查是否重复（排除自己）
+        if ('bag_type' in data or 'layer_count' in data or 'meter_range' in data):
+            bag_type = data.get('bag_type', quote_loss.bag_type)
+            layer_count = data.get('layer_count', quote_loss.layer_count)
+            meter_range = data.get('meter_range', quote_loss.meter_range)
+            
+            existing = QuoteLoss.query.filter(
+                and_(
+                    QuoteLoss.bag_type == bag_type,
+                    QuoteLoss.layer_count == layer_count,
+                    QuoteLoss.meter_range == meter_range,
+                    QuoteLoss.id != quote_loss_uuid
+                )
+            ).first()
+            if existing:
+                raise ValueError('相同袋型、层数和米数区间的记录已存在')
+        
+        # 更新字段
+        for key, value in data.items():
+            if hasattr(quote_loss, key):
+                setattr(quote_loss, key, value)
+        
+        quote_loss.updated_by = updated_by_uuid
+        
+        try:
+            db.session.commit()
+            return quote_loss.to_dict()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'更新报价损耗失败: {str(e)}')
+    
+    @staticmethod
+    def delete_quote_loss(quote_loss_id):
+        """删除报价损耗"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        try:
+            quote_loss_uuid = uuid.UUID(quote_loss_id)
+        except ValueError:
+            raise ValueError('无效的报价损耗ID')
+        
+        from app.models.basic_data import QuoteLoss
+        quote_loss = QuoteLoss.query.get(quote_loss_uuid)
+        if not quote_loss:
+            raise ValueError('报价损耗不存在')
+        
+        try:
+            db.session.delete(quote_loss)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f'删除报价损耗失败: {str(e)}')
+    
+    @staticmethod
+    def batch_update_quote_losses(data_list, updated_by):
+        """批量更新报价损耗（用于可编辑表格）"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        try:
+            updated_by_uuid = uuid.UUID(updated_by)
+        except ValueError:
+            raise ValueError('无效的用户ID')
+        
+        results = []
+        errors = []
+        
+        for index, data in enumerate(data_list):
+            try:
+                if 'id' in data and data['id']:
+                    # 更新现有记录
+                    quote_loss = QuoteLossService.update_quote_loss(
+                        data['id'], data, updated_by
+                    )
+                    results.append(quote_loss)
+                else:
+                    # 创建新记录
+                    quote_loss = QuoteLossService.create_quote_loss(
+                        data, updated_by
+                    )
+                    results.append(quote_loss)
+            except ValueError as e:
+                errors.append({
+                    'index': index,
+                    'error': str(e),
+                    'data': data
+                })
+        
+        if errors:
+            # 如果有错误，回滚事务
+            db.session.rollback()
+            raise ValueError(f'批量更新失败，错误详情: {errors}')
+        
+        return results
+    
+    @staticmethod
+    def get_enabled_quote_losses():
+        """获取启用的报价损耗列表（用于下拉选择）"""
+        # 设置schema
+        QuoteLossService._set_schema()
+        
+        from app.models.basic_data import QuoteLoss
+        quote_losses = QuoteLoss.query.filter_by(
+            is_enabled=True
+        ).order_by(QuoteLoss.sort_order, QuoteLoss.bag_type).all()
+        
+        return [ql.to_dict() for ql in quote_losses]

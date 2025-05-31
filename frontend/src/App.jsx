@@ -16,13 +16,20 @@ import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagem
 import ColorCardManagement from './pages/base-archive/ColorCardManagement';
 import UnitManagement from './pages/base-archive/UnitManagement';
 import SpecificationManagement from './pages/base-archive/SpecificationManagement';
+import MachineManagement from './pages/base-archive/MachineManagement';
+import QuoteInkManagement from './pages/base-archive/QuoteInkManagement';
+import QuoteMaterialManagement from './pages/base-archive/QuoteMaterialManagement';
+import QuoteAccessoryManagement from './pages/base-archive/QuoteAccessoryManagement';
+import QuoteLossManagement from './pages/base-archive/QuoteLossManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
 import CalculationParameterManagement from './pages/base-archive/CalculationParameterManagement';
 import CalculationSchemeManagement from './pages/base-archive/CalculationSchemeManagement';
+import ProductCategoryManagement from './pages/base-archive/ProductCategoryManagement';
 import InkOptionManagement from './pages/base-archive/InkOptionManagement';
 import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
+import LossTypeManagement from './pages/base-archive/LossTypeManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -196,6 +203,14 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="/base-archive/product-categories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProductCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/base-archive/ink-options" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -212,11 +227,64 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="/base-archive/loss-type-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <LossTypeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
             {/* 基础档案 - 生产管理 */}
             <Route path="/base-archive/production-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <ProductionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 机台管理 */}
+            <Route path="/base-archive/machines" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MachineManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价油墨管理 */}
+            <Route path="/base-archive/quote-inks" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteInkManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价材料管理 */}
+            <Route path="/base-archive/quote-materials" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteMaterialManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价辅材管理 */}
+            <Route path="/base-archive/quote-accessories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteAccessoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价损耗管理 */}
+            <Route path="/base-archive/quote-losses" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteLossManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

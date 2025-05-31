@@ -56,7 +56,7 @@ const ProductionManagement = () => {
       key: 'machine',
       title: '机台',
       icon: <DesktopOutlined />,
-      path: '/production/archive/machine',
+      path: '/base-archive/machines',
       color: '#722ed1'
     },
     {
@@ -84,7 +84,7 @@ const ProductionManagement = () => {
       key: 'lossType',
       title: '报损类型',
       icon: <WarningOutlined />,
-      path: '/production/archive/loss-type',
+      path: '/base-archive/loss-type-management',
       color: '#f5222d'
     },
     {
@@ -130,14 +130,14 @@ const ProductionManagement = () => {
       key: 'quoteInk',
       title: '报价油墨',
       icon: <ExperimentOutlined />,
-      path: '/production/config/quote-ink',
+      path: '/base-archive/quote-inks',
       color: '#722ed1'
     },
     {
       key: 'quoteMaterial',
       title: '报价材料',
       icon: <ShoppingOutlined />,
-      path: '/production/config/quote-material',
+      path: '/base-archive/quote-materials',
       color: '#eb2f96'
     },
     {
@@ -149,9 +149,9 @@ const ProductionManagement = () => {
     },
     {
       key: 'quoteLoss',
-      title: '报价损粍',
+      title: '报价损耗',
       icon: <WarningOutlined />,
-      path: '/production/config/quote-loss',
+      path: '/base-archive/quote-losses',
       color: '#13c2c2'
     },
     {

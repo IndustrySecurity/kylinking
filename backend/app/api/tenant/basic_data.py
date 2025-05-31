@@ -3,7 +3,7 @@
 基础档案管理API路由
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
@@ -2822,34 +2822,436 @@ def batch_update_quote_freights():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# 材料分类管理API
-@bp.route('/material-categories', methods=['GET'])
+# 报价材料管理
+@bp.route('/quote-materials', methods=['GET'])
 @jwt_required()
-def get_material_categories():
-    """获取材料分类列表"""
+def get_quote_materials():
+    """获取报价材料列表"""
     try:
-        # 获取查询参数
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 20)), 100)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '')
-        material_type = request.args.get('material_type', '')
-        is_enabled = request.args.get('is_enabled', '')
+        enabled_only = request.args.get('enabled_only', False, type=bool)
         
-        # 转换is_enabled参数
-        if is_enabled.lower() == 'true':
-            is_enabled = True
-        elif is_enabled.lower() == 'false':
-            is_enabled = False
-        else:
-            is_enabled = None
-        
-        # 获取材料分类列表
-        result = MaterialCategoryService.get_material_categories(
+        from app.services.package_method_service import QuoteMaterialService
+        result = QuoteMaterialService.get_quote_materials(
             page=page,
             per_page=per_page,
             search=search,
-            material_type=material_type,
-            is_enabled=is_enabled
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取报价材料列表失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+@bp.route('/quote-materials/<quote_material_id>', methods=['GET'])
+@jwt_required()
+def get_quote_material(quote_material_id):
+    """获取单个报价材料"""
+    try:
+        from app.services.package_method_service import QuoteMaterialService
+        result = QuoteMaterialService.get_quote_material(quote_material_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'code': 404,
+            'message': str(e),
+            'data': None
+        }), 404
+    except Exception as e:
+        current_app.logger.error(f"获取报价材料失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+@bp.route('/quote-materials', methods=['POST'])
+@jwt_required()
+def create_quote_material():
+    """创建报价材料"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteMaterialService
+        result = QuoteMaterialService.create_quote_material(data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '创建成功',
+            'data': result
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'code': 400,
+            'message': str(e),
+            'data': None
+        }), 400
+    except Exception as e:
+        current_app.logger.error(f"创建报价材料失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'创建失败: {str(e)}',
+            'data': None
+        }), 500
+
+@bp.route('/quote-materials/<quote_material_id>', methods=['PUT'])
+@jwt_required()
+def update_quote_material(quote_material_id):
+    """更新报价材料"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteMaterialService
+        result = QuoteMaterialService.update_quote_material(quote_material_id, data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': result
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'code': 404,
+            'message': str(e),
+            'data': None
+        }), 404
+    except Exception as e:
+        current_app.logger.error(f"更新报价材料失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'更新失败: {str(e)}',
+            'data': None
+        }), 500
+
+@bp.route('/quote-materials/<quote_material_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote_material(quote_material_id):
+    """删除报价材料"""
+    try:
+        from app.services.package_method_service import QuoteMaterialService
+        QuoteMaterialService.delete_quote_material(quote_material_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功',
+            'data': None
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'code': 404,
+            'message': str(e),
+            'data': None
+        }), 404
+    except Exception as e:
+        current_app.logger.error(f"删除报价材料失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'删除失败: {str(e)}',
+            'data': None
+        }), 500
+
+@bp.route('/quote-materials/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_quote_materials():
+    """批量更新报价材料"""
+    try:
+        data_list = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteMaterialService
+        QuoteMaterialService.batch_update_quote_materials(data_list, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '批量更新成功',
+            'data': None
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"批量更新报价材料失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'批量更新失败: {str(e)}',
+            'data': None
+        }), 500
+
+@bp.route('/quote-materials/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_quote_materials():
+    """获取启用的报价材料列表"""
+    try:
+        from app.services.package_method_service import QuoteMaterialService
+        result = QuoteMaterialService.get_enabled_quote_materials()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取启用报价材料列表失败: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+# 报价辅材管理
+@bp.route('/quote-accessories', methods=['GET'])
+@jwt_required()
+def get_quote_accessories():
+    """获取报价辅材列表"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '')
+        enabled_only = request.args.get('enabled_only', False, type=bool)
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.get_quote_accessories(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting quote accessories: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/<quote_accessory_id>', methods=['GET'])
+@jwt_required()
+def get_quote_accessory(quote_accessory_id):
+    """获取单个报价辅材"""
+    try:
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.get_quote_accessory(quote_accessory_id)
+        
+        if result is None:
+            return jsonify({
+                'code': 404,
+                'message': '报价辅材不存在',
+                'data': None
+            }), 404
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting quote accessory {quote_accessory_id}: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories', methods=['POST'])
+@jwt_required()
+def create_quote_accessory():
+    """创建报价辅材"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.create_quote_accessory(data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '创建成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating quote accessory: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'创建失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/<quote_accessory_id>', methods=['PUT'])
+@jwt_required()
+def update_quote_accessory(quote_accessory_id):
+    """更新报价辅材"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.update_quote_accessory(quote_accessory_id, data, current_user_id)
+        
+        if result is None:
+            return jsonify({
+                'code': 404,
+                'message': '报价辅材不存在',
+                'data': None
+            }), 404
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating quote accessory {quote_accessory_id}: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'更新失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/<quote_accessory_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote_accessory(quote_accessory_id):
+    """删除报价辅材"""
+    try:
+        from app.services.package_method_service import QuoteAccessoryService
+        success = QuoteAccessoryService.delete_quote_accessory(quote_accessory_id)
+        
+        if not success:
+            return jsonify({
+                'code': 404,
+                'message': '报价辅材不存在',
+                'data': None
+            }), 404
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功',
+            'data': None
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting quote accessory {quote_accessory_id}: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'删除失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_quote_accessories():
+    """批量更新报价辅材"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        updated_count = QuoteAccessoryService.batch_update_quote_accessories(data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': f'批量更新成功，共更新 {updated_count} 条记录',
+            'data': {'updated_count': updated_count}
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error batch updating quote accessories: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'批量更新失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_quote_accessories():
+    """获取启用的报价辅材列表"""
+    try:
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.get_enabled_quote_accessories()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting enabled quote accessories: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+# ===== 报价损耗管理 API =====
+
+@bp.route('/quote-losses', methods=['GET'])
+@jwt_required()
+def get_quote_losses():
+    """获取报价损耗列表"""
+    try:
+        from app.services.package_method_service import QuoteLossService
+        
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 100)), 100)
+        search = request.args.get('search')
+        enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
+        
+        # 获取当前用户和租户信息
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        
+        if not tenant_id:
+            return jsonify({'error': '租户信息缺失'}), 400
+        
+        # 获取报价损耗列表
+        result = QuoteLossService.get_quote_losses(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
         )
         
         return jsonify({
@@ -2861,48 +3263,51 @@ def get_material_categories():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-categories/<category_id>', methods=['GET'])
+@bp.route('/quote-losses/<quote_loss_id>', methods=['GET'])
 @jwt_required()
-def get_material_category(category_id):
-    """获取材料分类详情"""
+def get_quote_loss(quote_loss_id):
+    """获取报价损耗详情"""
     try:
-        category = MaterialCategoryService.get_material_category_by_id(category_id)
+        from app.services.package_method_service import QuoteLossService
         
-        if not category:
-            return jsonify({'error': '材料分类不存在'}), 404
+        quote_loss = QuoteLossService.get_quote_loss(quote_loss_id)
         
         return jsonify({
             'success': True,
-            'data': category
+            'data': quote_loss
         })
         
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-categories', methods=['POST'])
+@bp.route('/quote-losses', methods=['POST'])
 @jwt_required()
-def create_material_category():
-    """创建材料分类"""
+def create_quote_loss():
+    """创建报价损耗"""
     try:
+        from app.services.package_method_service import QuoteLossService
+        
+        current_user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
         # 验证必填字段
-        if not data.get('material_name'):
-            return jsonify({'error': '材料分类名称不能为空'}), 400
+        required_fields = ['bag_type', 'layer_count', 'meter_range', 'loss_rate', 'cost']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'{field}不能为空'}), 400
         
-        if not data.get('material_type'):
-            return jsonify({'error': '材料属性不能为空'}), 400
-        
-        category = MaterialCategoryService.create_material_category(data)
+        quote_loss = QuoteLossService.create_quote_loss(data, current_user_id)
         
         return jsonify({
             'success': True,
-            'data': category,
-            'message': '材料分类创建成功'
+            'data': quote_loss,
+            'message': '报价损耗创建成功'
         }), 201
         
     except ValueError as e:
@@ -2911,22 +3316,25 @@ def create_material_category():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-categories/<category_id>', methods=['PUT'])
+@bp.route('/quote-losses/<quote_loss_id>', methods=['PUT'])
 @jwt_required()
-def update_material_category(category_id):
-    """更新材料分类"""
+def update_quote_loss(quote_loss_id):
+    """更新报价损耗"""
     try:
+        from app.services.package_method_service import QuoteLossService
+        
+        current_user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
-        category = MaterialCategoryService.update_material_category(category_id, data)
+        quote_loss = QuoteLossService.update_quote_loss(quote_loss_id, data, current_user_id)
         
         return jsonify({
             'success': True,
-            'data': category,
-            'message': '材料分类更新成功'
+            'data': quote_loss,
+            'message': '报价损耗更新成功'
         })
         
     except ValueError as e:
@@ -2935,16 +3343,18 @@ def update_material_category(category_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-categories/<category_id>', methods=['DELETE'])
+@bp.route('/quote-losses/<quote_loss_id>', methods=['DELETE'])
 @jwt_required()
-def delete_material_category(category_id):
-    """删除材料分类"""
+def delete_quote_loss(quote_loss_id):
+    """删除报价损耗"""
     try:
-        MaterialCategoryService.delete_material_category(category_id)
+        from app.services.package_method_service import QuoteLossService
+        
+        QuoteLossService.delete_quote_loss(quote_loss_id)
         
         return jsonify({
             'success': True,
-            'message': '材料分类删除成功'
+            'message': '报价损耗删除成功'
         })
         
     except ValueError as e:
@@ -2953,45 +3363,45 @@ def delete_material_category(category_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-categories/batch', methods=['PUT'])
+@bp.route('/quote-losses/batch', methods=['PUT'])
 @jwt_required()
-def batch_update_material_categories():
-    """批量更新材料分类"""
+def batch_update_quote_losses():
+    """批量更新报价损耗"""
     try:
+        from app.services.package_method_service import QuoteLossService
+        
+        current_user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data or not isinstance(data, list):
             return jsonify({'error': '请求数据格式错误'}), 400
         
-        results = MaterialCategoryService.batch_update_material_categories(data)
+        results = QuoteLossService.batch_update_quote_losses(data, current_user_id)
         
         return jsonify({
             'success': True,
             'data': results,
-            'message': '批量更新完成'
+            'message': '批量更新成功'
         })
         
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-categories/options', methods=['GET'])
+@bp.route('/quote-losses/enabled', methods=['GET'])
 @jwt_required()
-def get_material_category_options():
-    """获取材料分类选项数据"""
+def get_enabled_quote_losses():
+    """获取启用的报价损耗列表"""
     try:
-        # 获取材料属性选项
-        material_types = MaterialCategoryService.get_material_types()
+        from app.services.package_method_service import QuoteLossService
         
-        # 获取单位选项
-        units = MaterialCategoryService.get_units()
+        quote_losses = QuoteLossService.get_enabled_quote_losses()
         
         return jsonify({
             'success': True,
-            'data': {
-                'material_types': material_types,
-                'units': units
-            }
+            'data': quote_losses
         })
         
     except Exception as e:

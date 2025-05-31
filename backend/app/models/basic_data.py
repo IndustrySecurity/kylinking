@@ -282,38 +282,63 @@ class Supplier(BaseModel):
         }
 
 
-class ProductCategory(BaseModel):
+class ProductCategory(TenantModel):
     """产品分类模型"""
     __tablename__ = 'product_categories'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category_code = db.Column(db.String(50), unique=True, nullable=False)
-    category_name = db.Column(db.String(100), nullable=False)
-    parent_id = db.Column(UUID(as_uuid=True), db.ForeignKey('product_categories.id'))
-    level = db.Column(db.Integer, default=1)
-    sort_order = db.Column(db.Integer, default=0)
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
     
-    # 自引用关系
-    children = db.relationship('ProductCategory', 
-                             backref=db.backref('parent', remote_side=[id]),
-                             lazy='dynamic')
+    # 基本信息
+    category_name = db.Column(db.String(255), nullable=False, comment='产品分类名称')
+    subject_name = db.Column(db.String(100), comment='科目名称')
+    is_blown_film = db.Column(db.Boolean, default=False, comment='是否吹膜')
+    delivery_days = db.Column(db.Integer, comment='交货天数')
     
-    def to_dict(self):
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
         """转换为字典"""
-        return {
+        result = {
             'id': str(self.id),
-            'category_code': self.category_code,
             'category_name': self.category_name,
-            'parent_id': str(self.parent_id) if self.parent_id else None,
-            'level': self.level,
-            'sort_order': self.sort_order,
+            'subject_name': self.subject_name,
+            'is_blown_film': self.is_blown_film,
+            'delivery_days': self.delivery_days,
             'description': self.description,
-            'is_active': self.is_active,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'children_count': self.children.count()
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+        
+        if include_user_info:
+            from app.models.user import User
+            created_user = User.get_by_id(self.created_by) if self.created_by else None
+            updated_user = User.get_by_id(self.updated_by) if self.updated_by else None
+            
+            result.update({
+                'created_by_name': created_user.get_full_name() if created_user else None,
+                'updated_by_name': updated_user.get_full_name() if updated_user else None,
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的产品分类列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
+    
+    def __repr__(self):
+        return f'<ProductCategory {self.category_name}>'
 
 
 class Product(BaseModel):
@@ -1463,3 +1488,406 @@ class CalculationScheme(TenantModel):
     
     def __repr__(self):
         return f'<CalculationScheme {self.scheme_name}>'
+
+
+class LossType(TenantModel):
+    """报损类型模型"""
+    __tablename__ = 'loss_types'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    loss_type_name = db.Column(db.String(100), nullable=False, comment='报损类型名称')
+    process_id = db.Column(UUID(as_uuid=True), comment='工序ID')
+    loss_category_id = db.Column(UUID(as_uuid=True), comment='报损分类ID')
+    is_assessment = db.Column(db.Boolean, default=False, comment='是否考核')
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'loss_type_name': self.loss_type_name,
+            'process_id': str(self.process_id) if self.process_id else None,
+            'loss_category_id': str(self.loss_category_id) if self.loss_category_id else None,
+            'is_assessment': self.is_assessment,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            if self.created_by:
+                created_user = User.query.get(self.created_by)
+                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            else:
+                data['created_by_name'] = '系统'
+                
+            if self.updated_by:
+                updated_user = User.query.get(self.updated_by)
+                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            else:
+                data['updated_by_name'] = ''
+            
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报损类型列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.loss_type_name).all()
+    
+    def __repr__(self):
+        return f'<LossType {self.loss_type_name}>'
+
+
+class Machine(TenantModel):
+    """机台模型"""
+    __tablename__ = 'machines'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    machine_code = db.Column(db.String(50), unique=True, nullable=False, comment='机台编号(自动生成)')
+    machine_name = db.Column(db.String(100), nullable=False, comment='机台名称')
+    model = db.Column(db.String(100), comment='型号')
+    
+    # 门幅参数
+    min_width = db.Column(db.Numeric(10, 2), comment='最小上机门幅(mm)')
+    max_width = db.Column(db.Numeric(10, 2), comment='最大上机门幅(mm)')
+    
+    # 生产参数
+    production_speed = db.Column(db.Numeric(10, 2), comment='生产均速(m/h)')
+    preparation_time = db.Column(db.Numeric(8, 2), comment='准备时间(h)')
+    difficulty_factor = db.Column(db.Numeric(8, 4), comment='难易系数')
+    circulation_card_id = db.Column(db.String(100), comment='流转卡标识')
+    max_colors = db.Column(db.Integer, comment='最大印色')
+    kanban_display = db.Column(db.String(200), comment='看板显示')
+    
+    # 产能配置
+    capacity_formula = db.Column(db.String(200), comment='产能公式')
+    gas_unit_price = db.Column(db.Numeric(10, 4), comment='燃气单价')
+    power_consumption = db.Column(db.Numeric(10, 2), comment='功耗(kw)')
+    electricity_cost_per_hour = db.Column(db.Numeric(10, 4), comment='电费(/h)')
+    output_conversion_factor = db.Column(db.Numeric(8, 4), comment='产量换算倍数')
+    plate_change_time = db.Column(db.Numeric(8, 2), comment='换版时间')
+    
+    # MES配置
+    mes_barcode_prefix = db.Column(db.String(20), comment='MES条码前缀')
+    is_curing_room = db.Column(db.Boolean, default=False, comment='是否熟化室')
+    
+    # 材料配置
+    material_name = db.Column(db.String(200), comment='材料名称')
+    
+    # 通用字段
+    remarks = db.Column(db.Text, comment='备注')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'machine_code': self.machine_code,
+            'machine_name': self.machine_name,
+            'model': self.model,
+            'min_width': float(self.min_width) if self.min_width else None,
+            'max_width': float(self.max_width) if self.max_width else None,
+            'production_speed': float(self.production_speed) if self.production_speed else None,
+            'preparation_time': float(self.preparation_time) if self.preparation_time else None,
+            'difficulty_factor': float(self.difficulty_factor) if self.difficulty_factor else None,
+            'circulation_card_id': self.circulation_card_id,
+            'max_colors': self.max_colors,
+            'kanban_display': self.kanban_display,
+            'capacity_formula': self.capacity_formula,
+            'gas_unit_price': float(self.gas_unit_price) if self.gas_unit_price else None,
+            'power_consumption': float(self.power_consumption) if self.power_consumption else None,
+            'electricity_cost_per_hour': float(self.electricity_cost_per_hour) if self.electricity_cost_per_hour else None,
+            'output_conversion_factor': float(self.output_conversion_factor) if self.output_conversion_factor else None,
+            'plate_change_time': float(self.plate_change_time) if self.plate_change_time else None,
+            'mes_barcode_prefix': self.mes_barcode_prefix,
+            'is_curing_room': self.is_curing_room,
+            'material_name': self.material_name,
+            'remarks': self.remarks,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            result.update({
+                'created_by_name': getattr(self.created_by_user, 'username', '') if hasattr(self, 'created_by_user') and self.created_by_user else '',
+                'updated_by_name': getattr(self.updated_by_user, 'username', '') if hasattr(self, 'updated_by_user') and self.updated_by_user else '',
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的机台列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.machine_name).all()
+    
+    @classmethod
+    def generate_machine_code(cls):
+        """生成机台编号"""
+        from sqlalchemy import func
+        
+        # 获取当前最大编号
+        max_code = db.session.query(func.max(cls.machine_code)).scalar()
+        
+        if max_code:
+            # 提取数字部分并加1
+            try:
+                num_part = int(max_code.replace('MT', ''))
+                new_num = num_part + 1
+            except (ValueError, AttributeError):
+                new_num = 1
+        else:
+            new_num = 1
+        
+        # 生成新编号，格式：MT + 4位数字
+        return f"MT{new_num:04d}"
+    
+    def __repr__(self):
+        return f'<Machine {self.machine_name}>'
+
+
+class QuoteInk(TenantModel):
+    """报价油墨模型"""
+    __tablename__ = 'quote_inks'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    category_name = db.Column(db.String(100), nullable=False, comment='分类名称')
+    square_price = db.Column(db.Numeric(10, 4), comment='平方价')
+    unit_price_formula = db.Column(db.String(200), comment='单价计算公式')
+    gram_weight = db.Column(db.Numeric(10, 4), comment='克重')
+    
+    # 类型标识
+    is_ink = db.Column(db.Boolean, default=False, comment='油墨')
+    is_solvent = db.Column(db.Boolean, default=False, comment='溶剂')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'category_name': self.category_name,
+            'square_price': float(self.square_price) if self.square_price else None,
+            'unit_price_formula': self.unit_price_formula,
+            'gram_weight': float(self.gram_weight) if self.gram_weight else None,
+            'is_ink': self.is_ink,
+            'is_solvent': self.is_solvent,
+            'sort_order': self.sort_order,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            result.update({
+                'created_by_name': getattr(self.created_by_user, 'username', '') if hasattr(self, 'created_by_user') and self.created_by_user else '',
+                'updated_by_name': getattr(self.updated_by_user, 'username', '') if hasattr(self, 'updated_by_user') and self.updated_by_user else '',
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价油墨列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.category_name).all()
+    
+    def __repr__(self):
+        return f'<QuoteInk {self.category_name}>'
+
+
+class QuoteMaterial(TenantModel):
+    """报价材料模型"""
+    __tablename__ = 'quote_materials'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    material_name = db.Column(db.String(100), nullable=False, comment='材料名称')
+    density = db.Column(db.Numeric(10, 4), comment='密度')
+    kg_price = db.Column(db.Numeric(15, 4), comment='公斤价')
+    
+    # 层级选项
+    layer_1_optional = db.Column(db.Boolean, default=False, comment='一层可选')
+    layer_2_optional = db.Column(db.Boolean, default=False, comment='二层可选')
+    layer_3_optional = db.Column(db.Boolean, default=False, comment='三层可选')
+    layer_4_optional = db.Column(db.Boolean, default=False, comment='四层可选')
+    layer_5_optional = db.Column(db.Boolean, default=False, comment='五层可选')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    remarks = db.Column(db.Text, comment='备注')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'material_name': self.material_name,
+            'density': float(self.density) if self.density else None,
+            'kg_price': float(self.kg_price) if self.kg_price else None,
+            'layer_1_optional': self.layer_1_optional,
+            'layer_2_optional': self.layer_2_optional,
+            'layer_3_optional': self.layer_3_optional,
+            'layer_4_optional': self.layer_4_optional,
+            'layer_5_optional': self.layer_5_optional,
+            'sort_order': self.sort_order,
+            'remarks': self.remarks,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户名信息，需要关联用户表
+            pass
+            
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价材料列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.created_at).all()
+    
+    def __repr__(self):
+        return f'<QuoteMaterial {self.material_name}>'
+
+
+class QuoteAccessory(TenantModel):
+    """报价辅材模型"""
+    __tablename__ = 'quote_accessories'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    material_name = db.Column(db.String(100), nullable=False, comment='材料名称')
+    unit_price = db.Column(db.Numeric(15, 4), comment='单价')
+    unit_price_formula = db.Column(db.String(200), comment='单价计算公式')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'material_name': self.material_name,
+            'unit_price': float(self.unit_price) if self.unit_price else None,
+            'unit_price_formula': self.unit_price_formula,
+            'sort_order': self.sort_order,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户名信息，需要关联用户表
+            pass
+            
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价辅材列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.created_at).all()
+    
+    def __repr__(self):
+        return f'<QuoteAccessory {self.material_name}>'
+
+
+class QuoteLoss(TenantModel):
+    """报价损耗模型"""
+    __tablename__ = 'quote_losses'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 专享字段
+    bag_type = db.Column(db.String(100), nullable=False, comment='袋型')
+    layer_count = db.Column(db.Integer, nullable=False, comment='层数')
+    meter_range = db.Column(db.Numeric(10, 2), nullable=False, comment='米数区间')
+    loss_rate = db.Column(db.Numeric(8, 4), nullable=False, comment='损耗')
+    cost = db.Column(db.Numeric(15, 4), nullable=False, comment='费用')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'bag_type': self.bag_type,
+            'layer_count': self.layer_count,
+            'meter_range': float(self.meter_range) if self.meter_range else None,
+            'loss_rate': float(self.loss_rate) if self.loss_rate else None,
+            'cost': float(self.cost) if self.cost else None,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            # 这里可以添加用户名信息，需要关联用户表
+            pass
+            
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的报价损耗列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.created_at).all()
+    
+    def __repr__(self):
+        return f'<QuoteLoss {self.bag_type}-{self.layer_count}层>'
