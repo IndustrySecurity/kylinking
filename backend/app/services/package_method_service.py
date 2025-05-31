@@ -9,6 +9,8 @@ from app.extensions import db
 from sqlalchemy import and_, or_, text
 from flask import g, current_app
 import uuid
+from flask_jwt_extended import get_jwt_identity
+from datetime import datetime
 
 
 class PackageMethodService:
@@ -6356,3 +6358,257 @@ class QuoteMaterialService:
         
         quote_materials = QuoteMaterial.get_enabled_list()
         return [quote_material.to_dict() for quote_material in quote_materials]
+
+
+class QuoteAccessoryService:
+    """报价辅材管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in QuoteAccessoryService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_quote_accessories(page=1, per_page=20, search=None, enabled_only=False):
+        """获取报价辅材列表"""
+        from app.models.basic_data import QuoteAccessory
+        from app.models.user import User
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        # 获取当前schema名称
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        current_app.logger.info(f"Getting quote accessories for schema: {schema_name}")
+        
+        try:
+            # 构建查询
+            query = QuoteAccessory.query
+            
+            # 搜索条件
+            if search:
+                search_pattern = f'%{search}%'
+                query = query.filter(
+                    db.or_(
+                        QuoteAccessory.material_name.ilike(search_pattern),
+                        QuoteAccessory.description.ilike(search_pattern),
+                        QuoteAccessory.unit_price_formula.ilike(search_pattern)
+                    )
+                )
+            
+            # 启用状态过滤
+            if enabled_only:
+                query = query.filter(QuoteAccessory.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(QuoteAccessory.sort_order, QuoteAccessory.created_at)
+            
+            # 分页
+            pagination = query.paginate(
+                page=page,
+                per_page=per_page,
+                error_out=False
+            )
+            
+            # 转换为字典
+            quote_accessories = []
+            for item in pagination.items:
+                quote_accessory_dict = item.to_dict()
+                
+                # 添加创建者和更新者信息
+                if item.created_by:
+                    created_user = User.query.get(item.created_by)
+                    quote_accessory_dict['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+                else:
+                    quote_accessory_dict['created_by_name'] = '系统'
+                
+                if item.updated_by:
+                    updated_user = User.query.get(item.updated_by)
+                    quote_accessory_dict['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+                else:
+                    quote_accessory_dict['updated_by_name'] = ''
+                
+                quote_accessories.append(quote_accessory_dict)
+            
+            result = {
+                'quote_accessories': quote_accessories,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_prev': pagination.has_prev,
+                'has_next': pagination.has_next
+            }
+            
+            current_app.logger.info(f"Found {len(quote_accessories)} quote accessories")
+            return result
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting quote accessories: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def get_quote_accessory(quote_accessory_id):
+        """获取单个报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+            if not quote_accessory:
+                return None
+            
+            return quote_accessory.to_dict(include_user_info=True)
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting quote accessory {quote_accessory_id}: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def create_quote_accessory(data, created_by):
+        """创建报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory(
+                material_name=data.get('material_name'),
+                unit_price=data.get('unit_price'),
+                unit_price_formula=data.get('unit_price_formula'),
+                sort_order=data.get('sort_order', 0),
+                description=data.get('description'),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by
+            )
+            
+            db.session.add(quote_accessory)
+            db.session.commit()
+            
+            current_app.logger.info(f"Created quote accessory: {quote_accessory.material_name}")
+            return quote_accessory.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating quote accessory: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def update_quote_accessory(quote_accessory_id, data, updated_by):
+        """更新报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+            if not quote_accessory:
+                return None
+            
+            # 更新字段
+            if 'material_name' in data:
+                quote_accessory.material_name = data['material_name']
+            if 'unit_price' in data:
+                quote_accessory.unit_price = data['unit_price']
+            if 'unit_price_formula' in data:
+                quote_accessory.unit_price_formula = data['unit_price_formula']
+            if 'sort_order' in data:
+                quote_accessory.sort_order = data['sort_order']
+            if 'description' in data:
+                quote_accessory.description = data['description']
+            if 'is_enabled' in data:
+                quote_accessory.is_enabled = data['is_enabled']
+            
+            quote_accessory.updated_by = updated_by
+            quote_accessory.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            current_app.logger.info(f"Updated quote accessory: {quote_accessory.material_name}")
+            return quote_accessory.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating quote accessory {quote_accessory_id}: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def delete_quote_accessory(quote_accessory_id):
+        """删除报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+            if not quote_accessory:
+                return False
+            
+            material_name = quote_accessory.material_name
+            db.session.delete(quote_accessory)
+            db.session.commit()
+            
+            current_app.logger.info(f"Deleted quote accessory: {material_name}")
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error deleting quote accessory {quote_accessory_id}: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def batch_update_quote_accessories(data_list, updated_by):
+        """批量更新报价辅材"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            updated_count = 0
+            for item_data in data_list:
+                quote_accessory_id = item_data.get('id')
+                if quote_accessory_id:
+                    quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
+                    if quote_accessory:
+                        # 更新字段
+                        for field in ['material_name', 'unit_price', 'unit_price_formula', 'sort_order', 'description', 'is_enabled']:
+                            if field in item_data:
+                                setattr(quote_accessory, field, item_data[field])
+                        
+                        quote_accessory.updated_by = updated_by
+                        quote_accessory.updated_at = datetime.utcnow()
+                        updated_count += 1
+            
+            db.session.commit()
+            current_app.logger.info(f"Batch updated {updated_count} quote accessories")
+            return updated_count
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error batch updating quote accessories: {str(e)}")
+            raise e
+    
+    @staticmethod
+    def get_enabled_quote_accessories():
+        """获取启用的报价辅材列表"""
+        from app.models.basic_data import QuoteAccessory
+        
+        # 设置schema
+        QuoteAccessoryService._set_schema()
+        
+        try:
+            quote_accessories = QuoteAccessory.get_enabled_list()
+            return [item.to_dict() for item in quote_accessories]
+            
+        except Exception as e:
+            current_app.logger.error(f"Error getting enabled quote accessories: {str(e)}")
+            raise e

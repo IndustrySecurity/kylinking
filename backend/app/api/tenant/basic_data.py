@@ -3921,3 +3921,205 @@ def get_enabled_quote_materials():
             'message': f'获取失败: {str(e)}',
             'data': None
         }), 500
+
+
+# 报价辅材管理
+@bp.route('/quote-accessories', methods=['GET'])
+@jwt_required()
+def get_quote_accessories():
+    """获取报价辅材列表"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '')
+        enabled_only = request.args.get('enabled_only', False, type=bool)
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.get_quote_accessories(
+            page=page,
+            per_page=per_page,
+            search=search,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting quote accessories: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/<quote_accessory_id>', methods=['GET'])
+@jwt_required()
+def get_quote_accessory(quote_accessory_id):
+    """获取单个报价辅材"""
+    try:
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.get_quote_accessory(quote_accessory_id)
+        
+        if result is None:
+            return jsonify({
+                'code': 404,
+                'message': '报价辅材不存在',
+                'data': None
+            }), 404
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting quote accessory {quote_accessory_id}: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories', methods=['POST'])
+@jwt_required()
+def create_quote_accessory():
+    """创建报价辅材"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.create_quote_accessory(data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '创建成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating quote accessory: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'创建失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/<quote_accessory_id>', methods=['PUT'])
+@jwt_required()
+def update_quote_accessory(quote_accessory_id):
+    """更新报价辅材"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.update_quote_accessory(quote_accessory_id, data, current_user_id)
+        
+        if result is None:
+            return jsonify({
+                'code': 404,
+                'message': '报价辅材不存在',
+                'data': None
+            }), 404
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating quote accessory {quote_accessory_id}: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'更新失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/<quote_accessory_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote_accessory(quote_accessory_id):
+    """删除报价辅材"""
+    try:
+        from app.services.package_method_service import QuoteAccessoryService
+        success = QuoteAccessoryService.delete_quote_accessory(quote_accessory_id)
+        
+        if not success:
+            return jsonify({
+                'code': 404,
+                'message': '报价辅材不存在',
+                'data': None
+            }), 404
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功',
+            'data': None
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting quote accessory {quote_accessory_id}: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'删除失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_quote_accessories():
+    """批量更新报价辅材"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        from app.services.package_method_service import QuoteAccessoryService
+        updated_count = QuoteAccessoryService.batch_update_quote_accessories(data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': f'批量更新成功，共更新 {updated_count} 条记录',
+            'data': {'updated_count': updated_count}
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error batch updating quote accessories: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'批量更新失败: {str(e)}',
+            'data': None
+        }), 500
+
+
+@bp.route('/quote-accessories/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_quote_accessories():
+    """获取启用的报价辅材列表"""
+    try:
+        from app.services.package_method_service import QuoteAccessoryService
+        result = QuoteAccessoryService.get_enabled_quote_accessories()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting enabled quote accessories: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
