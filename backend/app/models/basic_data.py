@@ -2498,3 +2498,336 @@ class Warehouse(TenantModel):
     
     def __repr__(self):
         return f'<Warehouse {self.warehouse_name}>'
+
+
+class ProcessCategory(TenantModel):
+    """工序分类模型"""
+    __tablename__ = 'process_categories'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    process_name = db.Column(db.String(100), nullable=False, comment='工序分类')
+    category_type = db.Column(db.String(50), comment='类型')  # 空或淋膜
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    data_collection_mode = db.Column(db.String(50), comment='数据自动采集模式')
+    show_data_collection_interface = db.Column(db.Boolean, default=False, comment='显示数据采集界面')
+    
+    # 自检类型字段 (1-10)
+    self_check_type_1 = db.Column(db.String(100), comment='自检1')
+    self_check_type_2 = db.Column(db.String(100), comment='自检2')
+    self_check_type_3 = db.Column(db.String(100), comment='自检3')
+    self_check_type_4 = db.Column(db.String(100), comment='自检4')
+    self_check_type_5 = db.Column(db.String(100), comment='自检5')
+    self_check_type_6 = db.Column(db.String(100), comment='自检6')
+    self_check_type_7 = db.Column(db.String(100), comment='自检7')
+    self_check_type_8 = db.Column(db.String(100), comment='自检8')
+    self_check_type_9 = db.Column(db.String(100), comment='自检9')
+    self_check_type_10 = db.Column(db.String(100), comment='自检10')
+    
+    # 工艺预料字段 (1-10)
+    process_material_1 = db.Column(db.String(100), comment='工艺1')
+    process_material_2 = db.Column(db.String(100), comment='工艺2')
+    process_material_3 = db.Column(db.String(100), comment='工艺3')
+    process_material_4 = db.Column(db.String(100), comment='工艺4')
+    process_material_5 = db.Column(db.String(100), comment='工艺5')
+    process_material_6 = db.Column(db.String(100), comment='工艺6')
+    process_material_7 = db.Column(db.String(100), comment='工艺7')
+    process_material_8 = db.Column(db.String(100), comment='工艺8')
+    process_material_9 = db.Column(db.String(100), comment='工艺9')
+    process_material_10 = db.Column(db.String(100), comment='工艺10')
+    
+    # 预留弹出框字段
+    reserved_popup_1 = db.Column(db.String(100), comment='弹出1')
+    reserved_popup_2 = db.Column(db.String(100), comment='弹出2')
+    reserved_popup_3 = db.Column(db.String(100), comment='弹出3')
+    reserved_dropdown_1 = db.Column(db.String(100), comment='下拉1')
+    reserved_dropdown_2 = db.Column(db.String(100), comment='下拉2')
+    reserved_dropdown_3 = db.Column(db.String(100), comment='下拉3')
+    
+    # 数字字段
+    number_1 = db.Column(db.Numeric(15, 4), comment='数字1')
+    number_2 = db.Column(db.Numeric(15, 4), comment='数字2')
+    number_3 = db.Column(db.Numeric(15, 4), comment='数字3')
+    number_4 = db.Column(db.Numeric(15, 4), comment='数字4')
+    
+    # 基础配置字段
+    report_quantity = db.Column(db.Boolean, default=False, comment='上报数量')
+    report_personnel = db.Column(db.Boolean, default=False, comment='上报人员')
+    report_data = db.Column(db.Boolean, default=False, comment='上报数据')
+    report_kg = db.Column(db.Boolean, default=False, comment='上报KG')
+    report_number = db.Column(db.Boolean, default=False, comment='报号')
+    report_time = db.Column(db.Boolean, default=False, comment='上报时间')
+    down_report_time = db.Column(db.Boolean, default=False, comment='下报时间')
+    machine_speed = db.Column(db.Boolean, default=False, comment='机速')
+    cutting_specs = db.Column(db.Boolean, default=False, comment='分切规格')
+    aging_room = db.Column(db.Boolean, default=False, comment='熟化室')
+    reserved_char_1 = db.Column(db.Boolean, default=False, comment='预留字符1')
+    reserved_char_2 = db.Column(db.Boolean, default=False, comment='预留字符2')
+    net_weight = db.Column(db.Boolean, default=False, comment='净重')
+    production_task_display_order = db.Column(db.Boolean, default=False, comment='生产任务显示序号')
+    
+    # 装箱配置字段
+    packing_bags_count = db.Column(db.Boolean, default=False, comment='装箱袋数')
+    pallet_barcode = db.Column(db.Boolean, default=False, comment='托盘条码')
+    pallet_bag_loading = db.Column(db.Boolean, default=False, comment='托盘装袋数')
+    box_loading_count = db.Column(db.Boolean, default=False, comment='入托箱数')
+    seed_bag_count = db.Column(db.Boolean, default=False, comment='种袋数')
+    defect_bag_count = db.Column(db.Boolean, default=False, comment='除袋数')
+    report_staff = db.Column(db.Boolean, default=False, comment='上报人员')
+    shortage_count = db.Column(db.Boolean, default=False, comment='缺数')
+    material_specs = db.Column(db.Boolean, default=False, comment='材料规格')
+    color_mixing_count = db.Column(db.Boolean, default=False, comment='合色数')
+    batch_bags = db.Column(db.Boolean, default=False, comment='批袋')
+    production_date = db.Column(db.Boolean, default=False, comment='生产日期')
+    compound = db.Column(db.Boolean, default=False, comment='复合')
+    process_machine_allocation = db.Column(db.Boolean, default=False, comment='工艺分机台')
+    
+    # 持续率配置字段
+    continuity_rate = db.Column(db.Boolean, default=False, comment='持续率')
+    strip_head_change_count = db.Column(db.Boolean, default=False, comment='换条头数')
+    plate_support_change_count = db.Column(db.Boolean, default=False, comment='换版支数')
+    plate_change_count = db.Column(db.Boolean, default=False, comment='换版次数')
+    lamination_change_count = db.Column(db.Boolean, default=False, comment='换贴合报')
+    plate_making_multiple = db.Column(db.Boolean, default=False, comment='制版倍送')
+    algorithm_time = db.Column(db.Boolean, default=False, comment='换算时间')
+    timing = db.Column(db.Boolean, default=False, comment='计时')
+    pallet_time = db.Column(db.Boolean, default=False, comment='托盘时间')
+    glue_water_change_count = db.Column(db.Boolean, default=False, comment='换胶水数')
+    glue_drip_bag_change = db.Column(db.Boolean, default=False, comment='换条胶袋')
+    pallet_sub_bag_change = db.Column(db.Boolean, default=False, comment='换压报料')
+    transfer_report_change = db.Column(db.Boolean, default=False, comment='换转报料')
+    auto_print = db.Column(db.Boolean, default=False, comment='自动打印')
+    
+    # 过程管控字段
+    process_rate = db.Column(db.Boolean, default=False, comment='过程率')
+    color_set_change_count = db.Column(db.Boolean, default=False, comment='换套色数')
+    mesh_format_change_count = db.Column(db.Boolean, default=False, comment='换网格数')
+    overtime = db.Column(db.Boolean, default=False, comment='加班')
+    team_date = db.Column(db.Boolean, default=False, comment='班组日期')
+    sampling_time = db.Column(db.Boolean, default=False, comment='打样时间')
+    start_reading = db.Column(db.Boolean, default=False, comment='开始读数')
+    count_times = db.Column(db.Boolean, default=False, comment='计次')
+    blade_count = db.Column(db.Boolean, default=False, comment='刀刃数')
+    power_consumption = db.Column(db.Boolean, default=False, comment='用电量')
+    maintenance_time = db.Column(db.Boolean, default=False, comment='维修时间')
+    end_time = db.Column(db.Boolean, default=False, comment='结束时间')
+    malfunction_material_collection = db.Column(db.Boolean, default=False, comment='故障次数领料')
+    
+    # 查询/机器相关
+    is_query_machine = db.Column(db.Boolean, default=False, comment='是否询机')
+    
+    # MES系统集成字段
+    mes_report_kg_manual = db.Column(db.Boolean, default=False, comment='MES上报kg取用里kg')
+    mes_kg_auto_calculation = db.Column(db.Boolean, default=False, comment='MES上报kg自动接算')
+    auto_weighing_once = db.Column(db.Boolean, default=False, comment='自动称重一次')
+    mes_process_feedback_clear = db.Column(db.Boolean, default=False, comment='MES工艺反馈空工艺')
+    mes_consumption_solvent_by_ton = db.Column(db.Boolean, default=False, comment='MES消耗溶剂用里按吨')
+    
+    # 生产控制字段
+    single_report_open = db.Column(db.Boolean, default=False, comment='单报装打开')
+    multi_condition_open = db.Column(db.Boolean, default=False, comment='多条件同时开工')
+    mes_line_start_work_order = db.Column(db.Boolean, default=False, comment='MES线本单开工单')
+    mes_material_kg_consumption = db.Column(db.Boolean, default=False, comment='MES上报材料kg用里消费kg')
+    mes_report_not_less_than_kg = db.Column(db.Boolean, default=False, comment='MES上报数不能小于上报kg')
+    mes_water_consumption_by_ton = db.Column(db.Boolean, default=False, comment='MES耗水用里按吨')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+
+    # 定义选择项常量
+    CATEGORY_TYPES = [
+        ('', '空'),
+        ('laminating', '淋膜')
+    ]
+    
+    DATA_COLLECTION_MODES = [
+        ('', '空'),
+        ('auto_weighing_scanning', '自动称重扫码模式'),
+        ('auto_meter_scanning', '自动取米扫码模式'),
+        ('auto_scanning', '自动扫码模式'),
+        ('auto_weighing', '自动称重模式'),
+        ('weighing_only', '仅称重模式'),
+        ('scanning_summary_weighing', '扫码汇总称重模式')
+    ]
+    
+    __table_args__ = (
+        db.CheckConstraint("category_type IN ('', 'laminating')", name='process_categories_type_check'),
+        db.CheckConstraint("data_collection_mode IN ('', 'auto_weighing_scanning', 'auto_meter_scanning', 'auto_scanning', 'auto_weighing', 'weighing_only', 'scanning_summary_weighing')", name='process_categories_collection_mode_check'),
+    )
+
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'process_name': self.process_name,
+            'category_type': self.category_type,
+            'sort_order': self.sort_order,
+            'data_collection_mode': self.data_collection_mode,
+            'show_data_collection_interface': self.show_data_collection_interface,
+            
+            # 自检类型字段
+            'self_check_type_1': self.self_check_type_1,
+            'self_check_type_2': self.self_check_type_2,
+            'self_check_type_3': self.self_check_type_3,
+            'self_check_type_4': self.self_check_type_4,
+            'self_check_type_5': self.self_check_type_5,
+            'self_check_type_6': self.self_check_type_6,
+            'self_check_type_7': self.self_check_type_7,
+            'self_check_type_8': self.self_check_type_8,
+            'self_check_type_9': self.self_check_type_9,
+            'self_check_type_10': self.self_check_type_10,
+            
+            # 工艺预料字段
+            'process_material_1': self.process_material_1,
+            'process_material_2': self.process_material_2,
+            'process_material_3': self.process_material_3,
+            'process_material_4': self.process_material_4,
+            'process_material_5': self.process_material_5,
+            'process_material_6': self.process_material_6,
+            'process_material_7': self.process_material_7,
+            'process_material_8': self.process_material_8,
+            'process_material_9': self.process_material_9,
+            'process_material_10': self.process_material_10,
+            
+            # 预留字段
+            'reserved_popup_1': self.reserved_popup_1,
+            'reserved_popup_2': self.reserved_popup_2,
+            'reserved_popup_3': self.reserved_popup_3,
+            'reserved_dropdown_1': self.reserved_dropdown_1,
+            'reserved_dropdown_2': self.reserved_dropdown_2,
+            'reserved_dropdown_3': self.reserved_dropdown_3,
+            
+            # 数字字段
+            'number_1': float(self.number_1) if self.number_1 else None,
+            'number_2': float(self.number_2) if self.number_2 else None,
+            'number_3': float(self.number_3) if self.number_3 else None,
+            'number_4': float(self.number_4) if self.number_4 else None,
+            
+            # 基础配置字段
+            'report_quantity': self.report_quantity,
+            'report_personnel': self.report_personnel,
+            'report_data': self.report_data,
+            'report_kg': self.report_kg,
+            'report_number': self.report_number,
+            'report_time': self.report_time,
+            'down_report_time': self.down_report_time,
+            'machine_speed': self.machine_speed,
+            'cutting_specs': self.cutting_specs,
+            'aging_room': self.aging_room,
+            'reserved_char_1': self.reserved_char_1,
+            'reserved_char_2': self.reserved_char_2,
+            'net_weight': self.net_weight,
+            'production_task_display_order': self.production_task_display_order,
+            
+            # 装箱配置字段
+            'packing_bags_count': self.packing_bags_count,
+            'pallet_barcode': self.pallet_barcode,
+            'pallet_bag_loading': self.pallet_bag_loading,
+            'box_loading_count': self.box_loading_count,
+            'seed_bag_count': self.seed_bag_count,
+            'defect_bag_count': self.defect_bag_count,
+            'report_staff': self.report_staff,
+            'shortage_count': self.shortage_count,
+            'material_specs': self.material_specs,
+            'color_mixing_count': self.color_mixing_count,
+            'batch_bags': self.batch_bags,
+            'production_date': self.production_date,
+            'compound': self.compound,
+            'process_machine_allocation': self.process_machine_allocation,
+            
+            # 持续率配置字段
+            'continuity_rate': self.continuity_rate,
+            'strip_head_change_count': self.strip_head_change_count,
+            'plate_support_change_count': self.plate_support_change_count,
+            'plate_change_count': self.plate_change_count,
+            'lamination_change_count': self.lamination_change_count,
+            'plate_making_multiple': self.plate_making_multiple,
+            'algorithm_time': self.algorithm_time,
+            'timing': self.timing,
+            'pallet_time': self.pallet_time,
+            'glue_water_change_count': self.glue_water_change_count,
+            'glue_drip_bag_change': self.glue_drip_bag_change,
+            'pallet_sub_bag_change': self.pallet_sub_bag_change,
+            'transfer_report_change': self.transfer_report_change,
+            'auto_print': self.auto_print,
+            
+            # 过程管控字段
+            'process_rate': self.process_rate,
+            'color_set_change_count': self.color_set_change_count,
+            'mesh_format_change_count': self.mesh_format_change_count,
+            'overtime': self.overtime,
+            'team_date': self.team_date,
+            'sampling_time': self.sampling_time,
+            'start_reading': self.start_reading,
+            'count_times': self.count_times,
+            'blade_count': self.blade_count,
+            'power_consumption': self.power_consumption,
+            'maintenance_time': self.maintenance_time,
+            'end_time': self.end_time,
+            'malfunction_material_collection': self.malfunction_material_collection,
+            'is_query_machine': self.is_query_machine,
+            
+            # MES字段
+            'mes_report_kg_manual': self.mes_report_kg_manual,
+            'mes_kg_auto_calculation': self.mes_kg_auto_calculation,
+            'auto_weighing_once': self.auto_weighing_once,
+            'mes_process_feedback_clear': self.mes_process_feedback_clear,
+            'mes_consumption_solvent_by_ton': self.mes_consumption_solvent_by_ton,
+            'single_report_open': self.single_report_open,
+            'multi_condition_open': self.multi_condition_open,
+            'mes_line_start_work_order': self.mes_line_start_work_order,
+            'mes_material_kg_consumption': self.mes_material_kg_consumption,
+            'mes_report_not_less_than_kg': self.mes_report_not_less_than_kg,
+            'mes_water_consumption_by_ton': self.mes_water_consumption_by_ton,
+            
+            # 通用字段
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            # 获取创建人信息
+            created_by_user = None
+            if self.created_by:
+                created_by_user = User.query.get(self.created_by)
+            
+            # 获取修改人信息
+            updated_by_user = None
+            if self.updated_by:
+                updated_by_user = User.query.get(self.updated_by)
+            
+            result.update({
+                'created_by': str(self.created_by) if self.created_by else None,
+                'updated_by': str(self.updated_by) if self.updated_by else None,
+                'created_by_username': created_by_user.get_full_name() if created_by_user else None,
+                'updated_by_username': updated_by_user.get_full_name() if updated_by_user else None,
+            })
+        
+        return result
+
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的工序分类列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.process_name).all()
+    
+    @classmethod
+    def get_category_type_options(cls):
+        """获取类型选项"""
+        return [{'value': value, 'label': label} for value, label in cls.CATEGORY_TYPES]
+    
+    @classmethod
+    def get_data_collection_mode_options(cls):
+        """获取数据自动采集模式选项"""
+        return [{'value': value, 'label': label} for value, label in cls.DATA_COLLECTION_MODES]
+
+    def __repr__(self):
+        return f'<ProcessCategory {self.process_name}>'

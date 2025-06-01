@@ -34,6 +34,7 @@ import DepartmentManagement from './pages/base-archive/DepartmentManagement';
 import PositionManagement from './pages/base-archive/PositionManagement';
 import EmployeeManagement from './pages/base-archive/EmployeeManagement';
 import WarehouseManagement from './pages/base-archive/WarehouseManagement';
+import ProcessCategoryManagement from './pages/base-archive/ProcessCategoryManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -295,6 +296,24 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            {/* 工序分类管理 */}
+            <Route path="/base-archive/process-categories" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProcessCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 报价损耗管理 */}
+            <Route path="/base-archive/quote-losses" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteLossManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
             {/* 基础档案 - 生产管理 */}
             <Route path="/base-archive/production-management" element={
               <ProtectedRoute>
@@ -336,15 +355,6 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <QuoteAccessoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 报价损耗管理 */}
-            <Route path="/base-archive/quote-losses" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteLossManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

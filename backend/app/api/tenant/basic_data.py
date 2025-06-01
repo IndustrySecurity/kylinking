@@ -14,6 +14,7 @@ from app.services.basic_data_service import (
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
+from app.models.basic_data import ProcessCategory
 from app.extensions import db
 import uuid
 
@@ -5542,3 +5543,324 @@ def get_enabled_quote_inks():
             'success': False,
             'message': str(e)
         }), 500
+
+# ====================== 工序分类管理 ======================
+
+@bp.route('/process-categories', methods=['GET'])
+@jwt_required()
+def get_process_categories():
+    """获取工序分类列表"""
+    try:
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search = request.args.get('search', '')
+        
+        # 构建查询
+        query = ProcessCategory.query
+        
+        # 搜索功能
+        if search:
+            query = query.filter(
+                db.or_(
+                    ProcessCategory.process_name.ilike(f'%{search}%'),
+                    ProcessCategory.category_type.ilike(f'%{search}%')
+                )
+            )
+        
+        # 分页查询
+        pagination = query.order_by(ProcessCategory.sort_order, ProcessCategory.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': {
+                'items': [item.to_dict(include_user_info=True) for item in pagination.items],
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': page,
+                'per_page': per_page
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取工序分类列表失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@bp.route('/process-categories/<process_category_id>', methods=['GET'])
+@jwt_required()
+def get_process_category(process_category_id):
+    """获取单个工序分类详情"""
+    try:
+        process_category = ProcessCategory.query.get_or_404(process_category_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': process_category.to_dict(include_user_info=True)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取工序分类详情失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@bp.route('/process-categories', methods=['POST'])
+@jwt_required()
+def create_process_category():
+    """创建工序分类"""
+    try:
+        data = request.get_json()
+        
+        # 数据验证
+        if not data.get('process_name'):
+            return jsonify({'code': 400, 'message': '工序分类名称不能为空'})
+        
+        # 检查名称是否重复
+        existing = ProcessCategory.query.filter_by(process_name=data['process_name']).first()
+        if existing:
+            return jsonify({'code': 400, 'message': '工序分类名称已存在'})
+        
+        # 创建工序分类
+        process_category = ProcessCategory(
+            process_name=data['process_name'],
+            created_by=get_jwt_identity()
+        )
+        
+        # 设置其他字段
+        for field in ['category_type', 'sort_order', 'data_collection_mode', 'show_data_collection_interface', 
+                     'description', 'is_enabled'] + \
+                    [f'self_check_type_{i}' for i in range(1, 11)] + \
+                    [f'process_material_{i}' for i in range(1, 11)] + \
+                    ['reserved_popup_1', 'reserved_popup_2', 'reserved_popup_3'] + \
+                    ['reserved_dropdown_1', 'reserved_dropdown_2', 'reserved_dropdown_3'] + \
+                    [f'number_{i}' for i in range(1, 5)]:
+            if field in data:
+                setattr(process_category, field, data[field])
+        
+        # 设置布尔字段
+        boolean_fields = [
+            'report_quantity', 'report_personnel', 'report_data', 'report_kg', 'report_number',
+            'report_time', 'down_report_time', 'machine_speed', 'cutting_specs', 'aging_room',
+            'reserved_char_1', 'reserved_char_2', 'net_weight', 'production_task_display_order',
+            'packing_bags_count', 'pallet_barcode', 'pallet_bag_loading', 'box_loading_count',
+            'seed_bag_count', 'defect_bag_count', 'report_staff', 'shortage_count', 'material_specs',
+            'color_mixing_count', 'batch_bags', 'production_date', 'compound', 'process_machine_allocation',
+            'continuity_rate', 'strip_head_change_count', 'plate_support_change_count', 'plate_change_count',
+            'lamination_change_count', 'plate_making_multiple', 'algorithm_time', 'timing', 'pallet_time',
+            'glue_water_change_count', 'glue_drip_bag_change', 'pallet_sub_bag_change', 'transfer_report_change',
+            'auto_print', 'process_rate', 'color_set_change_count', 'mesh_format_change_count', 'overtime',
+            'team_date', 'sampling_time', 'start_reading', 'count_times', 'blade_count', 'power_consumption',
+            'maintenance_time', 'end_time', 'malfunction_material_collection', 'is_query_machine',
+            'mes_report_kg_manual', 'mes_kg_auto_calculation', 'auto_weighing_once', 'mes_process_feedback_clear',
+            'mes_consumption_solvent_by_ton', 'single_report_open', 'multi_condition_open', 'mes_line_start_work_order',
+            'mes_material_kg_consumption', 'mes_report_not_less_than_kg', 'mes_water_consumption_by_ton'
+        ]
+        
+        for field in boolean_fields:
+            if field in data:
+                setattr(process_category, field, data[field])
+        
+        db.session.add(process_category)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '创建成功',
+            'data': process_category.to_dict(include_user_info=True)
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"创建工序分类失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'})
+
+
+@bp.route('/process-categories/<process_category_id>', methods=['PUT'])
+@jwt_required()
+def update_process_category(process_category_id):
+    """更新工序分类"""
+    try:
+        process_category = ProcessCategory.query.get_or_404(process_category_id)
+        data = request.get_json()
+        
+        # 数据验证
+        if not data.get('process_name'):
+            return jsonify({'code': 400, 'message': '工序分类名称不能为空'})
+        
+        # 检查名称是否重复（排除自己）
+        existing = ProcessCategory.query.filter(
+            ProcessCategory.process_name == data['process_name'],
+            ProcessCategory.id != process_category_id
+        ).first()
+        if existing:
+            return jsonify({'code': 400, 'message': '工序分类名称已存在'})
+        
+        # 更新字段
+        process_category.process_name = data['process_name']
+        process_category.updated_by = get_jwt_identity()
+        
+        # 设置其他字段
+        for field in ['category_type', 'sort_order', 'data_collection_mode', 'show_data_collection_interface',
+                     'description', 'is_enabled'] + \
+                    [f'self_check_type_{i}' for i in range(1, 11)] + \
+                    [f'process_material_{i}' for i in range(1, 11)] + \
+                    ['reserved_popup_1', 'reserved_popup_2', 'reserved_popup_3'] + \
+                    ['reserved_dropdown_1', 'reserved_dropdown_2', 'reserved_dropdown_3'] + \
+                    [f'number_{i}' for i in range(1, 5)]:
+            if field in data:
+                setattr(process_category, field, data[field])
+        
+        # 设置布尔字段
+        boolean_fields = [
+            'report_quantity', 'report_personnel', 'report_data', 'report_kg', 'report_number',
+            'report_time', 'down_report_time', 'machine_speed', 'cutting_specs', 'aging_room',
+            'reserved_char_1', 'reserved_char_2', 'net_weight', 'production_task_display_order',
+            'packing_bags_count', 'pallet_barcode', 'pallet_bag_loading', 'box_loading_count',
+            'seed_bag_count', 'defect_bag_count', 'report_staff', 'shortage_count', 'material_specs',
+            'color_mixing_count', 'batch_bags', 'production_date', 'compound', 'process_machine_allocation',
+            'continuity_rate', 'strip_head_change_count', 'plate_support_change_count', 'plate_change_count',
+            'lamination_change_count', 'plate_making_multiple', 'algorithm_time', 'timing', 'pallet_time',
+            'glue_water_change_count', 'glue_drip_bag_change', 'pallet_sub_bag_change', 'transfer_report_change',
+            'auto_print', 'process_rate', 'color_set_change_count', 'mesh_format_change_count', 'overtime',
+            'team_date', 'sampling_time', 'start_reading', 'count_times', 'blade_count', 'power_consumption',
+            'maintenance_time', 'end_time', 'malfunction_material_collection', 'is_query_machine',
+            'mes_report_kg_manual', 'mes_kg_auto_calculation', 'auto_weighing_once', 'mes_process_feedback_clear',
+            'mes_consumption_solvent_by_ton', 'single_report_open', 'multi_condition_open', 'mes_line_start_work_order',
+            'mes_material_kg_consumption', 'mes_report_not_less_than_kg', 'mes_water_consumption_by_ton'
+        ]
+        
+        for field in boolean_fields:
+            if field in data:
+                setattr(process_category, field, data[field])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': process_category.to_dict(include_user_info=True)
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"更新工序分类失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
+
+
+@bp.route('/process-categories/<process_category_id>', methods=['DELETE'])
+@jwt_required()
+def delete_process_category(process_category_id):
+    """删除工序分类"""
+    try:
+        process_category = ProcessCategory.query.get_or_404(process_category_id)
+        
+        # 可以添加删除前的业务逻辑检查
+        
+        db.session.delete(process_category)
+        db.session.commit()
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"删除工序分类失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'})
+
+
+@bp.route('/process-categories/batch', methods=['POST'])
+@jwt_required()
+def batch_update_process_categories():
+    """批量更新工序分类"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'code': 400,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        from app.services.package_method_service import ProcessCategoryService
+        from flask_jwt_extended import get_jwt_identity
+        
+        updated_by = get_jwt_identity()
+        results = ProcessCategoryService.batch_update_process_categories(data, updated_by)
+        
+        return jsonify({
+            'code': 200,
+            'message': '批量更新工序分类成功',
+            'data': results
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'code': 400,
+            'message': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'批量更新工序分类失败: {str(e)}'
+        }), 500
+
+@bp.route('/process-categories/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_process_categories():
+    """获取启用的工序分类列表"""
+    try:
+        from app.services.package_method_service import ProcessCategoryService
+        
+        result = ProcessCategoryService.get_enabled_process_categories()
+        return jsonify({
+            'code': 200,
+            'message': '获取启用的工序分类列表成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': f'获取启用的工序分类列表失败: {str(e)}'
+        }), 500
+
+
+@bp.route('/process-categories/category-type-options', methods=['GET'])
+@jwt_required()
+def get_process_category_type_options():
+    """获取工序分类类型选项"""
+    try:
+        options = ProcessCategory.get_category_type_options()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': options
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取工序分类类型选项失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+
+@bp.route('/process-categories/data-collection-mode-options', methods=['GET'])
+@jwt_required()
+def get_process_category_data_collection_mode_options():
+    """获取数据自动采集模式选项"""
+    try:
+        options = ProcessCategory.get_data_collection_mode_options()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': options
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取数据自动采集模式选项失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})

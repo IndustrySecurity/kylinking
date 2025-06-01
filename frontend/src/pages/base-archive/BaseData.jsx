@@ -110,7 +110,7 @@ const BaseData = () => {
       key: 'processCategories',
       title: '工序分类',
       icon: <ToolOutlined />,
-      path: '/base-archive/base-data/base-category/process-categories',
+      path: '/base-archive/process-categories',
       color: '#eb2f96'
     }
   ];
