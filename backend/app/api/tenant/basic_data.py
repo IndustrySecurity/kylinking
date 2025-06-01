@@ -4664,3 +4664,263 @@ def get_next_employee_id():
             'success': False,
             'message': str(e)
         }), 500
+
+# ====================== 仓库管理 ======================
+
+@bp.route('/warehouses', methods=['GET'])
+@jwt_required()
+def get_warehouses():
+    """获取仓库列表"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        warehouse_type = request.args.get('warehouse_type', '').strip()
+        parent_warehouse_id = request.args.get('parent_warehouse_id', '').strip()
+        
+        result = WarehouseService.get_warehouses(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            warehouse_type=warehouse_type if warehouse_type else None,
+            parent_warehouse_id=parent_warehouse_id if parent_warehouse_id else None
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/<warehouse_id>', methods=['GET'])
+@jwt_required()
+def get_warehouse(warehouse_id):
+    """获取仓库详情"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.get_warehouse(warehouse_id)
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses', methods=['POST'])
+@jwt_required()
+def create_warehouse():
+    """创建仓库"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        result = WarehouseService.create_warehouse(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '仓库创建成功'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/<warehouse_id>', methods=['PUT'])
+@jwt_required()
+def update_warehouse(warehouse_id):
+    """更新仓库"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        result = WarehouseService.update_warehouse(warehouse_id, data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '仓库更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/<warehouse_id>', methods=['DELETE'])
+@jwt_required()
+def delete_warehouse(warehouse_id):
+    """删除仓库"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.delete_warehouse(warehouse_id)
+        return jsonify({
+            'success': True,
+            'message': '仓库删除成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_warehouses():
+    """批量更新仓库"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        updates = data.get('updates', [])
+        
+        result = WarehouseService.batch_update_warehouses(updates, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '批量更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/options', methods=['GET'])
+@jwt_required()
+def get_warehouse_options():
+    """获取仓库选项"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.get_warehouse_options()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/tree', methods=['GET'])
+@jwt_required()
+def get_warehouse_tree():
+    """获取仓库树形结构"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.get_warehouse_tree()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/types', methods=['GET'])
+@jwt_required()
+def get_warehouse_types():
+    """获取仓库类型选项"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.get_warehouse_types()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/accounting-methods', methods=['GET'])
+@jwt_required()
+def get_accounting_methods():
+    """获取核算方式选项"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.get_accounting_methods()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/circulation-types', methods=['GET'])
+@jwt_required()
+def get_circulation_types():
+    """获取流转类型选项"""
+    try:
+        from app.services.basic_data_service import WarehouseService
+        
+        result = WarehouseService.get_circulation_types()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/warehouses/next-warehouse-code', methods=['GET'])
+@jwt_required()
+def get_next_warehouse_code():
+    """获取下一个仓库编号"""
+    try:
+        from app.models.basic_data import Warehouse
+        
+        # 生成下一个仓库编号
+        next_code = Warehouse.generate_warehouse_code()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'warehouse_code': next_code
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500

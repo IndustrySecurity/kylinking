@@ -33,6 +33,7 @@ import LossTypeManagement from './pages/base-archive/LossTypeManagement';
 import DepartmentManagement from './pages/base-archive/DepartmentManagement';
 import PositionManagement from './pages/base-archive/PositionManagement';
 import EmployeeManagement from './pages/base-archive/EmployeeManagement';
+import WarehouseManagement from './pages/base-archive/WarehouseManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -242,6 +243,22 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <EmployeeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/warehouses" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <WarehouseManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-data/warehouses" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <WarehouseManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

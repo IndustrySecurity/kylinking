@@ -7,7 +7,8 @@ from app.extensions import db
 from app.models.base import BaseModel, TenantModel
 import uuid
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy import text
+from sqlalchemy import text, func
+import time
 
 
 class CustomerCategory(BaseModel):
@@ -2290,3 +2291,203 @@ class Employee(TenantModel):
     
     def __repr__(self):
         return f'<Employee {self.employee_id}: {self.employee_name}>'
+
+
+class Warehouse(TenantModel):
+    """仓库管理模型"""
+    __tablename__ = 'warehouses'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    warehouse_code = db.Column(db.String(50), unique=True, nullable=False, comment='仓库编号(自动生成)')
+    warehouse_name = db.Column(db.String(100), nullable=False, comment='仓库名称')
+    warehouse_type = db.Column(db.String(50), comment='仓库类型')
+    parent_warehouse_id = db.Column(UUID(as_uuid=True), db.ForeignKey('warehouses.id'), comment='上级仓库ID')
+    accounting_method = db.Column(db.String(50), comment='核算方式')
+    
+    # 业务配置
+    circulation_type = db.Column(db.String(50), comment='流转类型')
+    exclude_from_operations = db.Column(db.Boolean, default=False, comment='不参与运行')
+    is_abnormal = db.Column(db.Boolean, default=False, comment='异常')
+    is_carryover_warehouse = db.Column(db.Boolean, default=False, comment='结转仓')
+    exclude_from_docking = db.Column(db.Boolean, default=False, comment='不对接')
+    is_in_stocktaking = db.Column(db.Boolean, default=False, comment='盘点中')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 自引用关系
+    parent_warehouse = db.relationship('Warehouse', remote_side=[id], backref='sub_warehouses')
+    
+    # 仓库类型常量
+    WAREHOUSE_TYPES = [
+        ('material', '材料'),
+        ('finished_goods', '成品'),
+        ('semi_finished', '半成品'),
+        ('plate_roller', '版辊')
+    ]
+    
+    # 核算方式常量
+    ACCOUNTING_METHODS = [
+        ('individual_cost', '个别计价'),
+        ('monthly_average', '全月平均')
+    ]
+    
+    # 流转类型常量
+    CIRCULATION_TYPES = [
+        ('on_site_circulation', '现场流转')
+    ]
+    
+    __table_args__ = (
+        db.CheckConstraint(
+            "warehouse_type IN ('material', 'finished_goods', 'semi_finished', 'plate_roller')", 
+            name='warehouses_type_check'
+        ),
+        db.CheckConstraint(
+            "accounting_method IN ('individual_cost', 'monthly_average')", 
+            name='warehouses_accounting_method_check'
+        ),
+        db.CheckConstraint(
+            "circulation_type IN ('on_site_circulation')", 
+            name='warehouses_circulation_type_check'
+        ),
+    )
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'warehouse_code': self.warehouse_code,
+            'warehouse_name': self.warehouse_name,
+            'warehouse_type': self.warehouse_type,
+            'parent_warehouse_id': str(self.parent_warehouse_id) if self.parent_warehouse_id else None,
+            'accounting_method': self.accounting_method,
+            'circulation_type': self.circulation_type,
+            'exclude_from_operations': self.exclude_from_operations,
+            'is_abnormal': self.is_abnormal,
+            'is_carryover_warehouse': self.is_carryover_warehouse,
+            'exclude_from_docking': self.exclude_from_docking,
+            'is_in_stocktaking': self.is_in_stocktaking,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加上级仓库信息
+        if self.parent_warehouse:
+            data['parent_warehouse_name'] = self.parent_warehouse.warehouse_name
+        
+        if include_user_info:
+            from app.models.user import User
+            if self.created_by:
+                created_user = User.query.get(self.created_by)
+                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            else:
+                data['created_by_name'] = '系统'
+                
+            if self.updated_by:
+                updated_user = User.query.get(self.updated_by)
+                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            else:
+                data['updated_by_name'] = ''
+        
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的仓库列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.warehouse_name).all()
+    
+    @classmethod
+    def get_warehouse_types(cls):
+        """获取仓库类型选项"""
+        return [{'value': value, 'label': label} for value, label in cls.WAREHOUSE_TYPES]
+    
+    @classmethod
+    def get_accounting_methods(cls):
+        """获取核算方式选项"""
+        return [{'value': value, 'label': label} for value, label in cls.ACCOUNTING_METHODS]
+    
+    @classmethod
+    def get_circulation_types(cls):
+        """获取流转类型选项"""
+        return [{'value': value, 'label': label} for value, label in cls.CIRCULATION_TYPES]
+    
+    @classmethod
+    def get_warehouse_tree(cls):
+        """获取仓库树形结构"""
+        try:
+            # 获取所有启用的仓库
+            warehouses = cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.warehouse_name).all()
+            
+            # 构建树形结构
+            warehouse_dict = {str(warehouse.id): warehouse.to_dict() for warehouse in warehouses}
+            tree = []
+            
+            for warehouse_dict_item in warehouse_dict.values():
+                if warehouse_dict_item['parent_warehouse_id']:
+                    parent = warehouse_dict.get(warehouse_dict_item['parent_warehouse_id'])
+                    if parent:
+                        if 'children' not in parent:
+                            parent['children'] = []
+                        parent['children'].append(warehouse_dict_item)
+                else:
+                    tree.append(warehouse_dict_item)
+            
+            return tree
+        except Exception as e:
+            print(f"获取仓库树形结构失败: {str(e)}")
+            return []
+    
+    @classmethod
+    def generate_warehouse_code(cls):
+        """生成仓库编号"""
+        try:
+            # 使用更简单和可靠的方法生成编号
+            # 查询所有以WH开头的仓库编号
+            existing_codes = db.session.query(cls.warehouse_code).filter(
+                cls.warehouse_code.like('WH%')
+            ).all()
+            
+            # 提取数字部分
+            max_number = 0
+            for (code,) in existing_codes:
+                if code and code.startswith('WH') and len(code) >= 3:
+                    try:
+                        number_part = code[2:]  # 去掉WH前缀
+                        number = int(number_part)
+                        max_number = max(max_number, number)
+                    except ValueError:
+                        continue
+            
+            # 生成新编号
+            next_number = max_number + 1
+            new_code = f"WH{next_number:05d}"
+            
+            # 确保新编号不存在（双重检查）
+            while db.session.query(cls).filter(cls.warehouse_code == new_code).first():
+                next_number += 1
+                new_code = f"WH{next_number:05d}"
+            
+            return new_code
+            
+        except Exception as e:
+            # 如果生成失败，使用时间戳方式
+            print(f"仓库编号生成异常: {str(e)}")
+            import time
+            timestamp = int(time.time()) % 100000
+            return f"WH{timestamp:05d}"
+    
+    def __repr__(self):
+        return f'<Warehouse {self.warehouse_name}>'

@@ -4,7 +4,7 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse
 from app.models.user import User
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
@@ -1982,4 +1982,320 @@ class EmployeeService:
             
         except Exception as e:
             db.session.rollback()
-            raise ValueError(f"批量更新员工失败: {str(e)}") 
+            raise ValueError(f"批量更新员工失败: {str(e)}")
+
+
+class WarehouseService:
+    """仓库管理服务"""
+    
+    @staticmethod
+    def get_warehouses(page=1, per_page=20, search=None, warehouse_type=None, parent_warehouse_id=None):
+        """获取仓库列表"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            # 构建查询
+            query = db.session.query(Warehouse)
+            
+            # 搜索条件
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(or_(
+                    Warehouse.warehouse_code.ilike(search_pattern),
+                    Warehouse.warehouse_name.ilike(search_pattern),
+                    Warehouse.description.ilike(search_pattern)
+                ))
+            
+            # 仓库类型筛选
+            if warehouse_type:
+                query = query.filter(Warehouse.warehouse_type == warehouse_type)
+            
+            # 上级仓库筛选
+            if parent_warehouse_id:
+                query = query.filter(Warehouse.parent_warehouse_id == uuid.UUID(parent_warehouse_id))
+            
+            # 排序
+            query = query.order_by(Warehouse.sort_order, Warehouse.warehouse_name)
+            
+            # 分页
+            total = query.count()
+            warehouses = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            return {
+                'warehouses': [warehouse.to_dict(include_user_info=True) for warehouse in warehouses],
+                'total': total,
+                'current_page': page,
+                'per_page': per_page,
+                'pages': (total + per_page - 1) // per_page
+            }
+            
+        except Exception as e:
+            raise ValueError(f"获取仓库列表失败: {str(e)}")
+    
+    @staticmethod
+    def get_warehouse(warehouse_id):
+        """获取仓库详情"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            warehouse = db.session.query(Warehouse).get(uuid.UUID(warehouse_id))
+            if not warehouse:
+                raise ValueError("仓库不存在")
+            
+            return warehouse.to_dict(include_user_info=True)
+            
+        except Exception as e:
+            raise ValueError(f"获取仓库详情失败: {str(e)}")
+    
+    @staticmethod
+    def create_warehouse(data, created_by):
+        """创建仓库"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            # 生成仓库编号，最多重试3次
+            max_retries = 3
+            warehouse_code = None
+            
+            for attempt in range(max_retries):
+                try:
+                    # 每次重试都生成新的编号
+                    warehouse_code = Warehouse.generate_warehouse_code()
+                    
+                    # 验证编号是否已存在
+                    existing = db.session.query(Warehouse).filter(
+                        Warehouse.warehouse_code == warehouse_code
+                    ).first()
+                    
+                    if existing:
+                        if attempt < max_retries - 1:
+                            # 如果编号冲突，继续下一次重试
+                            continue
+                        else:
+                            raise ValueError(f"仓库编号生成失败，请重试")
+                    
+                    # 编号没有冲突，跳出循环
+                    break
+                    
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        continue
+                    else:
+                        raise e
+            
+            # 验证上级仓库
+            parent_warehouse_id = None
+            if data.get('parent_warehouse_id'):
+                parent_warehouse_id = uuid.UUID(data['parent_warehouse_id'])
+                parent_warehouse = db.session.query(Warehouse).get(parent_warehouse_id)
+                if not parent_warehouse:
+                    raise ValueError("上级仓库不存在")
+                if not parent_warehouse.is_enabled:
+                    raise ValueError("上级仓库未启用")
+            
+            # 创建仓库对象
+            warehouse = Warehouse(
+                warehouse_code=warehouse_code,
+                warehouse_name=data['warehouse_name'],
+                warehouse_type=data.get('warehouse_type'),
+                parent_warehouse_id=parent_warehouse_id,
+                accounting_method=data.get('accounting_method'),
+                circulation_type=data.get('circulation_type', 'on_site_circulation'),
+                exclude_from_operations=data.get('exclude_from_operations', False),
+                is_abnormal=data.get('is_abnormal', False),
+                is_carryover_warehouse=data.get('is_carryover_warehouse', False),
+                exclude_from_docking=data.get('exclude_from_docking', False),
+                is_in_stocktaking=data.get('is_in_stocktaking', False),
+                description=data.get('description', ''),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(warehouse)
+            db.session.commit()
+            
+            return warehouse.to_dict(include_user_info=True)
+                        
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"创建仓库失败: {str(e)}")
+    
+    @staticmethod
+    def update_warehouse(warehouse_id, data, updated_by):
+        """更新仓库"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            warehouse = db.session.query(Warehouse).get(uuid.UUID(warehouse_id))
+            if not warehouse:
+                raise ValueError("仓库不存在")
+            
+            # 验证上级仓库
+            if 'parent_warehouse_id' in data:
+                parent_warehouse_id = None
+                if data['parent_warehouse_id']:
+                    parent_warehouse_id = uuid.UUID(data['parent_warehouse_id'])
+                    # 防止循环引用
+                    if parent_warehouse_id == warehouse.id:
+                        raise ValueError("不能将自己设置为上级仓库")
+                    
+                    parent_warehouse = db.session.query(Warehouse).get(parent_warehouse_id)
+                    if not parent_warehouse:
+                        raise ValueError("上级仓库不存在")
+                    if not parent_warehouse.is_enabled:
+                        raise ValueError("上级仓库未启用")
+                    
+                    # 检查是否会形成循环引用
+                    current_parent = parent_warehouse
+                    while current_parent:
+                        if current_parent.parent_warehouse_id == warehouse.id:
+                            raise ValueError("设置此上级仓库会形成循环引用")
+                        current_parent = current_parent.parent_warehouse
+                
+                data['parent_warehouse_id'] = parent_warehouse_id
+            
+            # 更新字段
+            update_fields = [
+                'warehouse_name', 'warehouse_type', 'parent_warehouse_id', 
+                'accounting_method', 'circulation_type',
+                'exclude_from_operations', 'is_abnormal', 'is_carryover_warehouse',
+                'exclude_from_docking', 'is_in_stocktaking', 'description', 
+                'sort_order', 'is_enabled'
+            ]
+            
+            for field in update_fields:
+                if field in data:
+                    setattr(warehouse, field, data[field])
+            
+            warehouse.updated_by = uuid.UUID(updated_by)
+            warehouse.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return warehouse.to_dict(include_user_info=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'warehouse_code' in str(e):
+                raise ValueError("仓库编号已存在")
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"更新仓库失败: {str(e)}")
+    
+    @staticmethod
+    def delete_warehouse(warehouse_id):
+        """删除仓库"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            warehouse = db.session.query(Warehouse).get(uuid.UUID(warehouse_id))
+            if not warehouse:
+                raise ValueError("仓库不存在")
+            
+            # 检查是否有子仓库
+            children_count = db.session.query(Warehouse).filter(Warehouse.parent_warehouse_id == warehouse.id).count()
+            if children_count > 0:
+                raise ValueError("存在子仓库，无法删除")
+            
+            # 这里可以添加其他业务检查，比如检查是否有库存记录等
+            
+            db.session.delete(warehouse)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"删除仓库失败: {str(e)}")
+    
+    @staticmethod
+    def batch_update_warehouses(updates, updated_by):
+        """批量更新仓库"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            updated_warehouses = []
+            
+            for update_data in updates:
+                warehouse_id = update_data.get('id')
+                if not warehouse_id:
+                    continue
+                
+                warehouse = db.session.query(Warehouse).get(uuid.UUID(warehouse_id))
+                if not warehouse:
+                    continue
+                
+                # 更新指定字段
+                update_fields = ['sort_order', 'is_enabled']
+                for field in update_fields:
+                    if field in update_data:
+                        setattr(warehouse, field, update_data[field])
+                
+                warehouse.updated_by = uuid.UUID(updated_by)
+                warehouse.updated_at = datetime.utcnow()
+                updated_warehouses.append(warehouse)
+            
+            db.session.commit()
+            
+            return [warehouse.to_dict(include_user_info=True) for warehouse in updated_warehouses]
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"批量更新仓库失败: {str(e)}")
+    
+    @staticmethod
+    def get_warehouse_options():
+        """获取仓库选项数据"""
+        try:
+            from app.models.basic_data import Warehouse
+            
+            warehouses = Warehouse.get_enabled_list()
+            return [
+                {
+                    'value': str(warehouse.id),
+                    'label': warehouse.warehouse_name,
+                    'code': warehouse.warehouse_code,
+                    'type': warehouse.warehouse_type
+                }
+                for warehouse in warehouses
+            ]
+        except Exception as e:
+            raise ValueError(f"获取仓库选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_warehouse_tree():
+        """获取仓库树形结构"""
+        try:
+            from app.models.basic_data import Warehouse
+            return Warehouse.get_warehouse_tree()
+        except Exception as e:
+            raise ValueError(f"获取仓库树形结构失败: {str(e)}")
+    
+    @staticmethod
+    def get_warehouse_types():
+        """获取仓库类型选项"""
+        try:
+            from app.models.basic_data import Warehouse
+            return Warehouse.get_warehouse_types()
+        except Exception as e:
+            raise ValueError(f"获取仓库类型失败: {str(e)}")
+    
+    @staticmethod
+    def get_accounting_methods():
+        """获取核算方式选项"""
+        try:
+            from app.models.basic_data import Warehouse
+            return Warehouse.get_accounting_methods()
+        except Exception as e:
+            raise ValueError(f"获取核算方式失败: {str(e)}")
+    
+    @staticmethod
+    def get_circulation_types():
+        """获取流转类型选项"""
+        try:
+            from app.models.basic_data import Warehouse
+            return Warehouse.get_circulation_types()
+        except Exception as e:
+            raise ValueError(f"获取流转类型失败: {str(e)}") 

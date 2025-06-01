@@ -49,7 +49,7 @@ const ProductionManagement = () => {
       key: 'warehouse',
       title: '仓库',
       icon: <HomeOutlined />,
-      path: '/production/archive/warehouse',
+      path: '/base-archive/warehouses',
       color: '#fa8c16'
     },
     {
