@@ -5360,3 +5360,185 @@ def get_enabled_loss_types():
             'message': str(e)
         }), 500
 
+# ====================== 报价油墨管理 ======================
+
+@bp.route('/quote-inks', methods=['GET'])
+@jwt_required()
+def get_quote_inks():
+    """获取报价油墨列表"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        enabled_only = request.args.get('enabled_only', False, type=bool)
+        
+        result = QuoteInkService.get_quote_inks(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/quote-inks/<quote_ink_id>', methods=['GET'])
+@jwt_required()
+def get_quote_ink(quote_ink_id):
+    """获取报价油墨详情"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        result = QuoteInkService.get_quote_ink(quote_ink_id)
+        if not result:
+            return jsonify({
+                'success': False,
+                'message': '报价油墨不存在'
+            }), 404
+            
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/quote-inks', methods=['POST'])
+@jwt_required()
+def create_quote_ink():
+    """创建报价油墨"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        result = QuoteInkService.create_quote_ink(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '报价油墨创建成功'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/quote-inks/<quote_ink_id>', methods=['PUT'])
+@jwt_required()
+def update_quote_ink(quote_ink_id):
+    """更新报价油墨"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        result = QuoteInkService.update_quote_ink(quote_ink_id, data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '报价油墨更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/quote-inks/<quote_ink_id>', methods=['DELETE'])
+@jwt_required()
+def delete_quote_ink(quote_ink_id):
+    """删除报价油墨"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        QuoteInkService.delete_quote_ink(quote_ink_id)
+        return jsonify({
+            'success': True,
+            'message': '报价油墨删除成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/quote-inks/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_quote_inks():
+    """批量更新报价油墨"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({
+                'success': False,
+                'message': '请求数据格式错误'
+            }), 400
+        
+        result = QuoteInkService.batch_update_quote_inks(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '批量更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/quote-inks/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_quote_inks():
+    """获取启用的报价油墨列表"""
+    try:
+        from app.services.package_method_service import QuoteInkService
+        
+        result = QuoteInkService.get_enabled_quote_inks()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500

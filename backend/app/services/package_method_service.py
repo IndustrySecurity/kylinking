@@ -9,7 +9,7 @@ from app.extensions import db
 from sqlalchemy import and_, or_, text
 from flask import g, current_app
 import uuid
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, get_jwt
 from datetime import datetime
 
 
@@ -5831,7 +5831,7 @@ class QuoteInkService:
             quote_inks = [quote_ink.to_dict() for quote_ink in pagination.items]
             
             return {
-                'items': quote_inks,
+                'quote_inks': quote_inks,
                 'total': pagination.total,
                 'pages': pagination.pages,
                 'current_page': pagination.page,
@@ -6177,9 +6177,16 @@ class QuoteMaterialService:
     def create_quote_material(data, created_by):
         """创建报价材料"""
         from app.models.basic_data import QuoteMaterial
+        from flask_jwt_extended import get_jwt
         
         # 设置schema
         QuoteMaterialService._set_schema()
+        
+        # 获取租户ID
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        if not tenant_id:
+            raise ValueError('租户信息缺失')
         
         # 验证数据
         if not data.get('material_name'):
@@ -6193,9 +6200,9 @@ class QuoteMaterialService:
             raise ValueError('材料名称已存在')
         
         try:
-            # 创建报价材料
             quote_material = QuoteMaterial(
-                material_name=data['material_name'],
+                tenant_id=tenant_id,
+                material_name=data.get('material_name'),
                 density=data.get('density'),
                 kg_price=data.get('kg_price'),
                 layer_1_optional=data.get('layer_1_optional', False),
@@ -6473,12 +6480,20 @@ class QuoteAccessoryService:
     def create_quote_accessory(data, created_by):
         """创建报价辅材"""
         from app.models.basic_data import QuoteAccessory
+        from flask_jwt_extended import get_jwt
         
         # 设置schema
         QuoteAccessoryService._set_schema()
         
+        # 获取租户ID
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        if not tenant_id:
+            raise ValueError('租户信息缺失')
+        
         try:
             quote_accessory = QuoteAccessory(
+                tenant_id=tenant_id,
                 material_name=data.get('material_name'),
                 unit_price=data.get('unit_price'),
                 calculation_scheme_id=data.get('calculation_scheme_id'),
