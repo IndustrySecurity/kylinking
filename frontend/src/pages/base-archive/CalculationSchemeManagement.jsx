@@ -413,12 +413,30 @@ const CalculationSchemeManagement = () => {
     // 前端验证通过后，调用后端验证
     try {
       const response = await calculationSchemeApi.validateFormula(currentFormula);
-      const { valid, message: validationMessage } = response;
-      
-      if (valid) {
-        message.success(`验证通过: ${validationMessage}`);
+      if (response.data && response.data.success) {
+        const result = response.data.data;
+        
+        if (result.is_valid) {
+          message.success('验证通过：公式语法正确');
+          
+          // 显示后端警告信息
+          if (result.warnings && result.warnings.length > 0) {
+            result.warnings.forEach(warning => {
+              message.warning(warning);
+            });
+          }
+        } else {
+          message.error(`后端验证失败: ${result.error}`);
+          
+          // 显示警告信息（即使验证失败也可能有有用的警告）
+          if (result.warnings && result.warnings.length > 0) {
+            result.warnings.forEach(warning => {
+              message.warning(warning);
+            });
+          }
+        }
       } else {
-        message.error(`后端验证失败: ${validationMessage}`);
+        message.error('后端验证失败：' + (response.data?.error || '未知错误'));
       }
     } catch (error) {
       message.error('后端验证失败：' + (error.response?.data?.error || error.message));

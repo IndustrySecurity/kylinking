@@ -700,6 +700,9 @@ class CalculationParameterService:
             db.session.add(param)
             db.session.commit()
             
+            # 清除缓存
+            CalculationSchemeService._clear_parameter_cache()
+            
             return param.to_dict(include_user_info=True)
             
         except IntegrityError as e:
@@ -745,6 +748,9 @@ class CalculationParameterService:
             
             db.session.commit()
             
+            # 清除缓存
+            CalculationSchemeService._clear_parameter_cache()
+            
             return param.to_dict(include_user_info=True)
             
         except IntegrityError as e:
@@ -766,6 +772,9 @@ class CalculationParameterService:
             
             db.session.delete(param)
             db.session.commit()
+            
+            # 清除缓存
+            CalculationSchemeService._clear_parameter_cache()
             
             return True
             
@@ -805,6 +814,9 @@ class CalculationParameterService:
             
             db.session.commit()
             
+            # 清除缓存
+            CalculationSchemeService._clear_parameter_cache()
+            
             return results
             
         except Exception as e:
@@ -838,6 +850,41 @@ class CalculationParameterService:
 class CalculationSchemeService:
     """计算方案服务"""
     
+    # 类级别的参数缓存，避免频繁查询数据库
+    _parameter_cache = None
+    _cache_timestamp = None
+    _cache_timeout = 300  # 5分钟缓存时间
+
+    @classmethod
+    def _get_cached_parameters(cls):
+        """获取缓存的参数列表"""
+        import time
+        current_time = time.time()
+        
+        # 检查缓存是否过期
+        if (cls._parameter_cache is None or 
+            cls._cache_timestamp is None or 
+            current_time - cls._cache_timestamp > cls._cache_timeout):
+            
+            try:
+                from app.models.basic_data import CalculationParameter
+                existing_params = db.session.query(CalculationParameter.parameter_name).filter(
+                    CalculationParameter.is_enabled == True
+                ).all()
+                cls._parameter_cache = [p[0] for p in existing_params]
+                cls._cache_timestamp = current_time
+            except Exception:
+                # 如果查询失败，返回空列表，但不更新缓存时间，下次会重试
+                return []
+        
+        return cls._parameter_cache or []
+    
+    @classmethod
+    def _clear_parameter_cache(cls):
+        """清除参数缓存（在参数更新时调用）"""
+        cls._parameter_cache = None
+        cls._cache_timestamp = None
+
     @staticmethod
     def get_calculation_schemes(page=1, per_page=20, search=None, category=None):
         """获取计算方案列表"""
@@ -1021,12 +1068,23 @@ class CalculationSchemeService:
                 if not string.strip():
                     warnings.append("发现空字符串: ''")
             
-            # 4. 检查运算符
-            operators = ['如果', '那么', '否则', '结束', '并且', '或者', '>', '<', '>=', '<=', '=', '<>', '+', '-', '*', '/']
-            invalid_chars = re.findall(r'[^\w\s\[\]\'"().,><=+\-*/#%\u4e00-\u9fa5]', formula)
-            if invalid_chars:
-                unique_chars = list(set(invalid_chars))
-                warnings.append(f"发现特殊字符，请确认是否正确: {', '.join(unique_chars)}")
+            # 4. 改进的运算符检查
+            # 先移除字符串和参数，再检查剩余部分
+            temp_formula = formula
+            # 移除字符串内容
+            temp_formula = re.sub(r"'[^']*'", "STRING", temp_formula)
+            # 移除参数内容
+            temp_formula = re.sub(r"\[[^\]]+\]", "PARAM", temp_formula)
+            
+            # 检查是否包含无效字符（更精确的检查）
+            # 允许的字符：数字、字母、中文、空格、标点符号、运算符
+            valid_pattern = r'^[a-zA-Z0-9\u4e00-\u9fa5\s\(\).,><=+\-*/#%STRINGPARAM]*$'
+            if not re.match(valid_pattern, temp_formula):
+                # 找出具体的无效字符
+                invalid_chars = re.findall(r'[^a-zA-Z0-9\u4e00-\u9fa5\s\(\).,><=+\-*/#%STRINGPARAM]', temp_formula)
+                if invalid_chars:
+                    unique_chars = list(set(invalid_chars))
+                    warnings.append(f"发现特殊字符，请确认是否正确: {', '.join(unique_chars)}")
             
             # 5. 检查基本语法结构
             if '如果' in formula:
@@ -1040,8 +1098,10 @@ class CalculationSchemeService:
                 if if_count != end_count:
                     errors.append(f"'如果'和'结束'数量不匹配: 如果({if_count}) vs 结束({end_count})")
             
-            # 6. 数字格式检查
-            numbers = re.findall(r'\b\d+\.?\d*\b', formula)
+            # 6. 改进的数字格式检查
+            # 更精确的数字匹配，支持整数、小数、科学记数法
+            number_pattern = r'\b(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\b'
+            numbers = re.findall(number_pattern, formula)
             for num in numbers:
                 try:
                     float(num)
@@ -1049,25 +1109,35 @@ class CalculationSchemeService:
                     errors.append(f"数字格式错误: {num}")
             
             # 7. 参数存在性检查（检查参数是否在系统中定义）
-            from app.models.basic_data import CalculationParameter
-            existing_params = db.session.query(CalculationParameter.parameter_name).filter(
-                CalculationParameter.is_enabled == True
-            ).all()
-            existing_param_names = [p[0] for p in existing_params]
-            
-            for param in params:
-                param_name = param.strip()
-                # 检查精确匹配
-                if param_name not in existing_param_names:
-                    # 检查大小写不一致的情况
-                    similar_params = [p for p in existing_param_names if p.lower() == param_name.lower()]
-                    if similar_params:
-                        warnings.append(f"参数 '[{param_name}]' 大小写可能不正确，系统中存在: {similar_params}")
-                    else:
-                        errors.append(f"参数 '[{param_name}]' 在系统中不存在或未启用")
+            try:
+                # 使用缓存的参数列表
+                existing_param_names = CalculationSchemeService._get_cached_parameters()
+                
+                for param in params:
+                    param_name = param.strip()
+                    # 检查精确匹配
+                    if param_name not in existing_param_names:
+                        # 检查大小写不一致的情况
+                        similar_params = [p for p in existing_param_names if p.lower() == param_name.lower()]
+                        if similar_params:
+                            warnings.append(f"参数 '[{param_name}]' 大小写可能不正确，系统中存在: {similar_params}")
+                        else:
+                            errors.append(f"参数 '[{param_name}]' 在系统中不存在或未启用")
+            except Exception as db_error:
+                warnings.append(f"无法验证参数存在性: {str(db_error)}")
             
             # 8. 格式建议
             if formula and not re.search(r'\s', formula):
+                warnings.append("建议在运算符前后添加空格以提高可读性")
+            
+            # 9. 检查连续运算符
+            consecutive_operators = re.findall(r'[+\-*/>=<]{2,}', formula)
+            if consecutive_operators:
+                errors.append(f"发现连续的运算符: {', '.join(set(consecutive_operators))}")
+            
+            # 10. 检查运算符前后的空格（仅警告）
+            operators_without_space = re.findall(r'\S[+\-*/>=<]\S', formula)
+            if operators_without_space:
                 warnings.append("建议在运算符前后添加空格以提高可读性")
             
             is_valid = len(errors) == 0
