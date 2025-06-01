@@ -3707,7 +3707,9 @@ def get_scheme_categories():
         
         return jsonify({
             'success': True,
-            'data': result
+            'data': {
+                'scheme_categories': result
+            }
         })
         
     except Exception as e:
