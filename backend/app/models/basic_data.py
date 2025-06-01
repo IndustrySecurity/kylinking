@@ -2121,7 +2121,7 @@ class Employee(TenantModel):
     # 在职状态和基本信息
     employment_status = db.Column(db.String(20), default='trial', comment='在职状态(trial试用/active在职/leave离职)')
     business_type = db.Column(db.String(20), comment='业务类型(salesperson业务员/purchaser采购员/comprehensive综合/delivery_person送货员)')
-    gender = db.Column(db.String(10), comment='性别(male男/female女/confidential保密)')
+    gender = db.Column(db.String(20), comment='性别(male男/female女/confidential保密)')
     mobile_phone = db.Column(db.String(20), comment='手机')
     landline_phone = db.Column(db.String(20), comment='电话')
     emergency_phone = db.Column(db.String(20), comment='紧急电话')

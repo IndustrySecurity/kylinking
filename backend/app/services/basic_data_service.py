@@ -1373,7 +1373,7 @@ class PositionService:
                     position.updated_by_name = updater.get_full_name() if updater else '未知用户'
             
             return {
-                'positions': [pos.to_dict() for pos in positions],
+                'positions': [pos.to_dict(include_user_info=True) for pos in positions],
                 'total': total,
                 'current_page': page,
                 'per_page': per_page,
@@ -1399,7 +1399,7 @@ class PositionService:
                 updater = db.session.query(User).get(position.updated_by)
                 position.updated_by_name = updater.get_full_name() if updater else '未知用户'
             
-            return position.to_dict()
+            return position.to_dict(include_user_info=True)
             
         except Exception as e:
             raise ValueError(f"获取职位详情失败: {str(e)}")
@@ -1447,7 +1447,7 @@ class PositionService:
             creator = db.session.query(User).get(position.created_by)
             position.created_by_name = creator.get_full_name() if creator else '未知用户'
             
-            return position.to_dict()
+            return position.to_dict(include_user_info=True)
             
         except IntegrityError as e:
             db.session.rollback()
@@ -1517,7 +1517,7 @@ class PositionService:
                 updater = db.session.query(User).get(position.updated_by)
                 position.updated_by_name = updater.get_full_name() if updater else '未知用户'
             
-            return position.to_dict()
+            return position.to_dict(include_user_info=True)
             
         except IntegrityError as e:
             db.session.rollback()

@@ -307,6 +307,22 @@ const PositionManagement = () => {
       render: (text) => text ? new Date(text).toLocaleString() : ''
     },
     {
+      title: '修改人',
+      dataIndex: 'updated_by_name',
+      key: 'updated_by_name',
+      width: 100,
+      align: 'center',
+      render: (text) => text || '-'
+    },
+    {
+      title: '修改时间',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      width: 150,
+      align: 'center',
+      render: (text) => text ? new Date(text).toLocaleString() : '-'
+    },
+    {
       title: '操作',
       key: 'action',
       width: 150,
