@@ -60,6 +60,14 @@ export const getEnabledQuoteAccessories = () => {
   });
 };
 
+// 获取材料报价分类的计算方案选项
+export const getMaterialQuoteCalculationSchemes = () => {
+  return request({
+    url: '/tenant/basic-data/quote-accessories/calculation-schemes',
+    method: 'get'
+  });
+};
+
 export default {
   getQuoteAccessories,
   getQuoteAccessory,
@@ -67,5 +75,6 @@ export default {
   updateQuoteAccessory,
   deleteQuoteAccessory,
   batchUpdateQuoteAccessories,
-  getEnabledQuoteAccessories
+  getEnabledQuoteAccessories,
+  getMaterialQuoteCalculationSchemes
 }; 

@@ -23,7 +23,7 @@ def upgrade():
     sa.Column('tenant_id', postgresql.UUID(as_uuid=True), nullable=False, comment='租户ID'),
     sa.Column('material_name', sa.String(length=100), nullable=False, comment='材料名称'),
     sa.Column('unit_price', sa.Numeric(precision=15, scale=4), nullable=True, comment='单价'),
-    sa.Column('unit_price_formula', sa.String(length=200), nullable=True, comment='单价计算公式'),
+    sa.Column('calculation_scheme_id', postgresql.UUID(as_uuid=True), nullable=True, comment='单价计算方案ID'),
     sa.Column('sort_order', sa.Integer(), nullable=True, comment='排序'),
     sa.Column('description', sa.Text(), nullable=True, comment='描述'),
     sa.Column('is_enabled', sa.Boolean(), nullable=True, comment='是否启用'),
@@ -32,6 +32,7 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(), nullable=True, comment='创建时间'),
     sa.Column('updated_at', sa.DateTime(), nullable=True, comment='更新时间'),
     sa.ForeignKeyConstraint(['tenant_id'], ['tenants.id'], ),
+    sa.ForeignKeyConstraint(['calculation_scheme_id'], ['calculation_schemes.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_quote_accessories_tenant_id'), 'quote_accessories', ['tenant_id'], unique=False)

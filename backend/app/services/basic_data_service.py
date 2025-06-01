@@ -1185,6 +1185,27 @@ class CalculationSchemeService:
         except Exception as e:
             raise ValueError(f"获取计算方案选项失败: {str(e)}")
 
+    @staticmethod
+    def get_calculation_schemes_by_category(category):
+        """根据分类获取计算方案选项"""
+        try:
+            schemes = db.session.query(CalculationScheme).filter(
+                CalculationScheme.scheme_category == category,
+                CalculationScheme.is_enabled == True
+            ).order_by(CalculationScheme.sort_order, CalculationScheme.scheme_name).all()
+            
+            return [
+                {
+                    'value': str(scheme.id),
+                    'label': scheme.scheme_name,
+                    'category': scheme.scheme_category,
+                    'description': scheme.description
+                }
+                for scheme in schemes
+            ]
+        except Exception as e:
+            raise ValueError(f"获取{category}分类计算方案失败: {str(e)}")
+
 
 class DepartmentService:
     """部门管理服务"""

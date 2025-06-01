@@ -3223,6 +3223,29 @@ def get_enabled_quote_accessories():
             'data': None
         }), 500
 
+@bp.route('/quote-accessories/calculation-schemes', methods=['GET'])
+@jwt_required()
+def get_material_quote_calculation_schemes():
+    """获取材料报价分类的计算方案选项"""
+    try:
+        from app.services.basic_data_service import CalculationSchemeService
+        
+        # 获取材料报价分类的计算方案
+        result = CalculationSchemeService.get_calculation_schemes_by_category('material_quote')
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': result
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting material quote calculation schemes: {str(e)}")
+        return jsonify({
+            'code': 500,
+            'message': f'获取失败: {str(e)}',
+            'data': None
+        }), 500
 
 # ===== 报价损耗管理 API =====
 
@@ -5336,3 +5359,4 @@ def get_enabled_loss_types():
             'success': False,
             'message': str(e)
         }), 500
+

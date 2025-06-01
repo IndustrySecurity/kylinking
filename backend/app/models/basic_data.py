@@ -1797,7 +1797,8 @@ class QuoteAccessory(TenantModel):
     # 基本信息
     material_name = db.Column(db.String(100), nullable=False, comment='材料名称')
     unit_price = db.Column(db.Numeric(15, 4), comment='单价')
-    unit_price_formula = db.Column(db.String(200), comment='单价计算公式')
+    # 修改为关联计算方案ID，只选择材料报价分类的方案
+    calculation_scheme_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='单价计算方案ID')
     
     # 通用字段
     sort_order = db.Column(db.Integer, default=0, comment='排序')
@@ -1808,13 +1809,17 @@ class QuoteAccessory(TenantModel):
     created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
     updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
     
+    # 关联计算方案
+    calculation_scheme = db.relationship('CalculationScheme', backref='quote_accessories', lazy='select')
+    
     def to_dict(self, include_user_info=False):
         """转换为字典"""
         result = {
             'id': str(self.id),
             'material_name': self.material_name,
             'unit_price': float(self.unit_price) if self.unit_price else None,
-            'unit_price_formula': self.unit_price_formula,
+            'calculation_scheme_id': str(self.calculation_scheme_id) if self.calculation_scheme_id else None,
+            'calculation_scheme_name': self.calculation_scheme.scheme_name if self.calculation_scheme else None,
             'sort_order': self.sort_order,
             'description': self.description,
             'is_enabled': self.is_enabled,
@@ -1825,9 +1830,11 @@ class QuoteAccessory(TenantModel):
         }
         
         if include_user_info:
-            # 这里可以添加用户名信息，需要关联用户表
-            pass
-            
+            result.update({
+                'created_by_name': getattr(self.created_by_user, 'username', '') if hasattr(self, 'created_by_user') and self.created_by_user else '',
+                'updated_by_name': getattr(self.updated_by_user, 'username', '') if hasattr(self, 'updated_by_user') and self.updated_by_user else '',
+            })
+        
         return result
     
     @classmethod

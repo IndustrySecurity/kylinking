@@ -6481,7 +6481,7 @@ class QuoteAccessoryService:
             quote_accessory = QuoteAccessory(
                 material_name=data.get('material_name'),
                 unit_price=data.get('unit_price'),
-                unit_price_formula=data.get('unit_price_formula'),
+                calculation_scheme_id=data.get('calculation_scheme_id'),
                 sort_order=data.get('sort_order', 0),
                 description=data.get('description'),
                 is_enabled=data.get('is_enabled', True),
@@ -6517,8 +6517,8 @@ class QuoteAccessoryService:
                 quote_accessory.material_name = data['material_name']
             if 'unit_price' in data:
                 quote_accessory.unit_price = data['unit_price']
-            if 'unit_price_formula' in data:
-                quote_accessory.unit_price_formula = data['unit_price_formula']
+            if 'calculation_scheme_id' in data:
+                quote_accessory.calculation_scheme_id = data['calculation_scheme_id']
             if 'sort_order' in data:
                 quote_accessory.sort_order = data['sort_order']
             if 'description' in data:
@@ -6580,7 +6580,7 @@ class QuoteAccessoryService:
                     quote_accessory = QuoteAccessory.query.get(quote_accessory_id)
                     if quote_accessory:
                         # 更新字段
-                        for field in ['material_name', 'unit_price', 'unit_price_formula', 'sort_order', 'description', 'is_enabled']:
+                        for field in ['material_name', 'unit_price', 'calculation_scheme_id', 'sort_order', 'description', 'is_enabled']:
                             if field in item_data:
                                 setattr(quote_accessory, field, item_data[field])
                         

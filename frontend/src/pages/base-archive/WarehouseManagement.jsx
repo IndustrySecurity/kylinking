@@ -37,7 +37,7 @@ const WarehouseManagement = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState(null);
   const [searchText, setSearchText] = useState('');
-  const [warehouseTypeFilter, setWarehouseTypeFilter] = useState('');
+  const [warehouseTypeFilter, setWarehouseTypeFilter] = useState(undefined);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -130,7 +130,7 @@ const WarehouseManagement = () => {
   // 重置搜索
   const handleReset = () => {
     setSearchText('');
-    setWarehouseTypeFilter('');
+    setWarehouseTypeFilter(undefined);
     setPagination(prev => ({ ...prev, current: 1 }));
     loadData({ page: 1, search: '', warehouse_type: '' });
   };
