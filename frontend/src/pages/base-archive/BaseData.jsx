@@ -54,20 +54,6 @@ const BaseData = () => {
       color: '#722ed1'
     },
     {
-      key: 'calculationParameters',
-      title: '计算参数',
-      icon: <CalculatorOutlined />,
-      path: '/base-archive/calculation-parameters',
-      color: '#f759ab'
-    },
-    {
-      key: 'calculationSchemes',
-      title: '计算方案',
-      icon: <CalculatorOutlined />,
-      path: '/base-archive/calculation-schemes',
-      color: '#722ed1'
-    },
-    {
       key: 'departments',
       title: '部门管理',
       icon: <ApartmentOutlined />,

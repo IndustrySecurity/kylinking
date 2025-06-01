@@ -115,9 +115,16 @@ const ProductionManagement = () => {
     {
       key: 'calcScheme',
       title: '计算方案',
-      icon: <SettingOutlined />,
-      path: '/production/config/calc-scheme',
+      icon: <CalculatorOutlined />,
+      path: '/base-archive/calculation-schemes',
       color: '#52c41a'
+    },
+    {
+      key: 'calcParameters',
+      title: '计算参数',
+      icon: <CalculatorOutlined />,
+      path: '/base-archive/calculation-parameters',
+      color: '#f759ab'
     },
     {
       key: 'docManagement',
