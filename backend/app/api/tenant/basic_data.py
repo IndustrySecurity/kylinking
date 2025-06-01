@@ -4924,3 +4924,415 @@ def get_next_warehouse_code():
             'success': False,
             'message': str(e)
         }), 500
+
+# ====================== 机台管理 ======================
+
+@bp.route('/machines', methods=['GET'])
+@jwt_required()
+def get_machines():
+    """获取机台列表"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        enabled_only = request.args.get('enabled_only', False, type=bool)
+        
+        result = MachineService.get_machines(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            enabled_only=enabled_only
+        )
+        
+        # 转换响应格式以匹配前端期望
+        transformed_result = {
+            'machines': result['items'],
+            'total': result['total'],
+            'pages': result['pages'],
+            'current_page': result['current_page'],
+            'per_page': result['per_page'],
+            'has_next': result['has_next'],
+            'has_prev': result['has_prev']
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': transformed_result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/machines/<machine_id>', methods=['GET'])
+@jwt_required()
+def get_machine(machine_id):
+    """获取机台详情"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        result = MachineService.get_machine(machine_id)
+        if not result:
+            return jsonify({
+                'success': False,
+                'message': '机台不存在'
+            }), 404
+            
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/machines', methods=['POST'])
+@jwt_required()
+def create_machine():
+    """创建机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        if not data.get('machine_name'):
+            return jsonify({
+                'success': False,
+                'message': '机台名称不能为空'
+            }), 400
+        
+        result = MachineService.create_machine(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '机台创建成功'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/machines/<machine_id>', methods=['PUT'])
+@jwt_required()
+def update_machine(machine_id):
+    """更新机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        result = MachineService.update_machine(machine_id, data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '机台更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/machines/<machine_id>', methods=['DELETE'])
+@jwt_required()
+def delete_machine(machine_id):
+    """删除机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        MachineService.delete_machine(machine_id)
+        return jsonify({
+            'success': True,
+            'message': '机台删除成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/machines/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_machines():
+    """批量更新机台"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({
+                'success': False,
+                'message': '请求数据格式错误'
+            }), 400
+        
+        result = MachineService.batch_update_machines(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '批量更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/machines/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_machines():
+    """获取启用的机台列表"""
+    try:
+        from app.services.package_method_service import MachineService
+        
+        result = MachineService.get_enabled_machines()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+# ====================== 报损类型管理 ======================
+
+@bp.route('/loss-types', methods=['GET'])
+@jwt_required()
+def get_loss_types():
+    """获取报损类型列表"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        enabled_only = request.args.get('enabled_only', False, type=bool)
+        
+        result = LossTypeService.get_loss_types(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            enabled_only=enabled_only
+        )
+        
+        # 转换响应格式以匹配前端期望
+        transformed_result = {
+            'loss_types': result['items'],
+            'total': result['total'],
+            'pages': result['pages'],
+            'current_page': result['current_page'],
+            'per_page': result['per_page'],
+            'has_next': result['has_next'],
+            'has_prev': result['has_prev']
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': transformed_result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/loss-types/<loss_type_id>', methods=['GET'])
+@jwt_required()
+def get_loss_type(loss_type_id):
+    """获取报损类型详情"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        # 由于LossTypeService没有单独的get_loss_type方法，我们需要添加一个简单的实现
+        from app.models.basic_data import LossType
+        import uuid
+        
+        try:
+            loss_type_uuid = uuid.UUID(loss_type_id)
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': '无效的报损类型ID'
+            }), 400
+        
+        loss_type = LossType.query.get(loss_type_uuid)
+        if not loss_type:
+            return jsonify({
+                'success': False,
+                'message': '报损类型不存在'
+            }), 404
+            
+        return jsonify({
+            'success': True,
+            'data': loss_type.to_dict()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/loss-types', methods=['POST'])
+@jwt_required()
+def create_loss_type():
+    """创建报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        if not data.get('loss_type_name'):
+            return jsonify({
+                'success': False,
+                'message': '报损类型名称不能为空'
+            }), 400
+        
+        result = LossTypeService.create_loss_type(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '报损类型创建成功'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/loss-types/<loss_type_id>', methods=['PUT'])
+@jwt_required()
+def update_loss_type(loss_type_id):
+    """更新报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': '请求数据不能为空'
+            }), 400
+        
+        result = LossTypeService.update_loss_type(loss_type_id, data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '报损类型更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/loss-types/<loss_type_id>', methods=['DELETE'])
+@jwt_required()
+def delete_loss_type(loss_type_id):
+    """删除报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        LossTypeService.delete_loss_type(loss_type_id)
+        return jsonify({
+            'success': True,
+            'message': '报损类型删除成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/loss-types/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_loss_types():
+    """批量更新报损类型"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({
+                'success': False,
+                'message': '请求数据格式错误'
+            }), 400
+        
+        result = LossTypeService.batch_update_loss_types(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '批量更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/loss-types/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_loss_types():
+    """获取启用的报损类型列表"""
+    try:
+        from app.services.package_method_service import LossTypeService
+        
+        result = LossTypeService.get_enabled_loss_types()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
