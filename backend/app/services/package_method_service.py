@@ -6480,20 +6480,12 @@ class QuoteAccessoryService:
     def create_quote_accessory(data, created_by):
         """创建报价辅材"""
         from app.models.basic_data import QuoteAccessory
-        from flask_jwt_extended import get_jwt
         
         # 设置schema
         QuoteAccessoryService._set_schema()
         
-        # 获取租户ID
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
-        if not tenant_id:
-            raise ValueError('租户信息缺失')
-        
         try:
             quote_accessory = QuoteAccessory(
-                tenant_id=tenant_id,
                 material_name=data.get('material_name'),
                 unit_price=data.get('unit_price'),
                 calculation_scheme_id=data.get('calculation_scheme_id'),
