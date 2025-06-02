@@ -2942,3 +2942,110 @@ class BagType(TenantModel):
     
     def __repr__(self):
         return f'<BagType {self.bag_type_name}>'
+
+
+class BagTypeStructure(TenantModel):
+    """袋型结构模型"""
+    __tablename__ = 'bag_type_structures'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联信息
+    bag_type_id = db.Column(UUID(as_uuid=True), db.ForeignKey('bag_types.id'), nullable=False, comment='袋型ID')
+    
+    # 基本信息
+    structure_name = db.Column(db.String(100), nullable=False, comment='结构名称')
+    
+    # 公式字段（引用public schema中的计算方案）
+    structure_expression_id = db.Column(UUID(as_uuid=True), comment='结构表达式ID')
+    expand_length_formula_id = db.Column(UUID(as_uuid=True), comment='展开长公式ID')
+    expand_width_formula_id = db.Column(UUID(as_uuid=True), comment='展开宽公式ID')
+    material_length_formula_id = db.Column(UUID(as_uuid=True), comment='用料长公式ID')
+    material_width_formula_id = db.Column(UUID(as_uuid=True), comment='用料宽公式ID')
+    single_piece_width_formula_id = db.Column(UUID(as_uuid=True), comment='单片宽公式ID')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    image_url = db.Column(db.String(500), comment='图片地址')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    bag_type = db.relationship('BagType', backref='structures', lazy='select')
+    
+    __table_args__ = (
+        db.Index('idx_bag_type_structures_bag_type_id', 'bag_type_id'),
+        db.Index('idx_bag_type_structures_sort_order', 'sort_order'),
+    )
+    
+    def to_dict(self, include_user_info=False, include_formulas=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'bag_type_id': str(self.bag_type_id),
+            'structure_name': self.structure_name,
+            'structure_expression_id': str(self.structure_expression_id) if self.structure_expression_id else None,
+            'expand_length_formula_id': str(self.expand_length_formula_id) if self.expand_length_formula_id else None,
+            'expand_width_formula_id': str(self.expand_width_formula_id) if self.expand_width_formula_id else None,
+            'material_length_formula_id': str(self.material_length_formula_id) if self.material_length_formula_id else None,
+            'material_width_formula_id': str(self.material_width_formula_id) if self.material_width_formula_id else None,
+            'single_piece_width_formula_id': str(self.single_piece_width_formula_id) if self.single_piece_width_formula_id else None,
+            'sort_order': self.sort_order,
+            'image_url': self.image_url,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            if self.created_by:
+                created_user = User.query.get(self.created_by)
+                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            else:
+                data['created_by_name'] = '系统'
+                
+            if self.updated_by:
+                updated_user = User.query.get(self.updated_by)
+                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            else:
+                data['updated_by_name'] = ''
+        
+        if include_formulas:
+            # 获取计算方案信息
+            from app.models.basic_data import CalculationScheme
+            formulas = {}
+            
+            if self.structure_expression_id:
+                scheme = CalculationScheme.query.get(self.structure_expression_id)
+                formulas['structure_expression'] = scheme.scheme_name if scheme else None
+            
+            if self.expand_length_formula_id:
+                scheme = CalculationScheme.query.get(self.expand_length_formula_id)
+                formulas['expand_length_formula'] = scheme.scheme_name if scheme else None
+            
+            if self.expand_width_formula_id:
+                scheme = CalculationScheme.query.get(self.expand_width_formula_id)
+                formulas['expand_width_formula'] = scheme.scheme_name if scheme else None
+            
+            if self.material_length_formula_id:
+                scheme = CalculationScheme.query.get(self.material_length_formula_id)
+                formulas['material_length_formula'] = scheme.scheme_name if scheme else None
+            
+            if self.material_width_formula_id:
+                scheme = CalculationScheme.query.get(self.material_width_formula_id)
+                formulas['material_width_formula'] = scheme.scheme_name if scheme else None
+            
+            if self.single_piece_width_formula_id:
+                scheme = CalculationScheme.query.get(self.single_piece_width_formula_id)
+                formulas['single_piece_width_formula'] = scheme.scheme_name if scheme else None
+            
+            data.update(formulas)
+            
+        return data
+    
+    def __repr__(self):
+        return f'<BagTypeStructure {self.structure_name}>'

@@ -6045,14 +6045,118 @@ def get_bag_type_form_options():
         # 获取规格表达式选项
         spec_expressions = BagTypeService.get_calculation_scheme_options()
         
+        # 获取袋型结构所需的所有公式选项（按分类划分）
+        formula_options = BagTypeService.get_all_formula_options()
+        
         return jsonify({
             'success': True,
             'data': {
                 'units': units,
-                'spec_expressions': spec_expressions
+                'spec_expressions': spec_expressions,
+                'structure_expressions': formula_options['structure_expressions'],
+                'formulas': formula_options['formulas']
             }
         })
         
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+# ====================== 袋型结构管理 ======================
+
+@bp.route('/bag-types/<bag_type_id>/structures', methods=['GET'])
+@jwt_required()
+def get_bag_type_structures(bag_type_id):
+    """获取袋型结构列表"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        result = BagTypeService.get_bag_type_structures(bag_type_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-types/<bag_type_id>/structures', methods=['POST'])
+@jwt_required()
+def batch_save_bag_type_structures(bag_type_id):
+    """批量保存袋型结构"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        from flask_jwt_extended import get_jwt_identity
+        
+        data = request.get_json()
+        structures_data = data.get('structures', [])
+        current_user_id = get_jwt_identity()
+        
+        result = BagTypeService.batch_update_bag_type_structures(
+            bag_type_id, 
+            structures_data, 
+            current_user_id
+        )
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-type-structures/<structure_id>', methods=['PUT'])
+@jwt_required()
+def update_bag_type_structure(structure_id):
+    """更新袋型结构"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        from flask_jwt_extended import get_jwt_identity
+        
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        result = BagTypeService.update_bag_type_structure(structure_id, data, current_user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-type-structures/<structure_id>', methods=['DELETE'])
+@jwt_required()
+def delete_bag_type_structure(structure_id):
+    """删除袋型结构"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        result = BagTypeService.delete_bag_type_structure(structure_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
     except Exception as e:
         return jsonify({
             'success': False,

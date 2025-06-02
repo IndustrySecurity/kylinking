@@ -4,7 +4,7 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType, BagTypeStructure
 from app.models.user import User
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
@@ -73,9 +73,22 @@ class CustomerService:
     """客户档案服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in CustomerService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_customers(page=1, per_page=20, search=None, category_id=None, status=None, 
                      tenant_config=None):
         """获取客户列表"""
+        # 设置schema
+        CustomerService._set_schema()
+        
         query = db.session.query(Customer)
         
         # 搜索条件
@@ -119,6 +132,9 @@ class CustomerService:
     @staticmethod
     def get_customer(customer_id):
         """获取客户详情"""
+        # 设置schema
+        CustomerService._set_schema()
+        
         customer = db.session.query(Customer).get(uuid.UUID(customer_id))
         if not customer:
             raise ValueError("客户不存在")
@@ -127,6 +143,9 @@ class CustomerService:
     @staticmethod
     def create_customer(data, created_by):
         """创建客户"""
+        # 设置schema
+        CustomerService._set_schema()
+        
         try:
             # 生成客户编码
             if not data.get('customer_code'):
@@ -330,8 +349,21 @@ class SupplierService:
     """供应商档案服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in SupplierService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_suppliers(page=1, per_page=20, search=None, category_id=None, status=None):
         """获取供应商列表"""
+        # 设置schema
+        SupplierService._set_schema()
+        
         query = db.session.query(Supplier)
         
         # 搜索条件
@@ -370,6 +402,9 @@ class SupplierService:
     @staticmethod
     def create_supplier(data, created_by):
         """创建供应商"""
+        # 设置schema
+        SupplierService._set_schema()
+        
         try:
             # 生成供应商编码
             if not data.get('supplier_code'):
@@ -425,9 +460,22 @@ class ProductService:
     """产品档案服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in ProductService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_products(page=1, per_page=20, search=None, category_id=None, status=None, 
                     product_type=None):
         """获取产品列表"""
+        # 设置schema
+        ProductService._set_schema()
+        
         query = db.session.query(Product)
         
         # 搜索条件
@@ -630,9 +678,22 @@ class CalculationParameterService:
     """计算参数服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in CalculationParameterService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_calculation_parameters(page=1, per_page=20, search=None):
         """获取计算参数列表"""
         from app.models.basic_data import CalculationParameter
+        
+        # 设置schema
+        CalculationParameterService._set_schema()
         
         query = CalculationParameter.query
         
@@ -666,6 +727,9 @@ class CalculationParameterService:
         """获取计算参数详情"""
         from app.models.basic_data import CalculationParameter
         
+        # 设置schema
+        CalculationParameterService._set_schema()
+        
         param = CalculationParameter.query.get(uuid.UUID(param_id))
         if not param:
             raise ValueError("计算参数不存在")
@@ -675,6 +739,9 @@ class CalculationParameterService:
     def create_calculation_parameter(data, created_by):
         """创建计算参数"""
         from app.models.basic_data import CalculationParameter
+        
+        # 设置schema
+        CalculationParameterService._set_schema()
         
         try:
             # 验证必填字段
@@ -716,6 +783,9 @@ class CalculationParameterService:
     def update_calculation_parameter(param_id, data, updated_by):
         """更新计算参数"""
         from app.models.basic_data import CalculationParameter
+        
+        # 设置schema
+        CalculationParameterService._set_schema()
         
         try:
             param = CalculationParameter.query.get(uuid.UUID(param_id))
@@ -765,6 +835,9 @@ class CalculationParameterService:
         """删除计算参数"""
         from app.models.basic_data import CalculationParameter
         
+        # 设置schema
+        CalculationParameterService._set_schema()
+        
         try:
             param = CalculationParameter.query.get(uuid.UUID(param_id))
             if not param:
@@ -786,6 +859,9 @@ class CalculationParameterService:
     def batch_update_calculation_parameters(updates, updated_by):
         """批量更新计算参数"""
         from app.models.basic_data import CalculationParameter
+        
+        # 设置schema
+        CalculationParameterService._set_schema()
         
         try:
             results = []
@@ -828,6 +904,9 @@ class CalculationParameterService:
         """获取计算参数选项数据"""
         from app.models.basic_data import CalculationParameter
         
+        # 设置schema
+        CalculationParameterService._set_schema()
+        
         try:
             # 获取启用的计算参数
             enabled_params = CalculationParameter.get_enabled_list()
@@ -855,6 +934,16 @@ class CalculationSchemeService:
     _cache_timestamp = None
     _cache_timeout = 300  # 5分钟缓存时间
 
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in CalculationSchemeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+
     @classmethod
     def _get_cached_parameters(cls):
         """获取缓存的参数列表"""
@@ -867,6 +956,9 @@ class CalculationSchemeService:
             current_time - cls._cache_timestamp > cls._cache_timeout):
             
             try:
+                # 设置schema
+                cls._set_schema()
+                
                 from app.models.basic_data import CalculationParameter
                 existing_params = db.session.query(CalculationParameter.parameter_name).filter(
                     CalculationParameter.is_enabled == True
@@ -888,6 +980,9 @@ class CalculationSchemeService:
     @staticmethod
     def get_calculation_schemes(page=1, per_page=20, search=None, category=None):
         """获取计算方案列表"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         query = db.session.query(CalculationScheme)
         
         # 搜索条件
@@ -923,6 +1018,9 @@ class CalculationSchemeService:
     @staticmethod
     def get_calculation_scheme(scheme_id):
         """获取计算方案详情"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         scheme = db.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
         if not scheme:
             raise ValueError("计算方案不存在")
@@ -931,6 +1029,9 @@ class CalculationSchemeService:
     @staticmethod
     def create_calculation_scheme(data, created_by):
         """创建计算方案"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         try:
             # 验证公式
             if data.get('scheme_formula'):
@@ -966,6 +1067,9 @@ class CalculationSchemeService:
     @staticmethod
     def update_calculation_scheme(scheme_id, data, updated_by):
         """更新计算方案"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         try:
             scheme = db.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
             if not scheme:
@@ -1003,6 +1107,9 @@ class CalculationSchemeService:
     @staticmethod
     def delete_calculation_scheme(scheme_id):
         """删除计算方案"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         try:
             scheme = db.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
             if not scheme:
@@ -1020,6 +1127,9 @@ class CalculationSchemeService:
     @staticmethod
     def get_scheme_categories():
         """获取方案分类选项"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         try:
             return CalculationScheme.get_scheme_categories()
         except Exception as e:
@@ -1028,6 +1138,9 @@ class CalculationSchemeService:
     @staticmethod
     def validate_formula(formula):
         """验证公式语法"""
+        # 设置schema（用于参数验证）
+        CalculationSchemeService._set_schema()
+        
         try:
             if not formula or not formula.strip():
                 return {'is_valid': True, 'error': None, 'warnings': []}
@@ -1171,14 +1284,26 @@ class CalculationSchemeService:
     
     @staticmethod
     def get_calculation_scheme_options():
-        """获取计算方案选项数据"""
+        """获取计算方案选项"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         try:
-            schemes = CalculationScheme.get_enabled_list()
+            from app.models.basic_data import CalculationScheme
+            
+            # 使用ORM查询，自动应用租户上下文
+            schemes = CalculationScheme.query.filter_by(is_enabled=True).order_by(
+                CalculationScheme.sort_order, 
+                CalculationScheme.scheme_name
+            ).all()
+            
             return [
                 {
                     'value': str(scheme.id),
                     'label': scheme.scheme_name,
-                    'category': scheme.scheme_category
+                    'category': scheme.scheme_category,
+                    'description': scheme.description or '',
+                    'formula': scheme.scheme_formula or ''
                 }
                 for scheme in schemes
             ]
@@ -1187,19 +1312,29 @@ class CalculationSchemeService:
 
     @staticmethod
     def get_calculation_schemes_by_category(category):
-        """根据分类获取计算方案选项"""
+        """根据分类获取计算方案列表"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
         try:
-            schemes = db.session.query(CalculationScheme).filter(
-                CalculationScheme.scheme_category == category,
-                CalculationScheme.is_enabled == True
-            ).order_by(CalculationScheme.sort_order, CalculationScheme.scheme_name).all()
+            from app.models.basic_data import CalculationScheme
+            
+            # 使用ORM查询，自动应用租户上下文
+            schemes = CalculationScheme.query.filter_by(
+                scheme_category=category,
+                is_enabled=True
+            ).order_by(
+                CalculationScheme.sort_order, 
+                CalculationScheme.scheme_name
+            ).all()
             
             return [
                 {
                     'value': str(scheme.id),
                     'label': scheme.scheme_name,
                     'category': scheme.scheme_category,
-                    'description': scheme.description
+                    'description': scheme.description or '',
+                    'formula': scheme.scheme_formula or ''
                 }
                 for scheme in schemes
             ]
@@ -1211,8 +1346,21 @@ class DepartmentService:
     """部门管理服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in DepartmentService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_departments(page=1, per_page=20, search=None):
         """获取部门列表"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         query = db.session.query(Department)
         
         # 搜索条件
@@ -1245,6 +1393,9 @@ class DepartmentService:
     @staticmethod
     def get_department(dept_id):
         """获取部门详情"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         department = db.session.query(Department).get(uuid.UUID(dept_id))
         if not department:
             raise ValueError("部门不存在")
@@ -1253,6 +1404,9 @@ class DepartmentService:
     @staticmethod
     def create_department(data, created_by):
         """创建部门"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         try:
             # 生成部门编号
             if not data.get('dept_code'):
@@ -1297,6 +1451,9 @@ class DepartmentService:
     @staticmethod
     def update_department(dept_id, data, updated_by):
         """更新部门"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         try:
             department = db.session.query(Department).get(uuid.UUID(dept_id))
             if not department:
@@ -1352,6 +1509,9 @@ class DepartmentService:
     @staticmethod
     def delete_department(dept_id):
         """删除部门"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         try:
             department = db.session.query(Department).get(uuid.UUID(dept_id))
             if not department:
@@ -1374,6 +1534,9 @@ class DepartmentService:
     @staticmethod
     def batch_update_departments(updates, updated_by):
         """批量更新部门"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         try:
             updated_departments = []
             
@@ -1407,6 +1570,9 @@ class DepartmentService:
     @staticmethod
     def get_department_options():
         """获取部门选项数据"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         try:
             departments = Department.get_enabled_list()
             return [
@@ -1423,6 +1589,9 @@ class DepartmentService:
     @staticmethod
     def get_department_tree():
         """获取部门树形结构"""
+        # 设置schema
+        DepartmentService._set_schema()
+        
         try:
             return Department.get_department_tree()
         except Exception as e:
@@ -1433,8 +1602,21 @@ class PositionService:
     """职位管理服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in PositionService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_positions(page=1, per_page=20, search=None, department_id=None):
         """获取职位列表"""
+        # 设置schema
+        PositionService._set_schema()
+        
         try:
             # 构建查询
             query = db.session.query(Position)
@@ -1676,8 +1858,21 @@ class EmployeeService:
     """员工管理服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in EmployeeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_employees(page=1, per_page=20, search=None, department_id=None, position_id=None, employment_status=None):
         """获取员工列表"""
+        # 设置schema
+        EmployeeService._set_schema()
+        
         try:
             # 构建查询
             query = db.session.query(Employee)
@@ -2010,8 +2205,21 @@ class WarehouseService:
     """仓库管理服务"""
     
     @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in WarehouseService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
     def get_warehouses(page=1, per_page=20, search=None, warehouse_type=None, parent_warehouse_id=None):
         """获取仓库列表"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2056,6 +2264,9 @@ class WarehouseService:
     @staticmethod
     def get_warehouse(warehouse_id):
         """获取仓库详情"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2071,6 +2282,9 @@ class WarehouseService:
     @staticmethod
     def create_warehouse(data, created_by):
         """创建仓库"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2145,6 +2359,9 @@ class WarehouseService:
     @staticmethod
     def update_warehouse(warehouse_id, data, updated_by):
         """更新仓库"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2208,6 +2425,9 @@ class WarehouseService:
     @staticmethod
     def delete_warehouse(warehouse_id):
         """删除仓库"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2234,6 +2454,9 @@ class WarehouseService:
     @staticmethod
     def batch_update_warehouses(updates, updated_by):
         """批量更新仓库"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2269,6 +2492,9 @@ class WarehouseService:
     @staticmethod
     def get_warehouse_options():
         """获取仓库选项数据"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             
@@ -2288,6 +2514,9 @@ class WarehouseService:
     @staticmethod
     def get_warehouse_tree():
         """获取仓库树形结构"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             return Warehouse.get_warehouse_tree()
@@ -2297,6 +2526,9 @@ class WarehouseService:
     @staticmethod
     def get_warehouse_types():
         """获取仓库类型选项"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             return Warehouse.get_warehouse_types()
@@ -2306,6 +2538,9 @@ class WarehouseService:
     @staticmethod
     def get_accounting_methods():
         """获取核算方式选项"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             return Warehouse.get_accounting_methods()
@@ -2315,11 +2550,14 @@ class WarehouseService:
     @staticmethod
     def get_circulation_types():
         """获取流转类型选项"""
+        # 设置schema
+        WarehouseService._set_schema()
+        
         try:
             from app.models.basic_data import Warehouse
             return Warehouse.get_circulation_types()
         except Exception as e:
-            raise ValueError(f"获取流转类型失败: {str(e)}") 
+            raise ValueError(f"获取流转类型失败: {str(e)}")
 
 
 class BagTypeService:
@@ -2329,7 +2567,7 @@ class BagTypeService:
     def get_bag_types(page=1, per_page=20, search=None, is_enabled=None):
         """获取袋型列表"""
         try:
-            from app.models.basic_data import BagType
+            from app.models.basic_data import BagType, BagTypeStructure, CalculationScheme
             
             # 构建查询
             query = db.session.query(BagType)
@@ -2354,8 +2592,57 @@ class BagTypeService:
             total = query.count()
             bag_types = query.offset((page - 1) * per_page).limit(per_page).all()
             
+            # 为每个袋型获取结构信息
+            bag_types_with_structures = []
+            for bag_type in bag_types:
+                bag_type_dict = bag_type.to_dict(include_user_info=True)
+                
+                # 获取该袋型的结构列表
+                structures = db.session.query(BagTypeStructure).filter(
+                    BagTypeStructure.bag_type_id == bag_type.id
+                ).order_by(BagTypeStructure.sort_order, BagTypeStructure.created_at).all()
+                
+                # 获取计算方案信息的辅助函数
+                def get_scheme_info(scheme_id):
+                    if scheme_id:
+                        scheme = db.session.query(CalculationScheme).get(scheme_id)
+                        if scheme:
+                            return {
+                                'id': str(scheme.id),
+                                'name': scheme.scheme_name,
+                                'formula': scheme.scheme_formula
+                            }
+                    return None
+                
+                bag_type_dict['structures'] = []
+                for structure in structures:
+                    # 获取创建人信息
+                    created_by_name = None
+                    if structure.created_by:
+                        from app.models.user import User
+                        creator = db.session.query(User).get(structure.created_by)
+                        created_by_name = creator.get_full_name() if creator else '未知用户'
+                    
+                    structure_info = {
+                        'id': str(structure.id),
+                        'structure_name': structure.structure_name,
+                        'image_url': structure.image_url,
+                        'sort_order': structure.sort_order,
+                        'structure_expression': get_scheme_info(structure.structure_expression_id),
+                        'expand_length_formula': get_scheme_info(structure.expand_length_formula_id),
+                        'expand_width_formula': get_scheme_info(structure.expand_width_formula_id),
+                        'material_length_formula': get_scheme_info(structure.material_length_formula_id),
+                        'material_width_formula': get_scheme_info(structure.material_width_formula_id),
+                        'single_piece_width_formula': get_scheme_info(structure.single_piece_width_formula_id),
+                        'created_at': structure.created_at.isoformat() if structure.created_at else None,
+                        'created_by_name': created_by_name
+                    }
+                    bag_type_dict['structures'].append(structure_info)
+                
+                bag_types_with_structures.append(bag_type_dict)
+            
             return {
-                'bag_types': [bag_type.to_dict(include_user_info=True) for bag_type in bag_types],
+                'bag_types': bag_types_with_structures,
                 'total': total,
                 'current_page': page,
                 'per_page': per_page,
@@ -2516,12 +2803,18 @@ class BagTypeService:
     def delete_bag_type(bag_type_id):
         """删除袋型"""
         try:
-            from app.models.basic_data import BagType
+            from app.models.basic_data import BagType, BagTypeStructure
             
             bag_type = db.session.query(BagType).get(uuid.UUID(bag_type_id))
             if not bag_type:
                 raise ValueError("袋型不存在")
             
+            # 先删除相关的袋型结构记录
+            db.session.query(BagTypeStructure).filter(
+                BagTypeStructure.bag_type_id == bag_type.id
+            ).delete()
+            
+            # 再删除袋型记录
             db.session.delete(bag_type)
             db.session.commit()
             
@@ -2622,3 +2915,193 @@ class BagTypeService:
             ]
         except Exception as e:
             raise ValueError(f"获取规格表达式选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_calculation_schemes_by_category(category):
+        """根据分类获取计算方案选项"""
+        try:
+            from app.models.basic_data import CalculationScheme
+            
+            schemes = db.session.query(CalculationScheme).filter(
+                CalculationScheme.scheme_category == category,
+                CalculationScheme.is_enabled == True
+            ).order_by(CalculationScheme.sort_order, CalculationScheme.scheme_name).all()
+            
+            return [
+                {
+                    'value': str(scheme.id),
+                    'label': scheme.scheme_name,
+                    'category': scheme.scheme_category,
+                    'description': scheme.description or '',
+                    'formula': scheme.scheme_formula or ''
+                }
+                for scheme in schemes
+            ]
+        except Exception as e:
+            raise ValueError(f"获取{category}分类计算方案选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_all_formula_options():
+        """获取袋型结构所需的所有公式选项"""
+        try:
+            return {
+                # 结构表达式选项（袋型规格分类）
+                'structure_expressions': BagTypeService.get_calculation_schemes_by_category('bag_spec'),
+                # 公式选项（袋型公式分类）- 用于展长、展宽、用料长、用料宽、单片宽公式
+                'formulas': BagTypeService.get_calculation_schemes_by_category('bag_formula')
+            }
+        except Exception as e:
+            raise ValueError(f"获取袋型结构公式选项失败: {str(e)}")
+    
+    # ====================== 袋型结构管理 ======================
+    
+    @staticmethod
+    def get_bag_type_structures(bag_type_id):
+        """获取袋型结构列表"""
+        try:
+            from app.models.basic_data import BagTypeStructure
+            
+            structures = db.session.query(BagTypeStructure).filter(
+                BagTypeStructure.bag_type_id == uuid.UUID(bag_type_id)
+            ).order_by(BagTypeStructure.sort_order, BagTypeStructure.created_at).all()
+            
+            return {
+                'success': True,
+                'data': {
+                    'structures': [structure.to_dict(include_user_info=True, include_formulas=True) for structure in structures]
+                }
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'获取袋型结构列表失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def update_bag_type_structure(structure_id, data, updated_by):
+        """更新袋型结构"""
+        try:
+            from app.models.basic_data import BagTypeStructure
+            
+            structure = db.session.query(BagTypeStructure).get(uuid.UUID(structure_id))
+            if not structure:
+                raise ValueError("袋型结构不存在")
+            
+            # 更新字段
+            update_fields = [
+                'structure_name', 'structure_expression_id', 'expand_length_formula_id',
+                'expand_width_formula_id', 'material_length_formula_id', 
+                'material_width_formula_id', 'single_piece_width_formula_id',
+                'sort_order', 'image_url'
+            ]
+            
+            for field in update_fields:
+                if field in data:
+                    value = data[field]
+                    if field.endswith('_id') and value:
+                        # 处理UUID字段
+                        value = uuid.UUID(value)
+                    setattr(structure, field, value)
+            
+            structure.updated_by = uuid.UUID(updated_by)
+            structure.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': '袋型结构更新成功',
+                'data': structure.to_dict(include_user_info=True)
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f'更新袋型结构失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def delete_bag_type_structure(structure_id):
+        """删除袋型结构"""
+        try:
+            from app.models.basic_data import BagTypeStructure
+            
+            structure = db.session.query(BagTypeStructure).get(uuid.UUID(structure_id))
+            if not structure:
+                raise ValueError("袋型结构不存在")
+            
+            db.session.delete(structure)
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': '袋型结构删除成功'
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f'删除袋型结构失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def batch_update_bag_type_structures(bag_type_id, structures_data, updated_by):
+        """批量更新袋型结构"""
+        try:
+            from app.models.basic_data import BagTypeStructure, CalculationScheme
+            
+            # 删除现有结构
+            db.session.query(BagTypeStructure).filter(
+                BagTypeStructure.bag_type_id == uuid.UUID(bag_type_id)
+            ).delete()
+            
+            # 获取所有有效的计算方案ID，用于验证
+            valid_scheme_ids = set()
+            schemes = db.session.query(CalculationScheme.id).filter(
+                CalculationScheme.is_enabled == True
+            ).all()
+            valid_scheme_ids = {str(scheme[0]) for scheme in schemes}
+            
+            # 创建新结构
+            for structure_data in structures_data:
+                # 处理UUID字段，确保空值转为None，无效值也转为None
+                def validate_scheme_id(scheme_id_str):
+                    if not scheme_id_str:
+                        return None
+                    if str(scheme_id_str) not in valid_scheme_ids:
+                        # 记录警告但不抛出错误，设为None
+                        print(f"警告：计算方案ID {scheme_id_str} 无效，将设为None")
+                        return None
+                    return uuid.UUID(scheme_id_str)
+                
+                structure = BagTypeStructure(
+                    bag_type_id=uuid.UUID(bag_type_id),
+                    structure_name=structure_data.get('structure_name', ''),
+                    structure_expression_id=validate_scheme_id(structure_data.get('structure_expression_id')),
+                    expand_length_formula_id=validate_scheme_id(structure_data.get('expand_length_formula_id')),
+                    expand_width_formula_id=validate_scheme_id(structure_data.get('expand_width_formula_id')),
+                    material_length_formula_id=validate_scheme_id(structure_data.get('material_length_formula_id')),
+                    material_width_formula_id=validate_scheme_id(structure_data.get('material_width_formula_id')),
+                    single_piece_width_formula_id=validate_scheme_id(structure_data.get('single_piece_width_formula_id')),
+                    sort_order=structure_data.get('sort_order', 0),
+                    image_url=structure_data.get('image_url'),
+                    created_by=uuid.UUID(updated_by)
+                )
+                
+                db.session.add(structure)
+            
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': '袋型结构批量更新成功'
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f'批量更新袋型结构失败: {str(e)}'
+            }
