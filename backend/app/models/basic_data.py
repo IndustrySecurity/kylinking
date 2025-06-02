@@ -2831,3 +2831,114 @@ class ProcessCategory(TenantModel):
 
     def __repr__(self):
         return f'<ProcessCategory {self.process_name}>'
+
+
+class BagType(TenantModel):
+    """袋型管理模型"""
+    __tablename__ = 'bag_types'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    bag_type_name = db.Column(db.String(100), nullable=False, comment='袋型名称')
+    spec_expression = db.Column(db.String(200), comment='规格表达式')
+    production_unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='生产单位ID')
+    sales_unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='销售单位ID')
+    
+    # 数值字段
+    difficulty_coefficient = db.Column(db.Numeric(10, 2), default=0, comment='难易系数')
+    bag_making_unit_price = db.Column(db.Numeric(10, 2), default=0, comment='制袋单价')
+    
+    # 布尔字段
+    is_roll_film = db.Column(db.Boolean, default=False, comment='卷膜')
+    is_disabled = db.Column(db.Boolean, default=False, comment='停用')
+    is_custom_spec = db.Column(db.Boolean, default=False, comment='自定规格')
+    is_strict_bag_type = db.Column(db.Boolean, default=True, comment='严格袋型')
+    is_process_judgment = db.Column(db.Boolean, default=False, comment='工序判断')
+    is_diaper = db.Column(db.Boolean, default=False, comment='是否纸尿裤')
+    is_woven_bag = db.Column(db.Boolean, default=False, comment='是否编织袋')
+    is_label = db.Column(db.Boolean, default=False, comment='是否标签')
+    is_antenna = db.Column(db.Boolean, default=False, comment='是否天线')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    production_unit = db.relationship('Unit', foreign_keys=[production_unit_id], backref='production_bag_types', lazy='select')
+    sales_unit = db.relationship('Unit', foreign_keys=[sales_unit_id], backref='sales_bag_types', lazy='select')
+    
+    __table_args__ = (
+        db.CheckConstraint(
+            "difficulty_coefficient >= 0", 
+            name='bag_types_difficulty_coefficient_check'
+        ),
+        db.CheckConstraint(
+            "bag_making_unit_price >= 0", 
+            name='bag_types_unit_price_check'
+        ),
+        db.UniqueConstraint('bag_type_name', name='uk_bag_types_name'),
+    )
+    
+    def to_dict(self, include_user_info=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'bag_type_name': self.bag_type_name,
+            'spec_expression': self.spec_expression,
+            'production_unit_id': str(self.production_unit_id) if self.production_unit_id else None,
+            'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'difficulty_coefficient': float(self.difficulty_coefficient) if self.difficulty_coefficient else 0,
+            'bag_making_unit_price': float(self.bag_making_unit_price) if self.bag_making_unit_price else 0,
+            'sort_order': self.sort_order,
+            'is_roll_film': self.is_roll_film,
+            'is_disabled': self.is_disabled,
+            'is_custom_spec': self.is_custom_spec,
+            'is_strict_bag_type': self.is_strict_bag_type,
+            'is_process_judgment': self.is_process_judgment,
+            'is_diaper': self.is_diaper,
+            'is_woven_bag': self.is_woven_bag,
+            'is_label': self.is_label,
+            'is_antenna': self.is_antenna,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加单位名称
+        if self.production_unit:
+            data['production_unit_name'] = self.production_unit.unit_name
+        if self.sales_unit:
+            data['sales_unit_name'] = self.sales_unit.unit_name
+        
+        if include_user_info:
+            from app.models.user import User
+            if self.created_by:
+                created_user = User.query.get(self.created_by)
+                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            else:
+                data['created_by_name'] = '系统'
+                
+            if self.updated_by:
+                updated_user = User.query.get(self.updated_by)
+                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            else:
+                data['updated_by_name'] = ''
+        
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的袋型列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.bag_type_name).all()
+    
+    def __repr__(self):
+        return f'<BagType {self.bag_type_name}>'

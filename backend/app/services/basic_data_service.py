@@ -4,7 +4,7 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType
 from app.models.user import User
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
@@ -2320,3 +2320,305 @@ class WarehouseService:
             return Warehouse.get_circulation_types()
         except Exception as e:
             raise ValueError(f"获取流转类型失败: {str(e)}") 
+
+
+class BagTypeService:
+    """袋型管理服务"""
+    
+    @staticmethod
+    def get_bag_types(page=1, per_page=20, search=None, is_enabled=None):
+        """获取袋型列表"""
+        try:
+            from app.models.basic_data import BagType
+            
+            # 构建查询
+            query = db.session.query(BagType)
+            
+            # 搜索条件
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(or_(
+                    BagType.bag_type_name.ilike(search_pattern),
+                    BagType.spec_expression.ilike(search_pattern),
+                    BagType.description.ilike(search_pattern)
+                ))
+            
+            # 启用状态筛选
+            if is_enabled is not None:
+                query = query.filter(BagType.is_enabled == is_enabled)
+            
+            # 排序
+            query = query.order_by(BagType.sort_order, BagType.bag_type_name)
+            
+            # 分页
+            total = query.count()
+            bag_types = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            return {
+                'bag_types': [bag_type.to_dict(include_user_info=True) for bag_type in bag_types],
+                'total': total,
+                'current_page': page,
+                'per_page': per_page,
+                'pages': (total + per_page - 1) // per_page
+            }
+            
+        except Exception as e:
+            raise ValueError(f"获取袋型列表失败: {str(e)}")
+    
+    @staticmethod
+    def get_bag_type(bag_type_id):
+        """获取袋型详情"""
+        try:
+            from app.models.basic_data import BagType
+            
+            bag_type = db.session.query(BagType).get(uuid.UUID(bag_type_id))
+            if not bag_type:
+                raise ValueError("袋型不存在")
+            
+            return bag_type.to_dict(include_user_info=True)
+            
+        except Exception as e:
+            raise ValueError(f"获取袋型详情失败: {str(e)}")
+    
+    @staticmethod
+    def create_bag_type(data, created_by):
+        """创建袋型"""
+        try:
+            from app.models.basic_data import BagType
+            
+            # 验证袋型名称唯一性
+            existing = db.session.query(BagType).filter(
+                BagType.bag_type_name == data['bag_type_name']
+            ).first()
+            if existing:
+                raise ValueError("袋型名称已存在")
+            
+            # 验证单位是否存在
+            production_unit_id = None
+            sales_unit_id = None
+            
+            if data.get('production_unit_id'):
+                from app.models.basic_data import Unit
+                production_unit_id = uuid.UUID(data['production_unit_id'])
+                production_unit = db.session.query(Unit).get(production_unit_id)
+                if not production_unit:
+                    raise ValueError("生产单位不存在")
+                if not production_unit.is_enabled:
+                    raise ValueError("生产单位未启用")
+            
+            if data.get('sales_unit_id'):
+                from app.models.basic_data import Unit
+                sales_unit_id = uuid.UUID(data['sales_unit_id'])
+                sales_unit = db.session.query(Unit).get(sales_unit_id)
+                if not sales_unit:
+                    raise ValueError("销售单位不存在")
+                if not sales_unit.is_enabled:
+                    raise ValueError("销售单位未启用")
+            
+            # 创建袋型对象
+            bag_type = BagType(
+                bag_type_name=data['bag_type_name'],
+                spec_expression=data.get('spec_expression'),
+                production_unit_id=production_unit_id,
+                sales_unit_id=sales_unit_id,
+                difficulty_coefficient=data.get('difficulty_coefficient', 0),
+                bag_making_unit_price=data.get('bag_making_unit_price', 0),
+                sort_order=data.get('sort_order', 0),
+                is_roll_film=data.get('is_roll_film', False),
+                is_disabled=data.get('is_disabled', False),
+                is_custom_spec=data.get('is_custom_spec', False),
+                is_strict_bag_type=data.get('is_strict_bag_type', True),
+                is_process_judgment=data.get('is_process_judgment', False),
+                is_diaper=data.get('is_diaper', False),
+                is_woven_bag=data.get('is_woven_bag', False),
+                is_label=data.get('is_label', False),
+                is_antenna=data.get('is_antenna', False),
+                description=data.get('description', ''),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(bag_type)
+            db.session.commit()
+            
+            return bag_type.to_dict(include_user_info=True)
+                        
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"创建袋型失败: {str(e)}")
+    
+    @staticmethod
+    def update_bag_type(bag_type_id, data, updated_by):
+        """更新袋型"""
+        try:
+            from app.models.basic_data import BagType
+            
+            bag_type = db.session.query(BagType).get(uuid.UUID(bag_type_id))
+            if not bag_type:
+                raise ValueError("袋型不存在")
+            
+            # 验证袋型名称唯一性（排除自己）
+            if 'bag_type_name' in data and data['bag_type_name'] != bag_type.bag_type_name:
+                existing = db.session.query(BagType).filter(
+                    BagType.bag_type_name == data['bag_type_name'],
+                    BagType.id != bag_type.id
+                ).first()
+                if existing:
+                    raise ValueError("袋型名称已存在")
+            
+            # 验证单位
+            if 'production_unit_id' in data and data['production_unit_id']:
+                from app.models.basic_data import Unit
+                production_unit = db.session.query(Unit).get(uuid.UUID(data['production_unit_id']))
+                if not production_unit:
+                    raise ValueError("生产单位不存在")
+                if not production_unit.is_enabled:
+                    raise ValueError("生产单位未启用")
+            
+            if 'sales_unit_id' in data and data['sales_unit_id']:
+                from app.models.basic_data import Unit
+                sales_unit = db.session.query(Unit).get(uuid.UUID(data['sales_unit_id']))
+                if not sales_unit:
+                    raise ValueError("销售单位不存在")
+                if not sales_unit.is_enabled:
+                    raise ValueError("销售单位未启用")
+            
+            # 更新字段
+            update_fields = [
+                'bag_type_name', 'spec_expression', 'production_unit_id', 'sales_unit_id',
+                'difficulty_coefficient', 'bag_making_unit_price', 'sort_order',
+                'is_roll_film', 'is_disabled', 'is_custom_spec', 'is_strict_bag_type',
+                'is_process_judgment', 'is_diaper', 'is_woven_bag', 'is_label',
+                'is_antenna', 'description', 'is_enabled'
+            ]
+            
+            for field in update_fields:
+                if field in data:
+                    setattr(bag_type, field, data[field])
+            
+            bag_type.updated_by = uuid.UUID(updated_by)
+            bag_type.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return bag_type.to_dict(include_user_info=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'bag_type_name' in str(e):
+                raise ValueError("袋型名称已存在")
+            raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"更新袋型失败: {str(e)}")
+    
+    @staticmethod
+    def delete_bag_type(bag_type_id):
+        """删除袋型"""
+        try:
+            from app.models.basic_data import BagType
+            
+            bag_type = db.session.query(BagType).get(uuid.UUID(bag_type_id))
+            if not bag_type:
+                raise ValueError("袋型不存在")
+            
+            db.session.delete(bag_type)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"删除袋型失败: {str(e)}")
+    
+    @staticmethod
+    def batch_update_bag_types(updates, updated_by):
+        """批量更新袋型"""
+        try:
+            from app.models.basic_data import BagType
+            
+            updated_bag_types = []
+            
+            for update_data in updates:
+                bag_type_id = update_data.get('id')
+                if not bag_type_id:
+                    continue
+                
+                bag_type = db.session.query(BagType).get(uuid.UUID(bag_type_id))
+                if not bag_type:
+                    continue
+                
+                # 更新指定字段
+                update_fields = ['sort_order', 'is_enabled']
+                for field in update_fields:
+                    if field in update_data:
+                        setattr(bag_type, field, update_data[field])
+                
+                bag_type.updated_by = uuid.UUID(updated_by)
+                bag_type.updated_at = datetime.utcnow()
+                updated_bag_types.append(bag_type)
+            
+            db.session.commit()
+            
+            return [bag_type.to_dict(include_user_info=True) for bag_type in updated_bag_types]
+            
+        except Exception as e:
+            db.session.rollback()
+            raise ValueError(f"批量更新袋型失败: {str(e)}")
+    
+    @staticmethod
+    def get_bag_type_options():
+        """获取袋型选项数据"""
+        try:
+            from app.models.basic_data import BagType
+            
+            bag_types = BagType.get_enabled_list()
+            return [
+                {
+                    'value': str(bag_type.id),
+                    'label': bag_type.bag_type_name,
+                    'spec_expression': bag_type.spec_expression
+                }
+                for bag_type in bag_types
+            ]
+        except Exception as e:
+            raise ValueError(f"获取袋型选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_unit_options():
+        """获取单位选项数据"""
+        try:
+            from app.models.basic_data import Unit
+            
+            units = Unit.get_enabled_list()
+            return [
+                {
+                    'value': str(unit.id),
+                    'label': unit.unit_name
+                }
+                for unit in units
+            ]
+        except Exception as e:
+            raise ValueError(f"获取单位选项失败: {str(e)}")
+    
+    @staticmethod
+    def get_calculation_scheme_options():
+        """获取规格表达式选项（从计算方案获取）"""
+        try:
+            from app.models.basic_data import CalculationScheme
+            
+            schemes = db.session.query(CalculationScheme).filter(
+                CalculationScheme.scheme_category == 'bag_spec',
+                CalculationScheme.is_enabled == True
+            ).order_by(CalculationScheme.sort_order, CalculationScheme.scheme_name).all()
+            
+            return [
+                {
+                    'value': scheme.scheme_formula,
+                    'label': scheme.scheme_name,
+                    'description': scheme.description
+                }
+                for scheme in schemes
+            ]
+        except Exception as e:
+            raise ValueError(f"获取规格表达式选项失败: {str(e)}")

@@ -10,7 +10,8 @@ from app.services.basic_data_service import (
     CustomerService, CustomerCategoryService, 
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService,
-    CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService, EmployeeService
+    CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService, EmployeeService,
+    WarehouseService, BagTypeService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -5864,3 +5865,196 @@ def get_process_category_data_collection_mode_options():
     except Exception as e:
         current_app.logger.error(f"获取数据自动采集模式选项失败: {str(e)}")
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+# ====================== 袋型管理 ======================
+
+@bp.route('/bag-types', methods=['GET'])
+@jwt_required()
+def get_bag_types():
+    """获取袋型列表"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        is_enabled = request.args.get('is_enabled')
+        
+        # 处理is_enabled参数
+        enabled_filter = None
+        if is_enabled and is_enabled.lower() in ['true', 'false']:
+            enabled_filter = is_enabled.lower() == 'true'
+        
+        result = BagTypeService.get_bag_types(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            is_enabled=enabled_filter
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types/<bag_type_id>', methods=['GET'])
+@jwt_required()
+def get_bag_type(bag_type_id):
+    """获取袋型详情"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        result = BagTypeService.get_bag_type(bag_type_id)
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types', methods=['POST'])
+@jwt_required()
+def create_bag_type():
+    """创建袋型"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        result = BagTypeService.create_bag_type(data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '袋型创建成功'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types/<bag_type_id>', methods=['PUT'])
+@jwt_required()
+def update_bag_type(bag_type_id):
+    """更新袋型"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        result = BagTypeService.update_bag_type(bag_type_id, data, user_id)
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '袋型更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types/<bag_type_id>', methods=['DELETE'])
+@jwt_required()
+def delete_bag_type(bag_type_id):
+    """删除袋型"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        result = BagTypeService.delete_bag_type(bag_type_id)
+        return jsonify({
+            'success': True,
+            'message': '袋型删除成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_bag_types():
+    """批量更新袋型"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        data = request.get_json()
+        user_id = get_jwt_identity()
+        
+        updates = data.get('updates', [])
+        result = BagTypeService.batch_update_bag_types(updates, user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '批量更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types/options', methods=['GET'])
+@jwt_required()
+def get_bag_type_options():
+    """获取袋型选项"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        result = BagTypeService.get_bag_type_options()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@bp.route('/bag-types/form-options', methods=['GET'])
+@jwt_required()
+def get_bag_type_form_options():
+    """获取袋型表单选项数据"""
+    try:
+        from app.services.basic_data_service import BagTypeService
+        
+        # 获取单位选项
+        units = BagTypeService.get_unit_options()
+        
+        # 获取规格表达式选项
+        spec_expressions = BagTypeService.get_calculation_scheme_options()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'units': units,
+                'spec_expressions': spec_expressions
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500

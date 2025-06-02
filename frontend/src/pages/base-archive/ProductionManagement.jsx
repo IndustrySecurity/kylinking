@@ -35,7 +35,7 @@ const ProductionManagement = () => {
       key: 'bagType',
       title: '袋型',
       icon: <AppstoreOutlined />,
-      path: '/production/archive/bag-type',
+      path: '/base-archive/bag-types',
       color: '#1890ff'
     },
     {

@@ -35,6 +35,7 @@ import PositionManagement from './pages/base-archive/PositionManagement';
 import EmployeeManagement from './pages/base-archive/EmployeeManagement';
 import WarehouseManagement from './pages/base-archive/WarehouseManagement';
 import ProcessCategoryManagement from './pages/base-archive/ProcessCategoryManagement';
+import BagTypeManagement from './pages/base-archive/BagTypeManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -301,6 +302,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <ProcessCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 袋型管理 */}
+            <Route path="/base-archive/bag-types" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BagTypeManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
