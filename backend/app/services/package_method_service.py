@@ -5784,13 +5784,11 @@ class QuoteInkService:
     
     @staticmethod
     def _set_schema():
-        """设置租户schema"""
-        from flask import g
-        if hasattr(g, 'tenant_slug') and g.tenant_slug:
-            db.session.execute(text(f"SET search_path TO {g.tenant_slug}, public"))
-        else:
-            # 默认使用wanle schema
-            db.session.execute(text("SET search_path TO wanle, public"))
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
 
     @staticmethod
     def get_quote_inks(page=1, per_page=20, search=None, enabled_only=False):
