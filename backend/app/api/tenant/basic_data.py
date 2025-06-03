@@ -3,7 +3,7 @@
 基础档案管理API路由
 """
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, g
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from .routes import tenant_required
 from app.services.basic_data_service import (
@@ -3782,6 +3782,24 @@ def get_calculation_scheme_options():
             'error': str(e)
         }), 500
 
+@bp.route('/calculation-schemes/options-by-category', methods=['GET'])
+@jwt_required()
+def get_calculation_scheme_options_by_category():
+    """获取按类别分组的计算方案选项数据"""
+    try:
+        result = CalculationSchemeService.get_calculation_scheme_options_by_category()
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 
 # 材料分类管理API
 @bp.route('/material-categories', methods=['GET'])
@@ -5139,15 +5157,13 @@ def get_enabled_machines():
         from app.services.package_method_service import MachineService
         
         result = MachineService.get_enabled_machines()
-        return jsonify({
-            'success': True,
-            'data': result
-        })
+        return jsonify(result)
         
     except Exception as e:
+        current_app.logger.error(f'获取启用的机台列表失败: {str(e)}')
         return jsonify({
-            'success': False,
-            'message': str(e)
+            'code': 500,
+            'message': f'获取启用的机台列表失败: {str(e)}'
         }), 500
 
 # ====================== 报损类型管理 ======================
@@ -5818,13 +5834,10 @@ def get_enabled_process_categories():
         from app.services.package_method_service import ProcessCategoryService
         
         result = ProcessCategoryService.get_enabled_process_categories()
-        return jsonify({
-            'code': 200,
-            'message': '获取启用的工序分类列表成功',
-            'data': result
-        })
+        return jsonify(result)
         
     except Exception as e:
+        current_app.logger.error(f'获取启用的工序分类列表失败: {str(e)}')
         return jsonify({
             'code': 500,
             'message': f'获取启用的工序分类列表失败: {str(e)}'
@@ -6161,4 +6174,216 @@ def delete_bag_type_structure(structure_id):
         return jsonify({
             'success': False,
             'message': str(e)
+        }), 500
+
+# ====================== 工序管理 ======================
+
+@bp.route('/processes', methods=['GET'])
+@jwt_required()
+def get_processes():
+    """获取工序列表"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        
+        result = ProcessService.get_processes(
+            page=page,
+            per_page=per_page,
+            search=search if search else None
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        current_app.logger.error(f'获取工序列表失败: {str(e)}')
+        return jsonify({
+            'code': 500,
+            'message': f'获取工序列表失败: {str(e)}'
+        }), 500
+
+@bp.route('/processes/<process_id>', methods=['GET'])
+@jwt_required()
+def get_process(process_id):
+    """获取单个工序"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        result = ProcessService.get_process(process_id)
+        
+        if not result:
+            return jsonify({
+                'code': 404,
+                'message': '工序不存在'
+            }), 404
+            
+        return jsonify(result)
+        
+    except Exception as e:
+        current_app.logger.error(f'获取工序详情失败: {str(e)}')
+        return jsonify({
+            'code': 500,
+            'message': f'获取工序详情失败: {str(e)}'
+        }), 500
+
+@bp.route('/processes', methods=['POST'])
+@jwt_required()
+def create_process():
+    """创建工序"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'code': 400, 'message': '无效的请求数据'})
+        
+        if not data.get('process_name'):
+            return jsonify({'code': 400, 'message': '工序名称不能为空'})
+        
+        # 获取当前用户ID
+        current_user_id = get_jwt_identity()
+        
+        process = ProcessService.create_process(data, current_user_id)
+        
+        return jsonify({
+            'code': 201,
+            'message': '创建成功',
+            'data': process
+        })
+        
+    except ValueError as e:
+        return jsonify({'code': 400, 'message': str(e)})
+    except Exception as e:
+        current_app.logger.error(f"创建工序失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'})
+
+@bp.route('/processes/<process_id>', methods=['PUT'])
+@jwt_required()
+def update_process(process_id):
+    """更新工序"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'code': 400, 'message': '无效的请求数据'})
+        
+        # 获取当前用户ID
+        current_user_id = get_jwt_identity()
+        
+        process = ProcessService.update_process(process_id, data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '更新成功',
+            'data': process
+        })
+        
+    except ValueError as e:
+        return jsonify({'code': 400, 'message': str(e)})
+    except Exception as e:
+        current_app.logger.error(f"更新工序失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'})
+
+@bp.route('/processes/<process_id>', methods=['DELETE'])
+@jwt_required()
+def delete_process(process_id):
+    """删除工序"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        ProcessService.delete_process(process_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'code': 400, 'message': str(e)})
+    except Exception as e:
+        current_app.logger.error(f"删除工序失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'})
+
+@bp.route('/processes/batch', methods=['POST'])
+@jwt_required()
+def batch_update_processes():
+    """批量更新工序"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        data = request.get_json()
+        if not data or not isinstance(data, list):
+            return jsonify({'code': 400, 'message': '无效的请求数据'})
+        
+        # 获取当前用户ID
+        current_user_id = get_jwt_identity()
+        
+        processes = ProcessService.batch_update_processes(data, current_user_id)
+        
+        return jsonify({
+            'code': 200,
+            'message': '批量更新成功',
+            'data': processes
+        })
+        
+    except ValueError as e:
+        return jsonify({'code': 400, 'message': str(e)})
+    except Exception as e:
+        current_app.logger.error(f"批量更新工序失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'批量更新失败: {str(e)}'})
+
+@bp.route('/processes/enabled', methods=['GET'])
+@jwt_required()
+def get_enabled_processes():
+    """获取启用的工序列表"""
+    try:
+        from app.services.package_method_service import ProcessService
+        
+        processes = ProcessService.get_enabled_processes()
+        
+        return jsonify({
+            'code': 200,
+            'message': '获取成功',
+            'data': processes
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取启用工序列表失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'})
+
+@bp.route('/processes/scheduling-method-options', methods=['GET'])
+@jwt_required()
+def get_scheduling_method_options():
+    try:
+        from app.services.package_method_service import ProcessService  # 必须有这行
+        options = ProcessService.get_scheduling_method_options()
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@bp.route('/processes/calculation-scheme-options', methods=['GET'])
+@jwt_required()
+def get_process_calculation_scheme_options():
+    try:
+        from app.services.package_method_service import ProcessService  # 修复未定义问题
+        result = ProcessService.get_calculation_scheme_options_by_category()
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500

@@ -35,6 +35,7 @@ import PositionManagement from './pages/base-archive/PositionManagement';
 import EmployeeManagement from './pages/base-archive/EmployeeManagement';
 import WarehouseManagement from './pages/base-archive/WarehouseManagement';
 import ProcessCategoryManagement from './pages/base-archive/ProcessCategoryManagement';
+import ProcessManagement from './pages/production/archive/ProcessManagement';
 import BagTypeManagement from './pages/base-archive/BagTypeManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
@@ -425,6 +426,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <PackageMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 工序管理路由 */}
+            <Route path="/production/archive/process" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProcessManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

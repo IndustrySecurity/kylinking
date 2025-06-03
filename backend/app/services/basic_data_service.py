@@ -1341,6 +1341,70 @@ class CalculationSchemeService:
         except Exception as e:
             raise ValueError(f"获取{category}分类计算方案失败: {str(e)}")
 
+    @staticmethod
+    def get_calculation_scheme_options_by_category():
+        """获取按类别分组的计算方案选项"""
+        # 设置schema
+        CalculationSchemeService._set_schema()
+        
+        try:
+            from app.models.basic_data import CalculationScheme
+            
+            # 使用ORM查询，自动应用租户上下文
+            schemes = CalculationScheme.query.filter_by(is_enabled=True).order_by(
+                CalculationScheme.sort_order, 
+                CalculationScheme.scheme_name
+            ).all()
+            
+            # 按类别分组
+            categories = {
+                'budget': [],    # 预算类
+                'production': [], # 生产类
+                'other': [],     # 其他类
+                'saving': [],    # 节约奖类
+                'pricing': [],   # 报价类
+                'labor': []      # 计件类
+            }
+            
+            for scheme in schemes:
+                # 转换为选项格式
+                option = {
+                    'value': str(scheme.id),
+                    'label': scheme.scheme_name,
+                    'category': scheme.scheme_category,
+                    'description': scheme.description or '',
+                    'formula': scheme.scheme_formula or ''
+                }
+                
+                # 根据计算方案分类添加到对应类别
+                category = scheme.scheme_category.lower() if scheme.scheme_category else ''
+                
+                if 'budget' in category or '预算' in category:
+                    categories['budget'].append(option)
+                elif 'production' in category or '生产' in category:
+                    categories['production'].append(option)
+                elif 'saving' in category or '节约' in category or '节约奖' in category:
+                    categories['saving'].append(option)
+                elif 'labor' in category or '计件' in category or '工资' in category:
+                    categories['labor'].append(option)
+                elif 'pricing' in category or '报价' in category:
+                    categories['pricing'].append(option)
+                else:
+                    categories['other'].append(option)
+            
+            # 对空类别添加占位选项
+            for key, options in categories.items():
+                if not options:
+                    categories[key].append({
+                        'value': f'empty_{key}',
+                        'label': f'[无{key}类公式]',
+                        'category': key
+                    })
+            
+            return categories
+        except Exception as e:
+            raise ValueError(f"按类别获取计算方案选项失败: {str(e)}")
+
 
 class DepartmentService:
     """部门管理服务"""

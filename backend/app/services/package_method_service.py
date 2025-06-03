@@ -5497,13 +5497,11 @@ class MachineService:
     
     @staticmethod
     def _set_schema():
-        """设置租户schema"""
-        from flask import g
-        if hasattr(g, 'tenant_slug') and g.tenant_slug:
-            db.session.execute(text(f"SET search_path TO {g.tenant_slug}, public"))
-        else:
-            # 默认使用wanle schema
-            db.session.execute(text("SET search_path TO wanle, public"))
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
 
     @staticmethod
     def get_machines(page=1, per_page=20, search=None, enabled_only=False):
@@ -5567,7 +5565,7 @@ class MachineService:
                 return None
             
             # 获取用户信息
-            from app.models.auth import User
+            from app.models.user import User
             user_ids = []
             if machine.created_by:
                 user_ids.append(machine.created_by)
@@ -5577,7 +5575,7 @@ class MachineService:
             users = {}
             if user_ids:
                 user_list = User.query.filter(User.id.in_(user_ids)).all()
-                users = {str(user.id): user.username for user in user_list}
+                users = {str(user.id): user.get_full_name() for user in user_list}
             
             machine_dict = machine.to_dict()
             machine_dict['created_by_name'] = users.get(str(machine.created_by), '')
@@ -6968,11 +6966,11 @@ class ProcessCategoryService:
     
     @staticmethod
     def _set_schema():
-        """设置租户schema"""
-        from app.utils.tenant import TenantContext
-        schema_name = TenantContext.get_schema()
-        if schema_name:
-            db.session.execute(text(f'SET search_path TO {schema_name}'))
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
 
     @staticmethod
     def get_process_categories(page=1, per_page=20, search=None, enabled_only=False):
@@ -6981,7 +6979,7 @@ class ProcessCategoryService:
         ProcessCategoryService._set_schema()
         
         from app.models.basic_data import ProcessCategory
-        from app.models.auth import User
+        from app.models.user import User
         
         query = ProcessCategory.query
         
@@ -7051,7 +7049,7 @@ class ProcessCategoryService:
             raise ValueError('无效的工序分类ID')
         
         from app.models.basic_data import ProcessCategory
-        from app.models.auth import User
+        from app.models.user import User
         
         process_category = ProcessCategory.query.get(pc_uuid)
         if not process_category:
@@ -7354,96 +7352,425 @@ class ProcessCategoryService:
         return ProcessCategory.get_data_collection_mode_options()
 
 
-class ProcessCategoryService:
-    """工序分类服务"""
+class ProcessService:
+    """工序服务类"""
     
     @staticmethod
     def _set_schema():
-        """设置租户schema"""
-        from app.utils.tenant import TenantContext
-        schema_name = TenantContext.get_schema()
-        if schema_name:
-            db.session.execute(text(f'SET search_path TO {schema_name}'))
+        """设置当前租户的schema搜索路径"""
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
 
     @staticmethod
-    def get_process_categories(page=1, per_page=20, search=None, enabled_only=False):
-        """获取工序分类列表"""
-        # 设置schema
-        ProcessCategoryService._set_schema()
-        
-        from app.models.basic_data import ProcessCategory
-        from app.models.auth import User
-        
-        query = ProcessCategory.query
-        
-        # 搜索过滤
-        if search:
-            search_filter = or_(
-                ProcessCategory.process_name.ilike(f'%{search}%'),
-                ProcessCategory.category_type.ilike(f'%{search}%'),
-                ProcessCategory.description.ilike(f'%{search}%')
-            )
-            query = query.filter(search_filter)
-        
-        # 启用状态过滤
-        if enabled_only:
-            query = query.filter(ProcessCategory.is_enabled == True)
-        
-        # 排序
-        query = query.order_by(ProcessCategory.sort_order, ProcessCategory.process_name)
-        
-        # 分页
-        paginated = query.paginate(
-            page=page, 
-            per_page=per_page,
-            error_out=False
-        )
-        
-        process_categories = []
-        for pc in paginated.items:
-            pc_data = pc.to_dict()
-            
-            # 获取创建人和修改人用户名
-            if pc.created_by:
-                created_user = User.query.get(pc.created_by)
-                if created_user:
-                    pc_data['created_by_name'] = created_user.get_full_name()
-                else:
-                    pc_data['created_by_name'] = '未知用户'
-            
-            if pc.updated_by:
-                updated_user = User.query.get(pc.updated_by)
-                if updated_user:
-                    pc_data['updated_by_name'] = updated_user.get_full_name()
-                else:
-                    pc_data['updated_by_name'] = '未知用户'
-            
-            process_categories.append(pc_data)
-        
-        return {
-            'process_categories': process_categories,
-            'total': paginated.total,
-            'pages': paginated.pages,
-            'current_page': page,
-            'per_page': per_page,
-            'has_next': paginated.has_next,
-            'has_prev': paginated.has_prev
-        }
-
-    @staticmethod
-    def get_process_category(process_category_id):
-        """获取单个工序分类"""
-        # 设置schema
-        ProcessCategoryService._set_schema()
-        
+    def get_processes(page=1, per_page=20, search=None, enabled_only=False):
+        """获取工序列表"""
         try:
-            pc_uuid = uuid.UUID(process_category_id)
-        except ValueError:
-            raise ValueError('无效的工序分类ID')
+            ProcessService._set_schema()
+            from app.models.basic_data import Process
         
-        from app.models.basic_data import ProcessCategory
-        from app.models.auth import User
+            query = Process.query
         
-        process_category = ProcessCategory.query.get(pc_uuid)
-        if not process_category:
-            raise ValueError('工序分类不存在')
+            # 搜索功能
+            if search:
+                    from app import db
+                    query = query.filter(
+                        db.or_(
+                            Process.process_name.ilike(f'%{search}%'),
+                            Process.mes_condition_code.ilike(f'%{search}%')
+                        )
+                )
+            
+                # 是否只获取启用的
+            if enabled_only:
+                query = query.filter(Process.is_enabled == True)
+            
+                # 分页查询
+                pagination = query.order_by(Process.sort_order, Process.created_at.desc()).paginate(
+                    page=page, per_page=per_page, error_out=False
+                )
+                
+                # 获取用户信息
+                from app.models.user import User
+                user_ids = []
+                for process in pagination.items:
+                    if process.created_by:
+                        user_ids.append(process.created_by)
+                    if process.updated_by:
+                        user_ids.append(process.updated_by)
+                
+                users = {}
+                if user_ids:
+                    user_list = User.query.filter(User.id.in_(user_ids)).all()
+                    users = {str(user.id): user.get_full_name() for user in user_list}
+                
+                # 构建返回结果
+                items = []
+                for process in pagination.items:
+                    process_dict = process.to_dict(include_machines=True)
+                    process_dict['created_by_name'] = users.get(str(process.created_by), '')
+                    process_dict['updated_by_name'] = users.get(str(process.updated_by), '')
+                    items.append(process_dict)
+                
+                return {
+                    'items': items,
+                    'total': pagination.total,
+                    'pages': pagination.pages,
+                    'current_page': pagination.page,
+                    'per_page': pagination.per_page,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+                
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f"获取工序列表失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_process(process_id):
+        """获取单个工序"""
+        try:
+            ProcessService._set_schema()
+            from app.models.basic_data import Process
+            import uuid
+            
+            try:
+                process_uuid = uuid.UUID(process_id)
+            except ValueError:
+                raise ValueError('无效的工序ID')
+            
+            process = Process.query.get(process_uuid)
+            if not process:
+                return None
+            
+            # 获取用户信息
+            from app.models.user import User
+            user_ids = []
+            if process.created_by:
+                user_ids.append(process.created_by)
+            if process.updated_by:
+                user_ids.append(process.updated_by)
+            
+            users = {}
+            if user_ids:
+                user_list = User.query.filter(User.id.in_(user_ids)).all()
+                users = {str(user.id): user.get_full_name() for user in user_list}
+            
+            process_dict = process.to_dict(include_machines=True)
+            process_dict['created_by_name'] = users.get(str(process.created_by), '')
+            process_dict['updated_by_name'] = users.get(str(process.updated_by), '')
+            
+            return process_dict
+            
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f"获取工序失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def create_process(data, created_by):
+        """创建工序"""
+        try:
+            ProcessService._set_schema()
+            from app.models.basic_data import Process, ProcessMachine
+            from app import db
+            import uuid
+            
+            try:
+                created_by_uuid = uuid.UUID(created_by)
+            except ValueError:
+                raise ValueError('无效的创建用户ID')
+            
+            # 检查工序名称是否重复
+            existing = Process.query.filter_by(process_name=data.get('process_name')).first()
+            if existing:
+                raise ValueError('工序名称已存在')
+            
+            # 创建工序
+            process = Process(
+                process_name=data.get('process_name'),
+                process_category_id=uuid.UUID(data.get('process_category_id')) if data.get('process_category_id') else None,
+                scheduling_method=data.get('scheduling_method'),
+                mes_condition_code=data.get('mes_condition_code'),
+                unit=data.get('unit'),
+                production_allowance=data.get('production_allowance'),
+                return_allowance_kg=data.get('return_allowance_kg'),
+                sort_order=data.get('sort_order'),
+                over_production_allowance=data.get('over_production_allowance'),
+                self_check_allowance_kg=data.get('self_check_allowance_kg'),
+                workshop_difference=data.get('workshop_difference'),
+                max_upload_count=data.get('max_upload_count'),
+                standard_weight_difference=data.get('standard_weight_difference'),
+                workshop_worker_difference=data.get('workshop_worker_difference'),
+                mes_report_form_code=data.get('mes_report_form_code'),
+                ignore_inspection=data.get('ignore_inspection', False),
+                unit_price=data.get('unit_price'),
+                return_allowance_upper_kg=data.get('return_allowance_upper_kg'),
+                over_production_limit=data.get('over_production_limit'),
+                mes_verify_quality=data.get('mes_verify_quality', False),
+                external_processing=data.get('external_processing', False),
+                mes_upload_defect_items=data.get('mes_upload_defect_items', False),
+                mes_scancode_shelf=data.get('mes_scancode_shelf', False),
+                mes_verify_spec=data.get('mes_verify_spec', False),
+                mes_upload_kg_required=data.get('mes_upload_kg_required', False),
+                display_data_collection=data.get('display_data_collection', False),
+                free_inspection=data.get('free_inspection', False),
+                process_with_machine=data.get('process_with_machine', False),
+                semi_product_usage=data.get('semi_product_usage', False),
+                material_usage_required=data.get('material_usage_required', False),
+                pricing_formula=data.get('pricing_formula'),
+                worker_formula=data.get('worker_formula'),
+                material_formula=data.get('material_formula'),
+                output_formula=data.get('output_formula'),
+                time_formula=data.get('time_formula'),
+                energy_formula=data.get('energy_formula'),
+                saving_formula=data.get('saving_formula'),
+                labor_cost_formula=data.get('labor_cost_formula'),
+                pricing_order_formula=data.get('pricing_order_formula'),
+                description=data.get('description'),
+                is_enabled=data.get('is_enabled', True),
+                created_by=created_by_uuid
+            )
+            
+            db.session.add(process)
+            db.session.flush()  # 获取自动生成的ID
+            
+            # 处理关联机台
+            machines_data = data.get('machines', [])
+            for idx, machine_data in enumerate(machines_data):
+                machine_id = machine_data.get('machine_id')
+                if not machine_id:
+                    continue
+                    
+                try:
+                    machine_uuid = uuid.UUID(machine_id)
+                except ValueError:
+                    continue
+                    
+                process_machine = ProcessMachine(
+                    process_id=process.id,
+                    machine_id=machine_uuid,
+                    sort_order=idx + 1
+                )
+                db.session.add(process_machine)
+            
+            db.session.commit()
+            
+            return process.to_dict(include_machines=True)
+            
+        except Exception as e:
+            from app import db
+            db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f"创建工序失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def update_process(process_id, data, updated_by):
+        """更新工序"""
+        try:
+            ProcessService._set_schema()
+            from app.models.basic_data import Process, ProcessMachine
+            from app import db
+            import uuid
+            
+            try:
+                process_uuid = uuid.UUID(process_id)
+            except ValueError:
+                raise ValueError('无效的工序ID')
+                
+            try:
+                updated_by_uuid = uuid.UUID(updated_by)
+            except ValueError:
+                raise ValueError('无效的更新用户ID')
+            
+            process = Process.query.get(process_uuid)
+            if not process:
+                raise ValueError('工序不存在')
+            
+            # 检查名称是否重复（排除自己）
+            if data.get('process_name') and data['process_name'] != process.process_name:
+                existing = Process.query.filter_by(process_name=data['process_name']).first()
+                if existing and existing.id != process_uuid:
+                    raise ValueError('工序名称已存在')
+            
+            # 更新基本字段
+            fields = [
+                'process_name', 'scheduling_method', 'mes_condition_code', 'unit',
+                'production_allowance', 'return_allowance_kg', 'sort_order',
+                'over_production_allowance', 'self_check_allowance_kg', 'workshop_difference',
+                'max_upload_count', 'standard_weight_difference', 'workshop_worker_difference',
+                'mes_report_form_code', 'ignore_inspection', 'unit_price',
+                'return_allowance_upper_kg', 'over_production_limit', 'mes_verify_quality',
+                'external_processing', 'mes_upload_defect_items', 'mes_scancode_shelf',
+                'mes_verify_spec', 'mes_upload_kg_required', 'display_data_collection',
+                'free_inspection', 'process_with_machine', 'semi_product_usage',
+                'material_usage_required', 'pricing_formula', 'worker_formula',
+                'material_formula', 'output_formula', 'time_formula', 'energy_formula',
+                'saving_formula', 'labor_cost_formula', 'pricing_order_formula',
+                'description', 'is_enabled'
+            ]
+            
+            for field in fields:
+                if field in data:
+                    setattr(process, field, data[field])
+            
+            # 更新工序分类
+            if 'process_category_id' in data:
+                if data['process_category_id']:
+                    try:
+                        process.process_category_id = uuid.UUID(data['process_category_id'])
+                    except ValueError:
+                        pass
+                else:
+                    process.process_category_id = None
+            
+            process.updated_by = updated_by_uuid
+            
+            # 处理关联机台
+            if 'machines' in data:
+                # 删除所有现有关联
+                ProcessMachine.query.filter_by(process_id=process_uuid).delete()
+                
+                # 添加新的关联
+                for idx, machine_data in enumerate(data['machines']):
+                    machine_id = machine_data.get('machine_id')
+                    if not machine_id:
+                        continue
+                        
+                    try:
+                        machine_uuid = uuid.UUID(machine_id)
+                    except ValueError:
+                        continue
+                        
+                    process_machine = ProcessMachine(
+                        process_id=process_uuid,
+                        machine_id=machine_uuid,
+                        sort_order=idx + 1
+                    )
+                    db.session.add(process_machine)
+            
+            db.session.commit()
+            
+            return process.to_dict(include_machines=True)
+            
+        except Exception as e:
+            from app import db
+            db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f"更新工序失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def delete_process(process_id):
+        """删除工序"""
+        try:
+            ProcessService._set_schema()
+            from app.models.basic_data import Process
+            from app import db
+            import uuid
+        
+            try:
+                process_uuid = uuid.UUID(process_id)
+            except ValueError:
+                raise ValueError('无效的工序ID')
+                
+            process = Process.query.get(process_uuid)
+            if not process:
+                raise ValueError('工序不存在')
+            
+            # 子表关联会通过级联删除处理
+            db.session.delete(process)
+            db.session.commit()
+            
+            return True
+            
+        except Exception as e:
+            from app import db
+            db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f"删除工序失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def batch_update_processes(data_list, updated_by):
+        """批量更新工序"""
+        try:
+            ProcessService._set_schema()
+            from app.models.basic_data import Process
+            from app import db
+            import uuid
+            
+            try:
+                updated_by_uuid = uuid.UUID(updated_by)
+            except ValueError:
+                raise ValueError('无效的更新用户ID')
+            
+            results = []
+            
+            for item in data_list:
+                if not item.get('id'):
+                    continue
+                    
+                try:
+                    process_uuid = uuid.UUID(item['id'])
+                except ValueError:
+                    continue
+                
+                process = Process.query.get(process_uuid)
+                if not process:
+                    continue
+                
+                # 更新字段
+                for field, value in item.items():
+                    if field != 'id' and hasattr(process, field):
+                        setattr(process, field, value)
+                
+                process.updated_by = updated_by_uuid
+                results.append(process.to_dict())
+            
+            db.session.commit()
+            return results
+            
+        except Exception as e:
+            from app import db
+            db.session.rollback()
+            from flask import current_app
+            current_app.logger.error(f"批量更新工序失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_enabled_processes():
+        """获取启用的工序列表"""
+        try:
+            ProcessService._set_schema()
+            from app.models.basic_data import Process
+            
+            processes = Process.query.filter(
+                Process.is_enabled == True
+            ).order_by(Process.sort_order, Process.process_name).all()
+            
+            return [process.to_dict() for process in processes]
+            
+        except Exception as e:
+            from flask import current_app
+            current_app.logger.error(f"获取启用工序列表失败: {str(e)}")
+            raise e
+
+    @staticmethod
+    def get_scheduling_method_options():
+        """获取排程方式选项"""
+        from app.models.basic_data import Process
+        return Process.get_scheduling_method_options()
+
+    @staticmethod
+    def get_calculation_scheme_options_by_category():
+        """获取按类别分组的计算方案选项"""
+        try:
+            from app.services.basic_data_service import CalculationSchemeService
+            return CalculationSchemeService.get_calculation_scheme_options_by_category()
+        except Exception as e:
+            raise ValueError(f"获取工序计算方案选项失败: {str(e)}")
+        

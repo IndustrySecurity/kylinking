@@ -27,7 +27,7 @@ import {
   CheckOutlined,
   CloseOutlined
 } from '@ant-design/icons';
-import { getMachines, createMachine, updateMachine, deleteMachine } from '../../api/machineApi';
+import { machineApi } from '../../api/machineApi';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -56,7 +56,7 @@ const MachineManagement = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await getMachines({
+      const response = await machineApi.getMachines({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
@@ -165,10 +165,10 @@ const MachineManagement = () => {
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await updateMachine(item.id, row);
+          response = await machineApi.updateMachine(item.id, row);
         } else {
           // 创建新记录
-          response = await createMachine(row);
+          response = await machineApi.createMachine(row);
         }
 
         // 正确处理后端响应格式
@@ -201,7 +201,7 @@ const MachineManagement = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await deleteMachine(record.id);
+        const response = await machineApi.deleteMachine(record.id);
         if (response.data.success) {
           message.success('删除成功');
         }

@@ -3049,3 +3049,175 @@ class BagTypeStructure(TenantModel):
     
     def __repr__(self):
         return f'<BagTypeStructure {self.structure_name}>'
+
+
+class Process(TenantModel):
+    """工序模型"""
+    __tablename__ = 'processes'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    process_name = db.Column(db.String(100), nullable=False, comment='工序名称')
+    process_category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('process_categories.id'), comment='工序分类')
+    scheduling_method = db.Column(db.String(50), comment='排程方式')
+    mes_condition_code = db.Column(db.String(100), comment='MES条码前缀')
+    unit = db.Column(db.String(50), comment='单位')
+    
+    # 报产配置
+    production_allowance = db.Column(db.Float, comment='报产允许差')
+    return_allowance_kg = db.Column(db.Float, comment='下返废品允许kg')
+    sort_order = db.Column(db.Integer, comment='排序')
+    over_production_allowance = db.Column(db.Float, comment='超产允许差')
+    self_check_allowance_kg = db.Column(db.Float, comment='自检废品允许kg')
+    workshop_difference = db.Column(db.Float, comment='工序门幅偏差')
+    max_upload_count = db.Column(db.Integer, comment='最大上报数')
+    standard_weight_difference = db.Column(db.Float, comment='标准重量差异')
+    workshop_worker_difference = db.Column(db.Float, comment='工序工人偏差')
+    
+    # MES系统配置
+    mes_report_form_code = db.Column(db.String(100), comment='MES报表表号前缀')
+    ignore_inspection = db.Column(db.Boolean, default=False, comment='不考核允许来料')
+    unit_price = db.Column(db.Float, comment='考核单价')
+    return_allowance_upper_kg = db.Column(db.Float, comment='上返废品允许kg')
+    over_production_limit = db.Column(db.Float, comment='超产允许值')
+    
+    # 布尔配置字段 - MES相关
+    mes_verify_quality = db.Column(db.Boolean, default=False, comment='MES首检合格开工')
+    external_processing = db.Column(db.Boolean, default=False, comment='工序外发')
+    mes_upload_defect_items = db.Column(db.Boolean, default=False, comment='MES上报废品手填')
+    mes_scancode_shelf = db.Column(db.Boolean, default=False, comment='MES扫码上架')
+    mes_verify_spec = db.Column(db.Boolean, default=False, comment='MES检验合格领用')
+    mes_upload_kg_required = db.Column(db.Boolean, default=False, comment='MES上报数kg必填')
+    
+    # 生产相关布尔配置
+    display_data_collection = db.Column(db.Boolean, default=False, comment='显示数据采集面板')
+    free_inspection = db.Column(db.Boolean, default=False, comment='免检')
+    process_with_machine = db.Column(db.Boolean, default=False, comment='生产排程多机台生产')
+    semi_product_usage = db.Column(db.Boolean, default=False, comment='本工序半成品领用')
+    material_usage_required = db.Column(db.Boolean, default=False, comment='辅材用量必填')
+    
+    # 报价相关公式
+    pricing_formula = db.Column(db.String(200), comment='报价拟合公式')
+    worker_formula = db.Column(db.String(200), comment='工单拟合公式')
+    material_formula = db.Column(db.String(200), comment='工单材料公式')
+    output_formula = db.Column(db.String(200), comment='产量上报拟合')
+    time_formula = db.Column(db.String(200), comment='计件工时公式')
+    energy_formula = db.Column(db.String(200), comment='计件产能公式')
+    saving_formula = db.Column(db.String(200), comment='节约公式')
+    labor_cost_formula = db.Column(db.String(200), comment='计件工资公式')
+    pricing_order_formula = db.Column(db.String(200), comment='报价工序公式')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联工序分类
+    process_category = db.relationship('ProcessCategory', foreign_keys=[process_category_id])
+    
+    # 关联机台
+    machines = db.relationship('ProcessMachine', back_populates='process', cascade='all, delete-orphan')
+    
+    # 选项常量
+    SCHEDULING_METHODS = [
+        ('', '无'),
+        ('investment_m', '投产m'),
+        ('investment_kg', '投产kg'),
+        ('production_piece', '投产(个)'),
+        ('production_output', '产出m'),
+        ('production_kg', '产出kg'),
+        ('production_piece_out', '产出(个)'),
+        ('production_set', '产出(套)'),
+        ('production_sheet', '产出(张)')
+    ]
+    
+    def to_dict(self, include_machines=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'process_name': self.process_name,
+            'process_category_id': str(self.process_category_id) if self.process_category_id else None,
+            'process_category_name': self.process_category.process_name if self.process_category else None,
+            'scheduling_method': self.scheduling_method,
+            'mes_condition_code': self.mes_condition_code,
+            'unit': self.unit,
+            'production_allowance': float(self.production_allowance) if self.production_allowance is not None else None,
+            'return_allowance_kg': float(self.return_allowance_kg) if self.return_allowance_kg is not None else None,
+            'sort_order': self.sort_order,
+            'over_production_allowance': float(self.over_production_allowance) if self.over_production_allowance is not None else None,
+            'self_check_allowance_kg': float(self.self_check_allowance_kg) if self.self_check_allowance_kg is not None else None,
+            'workshop_difference': float(self.workshop_difference) if self.workshop_difference is not None else None,
+            'max_upload_count': self.max_upload_count,
+            'standard_weight_difference': float(self.standard_weight_difference) if self.standard_weight_difference is not None else None,
+            'workshop_worker_difference': float(self.workshop_worker_difference) if self.workshop_worker_difference is not None else None,
+            'mes_report_form_code': self.mes_report_form_code,
+            'ignore_inspection': self.ignore_inspection,
+            'unit_price': float(self.unit_price) if self.unit_price is not None else None,
+            'return_allowance_upper_kg': float(self.return_allowance_upper_kg) if self.return_allowance_upper_kg is not None else None,
+            'over_production_limit': float(self.over_production_limit) if self.over_production_limit is not None else None,
+            'mes_verify_quality': self.mes_verify_quality,
+            'external_processing': self.external_processing,
+            'mes_upload_defect_items': self.mes_upload_defect_items,
+            'mes_scancode_shelf': self.mes_scancode_shelf,
+            'mes_verify_spec': self.mes_verify_spec,
+            'mes_upload_kg_required': self.mes_upload_kg_required,
+            'display_data_collection': self.display_data_collection,
+            'free_inspection': self.free_inspection,
+            'process_with_machine': self.process_with_machine,
+            'semi_product_usage': self.semi_product_usage,
+            'material_usage_required': self.material_usage_required,
+            'pricing_formula': self.pricing_formula,
+            'worker_formula': self.worker_formula,
+            'material_formula': self.material_formula,
+            'output_formula': self.output_formula,
+            'time_formula': self.time_formula,
+            'energy_formula': self.energy_formula,
+            'saving_formula': self.saving_formula,
+            'labor_cost_formula': self.labor_cost_formula,
+            'pricing_order_formula': self.pricing_order_formula,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None
+        }
+        
+        if include_machines:
+            result['machines'] = [pm.to_dict() for pm in self.machines]
+            
+        return result
+    
+    @staticmethod
+    def get_scheduling_method_options():
+        """获取排程方式选项"""
+        return [{'value': option[0], 'label': option[1]} for option in Process.SCHEDULING_METHODS]
+
+
+class ProcessMachine(TenantModel):
+    """工序机台关联模型"""
+    __tablename__ = 'process_machines'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    process_id = db.Column(UUID(as_uuid=True), db.ForeignKey('processes.id'), nullable=False)
+    machine_id = db.Column(UUID(as_uuid=True), db.ForeignKey('machines.id'), nullable=False)
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 关联
+    process = db.relationship('Process', back_populates='machines')
+    machine = db.relationship('Machine')
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'process_id': str(self.process_id),
+            'machine_id': str(self.machine_id),
+            'machine_name': self.machine.machine_name if self.machine else None,
+            'machine_code': self.machine.machine_code if self.machine else None,
+            'sort_order': self.sort_order
+        }
