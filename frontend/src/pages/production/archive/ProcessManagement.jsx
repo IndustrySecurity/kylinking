@@ -45,14 +45,13 @@ const ProcessManagement = () => {
   const [modalForm] = Form.useForm();
   const searchInput = useRef(null);
   
-  // 计算公式选项
+  // 计算公式选项 - 修改数据结构以支持按分类选择
   const [formulaOptions, setFormulaOptions] = useState({
-    budget: [], // 预算类
-    production: [], // 生产类
-    other: [], // 其他类
-    saving: [], // 节约奖类
-    pricing: [], // 报价类
-    labor: [] // 计件类
+    process_quote: [], // 工序报价分类
+    process_loss: [], // 工序损耗分类
+    process_bonus: [], // 工序节约奖分类
+    process_piece: [], // 工序计件分类
+    process_other: [] // 工序其它分类
   });
   const [formulaLoading, setFormulaLoading] = useState(false);
   
@@ -130,7 +129,7 @@ const ProcessManagement = () => {
     }
   };
 
-  // 获取计算公式选项
+  // 获取计算公式选项 - 修改为获取分类方案
   const loadFormulaOptions = async () => {
     setFormulaLoading(true);
     try {
@@ -139,22 +138,20 @@ const ProcessManagement = () => {
       if (response && response.data && response.data.success && response.data.data) {
         // 确保每个类别都有默认的空选项
         const defaultOptions = {
-          budget: [{ value: '', label: '请选择' }],
-          production: [{ value: '', label: '请选择' }],
-          other: [{ value: '', label: '请选择' }],
-          saving: [{ value: '', label: '请选择' }],
-          pricing: [{ value: '', label: '请选择' }],
-          labor: [{ value: '', label: '请选择' }]
+          process_quote: [{ value: '', label: '请选择' }],
+          process_loss: [{ value: '', label: '请选择' }], 
+          process_bonus: [{ value: '', label: '请选择' }],
+          process_piece: [{ value: '', label: '请选择' }],
+          process_other: [{ value: '', label: '请选择' }]
         };
         
         // 合并默认选项和API返回的数据
         const mergedOptions = {
-          budget: [...defaultOptions.budget, ...(response.data.data.budget || [])],
-          production: [...defaultOptions.production, ...(response.data.data.production || [])],
-          other: [...defaultOptions.other, ...(response.data.data.other || [])],
-          saving: [...defaultOptions.saving, ...(response.data.data.saving || [])],
-          pricing: [...defaultOptions.pricing, ...(response.data.data.pricing || [])],
-          labor: [...defaultOptions.labor, ...(response.data.data.labor || [])]
+          process_quote: [...defaultOptions.process_quote, ...(response.data.data.process_quote || [])],
+          process_loss: [...defaultOptions.process_loss, ...(response.data.data.process_loss || [])],
+          process_bonus: [...defaultOptions.process_bonus, ...(response.data.data.process_bonus || [])],
+          process_piece: [...defaultOptions.process_piece, ...(response.data.data.process_piece || [])],
+          process_other: [...defaultOptions.process_other, ...(response.data.data.process_other || [])]
         };
         
         setFormulaOptions(mergedOptions);
@@ -165,12 +162,11 @@ const ProcessManagement = () => {
 
       // 设置默认选项
       setFormulaOptions({
-        budget: [{ value: '', label: '请选择' }],
-        production: [{ value: '', label: '请选择' }],
-        other: [{ value: '', label: '请选择' }],
-        saving: [{ value: '', label: '请选择' }],
-        pricing: [{ value: '', label: '请选择' }],
-        labor: [{ value: '', label: '请选择' }]
+        process_quote: [{ value: '', label: '请选择' }],
+        process_loss: [{ value: '', label: '请选择' }],
+        process_bonus: [{ value: '', label: '请选择' }],
+        process_piece: [{ value: '', label: '请选择' }],
+        process_other: [{ value: '', label: '请选择' }]
       });
     } finally {
       setFormulaLoading(false);
@@ -230,6 +226,7 @@ const ProcessManagement = () => {
   // 处理模态框确认
   const handleModalOk = async () => {
     try {
+      setConfirmLoading(true);
       const values = await modalForm.validateFields();
       if (editingRecord) {
         await processApi.updateProcess(editingRecord.id, values);
@@ -242,6 +239,8 @@ const ProcessManagement = () => {
       loadData();
     } catch (e) {
       message.error('保存失败');
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -339,11 +338,13 @@ const ProcessManagement = () => {
       render: (_, record) => (
         <Space size="small">
           <Button 
-            type="primary" 
+            type="link" 
             size="small" 
             icon={<EditOutlined />} 
             onClick={() => handleEdit(record)}
-          />
+          >
+            编辑
+          </Button>
           <Popconfirm
             title="确定要删除此工序吗?"
             onConfirm={() => handleDelete(record.id)}
@@ -351,61 +352,55 @@ const ProcessManagement = () => {
             cancelText="取消"
           >
             <Button 
-              type="primary" 
+              type="link" 
               danger 
               size="small" 
               icon={<DeleteOutlined />}
-            />
+            >
+              删除
+            </Button>
           </Popconfirm>
         </Space>
       ),
     },
   ];
 
-  // 模态框底部按钮
-  const modalFooter = [
-    <Button key="back" onClick={handleModalCancel}>
-      取消
-    </Button>,
-    <Button 
-      key="submit" 
-      type="primary" 
-      loading={confirmLoading} 
-      onClick={handleModalOk}
-    >
-      保存
-    </Button>,
-  ];
-
   return (
-    <div className="page-container">
-      <Title level={2}>
-        <ToolOutlined /> 工序管理
-      </Title>
-      
+    <div style={{ padding: '24px' }}>
       <Card>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-          <Space>
+        <div style={{ marginBottom: 16 }}>
+          <Title level={4} style={{ margin: 0 }}>
+            <ToolOutlined /> 工序管理
+          </Title>
+        </div>
+        
+        {/* 搜索和操作区域 - 统一按钮样式和位置 */}
+        <Row justify="end" gutter={16} style={{ marginBottom: 16 }}>
+          <Col>
             <Input
               placeholder="搜索工序名称"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={handleSearchInputKeyDown}
               ref={searchInput}
-              suffix={<SearchOutlined />}
+              prefix={<SearchOutlined />}
               style={{ width: 200 }}
             />
-            <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
-              搜索
-            </Button>
-            <Button onClick={() => loadData()} icon={<ReloadOutlined />}>
-              刷新
-            </Button>
-            <Button type="primary" onClick={handleAdd} icon={<PlusOutlined />}>
-              新建工序
-            </Button>
-          </Space>
-        </div>
+          </Col>
+          <Col>
+            <Space>
+              <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
+                搜索
+              </Button>
+              <Button onClick={() => loadData()} icon={<ReloadOutlined />}>
+                刷新
+              </Button>
+              <Button type="primary" onClick={handleAdd} icon={<PlusOutlined />}>
+                新建工序
+              </Button>
+            </Space>
+          </Col>
+        </Row>
         
         <Table
           rowKey="id"
@@ -414,20 +409,19 @@ const ProcessManagement = () => {
           pagination={pagination}
           loading={loading}
           onChange={handleTableChange}
-          size="middle"
-          scroll={{ x: 1000 }}
+          size="small"
+          scroll={{ x: 'max-content' }}
           bordered
         />
       </Card>
 
       <Modal
         title={editingRecord ? "编辑工序" : "新建工序"}
-        visible={modalVisible}
+        open={modalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
-        width={1000}
-        footer={modalFooter}
-        maskClosable={false}
+        width={1200}
+        confirmLoading={confirmLoading}
         destroyOnClose
       >
         <Form
@@ -551,7 +545,7 @@ const ProcessManagement = () => {
                           </Form.Item>
                         </Col>
                         <Col span={4}>
-                          <Button danger onClick={() => remove(name)}>删除</Button>
+                          <Button type="link" danger onClick={() => remove(name)}>删除</Button>
                         </Col>
                       </Row>
                     ))}
@@ -693,13 +687,15 @@ const ProcessManagement = () => {
             <TabPane tab="计算公式" key="formulas">
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="pricing_formula" label="报价预算公式">
+                  <Form.Item name="pricing_formula" label="报价公式">
                     <Select 
-                      placeholder="请选择报价预算公式"
+                      placeholder="请选择报价公式"
                       loading={formulaLoading}
                       allowClear
+                      showSearch
+                      optionFilterProp="children"
                     >
-                      {formulaOptions.budget.map(option => (
+                      {formulaOptions.process_quote.map(option => (
                         <Option key={`pricing_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -708,13 +704,15 @@ const ProcessManagement = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="worker_formula" label="工单预算%公式">
+                  <Form.Item name="worker_formula" label="工单公式">
                     <Select 
-                      placeholder="请选择工单预算%公式"
+                      placeholder="请选择工单公式"
                       loading={formulaLoading}
                       allowClear
+                      showSearch
+                      optionFilterProp="children"
                     >
-                      {formulaOptions.budget.map(option => (
+                      {formulaOptions.process_other.map(option => (
                         <Option key={`worker_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -723,9 +721,15 @@ const ProcessManagement = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="material_formula" label="工单预算m公式">
-                    <Select placeholder="请选择工单预算m公式">
-                      {formulaOptions.budget.map(option => (
+                  <Form.Item name="material_formula" label="材料公式">
+                    <Select 
+                      placeholder="请选择材料公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_other.map(option => (
                         <Option key={`material_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -734,9 +738,15 @@ const ProcessManagement = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="output_formula" label="产量上报预算%">
-                    <Select placeholder="请选择产量上报预算公式">
-                      {formulaOptions.budget.map(option => (
+                  <Form.Item name="output_formula" label="产量上报公式">
+                    <Select 
+                      placeholder="请选择产量上报公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_other.map(option => (
                         <Option key={`output_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -746,8 +756,14 @@ const ProcessManagement = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="time_formula" label="计件工时公式">
-                    <Select placeholder="请选择计件工时公式">
-                      {formulaOptions.other.map(option => (
+                    <Select 
+                      placeholder="请选择计件工时公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_piece.map(option => (
                         <Option key={`time_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -757,8 +773,14 @@ const ProcessManagement = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="energy_formula" label="计件产能公式">
-                    <Select placeholder="请选择计件产能公式">
-                      {formulaOptions.other.map(option => (
+                    <Select 
+                      placeholder="请选择计件产能公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_piece.map(option => (
                         <Option key={`energy_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -768,8 +790,14 @@ const ProcessManagement = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="saving_formula" label="节约奖公式">
-                    <Select placeholder="请选择节约奖公式">
-                      {formulaOptions.saving.map(option => (
+                    <Select 
+                      placeholder="请选择节约奖公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_bonus.map(option => (
                         <Option key={`saving_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -779,8 +807,14 @@ const ProcessManagement = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="labor_cost_formula" label="计件工资公式">
-                    <Select placeholder="请选择计件工资公式">
-                      {formulaOptions.labor.map(option => (
+                    <Select 
+                      placeholder="请选择计件工资公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_piece.map(option => (
                         <Option key={`labor_cost_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>
@@ -790,8 +824,14 @@ const ProcessManagement = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="pricing_order_formula" label="报价工序公式">
-                    <Select placeholder="请选择报价工序公式">
-                      {formulaOptions.pricing.map(option => (
+                    <Select 
+                      placeholder="请选择报价工序公式"
+                      loading={formulaLoading}
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {formulaOptions.process_quote.map(option => (
                         <Option key={`pricing_order_formula_${option.value}`} value={option.value}>
                           {option.label}
                         </Option>

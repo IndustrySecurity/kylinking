@@ -1356,14 +1356,21 @@ class CalculationSchemeService:
                 CalculationScheme.scheme_name
             ).all()
             
-            # 按类别分组
+            # 按类别分组 - 支持工序相关分类
             categories = {
-                'budget': [],    # 预算类
-                'production': [], # 生产类
-                'other': [],     # 其他类
-                'saving': [],    # 节约奖类
-                'pricing': [],   # 报价类
-                'labor': []      # 计件类
+                # 通用分类
+                'budget': [],           # 预算类
+                'production': [],       # 生产类
+                'other': [],           # 其他类
+                'saving': [],          # 节约奖类
+                'pricing': [],         # 报价类
+                'labor': [],           # 计件类
+                # 工序专用分类
+                'process_quote': [],   # 工序报价分类
+                'process_loss': [],    # 工序损耗分类
+                'process_bonus': [],   # 工序节约奖分类
+                'process_piece': [],   # 工序计件分类
+                'process_other': []    # 工序其它分类
             }
             
             for scheme in schemes:
@@ -1379,27 +1386,42 @@ class CalculationSchemeService:
                 # 根据计算方案分类添加到对应类别
                 category = scheme.scheme_category.lower() if scheme.scheme_category else ''
                 
-                if 'budget' in category or '预算' in category:
+                # 工序专用分类映射
+                if category == 'process_quote':
+                    categories['process_quote'].append(option)
+                elif category == 'process_loss':
+                    categories['process_loss'].append(option)
+                elif category == 'process_bonus':
+                    categories['process_bonus'].append(option)
+                elif category == 'process_piece':
+                    categories['process_piece'].append(option)
+                elif category == 'process_other':
+                    categories['process_other'].append(option)
+                # 通用分类映射 (保持向后兼容)
+                elif 'budget' in category or '预算' in category:
                     categories['budget'].append(option)
+                    # 同时添加到工序其它分类作为备选
+                    categories['process_other'].append(option)
                 elif 'production' in category or '生产' in category:
                     categories['production'].append(option)
+                    # 同时添加到工序其它分类作为备选
+                    categories['process_other'].append(option)
                 elif 'saving' in category or '节约' in category or '节约奖' in category:
                     categories['saving'].append(option)
+                    # 同时添加到工序节约奖分类
+                    categories['process_bonus'].append(option)
                 elif 'labor' in category or '计件' in category or '工资' in category:
                     categories['labor'].append(option)
+                    # 同时添加到工序计件分类
+                    categories['process_piece'].append(option)
                 elif 'pricing' in category or '报价' in category:
                     categories['pricing'].append(option)
+                    # 同时添加到工序报价分类
+                    categories['process_quote'].append(option)
                 else:
                     categories['other'].append(option)
-            
-            # 对空类别添加占位选项
-            for key, options in categories.items():
-                if not options:
-                    categories[key].append({
-                        'value': f'empty_{key}',
-                        'label': f'[无{key}类公式]',
-                        'category': key
-                    })
+                    # 添加到工序其它分类
+                    categories['process_other'].append(option)
             
             return categories
         except Exception as e:
