@@ -57,14 +57,7 @@ const ProductionManagement = () => {
       title: '机台',
       icon: <DesktopOutlined />,
       path: '/base-archive/machines',
-      color: '#722ed1'
-    },
-    {
-      key: 'team',
-      title: '班组',
-      icon: <TeamOutlined />,
-      path: '/production/archive/team',
-      color: '#eb2f96'
+            color: '#722ed1'
     },
     {
       key: 'packaging',
@@ -179,7 +172,7 @@ const ProductionManagement = () => {
       key: 'bagFormula',
       title: '袋型相关公式',
       icon: <FunctionOutlined />,
-      path: '/production/config/bag-formula',
+      path: '/base-archive/bag-related-formulas',
       color: '#fadb14'
     }
   ];

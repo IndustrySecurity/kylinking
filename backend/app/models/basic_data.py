@@ -3051,6 +3051,120 @@ class BagTypeStructure(TenantModel):
         return f'<BagTypeStructure {self.structure_name}>'
 
 
+class BagRelatedFormula(TenantModel):
+    """袋型相关公式模型"""
+    __tablename__ = 'bag_related_formulas'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    bag_type_id = db.Column(UUID(as_uuid=True), db.ForeignKey('bag_types.id'), nullable=False, comment='袋型ID')
+    
+    # 公式字段（关联计算方案）
+    meter_formula_id = db.Column(UUID(as_uuid=True), comment='米数公式ID')
+    square_formula_id = db.Column(UUID(as_uuid=True), comment='平方公式ID')
+    material_width_formula_id = db.Column(UUID(as_uuid=True), comment='料宽公式ID')
+    per_piece_formula_id = db.Column(UUID(as_uuid=True), comment='元/个公式ID')
+    
+    # 尺寸维度（手工输入）
+    dimension_description = db.Column(db.String(200), comment='尺寸维度')
+    
+    # 通用字段
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    description = db.Column(db.Text, comment='描述')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    bag_type = db.relationship('BagType', backref='related_formulas', lazy='select')
+    
+    __table_args__ = (
+        db.Index('idx_bag_related_formulas_bag_type_id', 'bag_type_id'),
+        db.Index('idx_bag_related_formulas_sort_order', 'sort_order'),
+    )
+    
+    def to_dict(self, include_user_info=False, include_formulas=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'bag_type_id': str(self.bag_type_id),
+            'meter_formula_id': str(self.meter_formula_id) if self.meter_formula_id else None,
+            'square_formula_id': str(self.square_formula_id) if self.square_formula_id else None,
+            'material_width_formula_id': str(self.material_width_formula_id) if self.material_width_formula_id else None,
+            'per_piece_formula_id': str(self.per_piece_formula_id) if self.per_piece_formula_id else None,
+            'dimension_description': self.dimension_description,
+            'sort_order': self.sort_order,
+            'description': self.description,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_user_info:
+            from app.models.user import User
+            if self.created_by:
+                created_user = User.query.get(self.created_by)
+                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            else:
+                data['created_by_name'] = '系统'
+                
+            if self.updated_by:
+                updated_user = User.query.get(self.updated_by)
+                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            else:
+                data['updated_by_name'] = ''
+        
+        if include_formulas:
+            # 获取袋型信息
+            if self.bag_type:
+                data['bag_type_name'] = self.bag_type.bag_type_name
+            
+            # 获取计算方案信息
+            from app.models.basic_data import CalculationScheme
+            
+            if self.meter_formula_id:
+                scheme = CalculationScheme.query.get(self.meter_formula_id)
+                data['meter_formula'] = {
+                    'id': str(scheme.id),
+                    'name': scheme.scheme_name,
+                    'formula': scheme.scheme_formula
+                } if scheme else None
+            
+            if self.square_formula_id:
+                scheme = CalculationScheme.query.get(self.square_formula_id)
+                data['square_formula'] = {
+                    'id': str(scheme.id),
+                    'name': scheme.scheme_name,
+                    'formula': scheme.scheme_formula
+                } if scheme else None
+            
+            if self.material_width_formula_id:
+                scheme = CalculationScheme.query.get(self.material_width_formula_id)
+                data['material_width_formula'] = {
+                    'id': str(scheme.id),
+                    'name': scheme.scheme_name,
+                    'formula': scheme.scheme_formula
+                } if scheme else None
+            
+            if self.per_piece_formula_id:
+                scheme = CalculationScheme.query.get(self.per_piece_formula_id)
+                data['per_piece_formula'] = {
+                    'id': str(scheme.id),
+                    'name': scheme.scheme_name,
+                    'formula': scheme.scheme_formula
+                } if scheme else None
+            
+        return data
+    
+    def __repr__(self):
+        return f'<BagRelatedFormula {self.bag_type.bag_type_name if self.bag_type else "N/A"}>'
+
+
 class Process(TenantModel):
     """工序模型"""
     __tablename__ = 'processes'
@@ -3221,3 +3335,241 @@ class ProcessMachine(TenantModel):
             'machine_code': self.machine.machine_code if self.machine else None,
             'sort_order': self.sort_order
         }
+
+
+class TeamGroup(TenantModel):
+    """班组管理模型"""
+    __tablename__ = 'team_groups'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息
+    team_code = db.Column(db.String(50), unique=True, nullable=False, comment='班组编号(自动生成)')
+    team_name = db.Column(db.String(100), nullable=False, comment='班组名称')
+    circulation_card_id = db.Column(db.String(50), comment='流转卡标识')
+    
+    # 工作标准时间（单位：小时）
+    day_shift_hours = db.Column(db.Numeric(8, 2), comment='白班工作标准时间(H)')
+    night_shift_hours = db.Column(db.Numeric(8, 2), comment='晚班工作标准时间(H)')
+    rotating_shift_hours = db.Column(db.Numeric(8, 2), comment='倒班第一天工作标准时间(H)')
+    
+    # 通用字段
+    description = db.Column(db.Text, comment='描述')
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    team_members = db.relationship('TeamGroupMember', backref='team_group', lazy='dynamic', cascade='all, delete-orphan')
+    team_machines = db.relationship('TeamGroupMachine', backref='team_group', lazy='dynamic', cascade='all, delete-orphan')
+    team_processes = db.relationship('TeamGroupProcess', backref='team_group', lazy='dynamic', cascade='all, delete-orphan')
+    
+    __table_args__ = (
+        db.Index('idx_team_groups_team_code', 'team_code'),
+        db.Index('idx_team_groups_team_name', 'team_name'),
+        {'comment': '班组管理表'}
+    )
+    
+    def to_dict(self, include_details=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'team_code': self.team_code,
+            'team_name': self.team_name,
+            'circulation_card_id': self.circulation_card_id,
+            'day_shift_hours': float(self.day_shift_hours) if self.day_shift_hours else None,
+            'night_shift_hours': float(self.night_shift_hours) if self.night_shift_hours else None,
+            'rotating_shift_hours': float(self.rotating_shift_hours) if self.rotating_shift_hours else None,
+            'description': self.description,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_details:
+            result.update({
+                'team_members': [member.to_dict() for member in self.team_members],
+                'team_machines': [machine.to_dict() for machine in self.team_machines], 
+                'team_processes': [process.to_dict() for process in self.team_processes]
+            })
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的班组列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order.asc(), cls.team_name.asc()).all()
+    
+    @classmethod
+    def generate_team_code(cls):
+        """生成班组编号"""
+        from sqlalchemy import func, text
+        # 查询当前最大编号
+        max_code = cls.query.with_entities(
+            func.max(func.cast(func.substr(cls.team_code, 3), db.Integer))
+        ).filter(
+            func.length(cls.team_code) == 10,
+            func.substr(cls.team_code, 1, 2) == 'TG'
+        ).scalar()
+        
+        if max_code:
+            new_number = max_code + 1
+        else:
+            new_number = 1
+        
+        return f"TG{new_number:08d}"
+    
+    def __repr__(self):
+        return f'<TeamGroup {self.team_name}>'
+
+
+class TeamGroupMember(TenantModel):
+    """班组人员模型"""
+    __tablename__ = 'team_group_members'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联信息
+    team_group_id = db.Column(UUID(as_uuid=True), db.ForeignKey('team_groups.id'), nullable=False, comment='班组ID')
+    employee_id = db.Column(UUID(as_uuid=True), db.ForeignKey('employees.id'), nullable=False, comment='员工ID')
+    
+    # 业务信息
+    piece_rate_percentage = db.Column(db.Numeric(5, 2), default=0, comment='计件%')
+    saving_bonus_percentage = db.Column(db.Numeric(5, 2), default=0, comment='节约奖%')
+    remarks = db.Column(db.Text, comment='备注')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    employee = db.relationship('Employee', backref='team_memberships', lazy='select')
+    
+    __table_args__ = (
+        db.UniqueConstraint('team_group_id', 'employee_id', name='uq_team_group_employee'),
+        db.Index('idx_team_group_members_team_id', 'team_group_id'),
+        db.Index('idx_team_group_members_employee_id', 'employee_id'),
+        {'comment': '班组人员表'}
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'team_group_id': str(self.team_group_id),
+            'employee_id': str(self.employee_id),
+            'employee_name': self.employee.employee_name if self.employee else None,
+            'employee_code': self.employee.employee_id if self.employee else None,
+            'position_name': self.employee.position.position_name if self.employee and self.employee.position else None,
+            'piece_rate_percentage': float(self.piece_rate_percentage) if self.piece_rate_percentage else 0,
+            'saving_bonus_percentage': float(self.saving_bonus_percentage) if self.saving_bonus_percentage else 0,
+            'remarks': self.remarks,
+            'sort_order': self.sort_order,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<TeamGroupMember {self.employee.employee_name if self.employee else "Unknown"}>'
+
+
+class TeamGroupMachine(TenantModel):
+    """班组机台模型"""
+    __tablename__ = 'team_group_machines'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联信息
+    team_group_id = db.Column(UUID(as_uuid=True), db.ForeignKey('team_groups.id'), nullable=False, comment='班组ID')
+    machine_id = db.Column(UUID(as_uuid=True), db.ForeignKey('machines.id'), nullable=False, comment='机台ID')
+    
+    # 业务信息
+    remarks = db.Column(db.Text, comment='备注')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    machine = db.relationship('Machine', backref='team_assignments', lazy='select')
+    
+    __table_args__ = (
+        db.UniqueConstraint('team_group_id', 'machine_id', name='uq_team_group_machine'),
+        db.Index('idx_team_group_machines_team_id', 'team_group_id'),
+        db.Index('idx_team_group_machines_machine_id', 'machine_id'),
+        {'comment': '班组机台表'}
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'team_group_id': str(self.team_group_id),
+            'machine_id': str(self.machine_id),
+            'machine_name': self.machine.machine_name if self.machine else None,
+            'machine_code': self.machine.machine_code if self.machine else None,
+            'remarks': self.remarks,
+            'sort_order': self.sort_order,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<TeamGroupMachine {self.machine.machine_name if self.machine else "Unknown"}>'
+
+
+class TeamGroupProcess(TenantModel):
+    """班组工序分类模型"""
+    __tablename__ = 'team_group_processes'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联信息
+    team_group_id = db.Column(UUID(as_uuid=True), db.ForeignKey('team_groups.id'), nullable=False, comment='班组ID')
+    process_category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('process_categories.id'), nullable=False, comment='工序分类ID')
+    
+    # 业务信息
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系
+    process_category = db.relationship('ProcessCategory', backref='team_assignments', lazy='select')
+    
+    __table_args__ = (
+        db.UniqueConstraint('team_group_id', 'process_category_id', name='uq_team_group_process'),
+        db.Index('idx_team_group_processes_team_id', 'team_group_id'),
+        db.Index('idx_team_group_processes_process_id', 'process_category_id'),
+        {'comment': '班组工序分类表'}
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'team_group_id': str(self.team_group_id),
+            'process_category_id': str(self.process_category_id),
+            'process_category_name': self.process_category.process_name if self.process_category else None,
+            'sort_order': self.sort_order,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<TeamGroupProcess {self.process_category.process_name if self.process_category else "Unknown"}>'

@@ -4,7 +4,7 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType, BagTypeStructure
+from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType, BagTypeStructure, BagRelatedFormula, TeamGroup, TeamGroupMember, TeamGroupMachine, TeamGroupProcess, Machine, ProcessCategory
 from app.models.user import User
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
@@ -3191,3 +3191,780 @@ class BagTypeService:
                 'success': False,
                 'message': f'批量更新袋型结构失败: {str(e)}'
             }
+
+
+class BagRelatedFormulaService:
+    """袋型相关公式服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in BagRelatedFormulaService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_bag_related_formulas(page=1, per_page=20, search=None, bag_type_id=None, is_enabled=None):
+        """获取袋型相关公式列表"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            from app.models.basic_data import BagRelatedFormula, BagType
+            
+            # 构建查询
+            query = db.session.query(BagRelatedFormula).join(BagType)
+            
+            # 搜索条件
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(or_(
+                    BagType.bag_type_name.ilike(search_pattern),
+                    BagRelatedFormula.dimension_description.ilike(search_pattern),
+                    BagRelatedFormula.description.ilike(search_pattern)
+                ))
+            
+            # 袋型筛选
+            if bag_type_id:
+                query = query.filter(BagRelatedFormula.bag_type_id == uuid.UUID(bag_type_id))
+            
+            # 启用状态筛选
+            if is_enabled is not None:
+                query = query.filter(BagRelatedFormula.is_enabled == is_enabled)
+            
+            # 排序
+            query = query.order_by(BagRelatedFormula.sort_order, BagType.bag_type_name)
+            
+            # 分页
+            total = query.count()
+            formulas = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            return {
+                'success': True,
+                'data': {
+                    'formulas': [formula.to_dict(include_user_info=True, include_formulas=True) for formula in formulas],
+                    'total': total,
+                    'current_page': page,
+                    'per_page': per_page
+                }
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'获取袋型相关公式列表失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def get_bag_related_formula(formula_id):
+        """获取单个袋型相关公式"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            from app.models.basic_data import BagRelatedFormula
+            
+            formula = db.session.query(BagRelatedFormula).get(uuid.UUID(formula_id))
+            if not formula:
+                raise ValueError("袋型相关公式不存在")
+            
+            return {
+                'success': True,
+                'data': formula.to_dict(include_user_info=True, include_formulas=True)
+            }
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'获取袋型相关公式失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def create_bag_related_formula(data, created_by):
+        """创建袋型相关公式"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            from app.models.basic_data import BagRelatedFormula
+            
+            # 处理UUID字段
+            def to_uuid_or_none(value):
+                if value:
+                    return uuid.UUID(value) if isinstance(value, str) else value
+                return None
+            
+            formula = BagRelatedFormula(
+                bag_type_id=uuid.UUID(data['bag_type_id']),
+                meter_formula_id=to_uuid_or_none(data.get('meter_formula_id')),
+                square_formula_id=to_uuid_or_none(data.get('square_formula_id')),
+                material_width_formula_id=to_uuid_or_none(data.get('material_width_formula_id')),
+                per_piece_formula_id=to_uuid_or_none(data.get('per_piece_formula_id')),
+                dimension_description=data.get('dimension_description', ''),
+                sort_order=data.get('sort_order', 0),
+                description=data.get('description', ''),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(formula)
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': '袋型相关公式创建成功',
+                'data': formula.to_dict(include_user_info=True, include_formulas=True)
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f'创建袋型相关公式失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def update_bag_related_formula(formula_id, data, updated_by):
+        """更新袋型相关公式"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            from app.models.basic_data import BagRelatedFormula
+            
+            formula = db.session.query(BagRelatedFormula).get(uuid.UUID(formula_id))
+            if not formula:
+                raise ValueError("袋型相关公式不存在")
+            
+            # 处理UUID字段
+            def to_uuid_or_none(value):
+                if value:
+                    return uuid.UUID(value) if isinstance(value, str) else value
+                return None
+            
+            # 更新字段
+            if 'bag_type_id' in data:
+                formula.bag_type_id = uuid.UUID(data['bag_type_id'])
+            if 'meter_formula_id' in data:
+                formula.meter_formula_id = to_uuid_or_none(data['meter_formula_id'])
+            if 'square_formula_id' in data:
+                formula.square_formula_id = to_uuid_or_none(data['square_formula_id'])
+            if 'material_width_formula_id' in data:
+                formula.material_width_formula_id = to_uuid_or_none(data['material_width_formula_id'])
+            if 'per_piece_formula_id' in data:
+                formula.per_piece_formula_id = to_uuid_or_none(data['per_piece_formula_id'])
+            if 'dimension_description' in data:
+                formula.dimension_description = data['dimension_description']
+            if 'sort_order' in data:
+                formula.sort_order = data['sort_order']
+            if 'description' in data:
+                formula.description = data['description']
+            if 'is_enabled' in data:
+                formula.is_enabled = data['is_enabled']
+            
+            formula.updated_by = uuid.UUID(updated_by)
+            formula.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': '袋型相关公式更新成功',
+                'data': formula.to_dict(include_user_info=True, include_formulas=True)
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f'更新袋型相关公式失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def delete_bag_related_formula(formula_id):
+        """删除袋型相关公式"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            from app.models.basic_data import BagRelatedFormula
+            
+            formula = db.session.query(BagRelatedFormula).get(uuid.UUID(formula_id))
+            if not formula:
+                raise ValueError("袋型相关公式不存在")
+            
+            db.session.delete(formula)
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'message': '袋型相关公式删除成功'
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'message': f'删除袋型相关公式失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def batch_update_bag_related_formulas(updates, updated_by):
+        """批量更新袋型相关公式"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            from app.models.basic_data import BagRelatedFormula
+            
+            for update in updates:
+                formula_id = update['id']
+                formula_data = update['data']
+                
+                result = BagRelatedFormulaService.update_bag_related_formula(formula_id, formula_data, updated_by)
+                if not result['success']:
+                    raise Exception(result['message'])
+            
+            return {
+                'success': True,
+                'message': '批量更新袋型相关公式成功'
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'批量更新袋型相关公式失败: {str(e)}'
+            }
+    
+    @staticmethod
+    def get_bag_related_formula_options():
+        """获取袋型相关公式选项数据"""
+        try:
+            BagRelatedFormulaService._set_schema()
+            
+            # 获取袋型选项 - 直接调用BagTypeService的方法并处理返回格式
+            bag_type_options = BagTypeService.get_bag_type_options()
+            
+            # 获取计算方案选项（材料报价分类）
+            formula_options = BagTypeService.get_calculation_schemes_by_category('material_quote')
+            
+            return {
+                'success': True,
+                'data': {
+                    'bag_types': bag_type_options,  # 直接使用返回的列表
+                    'formulas': formula_options
+                }
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'message': f'获取袋型相关公式选项数据失败: {str(e)}'
+            }
+
+
+class TeamGroupService:
+    """班组管理服务"""
+    
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            current_app.logger.info(f"Setting search_path to {schema_name} in TeamGroupService")
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
+    @staticmethod
+    def get_team_groups(page=1, per_page=20, search=None, is_enabled=None):
+        """获取班组列表"""
+        try:
+            TeamGroupService._set_schema()
+            
+            query = db.session.query(TeamGroup)
+            
+            # 搜索条件
+            if search:
+                search_pattern = f"%{search}%"
+                query = query.filter(or_(
+                    TeamGroup.team_code.ilike(search_pattern),
+                    TeamGroup.team_name.ilike(search_pattern),
+                    TeamGroup.circulation_card_id.ilike(search_pattern)
+                ))
+            
+            # 启用状态筛选
+            if is_enabled is not None:
+                query = query.filter(TeamGroup.is_enabled == is_enabled)
+            
+            # 排序
+            query = query.order_by(TeamGroup.sort_order.asc(), TeamGroup.team_name.asc())
+            
+            # 分页
+            total = query.count()
+            team_groups = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            return {
+                'team_groups': [team_group.to_dict() for team_group in team_groups],
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'pages': (total + per_page - 1) // per_page
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def get_team_group(team_group_id):
+        """获取班组详情"""
+        try:
+            TeamGroupService._set_schema()
+            
+            team_group = db.session.query(TeamGroup).get(uuid.UUID(team_group_id))
+            if not team_group:
+                raise ValueError("班组不存在")
+            
+            return team_group.to_dict(include_details=True)
+            
+        except Exception as e:
+            raise e
+    
+    @staticmethod
+    def create_team_group(data, created_by):
+        """创建班组"""
+        try:
+            TeamGroupService._set_schema()
+            
+            # 生成班组编号
+            if not data.get('team_code'):
+                data['team_code'] = TeamGroup.generate_team_code()
+            
+            # 创建班组对象
+            team_group = TeamGroup(
+                team_code=data['team_code'],
+                team_name=data['team_name'],
+                circulation_card_id=data.get('circulation_card_id'),
+                day_shift_hours=data.get('day_shift_hours'),
+                night_shift_hours=data.get('night_shift_hours'),
+                rotating_shift_hours=data.get('rotating_shift_hours'),
+                description=data.get('description'),
+                sort_order=data.get('sort_order', 0),
+                is_enabled=data.get('is_enabled', True),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(team_group)
+            db.session.flush()  # 获取ID
+            
+            # 处理子表数据
+            team_group_id = team_group.id
+            
+            # 添加班组人员
+            if data.get('team_members'):
+                for member_data in data['team_members']:
+                    member = TeamGroupMember(
+                        team_group_id=team_group_id,
+                        employee_id=uuid.UUID(member_data['employee_id']),
+                        piece_rate_percentage=member_data.get('piece_rate_percentage', 0),
+                        saving_bonus_percentage=member_data.get('saving_bonus_percentage', 0),
+                        remarks=member_data.get('remarks'),
+                        sort_order=member_data.get('sort_order', 0),
+                        created_by=uuid.UUID(created_by)
+                    )
+                    db.session.add(member)
+            
+            # 添加班组机台
+            if data.get('team_machines'):
+                for machine_data in data['team_machines']:
+                    machine = TeamGroupMachine(
+                        team_group_id=team_group_id,
+                        machine_id=uuid.UUID(machine_data['machine_id']),
+                        remarks=machine_data.get('remarks'),
+                        sort_order=machine_data.get('sort_order', 0),
+                        created_by=uuid.UUID(created_by)
+                    )
+                    db.session.add(machine)
+            
+            # 添加班组工序分类
+            if data.get('team_processes'):
+                for process_data in data['team_processes']:
+                    process = TeamGroupProcess(
+                        team_group_id=team_group_id,
+                        process_category_id=uuid.UUID(process_data['process_category_id']),
+                        sort_order=process_data.get('sort_order', 0),
+                        created_by=uuid.UUID(created_by)
+                    )
+                    db.session.add(process)
+            
+            db.session.commit()
+            
+            return team_group.to_dict(include_details=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'team_code' in str(e):
+                raise ValueError("班组编号已存在")
+            elif 'uq_team_group_employee' in str(e):
+                raise ValueError("该员工已经分配到此班组")
+            elif 'uq_team_group_machine' in str(e):
+                raise ValueError("该机台已经分配到此班组")
+            elif 'uq_team_group_process' in str(e):
+                raise ValueError("该工序分类已经分配到此班组")
+            else:
+                raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def update_team_group(team_group_id, data, updated_by):
+        """更新班组"""
+        try:
+            TeamGroupService._set_schema()
+            
+            team_group = db.session.query(TeamGroup).get(uuid.UUID(team_group_id))
+            if not team_group:
+                raise ValueError("班组不存在")
+            
+            # 更新主表字段
+            team_group.team_name = data.get('team_name', team_group.team_name)
+            team_group.circulation_card_id = data.get('circulation_card_id', team_group.circulation_card_id)
+            team_group.day_shift_hours = data.get('day_shift_hours', team_group.day_shift_hours)
+            team_group.night_shift_hours = data.get('night_shift_hours', team_group.night_shift_hours)
+            team_group.rotating_shift_hours = data.get('rotating_shift_hours', team_group.rotating_shift_hours)
+            team_group.description = data.get('description', team_group.description)
+            team_group.sort_order = data.get('sort_order', team_group.sort_order)
+            team_group.is_enabled = data.get('is_enabled', team_group.is_enabled)
+            team_group.updated_by = uuid.UUID(updated_by)
+            team_group.updated_at = datetime.utcnow()
+            
+            # 处理子表数据（如果提供）
+            if 'team_members' in data:
+                # 删除现有成员
+                db.session.query(TeamGroupMember).filter_by(team_group_id=team_group.id).delete()
+                
+                # 添加新成员
+                for member_data in data['team_members']:
+                    member = TeamGroupMember(
+                        team_group_id=team_group.id,
+                        employee_id=uuid.UUID(member_data['employee_id']),
+                        piece_rate_percentage=member_data.get('piece_rate_percentage', 0),
+                        saving_bonus_percentage=member_data.get('saving_bonus_percentage', 0),
+                        remarks=member_data.get('remarks'),
+                        sort_order=member_data.get('sort_order', 0),
+                        created_by=uuid.UUID(updated_by)
+                    )
+                    db.session.add(member)
+            
+            if 'team_machines' in data:
+                # 删除现有机台
+                db.session.query(TeamGroupMachine).filter_by(team_group_id=team_group.id).delete()
+                
+                # 添加新机台
+                for machine_data in data['team_machines']:
+                    machine = TeamGroupMachine(
+                        team_group_id=team_group.id,
+                        machine_id=uuid.UUID(machine_data['machine_id']),
+                        remarks=machine_data.get('remarks'),
+                        sort_order=machine_data.get('sort_order', 0),
+                        created_by=uuid.UUID(updated_by)
+                    )
+                    db.session.add(machine)
+            
+            if 'team_processes' in data:
+                # 删除现有工序分类
+                db.session.query(TeamGroupProcess).filter_by(team_group_id=team_group.id).delete()
+                
+                # 添加新工序分类
+                for process_data in data['team_processes']:
+                    process = TeamGroupProcess(
+                        team_group_id=team_group.id,
+                        process_category_id=uuid.UUID(process_data['process_category_id']),
+                        sort_order=process_data.get('sort_order', 0),
+                        created_by=uuid.UUID(updated_by)
+                    )
+                    db.session.add(process)
+            
+            db.session.commit()
+            
+            return team_group.to_dict(include_details=True)
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'uq_team_group_employee' in str(e):
+                raise ValueError("该员工已经分配到此班组")
+            elif 'uq_team_group_machine' in str(e):
+                raise ValueError("该机台已经分配到此班组")
+            elif 'uq_team_group_process' in str(e):
+                raise ValueError("该工序分类已经分配到此班组")
+            else:
+                raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def delete_team_group(team_group_id):
+        """删除班组"""
+        try:
+            TeamGroupService._set_schema()
+            
+            team_group = db.session.query(TeamGroup).get(uuid.UUID(team_group_id))
+            if not team_group:
+                raise ValueError("班组不存在")
+            
+            # 删除子表数据（CASCADE会自动处理）
+            db.session.delete(team_group)
+            db.session.commit()
+            
+            return {"message": "班组删除成功"}
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def get_team_group_options():
+        """获取班组选项列表"""
+        try:
+            TeamGroupService._set_schema()
+            
+            team_groups = TeamGroup.get_enabled_list()
+            return [
+                {
+                    'id': str(team_group.id),
+                    'team_code': team_group.team_code,
+                    'team_name': team_group.team_name,
+                    'value': str(team_group.id),
+                    'label': f"{team_group.team_code} - {team_group.team_name}"
+                }
+                for team_group in team_groups
+            ]
+            
+        except Exception as e:
+            raise e
+    
+    @staticmethod
+    def get_employee_options():
+        """获取员工选项列表"""
+        try:
+            TeamGroupService._set_schema()
+            
+            employees = Employee.get_enabled_list()
+            return [
+                {
+                    'id': str(employee.id),
+                    'employee_id': employee.employee_id,
+                    'employee_name': employee.employee_name,
+                    'position_name': employee.position.position_name if employee.position else None,
+                    'value': str(employee.id),
+                    'label': f"{employee.employee_id} - {employee.employee_name}"
+                }
+                for employee in employees
+            ]
+            
+        except Exception as e:
+            raise e
+    
+    @staticmethod
+    def get_machine_options():
+        """获取机台选项列表"""
+        try:
+            TeamGroupService._set_schema()
+            
+            machines = Machine.get_enabled_list()
+            return [
+                {
+                    'id': str(machine.id),
+                    'machine_code': machine.machine_code,
+                    'machine_name': machine.machine_name,
+                    'value': str(machine.id),
+                    'label': f"{machine.machine_code} - {machine.machine_name}"
+                }
+                for machine in machines
+            ]
+            
+        except Exception as e:
+            raise e
+    
+    @staticmethod
+    def get_process_category_options():
+        """获取工序分类选项列表"""
+        try:
+            TeamGroupService._set_schema()
+            
+            process_categories = ProcessCategory.get_enabled_list()
+            return [
+                {
+                    'id': str(process_category.id),
+                    'process_name': process_category.process_name,
+                    'value': str(process_category.id),
+                    'label': process_category.process_name
+                }
+                for process_category in process_categories
+            ]
+            
+        except Exception as e:
+            raise e
+    
+    # 子表管理方法
+    @staticmethod
+    def add_team_member(team_group_id, member_data, created_by):
+        """添加班组成员"""
+        try:
+            TeamGroupService._set_schema()
+            
+            member = TeamGroupMember(
+                team_group_id=uuid.UUID(team_group_id),
+                employee_id=uuid.UUID(member_data['employee_id']),
+                piece_rate_percentage=member_data.get('piece_rate_percentage', 0),
+                saving_bonus_percentage=member_data.get('saving_bonus_percentage', 0),
+                remarks=member_data.get('remarks'),
+                sort_order=member_data.get('sort_order', 0),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(member)
+            db.session.commit()
+            
+            return member.to_dict()
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'uq_team_group_employee' in str(e):
+                raise ValueError("该员工已经分配到此班组")
+            else:
+                raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def update_team_member(member_id, member_data, updated_by):
+        """更新班组成员"""
+        try:
+            TeamGroupService._set_schema()
+            
+            member = db.session.query(TeamGroupMember).get(uuid.UUID(member_id))
+            if not member:
+                raise ValueError("班组成员不存在")
+            
+            member.piece_rate_percentage = member_data.get('piece_rate_percentage', member.piece_rate_percentage)
+            member.saving_bonus_percentage = member_data.get('saving_bonus_percentage', member.saving_bonus_percentage)
+            member.remarks = member_data.get('remarks', member.remarks)
+            member.sort_order = member_data.get('sort_order', member.sort_order)
+            member.updated_by = uuid.UUID(updated_by)
+            member.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            return member.to_dict()
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def delete_team_member(member_id):
+        """删除班组成员"""
+        try:
+            TeamGroupService._set_schema()
+            
+            member = db.session.query(TeamGroupMember).get(uuid.UUID(member_id))
+            if not member:
+                raise ValueError("班组成员不存在")
+            
+            db.session.delete(member)
+            db.session.commit()
+            
+            return {"message": "班组成员删除成功"}
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def add_team_machine(team_group_id, machine_data, created_by):
+        """添加班组机台"""
+        try:
+            TeamGroupService._set_schema()
+            
+            machine = TeamGroupMachine(
+                team_group_id=uuid.UUID(team_group_id),
+                machine_id=uuid.UUID(machine_data['machine_id']),
+                remarks=machine_data.get('remarks'),
+                sort_order=machine_data.get('sort_order', 0),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(machine)
+            db.session.commit()
+            
+            return machine.to_dict()
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'uq_team_group_machine' in str(e):
+                raise ValueError("该机台已经分配到此班组")
+            else:
+                raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def delete_team_machine(machine_id):
+        """删除班组机台"""
+        try:
+            TeamGroupService._set_schema()
+            
+            machine = db.session.query(TeamGroupMachine).get(uuid.UUID(machine_id))
+            if not machine:
+                raise ValueError("班组机台不存在")
+            
+            db.session.delete(machine)
+            db.session.commit()
+            
+            return {"message": "班组机台删除成功"}
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def add_team_process(team_group_id, process_data, created_by):
+        """添加班组工序分类"""
+        try:
+            TeamGroupService._set_schema()
+            
+            process = TeamGroupProcess(
+                team_group_id=uuid.UUID(team_group_id),
+                process_category_id=uuid.UUID(process_data['process_category_id']),
+                sort_order=process_data.get('sort_order', 0),
+                created_by=uuid.UUID(created_by)
+            )
+            
+            db.session.add(process)
+            db.session.commit()
+            
+            return process.to_dict()
+            
+        except IntegrityError as e:
+            db.session.rollback()
+            if 'uq_team_group_process' in str(e):
+                raise ValueError("该工序分类已经分配到此班组")
+            else:
+                raise ValueError("数据完整性错误")
+        except Exception as e:
+            db.session.rollback()
+            raise e
+    
+    @staticmethod
+    def delete_team_process(process_id):
+        """删除班组工序分类"""
+        try:
+            TeamGroupService._set_schema()
+            
+            process = db.session.query(TeamGroupProcess).get(uuid.UUID(process_id))
+            if not process:
+                raise ValueError("班组工序分类不存在")
+            
+            db.session.delete(process)
+            db.session.commit()
+            
+            return {"message": "班组工序分类删除成功"}
+            
+        except Exception as e:
+            db.session.rollback()
+            raise e

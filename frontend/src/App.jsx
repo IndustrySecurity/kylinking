@@ -37,6 +37,8 @@ import WarehouseManagement from './pages/base-archive/WarehouseManagement';
 import ProcessCategoryManagement from './pages/base-archive/ProcessCategoryManagement';
 import ProcessManagement from './pages/production/archive/ProcessManagement';
 import BagTypeManagement from './pages/base-archive/BagTypeManagement';
+import BagRelatedFormulaManagement from './pages/base-archive/BagRelatedFormulaManagement';
+import TeamGroupManagement from './pages/base-archive/TeamGroupManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -258,6 +260,15 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            {/* 班组管理 */}
+            <Route path="/base-archive/team-groups" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <TeamGroupManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/base-archive/base-data/warehouses" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -321,6 +332,15 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <QuoteLossManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 袋型相关公式管理 */}
+            <Route path="/base-archive/bag-related-formulas" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BagRelatedFormulaManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
@@ -486,6 +506,11 @@ const AppRoot = () => {
                   <Debug />
                 </MainLayout>
               </ProtectedRoute>
+            } />
+            
+            {/* 兼容旧路径 */}
+            <Route path="/production/config/bag-formula" element={
+              <Navigate to="/base-archive/bag-related-formulas" replace />
             } />
             
             {/* Redirect all other routes to dashboard */}

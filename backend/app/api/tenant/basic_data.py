@@ -11,7 +11,7 @@ from app.services.basic_data_service import (
     SupplierService, ProductService,
     TenantFieldConfigIntegrationService,
     CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService, EmployeeService,
-    WarehouseService, BagTypeService
+    WarehouseService, BagTypeService, TeamGroupService
 )
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
@@ -6196,7 +6196,14 @@ def get_processes():
             search=search if search else None
         )
         
-        return jsonify(result)
+        # 将items字段重命名为processes以保持与前端的一致性
+        if 'items' in result:
+            result['processes'] = result.pop('items')
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
         
     except Exception as e:
         current_app.logger.error(f'获取工序列表失败: {str(e)}')
@@ -6249,7 +6256,7 @@ def create_process():
         process = ProcessService.create_process(data, current_user_id)
         
         return jsonify({
-            'code': 201,
+            'success': True,
             'message': '创建成功',
             'data': process
         })
@@ -6387,3 +6394,506 @@ def get_process_calculation_scheme_options():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ====================== 袋型相关公式管理 ======================
+
+@bp.route('/bag-related-formulas', methods=['GET'])
+@jwt_required()
+def get_bag_related_formulas():
+    """获取袋型相关公式列表"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '').strip()
+        bag_type_id = request.args.get('bag_type_id', '').strip()
+        is_enabled = request.args.get('is_enabled')
+        
+        # 处理布尔值
+        if is_enabled is not None:
+            is_enabled = is_enabled.lower() in ['true', '1', 'yes']
+        
+        result = BagRelatedFormulaService.get_bag_related_formulas(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            bag_type_id=bag_type_id if bag_type_id else None,
+            is_enabled=is_enabled
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-related-formulas/<formula_id>', methods=['GET'])
+@jwt_required()
+def get_bag_related_formula(formula_id):
+    """获取单个袋型相关公式"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        result = BagRelatedFormulaService.get_bag_related_formula(formula_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-related-formulas', methods=['POST'])
+@jwt_required()
+def create_bag_related_formula():
+    """创建袋型相关公式"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        result = BagRelatedFormulaService.create_bag_related_formula(data, current_user_id)
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-related-formulas/<formula_id>', methods=['PUT'])
+@jwt_required()
+def update_bag_related_formula(formula_id):
+    """更新袋型相关公式"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        result = BagRelatedFormulaService.update_bag_related_formula(formula_id, data, current_user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-related-formulas/<formula_id>', methods=['DELETE'])
+@jwt_required()
+def delete_bag_related_formula(formula_id):
+    """删除袋型相关公式"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        result = BagRelatedFormulaService.delete_bag_related_formula(formula_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-related-formulas/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_bag_related_formulas():
+    """批量更新袋型相关公式"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        if not data or 'updates' not in data:
+            return jsonify({
+                'success': False,
+                'message': '无效的请求数据'
+            }), 400
+        
+        result = BagRelatedFormulaService.batch_update_bag_related_formulas(data['updates'], current_user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/bag-related-formulas/options', methods=['GET'])
+@jwt_required()
+def get_bag_related_formula_options():
+    """获取袋型相关公式选项数据"""
+    try:
+        from app.services.basic_data_service import BagRelatedFormulaService
+        
+        result = BagRelatedFormulaService.get_bag_related_formula_options()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+# 班组管理API接口
+@bp.route('/team-groups', methods=['GET'])
+@jwt_required()
+def get_team_groups():
+    """获取班组列表"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        is_enabled = request.args.get('is_enabled')
+        
+        if is_enabled is not None:
+            is_enabled = is_enabled.lower() == 'true'
+        
+        result = TeamGroupService.get_team_groups(
+            page=page,
+            per_page=per_page,
+            search=search,
+            is_enabled=is_enabled
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result['team_groups'],
+            'pagination': {
+                'page': result['page'],
+                'per_page': result['per_page'],
+                'total': result['total'],
+                'pages': result['pages']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-groups/<team_group_id>', methods=['GET'])
+@jwt_required()
+def get_team_group(team_group_id):
+    """获取班组详情"""
+    try:
+        team_group = TeamGroupService.get_team_group(team_group_id)
+        
+        return jsonify({
+            'success': True,
+            'data': team_group
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-groups', methods=['POST'])
+@jwt_required()
+def create_team_group():
+    """创建班组"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        if not data.get('team_name'):
+            return jsonify({'success': False, 'message': '班组名称不能为空'}), 400
+        
+        team_group = TeamGroupService.create_team_group(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': team_group,
+            'message': '班组创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-groups/<team_group_id>', methods=['PUT'])
+@jwt_required()
+def update_team_group(team_group_id):
+    """更新班组"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        team_group = TeamGroupService.update_team_group(team_group_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': team_group,
+            'message': '班组更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-groups/<team_group_id>', methods=['DELETE'])
+@jwt_required()
+def delete_team_group(team_group_id):
+    """删除班组"""
+    try:
+        result = TeamGroupService.delete_team_group(team_group_id)
+        
+        return jsonify({
+            'success': True,
+            'message': result['message']
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-groups/options', methods=['GET'])
+@jwt_required()
+def get_team_group_options():
+    """获取班组选项列表"""
+    try:
+        options = TeamGroupService.get_team_group_options()
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-groups/form-options', methods=['GET'])
+@jwt_required()
+def get_team_group_form_options():
+    """获取班组表单选项数据"""
+    try:
+        employee_options = TeamGroupService.get_employee_options()
+        machine_options = TeamGroupService.get_machine_options()
+        process_options = TeamGroupService.get_process_category_options()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'employees': employee_options,
+                'machines': machine_options,
+                'process_categories': process_options
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# 班组成员管理API
+@bp.route('/team-groups/<team_group_id>/members', methods=['POST'])
+@jwt_required()
+def add_team_member(team_group_id):
+    """添加班组成员"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        if not data.get('employee_id'):
+            return jsonify({'success': False, 'message': '员工ID不能为空'}), 400
+        
+        member = TeamGroupService.add_team_member(team_group_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': member,
+            'message': '班组成员添加成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-members/<member_id>', methods=['PUT'])
+@jwt_required()
+def update_team_member(member_id):
+    """更新班组成员"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        member = TeamGroupService.update_team_member(member_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': member,
+            'message': '班组成员更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-members/<member_id>', methods=['DELETE'])
+@jwt_required()
+def delete_team_member(member_id):
+    """删除班组成员"""
+    try:
+        result = TeamGroupService.delete_team_member(member_id)
+        
+        return jsonify({
+            'success': True,
+            'message': result['message']
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# 班组机台管理API
+@bp.route('/team-groups/<team_group_id>/machines', methods=['POST'])
+@jwt_required()
+def add_team_machine(team_group_id):
+    """添加班组机台"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        if not data.get('machine_id'):
+            return jsonify({'success': False, 'message': '机台ID不能为空'}), 400
+        
+        machine = TeamGroupService.add_team_machine(team_group_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': machine,
+            'message': '班组机台添加成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-machines/<machine_id>', methods=['DELETE'])
+@jwt_required()
+def delete_team_machine(machine_id):
+    """删除班组机台"""
+    try:
+        result = TeamGroupService.delete_team_machine(machine_id)
+        
+        return jsonify({
+            'success': True,
+            'message': result['message']
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# 班组工序分类管理API
+@bp.route('/team-groups/<team_group_id>/processes', methods=['POST'])
+@jwt_required()
+def add_team_process(team_group_id):
+    """添加班组工序分类"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        if not data.get('process_category_id'):
+            return jsonify({'success': False, 'message': '工序分类ID不能为空'}), 400
+        
+        process = TeamGroupService.add_team_process(team_group_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': process,
+            'message': '班组工序分类添加成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/team-processes/<process_id>', methods=['DELETE'])
+@jwt_required()
+def delete_team_process(process_id):
+    """删除班组工序分类"""
+    try:
+        result = TeamGroupService.delete_team_process(process_id)
+        
+        return jsonify({
+            'success': True,
+            'message': result['message']
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500

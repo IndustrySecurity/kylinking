@@ -76,11 +76,6 @@ const BagTypeManagement = () => {
       if (response.data.success) {
         const { bag_types, total, current_page } = response.data.data;
         
-        // 调试：打印API返回的数据
-        console.log('API返回的袋型数据:', bag_types);
-        if (bag_types.length > 0) {
-          console.log('第一个袋型的结构数据:', bag_types[0].structures);
-        }
         
         // 为每行数据添加key
         const dataWithKeys = bag_types.map((item, index) => ({
@@ -679,16 +674,37 @@ const BagTypeManagement = () => {
       align: 'center'
     },
     {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 150,
+      render: (text) => text ? new Date(text).toLocaleString('zh-CN') : '-'
+    },
+    {
+      title: '修改人',
+      dataIndex: 'updated_by_name',
+      key: 'updated_by_name',
+      width: 100,
+      align: 'center'
+    },
+    {
+      title: '修改时间',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      width: 150,
+      render: (text) => text ? new Date(text).toLocaleString('zh-CN') : '-'
+    },
+    {
       title: '操作',
       key: 'action',
       width: 120,
       align: 'center',
       fixed: 'right',
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           <Button
-            type="link"
             icon={<EditOutlined />}
+            size="small"
             onClick={() => showModal(record)}
           >
             编辑
@@ -699,7 +715,11 @@ const BagTypeManagement = () => {
             okText="确定"
             cancelText="取消"
           >
-            <Button type="link" danger icon={<DeleteOutlined />}>
+            <Button 
+              icon={<DeleteOutlined />} 
+              size="small" 
+              danger
+            >
               删除
             </Button>
           </Popconfirm>

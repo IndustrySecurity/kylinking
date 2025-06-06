@@ -75,13 +75,16 @@ const ProcessManagement = () => {
         per_page: params.pageSize || pagination.pageSize,
         search: params.searchText || searchText
       });
-      if (response.data && (response.data.items || response.data.data)) {
-        const items = response.data.items || response.data.data;
-        setData(items.map(item => ({ ...item, key: item.id })));
+      
+      if (response.data && response.data.success && response.data.data) {
+        // 处理新的API响应格式
+        const result = response.data.data;
+        const processes = result.processes || [];
+        setData(processes.map(item => ({ ...item, key: item.id })));
         setPagination(prev => ({
           ...prev,
-          total: response.data.total || items.length,
-          current: response.data.current_page || 1
+          total: result.total || 0,
+          current: result.current_page || 1
         }));
       }
     } catch (error) {
@@ -113,9 +116,23 @@ const ProcessManagement = () => {
   const loadUnitOptions = async () => {
     try {
       const res = await unitApi.getEnabledUnits();
-      const arr = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      // 处理不同的响应格式
+      let arr = [];
+      if (Array.isArray(res.data)) {
+        arr = res.data;
+      } else if (res.data?.data) {
+        if (Array.isArray(res.data.data)) {
+          arr = res.data.data;
+        } else if (res.data.data.units) {
+          arr = res.data.data.units;
+        }
+      } else if (res.data?.units) {
+        arr = res.data.units;
+      }
       setUnitOptions(arr.map(item => ({ value: item.id, label: item.unit_name })));
-    } catch (e) { }
+    } catch (e) { 
+      console.error('加载单位选项失败:', e);
+    }
   };
 
   // 获取排程方式选项
@@ -370,8 +387,8 @@ const ProcessManagement = () => {
       <Card>
         <div style={{ marginBottom: 16 }}>
           <Title level={4} style={{ margin: 0 }}>
-            <ToolOutlined /> 工序管理
-          </Title>
+        <ToolOutlined /> 工序管理
+      </Title>
         </div>
         
         {/* 搜索和操作区域 - 统一按钮样式和位置 */}
@@ -389,16 +406,16 @@ const ProcessManagement = () => {
           </Col>
           <Col>
             <Space>
-              <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
-                搜索
-              </Button>
-              <Button onClick={() => loadData()} icon={<ReloadOutlined />}>
-                刷新
-              </Button>
-              <Button type="primary" onClick={handleAdd} icon={<PlusOutlined />}>
-                新建工序
-              </Button>
-            </Space>
+            <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
+              搜索
+            </Button>
+            <Button onClick={() => loadData()} icon={<ReloadOutlined />}>
+              刷新
+            </Button>
+            <Button type="primary" onClick={handleAdd} icon={<PlusOutlined />}>
+              新建工序
+            </Button>
+          </Space>
           </Col>
         </Row>
         

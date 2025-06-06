@@ -5500,7 +5500,7 @@ class MachineService:
         """设置当前租户的schema搜索路径"""
         schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
         if schema_name != 'public':
-            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            current_app.logger.info(f"Setting search_path to {schema_name} in MachineService")
             db.session.execute(text(f'SET search_path TO {schema_name}, public'))
 
     @staticmethod
@@ -5787,7 +5787,7 @@ class QuoteInkService:
         """设置当前租户的schema搜索路径"""
         schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
         if schema_name != 'public':
-            current_app.logger.info(f"Setting search_path to {schema_name} in LossTypeService")
+            current_app.logger.info(f"Setting search_path to {schema_name} in QuoteInkService")
             db.session.execute(text(f'SET search_path TO {schema_name}, public'))
 
     @staticmethod
@@ -7370,15 +7370,21 @@ class ProcessService:
         
             query = Process.query
         
-            # 搜索功能
-            if search:
-                    from app import db
-                    query = query.filter(
-                        db.or_(
-                            Process.process_name.ilike(f'%{search}%'),
-                            Process.mes_condition_code.ilike(f'%{search}%')
-                        )
+            # 搜索功能 - 只有在search不为空且不为空字符串时才执行
+            if search and search.strip():
+                from app import db
+                search_conditions = []
+                search_conditions.append(Process.process_name.ilike(f'%{search}%'))
+                
+                # 只有在mes_condition_code不为None时才添加搜索条件
+                search_conditions.append(
+                    db.and_(
+                        Process.mes_condition_code.isnot(None),
+                        Process.mes_condition_code.ilike(f'%{search}%')
+                    )
                 )
+                
+                query = query.filter(db.or_(*search_conditions))
             
                 # 是否只获取启用的
             if enabled_only:
