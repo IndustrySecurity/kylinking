@@ -15,6 +15,7 @@ from app.services.basic_data_service import (
 )
 from app.services.customer_service import CustomerService as CustomerManagementService
 from app.services.material_category_service import MaterialCategoryService
+from app.services.material_management_service import MaterialService
 from app.models.user import User
 from app.models.basic_data import ProcessCategory
 from app.extensions import db
@@ -7179,3 +7180,174 @@ def get_supplier_form_options():
             'success': False,
             'error': f'获取失败: {str(e)}'
         }), 500
+
+
+# 材料管理API
+@bp.route('/material-management', methods=['GET'])
+@jwt_required()
+def get_materials():
+    """获取材料管理列表"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 20, type=int)
+        search = request.args.get('search', '')
+        material_category_id = request.args.get('material_category_id', '')
+        inspection_type = request.args.get('inspection_type', '')
+        is_enabled_str = request.args.get('is_enabled', '')
+        is_enabled = None if is_enabled_str == '' else (is_enabled_str.lower() == 'true')
+        
+        result = MaterialService.get_materials(
+            page=page,
+            page_size=page_size,
+            search=search,
+            material_category_id=material_category_id,
+            inspection_type=inspection_type,
+            is_enabled=is_enabled
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management/<material_id>', methods=['GET'])
+@jwt_required()
+def get_material_detail(material_id):
+    """获取材料详情"""
+    try:
+        material = MaterialService.get_material_by_id(material_id)
+        
+        if not material:
+            return jsonify({'error': '材料不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': material
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management', methods=['POST'])
+@jwt_required()
+def create_material():
+    """创建材料"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        if not data.get('material_name'):
+            return jsonify({'error': '材料名称不能为空'}), 400
+        
+        result = MaterialService.create_material(data, current_user_id)
+        
+        if result.get('success'):
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management/<material_id>', methods=['PUT'])
+@jwt_required()
+def update_material(material_id):
+    """更新材料"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        result = MaterialService.update_material(material_id, data, current_user_id)
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management/<material_id>', methods=['DELETE'])
+@jwt_required()
+def delete_material(material_id):
+    """删除材料"""
+    try:
+        result = MaterialService.delete_material(material_id)
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management/form-options', methods=['GET'])
+@jwt_required()
+def get_material_form_options():
+    """获取材料管理表单选项"""
+    try:
+        options = MaterialService.get_form_options()
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management/category-details/<category_id>', methods=['GET'])
+@jwt_required()
+def get_material_category_details(category_id):
+    """获取材料分类详情，用于自动填入"""
+    try:
+        details = MaterialService.get_material_category_details(category_id)
+        
+        if not details:
+            return jsonify({'error': '材料分类不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': details
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-management/batch', methods=['PUT'])
+@jwt_required()
+def batch_update_materials():
+    """批量更新材料"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        if not data or not isinstance(data, list):
+            return jsonify({'error': '请求数据格式错误'}), 400
+        
+        result = MaterialService.batch_update_materials(data, current_user_id)
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

@@ -26,6 +26,7 @@ import CustomerManagement from './pages/base-archive/CustomerManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
 import SupplierManagement from './pages/base-archive/SupplierManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
+import MaterialManagement from './pages/base-archive/MaterialManagement';
 import CalculationParameterManagement from './pages/base-archive/CalculationParameterManagement';
 import CalculationSchemeManagement from './pages/base-archive/CalculationSchemeManagement';
 import ProductCategoryManagement from './pages/base-archive/ProductCategoryManagement';
@@ -210,6 +211,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <MaterialCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/material-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

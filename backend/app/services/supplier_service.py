@@ -155,6 +155,28 @@ class SupplierService:
                         'created_by': str(row.created_by) if row.created_by else None,
                         'updated_by': str(row.updated_by) if row.updated_by else None
                     }
+                    
+                    # 获取创建人和修改人用户名
+                    if row.created_by:
+                        from app.models.user import User
+                        created_user = User.query.get(row.created_by)
+                        if created_user:
+                            supplier_data['created_by_name'] = created_user.get_full_name()
+                        else:
+                            supplier_data['created_by_name'] = '未知用户'
+                    else:
+                        supplier_data['created_by_name'] = '系统'
+                        
+                    if row.updated_by:
+                        from app.models.user import User
+                        updated_user = User.query.get(row.updated_by)
+                        if updated_user:
+                            supplier_data['updated_by_name'] = updated_user.get_full_name()
+                        else:
+                            supplier_data['updated_by_name'] = '未知用户'
+                    else:
+                        supplier_data['updated_by_name'] = ''
+                    
                     suppliers.append(supplier_data)
                 
                 # 获取总数

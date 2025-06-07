@@ -4335,3 +4335,289 @@ class SupplierAffiliatedCompany(TenantModel):
             'affiliated_company': self.affiliated_company,
             'sort_order': self.sort_order
         }
+
+
+class Material(TenantModel):
+    """材料模型"""
+    __tablename__ = 'materials'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息字段
+    material_code = db.Column(db.String(50), comment='材料编号')  # 自动生成，格式：MT00001349
+    material_name = db.Column(db.String(255), nullable=False, comment='材料名称')  # 手工输入
+    material_category_id = db.Column(UUID(as_uuid=True), comment='材料分类ID')  # 选择
+    material_attribute = db.Column(db.String(50), comment='材料属性')  # 自动根据材料分类填入
+    unit_id = db.Column(UUID(as_uuid=True), comment='单位ID')  # 自动根据材料分类填入
+    auxiliary_unit_id = db.Column(UUID(as_uuid=True), comment='辅助单位ID')  # 自动根据材料分类填入
+    
+    # 布尔字段(勾选)
+    is_blown_film = db.Column(db.Boolean, default=False, comment='是否吹膜')  # 勾选
+    unit_no_conversion = db.Column(db.Boolean, default=False, comment='单位不换算')  # 勾选
+    
+    # 尺寸字段（自动根据材料分类填入）
+    width_mm = db.Column(db.Numeric(10, 3), comment='宽mm')  # 自动
+    thickness_um = db.Column(db.Numeric(10, 3), comment='厚μm')  # 自动
+    specification_model = db.Column(db.String(200), comment='规格型号')  # 自动
+    density = db.Column(db.Numeric(10, 4), comment='密度')  # 自动
+    
+    # 手工输入字段
+    conversion_factor = db.Column(db.Numeric(10, 4), default=1, comment='换算系数')  # 手工输入，默认1
+    sales_unit_id = db.Column(UUID(as_uuid=True), comment='销售单位ID')  # 选择
+    inspection_type = db.Column(db.String(20), default='spot_check', comment='检验类型')  # 选择：免检/抽检/全检，默认抽检
+    
+    # 自动填入的布尔字段
+    is_paper = db.Column(db.Boolean, default=False, comment='是否卷纸')  # 自动
+    is_surface_printing_ink = db.Column(db.Boolean, default=False, comment='表印油墨')  # 自动
+    length_mm = db.Column(db.Numeric(10, 3), comment='长mm')  # 自动
+    height_mm = db.Column(db.Numeric(10, 3), comment='高mm')  # 自动
+    
+    # 库存管理字段
+    min_stock_start = db.Column(db.Numeric(15, 3), comment='最小库存(起)')  # 手工输入
+    min_stock_end = db.Column(db.Numeric(15, 3), comment='最小库存(止)')  # 手工输入
+    max_stock = db.Column(db.Numeric(15, 3), comment='最大库存')  # 手工输入
+    shelf_life_days = db.Column(db.Integer, comment='保质期/天')  # 自动
+    warning_days = db.Column(db.Integer, default=0, comment='预警天数')  # 手工输入，默认0
+    standard_m_per_roll = db.Column(db.Numeric(10, 3), default=0, comment='标准m/卷')  # 手工输入，默认0
+    
+    # 更多自动填入的布尔字段
+    is_carton = db.Column(db.Boolean, default=False, comment='是否纸箱')  # 自动
+    is_uv_ink = db.Column(db.Boolean, default=False, comment='UV油墨')  # 勾选
+    wind_tolerance_mm = db.Column(db.Numeric(10, 3), default=0, comment='风差mm')  # 手工输入，默认0
+    tongue_mm = db.Column(db.Numeric(10, 3), default=0, comment='舌头mm')  # 手工输入，默认0
+    
+    # 价格字段
+    purchase_price = db.Column(db.Numeric(15, 4), default=0, comment='采购价')  # 手工输入，默认0
+    latest_purchase_price = db.Column(db.Numeric(15, 4), default=0, comment='最近采购价')  # 手工输入，默认0
+    latest_tax_included_price = db.Column(db.Numeric(15, 4), comment='最近含税单价')  # 手工输入
+    
+    # 选择字段
+    material_formula_id = db.Column(UUID(as_uuid=True), comment='用料公式ID')  # 选择，根据计算方表选择方案分类为材料用料的项
+    is_paper_core = db.Column(db.Boolean, default=False, comment='是否纸芯')  # 自动
+    is_tube_film = db.Column(db.Boolean, default=False, comment='是否筒膜')  # 勾选
+    
+    # 损耗字段
+    loss_1 = db.Column(db.Numeric(10, 4), comment='损耗1')  # 手工输入
+    loss_2 = db.Column(db.Numeric(10, 4), comment='损耗2')  # 手工输入
+    forward_formula = db.Column(db.String(200), comment='正算公式')  # 选择
+    reverse_formula = db.Column(db.String(200), comment='反算公式')  # 选择
+    sales_price = db.Column(db.Numeric(15, 4), comment='销售价')  # 手工输入
+    subject_id = db.Column(UUID(as_uuid=True), comment='科目ID')  # 选择
+    uf_code = db.Column(db.String(100), comment='用友编码')  # 手工输入
+    
+    # 更多布尔字段
+    material_formula_reverse = db.Column(db.Boolean, default=False, comment='用料公式反算')  # 勾选
+    is_hot_stamping = db.Column(db.Boolean, default=False, comment='是否烫金')  # 勾选
+    material_position = db.Column(db.String(200), comment='材料位置')  # 手工输入
+    carton_spec_volume = db.Column(db.Numeric(15, 6), comment='纸箱规格体积')  # 手工输入
+    security_code = db.Column(db.String(100), comment='保密编码')  # 选择
+    substitute_material_category_id = db.Column(UUID(as_uuid=True), comment='替代材料分类ID')  # 选择
+    scan_batch = db.Column(db.String(100), comment='扫码批次')  # 手工输入
+    
+    # 最后的布尔字段
+    is_woven_bag = db.Column(db.Boolean, default=False, comment='是否编织袋')  # 勾选
+    is_zipper = db.Column(db.Boolean, default=False, comment='是否拉链')  # 自动
+    remarks = db.Column(db.Text, comment='备注')  # 手工输入
+    is_self_made = db.Column(db.Boolean, default=False, comment='是否自制')  # 勾选
+    no_interface = db.Column(db.Boolean, default=False, comment='不对接')  # 勾选
+    cost_object_required = db.Column(db.Boolean, default=False, comment='成本对象必填')  # 勾选
+    
+    # 标准字段
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 子表关联
+    properties = db.relationship('MaterialProperty', backref='material', lazy='dynamic', cascade='all, delete-orphan')
+    suppliers = db.relationship('MaterialSupplier', backref='material', lazy='dynamic', cascade='all, delete-orphan')
+    
+    # 选项常量
+    INSPECTION_TYPES = [
+        ('exempt', '免检'),
+        ('spot_check', '抽检'),
+        ('full_check', '全检')
+    ]
+    
+    __table_args__ = (
+        db.Index('idx_material_management_code', 'material_code'),
+        db.Index('idx_material_management_name', 'material_name'),
+        db.Index('idx_material_management_category', 'material_category_id'),
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self, include_details=False):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'material_code': self.material_code,
+            'material_name': self.material_name,
+            'material_category_id': str(self.material_category_id) if self.material_category_id else None,
+            'material_attribute': self.material_attribute,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'auxiliary_unit_id': str(self.auxiliary_unit_id) if self.auxiliary_unit_id else None,
+            'is_blown_film': self.is_blown_film,
+            'unit_no_conversion': self.unit_no_conversion,
+            'width_mm': float(self.width_mm) if self.width_mm else None,
+            'thickness_um': float(self.thickness_um) if self.thickness_um else None,
+            'specification_model': self.specification_model,
+            'density': float(self.density) if self.density else None,
+            'conversion_factor': float(self.conversion_factor) if self.conversion_factor else 1,
+            'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'inspection_type': self.inspection_type,
+            'is_paper': self.is_paper,
+            'is_surface_printing_ink': self.is_surface_printing_ink,
+            'length_mm': float(self.length_mm) if self.length_mm else None,
+            'height_mm': float(self.height_mm) if self.height_mm else None,
+            'min_stock_start': float(self.min_stock_start) if self.min_stock_start else None,
+            'min_stock_end': float(self.min_stock_end) if self.min_stock_end else None,
+            'max_stock': float(self.max_stock) if self.max_stock else None,
+            'shelf_life_days': self.shelf_life_days,
+            'warning_days': self.warning_days,
+            'standard_m_per_roll': float(self.standard_m_per_roll) if self.standard_m_per_roll else 0,
+            'is_carton': self.is_carton,
+            'is_uv_ink': self.is_uv_ink,
+            'wind_tolerance_mm': float(self.wind_tolerance_mm) if self.wind_tolerance_mm else 0,
+            'tongue_mm': float(self.tongue_mm) if self.tongue_mm else 0,
+            'purchase_price': float(self.purchase_price) if self.purchase_price else 0,
+            'latest_purchase_price': float(self.latest_purchase_price) if self.latest_purchase_price else 0,
+            'latest_tax_included_price': float(self.latest_tax_included_price) if self.latest_tax_included_price else None,
+            'material_formula_id': str(self.material_formula_id) if self.material_formula_id else None,
+            'is_paper_core': self.is_paper_core,
+            'is_tube_film': self.is_tube_film,
+            'loss_1': float(self.loss_1) if self.loss_1 else None,
+            'loss_2': float(self.loss_2) if self.loss_2 else None,
+            'forward_formula': self.forward_formula,
+            'reverse_formula': self.reverse_formula,
+            'sales_price': float(self.sales_price) if self.sales_price else None,
+            'subject_id': str(self.subject_id) if self.subject_id else None,
+            'uf_code': self.uf_code,
+            'material_formula_reverse': self.material_formula_reverse,
+            'is_hot_stamping': self.is_hot_stamping,
+            'material_position': self.material_position,
+            'carton_spec_volume': float(self.carton_spec_volume) if self.carton_spec_volume else None,
+            'security_code': self.security_code,
+            'substitute_material_category_id': str(self.substitute_material_category_id) if self.substitute_material_category_id else None,
+            'scan_batch': self.scan_batch,
+            'is_woven_bag': self.is_woven_bag,
+            'is_zipper': self.is_zipper,
+            'remarks': self.remarks,
+            'is_self_made': self.is_self_made,
+            'no_interface': self.no_interface,
+            'cost_object_required': self.cost_object_required,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        if include_details:
+            result['properties'] = [prop.to_dict() for prop in self.properties]
+            result['suppliers'] = [supplier.to_dict() for supplier in self.suppliers]
+        
+        return result
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的材料列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.material_name).all()
+    
+    @classmethod
+    def generate_material_code(cls):
+        """生成材料编号"""
+        # 查询最大编号
+        max_code = db.session.query(func.max(cls.material_code)).scalar()
+        if max_code:
+            # 提取数字部分并加1
+            try:
+                number = int(max_code[2:])  # 去掉MT前缀
+                new_number = number + 1
+            except (ValueError, TypeError):
+                new_number = 1
+        else:
+            new_number = 1
+        
+        # 格式化为8位数字
+        return f"MT{new_number:08d}"
+    
+    @classmethod
+    def get_inspection_type_options(cls):
+        """获取检验类型选项"""
+        return [{'value': k, 'label': v} for k, v in cls.INSPECTION_TYPES]
+    
+    def __repr__(self):
+        return f'<Material {self.material_name}>'
+
+
+class MaterialProperty(TenantModel):
+    """材料属性子表"""
+    __tablename__ = 'material_properties'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.materials.id'), nullable=False)
+    property_name = db.Column(db.String(100), comment='属性名称')
+    property_value = db.Column(db.String(255), comment='属性值')
+    property_unit = db.Column(db.String(50), comment='属性单位')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'material_id': str(self.material_id),
+            'property_name': self.property_name,
+            'property_value': self.property_value,
+            'property_unit': self.property_unit,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class MaterialSupplier(TenantModel):
+    """材料供应商子表"""
+    __tablename__ = 'material_suppliers'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.materials.id'), nullable=False)
+    supplier_id = db.Column(UUID(as_uuid=True), comment='供应商ID')
+    supplier_material_code = db.Column(db.String(100), comment='供应商材料编码')
+    supplier_price = db.Column(db.Numeric(15, 4), comment='供应商价格')
+    is_primary = db.Column(db.Boolean, default=False, comment='是否主供应商')
+    delivery_days = db.Column(db.Integer, comment='交货天数')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'material_id': str(self.material_id),
+            'supplier_id': str(self.supplier_id) if self.supplier_id else None,
+            'supplier_material_code': self.supplier_material_code,
+            'supplier_price': float(self.supplier_price) if self.supplier_price else None,
+            'is_primary': self.is_primary,
+            'delivery_days': self.delivery_days,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }

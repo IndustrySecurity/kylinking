@@ -50,7 +50,7 @@ const BaseData = () => {
       key: 'materials',
       title: '材料',
       icon: <ShoppingOutlined />,
-      path: '/base-archive/base-data/materials',
+      path: '/base-archive/material-management',
       color: '#722ed1'
     },
     {
