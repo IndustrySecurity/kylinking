@@ -22,7 +22,9 @@ import QuoteMaterialManagement from './pages/base-archive/QuoteMaterialManagemen
 import QuoteAccessoryManagement from './pages/base-archive/QuoteAccessoryManagement';
 import QuoteLossManagement from './pages/base-archive/QuoteLossManagement';
 import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
+import CustomerManagement from './pages/base-archive/CustomerManagement';
 import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
+import SupplierManagement from './pages/base-archive/SupplierManagement';
 import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
 import CalculationParameterManagement from './pages/base-archive/CalculationParameterManagement';
 import CalculationSchemeManagement from './pages/base-archive/CalculationSchemeManagement';
@@ -180,10 +182,26 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="/base-archive/customer-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CustomerManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
             <Route path="/base-archive/supplier-category-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <SupplierCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/supplier-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SupplierManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

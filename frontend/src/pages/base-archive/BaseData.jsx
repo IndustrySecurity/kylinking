@@ -29,7 +29,7 @@ const BaseData = () => {
       key: 'customers',
       title: '客户',
       icon: <UserOutlined style={{ fontSize: '48px' }} />,
-      path: '/base-archive/base-data/customers',
+      path: '/base-archive/customer-management',
       color: '#1890ff'
     },
     {
@@ -43,7 +43,7 @@ const BaseData = () => {
       key: 'suppliers',
       title: '供应商',
       icon: <BankOutlined />,
-      path: '/base-archive/base-data/suppliers',
+      path: '/base-archive/supplier-management',
       color: '#fa8c16'
     },
     {

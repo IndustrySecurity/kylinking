@@ -13,6 +13,7 @@ from app.services.basic_data_service import (
     CalculationParameterService, CalculationSchemeService, DepartmentService, PositionService, EmployeeService,
     WarehouseService, BagTypeService, TeamGroupService
 )
+from app.services.customer_service import CustomerService as CustomerManagementService
 from app.services.material_category_service import MaterialCategoryService
 from app.models.user import User
 from app.models.basic_data import ProcessCategory
@@ -265,59 +266,6 @@ def create_customer_category():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-# 供应商相关API
-@bp.route('/suppliers', methods=['GET'])
-@jwt_required()
-def get_suppliers():
-    """获取供应商列表"""
-    try:
-        page = int(request.args.get('page', 1))
-        per_page = min(int(request.args.get('per_page', 20)), 100)
-        search = request.args.get('search')
-        category_id = request.args.get('category_id')
-        status = request.args.get('status')
-        
-        result = SupplierService.get_suppliers(
-            page=page,
-            per_page=per_page,
-            search=search,
-            category_id=category_id,
-            status=status
-        )
-        
-        return jsonify({
-            'success': True,
-            'data': result
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@bp.route('/suppliers', methods=['POST'])
-@jwt_required()
-def create_supplier():
-    """创建供应商"""
-    try:
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        
-        if not data or not data.get('supplier_name'):
-            return jsonify({'error': '供应商名称不能为空'}), 400
-        
-        supplier = SupplierService.create_supplier(data, current_user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': supplier,
-            'message': '供应商创建成功'
-        }), 201
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 # 产品相关API
@@ -6897,3 +6845,337 @@ def delete_team_process(process_id):
         return jsonify({'success': False, 'message': str(e)}), 400
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# 客户管理API
+@bp.route('/customer-management', methods=['GET'])
+@jwt_required()
+def get_customer_management():
+    """获取客户管理列表"""
+    try:
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search', '').strip()
+        customer_category_id = request.args.get('customer_category_id')
+        customer_level = request.args.get('customer_level')
+        business_type = request.args.get('business_type')
+        enterprise_type = request.args.get('enterprise_type')
+        region = request.args.get('region')
+        enabled_only = request.args.get('enabled_only', '').lower() in ('true', '1', 'yes')
+        
+        # 获取客户列表
+        result = CustomerManagementService.get_list(
+            page=page,
+            per_page=per_page,
+            search=search if search else None,
+            customer_category_id=customer_category_id,
+            customer_level=customer_level,
+            business_type=business_type,
+            enterprise_type=enterprise_type,
+            region=region,
+            enabled_only=enabled_only
+        )
+        
+        return jsonify({'success': True, 'data': result})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management/<customer_id>', methods=['GET'])
+@jwt_required()
+def get_customer_management_detail(customer_id):
+    """获取客户详细信息"""
+    try:
+        customer = CustomerManagementService.get_by_id(customer_id)
+        return jsonify({'success': True, 'data': customer})
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management', methods=['POST'])
+@jwt_required()
+def create_customer_management():
+    """创建客户"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        customer = CustomerManagementService.create(data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': customer,
+            'message': '客户创建成功'
+        }), 201
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management/<customer_id>', methods=['PUT'])
+@jwt_required()
+def update_customer_management(customer_id):
+    """更新客户"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        customer = CustomerManagementService.update(customer_id, data, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': customer,
+            'message': '客户更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management/<customer_id>', methods=['DELETE'])
+@jwt_required()
+def delete_customer_management(customer_id):
+    """删除客户"""
+    try:
+        result = CustomerManagementService.delete(customer_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '客户删除成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management/<customer_id>/toggle-status', methods=['PUT'])
+@jwt_required()
+def toggle_customer_management_status(customer_id):
+    """切换客户状态"""
+    try:
+        result = CustomerManagementService.toggle_status(customer_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '客户状态更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management/export', methods=['GET'])
+@jwt_required()
+def export_customer_management():
+    """导出客户数据"""
+    try:
+        # 获取查询参数作为过滤条件
+        filters = {}
+        search = request.args.get('search', '').strip()
+        if search:
+            filters['search'] = search
+        customer_category_id = request.args.get('customer_category_id')
+        if customer_category_id:
+            filters['customer_category_id'] = customer_category_id
+        customer_level = request.args.get('customer_level')
+        if customer_level:
+            filters['customer_level'] = customer_level
+        business_type = request.args.get('business_type')
+        if business_type:
+            filters['business_type'] = business_type
+        enterprise_type = request.args.get('enterprise_type')
+        if enterprise_type:
+            filters['enterprise_type'] = enterprise_type
+        region = request.args.get('region')
+        if region:
+            filters['region'] = region
+        
+        export_data = CustomerManagementService.export_data(filters)
+        
+        return Response(
+            export_data,
+            mimetype='application/json',
+            headers={
+                'Content-Disposition': 'attachment; filename=customers.json'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@bp.route('/customer-management/form-options', methods=['GET'])
+@jwt_required()
+def get_customer_management_form_options():
+    """获取客户表单选项"""
+    try:
+        options = CustomerManagementService.get_form_options()
+        return jsonify({'success': True, 'data': options})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# 添加供应商管理相关的导入
+from app.services.supplier_service import SupplierService
+
+# 供应商管理路由
+@bp.route('/supplier-management', methods=['GET'])
+@jwt_required()
+def get_suppliers():
+    """获取供应商列表"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        search = request.args.get('search', '', type=str)
+        
+        result = SupplierService.get_suppliers_list(page, per_page, search)
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'获取失败: {str(e)}'
+        }), 500
+
+
+@bp.route('/supplier-management/<supplier_id>', methods=['GET'])
+@jwt_required()
+def get_supplier(supplier_id):
+    """获取供应商详情"""
+    try:
+        supplier = SupplierService.get_supplier_by_id(supplier_id)
+        if not supplier:
+            return jsonify({
+                'success': False,
+                'error': '供应商不存在'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'data': supplier
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'获取失败: {str(e)}'
+        }), 500
+
+
+@bp.route('/supplier-management', methods=['POST'])
+@jwt_required()
+def create_supplier():
+    """创建供应商"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('supplier_name'):
+            return jsonify({
+                'success': False,
+                'error': '供应商名称不能为空'
+            }), 400
+        
+        user_id = get_jwt_identity()
+        supplier = SupplierService.create_supplier(data, user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': supplier
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'创建失败: {str(e)}'
+        }), 500
+
+
+@bp.route('/supplier-management/<supplier_id>', methods=['PUT'])
+@jwt_required()
+def update_supplier(supplier_id):
+    """更新供应商"""
+    try:
+        data = request.get_json()
+        if not data or not data.get('supplier_name'):
+            return jsonify({
+                'success': False,
+                'error': '供应商名称不能为空'
+            }), 400
+        
+        user_id = get_jwt_identity()
+        supplier = SupplierService.update_supplier(supplier_id, data, user_id)
+        
+        if not supplier:
+            return jsonify({
+                'success': False,
+                'error': '供应商不存在'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'data': supplier
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'更新失败: {str(e)}'
+        }), 500
+
+
+@bp.route('/supplier-management/<supplier_id>', methods=['DELETE'])
+@jwt_required()
+def delete_supplier(supplier_id):
+    """删除供应商"""
+    try:
+        success = SupplierService.delete_supplier(supplier_id)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': '供应商不存在'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'data': None
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'删除失败: {str(e)}'
+        }), 500
+
+
+@bp.route('/supplier-management/form-options', methods=['GET'])
+@jwt_required()
+def get_supplier_form_options():
+    """获取供应商表单选项数据"""
+    try:
+        options = SupplierService.get_form_options()
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'获取失败: {str(e)}'
+        }), 500

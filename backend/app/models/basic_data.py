@@ -3573,3 +3573,765 @@ class TeamGroupProcess(TenantModel):
     
     def __repr__(self):
         return f'<TeamGroupProcess {self.process_category.process_name if self.process_category else "Unknown"}>'
+
+
+class CustomerManagement(BaseModel):
+    """客户管理模型 - 完整字段版本"""
+    __tablename__ = 'customer_management'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息字段（根据用户表格）
+    customer_code = db.Column(db.String(50), comment='客户编号')  # 自动生成
+    customer_name = db.Column(db.String(255), nullable=False, comment='客户名称')  # 手工输入
+    customer_category_id = db.Column(UUID(as_uuid=True), comment='客户分类ID')  # 选择
+    tax_rate_id = db.Column(UUID(as_uuid=True), comment='税收ID')  # 选择
+    tax_rate = db.Column(db.Numeric(5, 2), comment='税率%')  # 自动填入
+    customer_abbreviation = db.Column(db.String(100), comment='客户简称')  # 手工输入
+    customer_level = db.Column(db.String(10), comment='客户等级')  # 选择: 空/A/B
+    parent_customer_id = db.Column(UUID(as_uuid=True), comment='上级客户ID')  # 选择
+    region = db.Column(db.String(100), comment='区域')  # 选择省份
+    package_method_id = db.Column(UUID(as_uuid=True), comment='送货方式ID')  # 选择
+    barcode_prefix = db.Column(db.String(50), comment='条码前缀')  # 手工输入
+    business_type = db.Column(db.String(50), comment='经营业务类')  # 选择: 空/供应商/经销/代理/贸易/备案/物流配送
+    enterprise_type = db.Column(db.String(50), comment='企业类型')  # 选择: 空/个人/个体工商户/有限责任公司
+    company_address = db.Column(db.Text, comment='公司地址')  # 手工输入
+    
+    # 日期字段 - 商标书(起始日期&截止日期)
+    trademark_start_date = db.Column(db.Date, comment='商标书(起始日期)')
+    trademark_end_date = db.Column(db.Date, comment='商标书(截止日期)')
+    # 条码证书(起始日期&截止日期)
+    barcode_cert_start_date = db.Column(db.Date, comment='条码证书(起始日期)')
+    barcode_cert_end_date = db.Column(db.Date, comment='条码证书(截止日期)')
+    # 合同期限(起始日期&截止日期)
+    contract_start_date = db.Column(db.Date, comment='合同期限(起始日期)')
+    contract_end_date = db.Column(db.Date, comment='合同期限(截止日期)')
+    # 营业期限(起始日期&截止日期)
+    business_start_date = db.Column(db.Date, comment='营业期限(起始日期)')
+    business_end_date = db.Column(db.Date, comment='营业期限(截止日期)')
+    # 生产许可(起始日期&截止日期)
+    production_permit_start_date = db.Column(db.Date, comment='生产许可(起始日期)')
+    production_permit_end_date = db.Column(db.Date, comment='生产许可(截止日期)')
+    # 检测报告(起始日期&截止日期)
+    inspection_report_start_date = db.Column(db.Date, comment='检测报告(起始日期)')
+    inspection_report_end_date = db.Column(db.Date, comment='检测报告(截止日期)')
+    
+    # 选择字段
+    payment_method_id = db.Column(UUID(as_uuid=True), comment='付款方式ID')  # 选择
+    currency_id = db.Column(UUID(as_uuid=True), comment='币别ID')  # 选择
+    
+    # 数字字段
+    settlement_color_difference = db.Column(db.Numeric(10, 4), comment='定金比例%')  # 手工输入
+    sales_commission = db.Column(db.Numeric(5, 2), comment='销售提成%')  # 手工输入
+    credit_amount = db.Column(db.Numeric(15, 2), comment='信用额度')  # 手工输入
+    registered_capital = db.Column(db.Numeric(15, 2), comment='注册资金')  # 手工输入
+    accounts_period = db.Column(db.Integer, comment='账款期限')  # 手工输入
+    account_period = db.Column(db.Integer, comment='账期')  # 手工输入
+    
+    # 业务员字段
+    salesperson_id = db.Column(UUID(as_uuid=True), comment='业务员ID')  # 选择
+    
+    # 编码字段
+    barcode_front_code = db.Column(db.String(50), comment='编码前缀')  # 手工输入
+    barcode_back_code = db.Column(db.String(50), comment='编码后缀')  # 手工输入
+    user_barcode = db.Column(db.String(100), comment='用友编码')  # 手工输入
+    
+    # 流水号相关
+    invoice_water_number = db.Column(db.String(50), comment='当前流水号')  # 手工输入
+    water_mark_position = db.Column(db.Numeric(10, 2), comment='流水与位数')  # 手工输入
+    legal_person_certificate = db.Column(db.String(100), comment='法人身份证')  # 手工输入
+    company_website = db.Column(db.String(255), comment='公司网址')  # 手工输入
+    company_legal_person = db.Column(db.String(100), comment='公司法人')  # 手工输入
+    
+    # 地址字段
+    province = db.Column(db.String(50), comment='省份')  # 选择
+    city = db.Column(db.String(50), comment='市')  # 选择
+    district = db.Column(db.String(50), comment='县/区')  # 选择
+    organization_code = db.Column(db.String(100), comment='组织机构代码')  # 手工输入
+    reconciliation_date = db.Column(db.Date, comment='对账日期')  # 选择
+    foreign_currency = db.Column(db.String(10), comment='外币')  # 选择
+    remarks = db.Column(db.Text, comment='备注')  # 手工输入
+    
+    # 布尔字段(勾选)
+    trademark_certificate = db.Column(db.Boolean, default=False, comment='商标证书')
+    print_authorization = db.Column(db.Boolean, default=False, comment='印刷委托书')
+    inspection_report = db.Column(db.Boolean, default=False, comment='检验报告')
+    free_samples = db.Column(db.Boolean, default=False, comment='免费样用')
+    advance_payment_control = db.Column(db.Boolean, default=False, comment='放开管控')
+    warehouse = db.Column(db.Boolean, default=False, comment='定置')
+    old_customer = db.Column(db.Boolean, default=False, comment='旧客户')
+    customer_archive_review = db.Column(db.Boolean, default=False, comment='客户简称重复')
+    
+    # 标准字段
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 关联关系 - 暂时简化避免初始化问题
+    # customer_category = db.relationship('CustomerCategoryManagement', 
+    #                                   primaryjoin='CustomerManagement.customer_category_id == CustomerCategoryManagement.id')
+    # parent_customer = db.relationship('CustomerManagement', remote_side=[id],
+    #                                 primaryjoin='CustomerManagement.parent_customer_id == CustomerManagement.id')
+    # package_method = db.relationship('PackageMethod',
+    #                                primaryjoin='CustomerManagement.package_method_id == PackageMethod.id')
+    # tax_rate_rel = db.relationship('TaxRate',
+    #                              primaryjoin='CustomerManagement.tax_rate_id == TaxRate.id')
+    # payment_method = db.relationship('PaymentMethod',
+    #                                primaryjoin='CustomerManagement.payment_method_id == PaymentMethod.id')
+    # currency = db.relationship('Currency',
+    #                          primaryjoin='CustomerManagement.currency_id == Currency.id')
+    
+    # 子表关联
+    contacts = db.relationship('CustomerContact', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
+    delivery_addresses = db.relationship('CustomerDeliveryAddress', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
+    invoice_units = db.relationship('CustomerInvoiceUnit', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
+    payment_units = db.relationship('CustomerPaymentUnit', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
+    affiliated_companies = db.relationship('CustomerAffiliatedCompany', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
+    
+    # 选项常量
+    CUSTOMER_LEVELS = [
+        ('A', 'A'),
+        ('B', 'B')
+    ]
+    
+    BUSINESS_TYPES = [
+        ('supplier', '供应商'),
+        ('dealer', '经销'),
+        ('agent', '代理'),
+        ('trade', '贸易'),
+        ('record', '备案'),
+        ('logistics', '物流配送')
+    ]
+    
+    ENTERPRISE_TYPES = [
+        ('individual', '个人'),
+        ('individual_business', '个体工商户'),
+        ('limited_company', '有限责任公司')
+    ]
+    
+    PROVINCES = [
+        ('北京', '北京'),
+        ('天津', '天津'),
+        ('河北', '河北'),
+        ('山西', '山西'),
+        ('内蒙古', '内蒙古'),
+        ('辽宁', '辽宁'),
+        ('吉林', '吉林'),
+        ('黑龙江', '黑龙江'),
+        ('上海', '上海'),
+        ('江苏', '江苏'),
+        ('浙江', '浙江'),
+        ('安徽', '安徽'),
+        ('福建', '福建'),
+        ('江西', '江西'),
+        ('山东', '山东'),
+        ('河南', '河南'),
+        ('湖北', '湖北'),
+        ('湖南', '湖南'),
+        ('广东', '广东'),
+        ('广西', '广西'),
+        ('海南', '海南'),
+        ('重庆', '重庆'),
+        ('四川', '四川'),
+        ('贵州', '贵州'),
+        ('云南', '云南'),
+        ('西藏', '西藏'),
+        ('陕西', '陕西'),
+        ('甘肃', '甘肃'),
+        ('青海', '青海'),
+        ('宁夏', '宁夏'),
+        ('新疆', '新疆'),
+        ('台湾', '台湾'),
+        ('香港', '香港'),
+        ('澳门', '澳门')
+    ]
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self, include_details=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'customer_name': self.customer_name,
+            'customer_category_id': str(self.customer_category_id) if self.customer_category_id else None,
+            'customer_category_name': None,  # 暂时禁用关系查询
+            'customer_code': self.customer_code,
+            'customer_abbreviation': self.customer_abbreviation,
+            'customer_level': self.customer_level,
+            'parent_customer_id': str(self.parent_customer_id) if self.parent_customer_id else None,
+            'parent_customer_name': None,  # 暂时禁用关系查询
+            'region': self.region,
+            'package_method_id': str(self.package_method_id) if self.package_method_id else None,
+            'package_method_name': None,  # 暂时禁用关系查询
+            'barcode_prefix': self.barcode_prefix,
+            'business_type': self.business_type,
+            'enterprise_type': self.enterprise_type,
+            'organization_code': self.organization_code,
+            
+            # 日期字段
+            'trademark_start_date': self.trademark_start_date.isoformat() if self.trademark_start_date else None,
+            'trademark_end_date': self.trademark_end_date.isoformat() if self.trademark_end_date else None,
+            'barcode_cert_start_date': self.barcode_cert_start_date.isoformat() if self.barcode_cert_start_date else None,
+            'barcode_cert_end_date': self.barcode_cert_end_date.isoformat() if self.barcode_cert_end_date else None,
+            'contract_start_date': self.contract_start_date.isoformat() if self.contract_start_date else None,
+            'contract_end_date': self.contract_end_date.isoformat() if self.contract_end_date else None,
+            'business_start_date': self.business_start_date.isoformat() if self.business_start_date else None,
+            'business_end_date': self.business_end_date.isoformat() if self.business_end_date else None,
+            'production_permit_start_date': self.production_permit_start_date.isoformat() if self.production_permit_start_date else None,
+            'production_permit_end_date': self.production_permit_end_date.isoformat() if self.production_permit_end_date else None,
+            'inspection_report_start_date': self.inspection_report_start_date.isoformat() if self.inspection_report_start_date else None,
+            'inspection_report_end_date': self.inspection_report_end_date.isoformat() if self.inspection_report_end_date else None,
+            
+            # 金额字段
+            'registered_capital': float(self.registered_capital) if self.registered_capital else None,
+            'credit_amount': float(self.credit_amount) if self.credit_amount else None,
+            'sales_commission': float(self.sales_commission) if self.sales_commission else None,
+            'settlement_color_difference': float(self.settlement_color_difference) if self.settlement_color_difference else None,
+            
+            # 业务相关字段
+            'company_website': self.company_website,
+            'company_legal_person': self.company_legal_person,
+            'company_address': self.company_address,
+            'legal_person_certificate': self.legal_person_certificate,
+            'barcode_front_code': self.barcode_front_code,
+            'barcode_back_code': self.barcode_back_code,
+            'user_barcode': self.user_barcode,
+            'invoice_water_number': self.invoice_water_number,
+            'water_mark_position': float(self.water_mark_position) if self.water_mark_position else None,
+            'province': self.province,
+            'city': self.city,
+            'district': self.district,
+            'reconciliation_date': self.reconciliation_date.isoformat() if self.reconciliation_date else None,
+            'foreign_currency': self.foreign_currency,
+            'remarks': self.remarks,
+            
+            # 布尔字段
+            'trademark_certificate': self.trademark_certificate,
+            'print_authorization': self.print_authorization,
+            'inspection_report': self.inspection_report,
+            'free_samples': self.free_samples,
+            'advance_payment_control': self.advance_payment_control,
+            'warehouse': self.warehouse,
+            'old_customer': self.old_customer,
+            'customer_archive_review': self.customer_archive_review,
+            
+            # 标准字段
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None
+        }
+        
+        if include_details:
+            data.update({
+                'contacts': [contact.to_dict() for contact in self.contacts],
+                'delivery_addresses': [addr.to_dict() for addr in self.delivery_addresses],
+                'invoice_units': [unit.to_dict() for unit in self.invoice_units],
+                'payment_units': [unit.to_dict() for unit in self.payment_units],
+                'affiliated_companies': [company.to_dict() for company in self.affiliated_companies]
+            })
+        
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的客户列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.customer_name).all()
+    
+    @classmethod
+    def get_business_type_options(cls):
+        """获取经营业务类型选项"""
+        return [{'value': value, 'label': label} for value, label in cls.BUSINESS_TYPES]
+    
+    @classmethod
+    def get_enterprise_type_options(cls):
+        """获取企业类型选项"""
+        return [{'value': value, 'label': label} for value, label in cls.ENTERPRISE_TYPES]
+    
+    def __repr__(self):
+        return f'<CustomerManagement {self.customer_name}>'
+
+
+class CustomerContact(TenantModel):
+    """客户联系人子表"""
+    __tablename__ = 'customer_management_contacts'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    contact_name = db.Column(db.String(100), comment='联系人')
+    position = db.Column(db.String(100), comment='职位')
+    mobile = db.Column(db.String(100), comment='手机')
+    fax = db.Column(db.String(100), comment='传真')
+    qq = db.Column(db.String(100), comment='QQ')
+    wechat = db.Column(db.String(100), comment='微信')
+    email = db.Column(db.String(255), comment='邮箱')
+    department = db.Column(db.String(100), comment='部门')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'customer_id': str(self.customer_id),
+            'contact_name': self.contact_name,
+            'position': self.position,
+            'mobile': self.mobile,
+            'fax': self.fax,
+            'qq': self.qq,
+            'wechat': self.wechat,
+            'email': self.email,
+            'department': self.department,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class CustomerDeliveryAddress(TenantModel):
+    """送货地址子表"""
+    __tablename__ = 'customer_management_delivery_addresses'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    delivery_address = db.Column(db.Text, comment='送货地址')
+    contact_name = db.Column(db.String(100), comment='联系人')
+    contact_method = db.Column(db.String(150), comment='联系方式')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'customer_id': str(self.customer_id),
+            'delivery_address': self.delivery_address,
+            'contact_name': self.contact_name,
+            'contact_method': self.contact_method,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class CustomerInvoiceUnit(TenantModel):
+    """开票单位子表"""
+    __tablename__ = 'customer_management_invoice_units'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    invoice_unit = db.Column(db.String(255), comment='开票单位')
+    taxpayer_id = db.Column(db.String(100), comment='纳税人识别号')
+    invoice_address = db.Column(db.String(255), comment='开票地址')
+    invoice_phone = db.Column(db.String(100), comment='电话')
+    invoice_bank = db.Column(db.String(255), comment='开票银行')
+    invoice_account = db.Column(db.String(100), comment='开票账户')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'customer_id': str(self.customer_id),
+            'invoice_unit': self.invoice_unit,
+            'taxpayer_id': self.taxpayer_id,
+            'invoice_address': self.invoice_address,
+            'invoice_phone': self.invoice_phone,
+            'invoice_bank': self.invoice_bank,
+            'invoice_account': self.invoice_account,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class CustomerPaymentUnit(TenantModel):
+    """付款单位子表"""
+    __tablename__ = 'customer_management_payment_units'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    payment_unit = db.Column(db.String(255), comment='付款单位')
+    unit_code = db.Column(db.String(100), comment='单位编号')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'customer_id': str(self.customer_id),
+            'payment_unit': self.payment_unit,
+            'unit_code': self.unit_code,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class CustomerAffiliatedCompany(TenantModel):
+    """归属公司子表"""
+    __tablename__ = 'customer_management_affiliated_companies'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    affiliated_company = db.Column(db.String(255), comment='归属公司')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'customer_id': str(self.customer_id),
+            'affiliated_company': self.affiliated_company,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class SupplierManagement(BaseModel):
+    """供应商管理模型"""
+    __tablename__ = 'supplier_management'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 基本信息字段
+    supplier_code = db.Column(db.String(50), comment='供应商编号')  # 自动生成
+    supplier_name = db.Column(db.String(255), nullable=False, comment='供应商名称')  # 手工输入
+    supplier_abbreviation = db.Column(db.String(100), comment='供应商简称')  # 手工输入
+    supplier_category_id = db.Column(UUID(as_uuid=True), comment='供应商分类ID')  # 选择
+    purchaser_id = db.Column(UUID(as_uuid=True), comment='采购员ID')  # 选择，根据员工表选择
+    is_disabled = db.Column(db.Boolean, default=False, comment='是否停用')  # bool
+    region = db.Column(db.String(100), comment='区域')  # 选择省份
+    delivery_method_id = db.Column(UUID(as_uuid=True), comment='送货方式ID')  # 选择
+    tax_rate_id = db.Column(UUID(as_uuid=True), comment='税收ID')  # 选择
+    tax_rate = db.Column(db.Numeric(5, 2), comment='税率%')  # 自动填入
+    currency_id = db.Column(UUID(as_uuid=True), comment='币别ID')  # 选择，默认本位币
+    payment_method_id = db.Column(UUID(as_uuid=True), comment='付款方式ID')  # 选择
+    
+    # 数字字段
+    deposit_ratio = db.Column(db.Numeric(10, 4), default=0, comment='定金比例')  # 手工输入，默认0
+    delivery_preparation_days = db.Column(db.Integer, default=0, comment='交期预备(天)')  # 手工输入，默认0
+    copyright_square_price = db.Column(db.Numeric(15, 4), default=0, comment='版权平方价')  # 手工输入，默认0
+    supplier_level = db.Column(db.String(10), comment='供应商等级')  # 选择: A/B
+    
+    # 编码和网址字段
+    organization_code = db.Column(db.String(100), comment='组织机构代码')  # 手工输入
+    company_website = db.Column(db.String(255), comment='公司网址')  # 手工输入
+    foreign_currency_id = db.Column(UUID(as_uuid=True), comment='外币ID')  # 选择
+    barcode_prefix_code = db.Column(db.String(50), comment='条码前缀码')  # 手工输入
+    
+    # 日期字段
+    business_start_date = db.Column(db.Date, comment='营业期限(起始日期)')  # 日期型
+    business_end_date = db.Column(db.Date, comment='营业期限(截止日期)')  # 日期型
+    production_permit_start_date = db.Column(db.Date, comment='生产许可(起始日期)')  # 日期型
+    production_permit_end_date = db.Column(db.Date, comment='生产许可(截止日期)')  # 日期型
+    inspection_report_start_date = db.Column(db.Date, comment='检测报告(起始日期)')  # 日期型
+    inspection_report_end_date = db.Column(db.Date, comment='检测报告(截止日期)')  # 日期型
+    
+    # 其他字段
+    barcode_authorization = db.Column(db.Numeric(15, 4), default=0, comment='条码授权')  # 数字，手工输入，默认0
+    ufriend_code = db.Column(db.String(100), comment='用友编码')  # 手工输入
+    enterprise_type = db.Column(db.String(50), comment='企业类型')  # 选择: 空/个人/个体工商户/有限责任公司
+    
+    # 地址字段
+    province = db.Column(db.String(50), comment='省份')  # 选择
+    city = db.Column(db.String(50), comment='市')  # 选择
+    district = db.Column(db.String(50), comment='县/区')  # 选择
+    company_address = db.Column(db.Text, comment='公司地址')  # 手工输入
+    remarks = db.Column(db.Text, comment='备注')  # 手工输入
+    image_url = db.Column(db.String(500), comment='图片')  # 图片
+    
+    # 标准字段
+    sort_order = db.Column(db.Integer, default=0, comment='显示排序')
+    is_enabled = db.Column(db.Boolean, default=True, comment='是否启用')
+    
+    # 审计字段
+    created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
+    
+    # 子表关联 - 暂时简化避免初始化问题
+    contacts = db.relationship('SupplierContact', backref='supplier', lazy='dynamic', cascade='all, delete-orphan')
+    delivery_addresses = db.relationship('SupplierDeliveryAddress', backref='supplier', lazy='dynamic', cascade='all, delete-orphan')
+    invoice_units = db.relationship('SupplierInvoiceUnit', backref='supplier', lazy='dynamic', cascade='all, delete-orphan')
+    affiliated_companies = db.relationship('SupplierAffiliatedCompany', backref='supplier', lazy='dynamic', cascade='all, delete-orphan')
+    
+    # 选项常量
+    SUPPLIER_LEVELS = [
+        ('A', 'A'),
+        ('B', 'B')
+    ]
+    
+    ENTERPRISE_TYPES = [
+        ('individual', '个人'),
+        ('individual_business', '个体工商户'),
+        ('limited_company', '有限责任公司')
+    ]
+    
+    PROVINCES = [
+        ('北京', '北京'),
+        ('天津', '天津'),
+        ('河北', '河北'),
+        ('山西', '山西'),
+        ('内蒙古', '内蒙古'),
+        ('辽宁', '辽宁'),
+        ('吉林', '吉林'),
+        ('黑龙江', '黑龙江'),
+        ('上海', '上海'),
+        ('江苏', '江苏'),
+        ('浙江', '浙江'),
+        ('安徽', '安徽'),
+        ('福建', '福建'),
+        ('江西', '江西'),
+        ('山东', '山东'),
+        ('河南', '河南'),
+        ('湖北', '湖北'),
+        ('湖南', '湖南'),
+        ('广东', '广东'),
+        ('广西', '广西'),
+        ('海南', '海南'),
+        ('重庆', '重庆'),
+        ('四川', '四川'),
+        ('贵州', '贵州'),
+        ('云南', '云南'),
+        ('西藏', '西藏'),
+        ('陕西', '陕西'),
+        ('甘肃', '甘肃'),
+        ('青海', '青海'),
+        ('宁夏', '宁夏'),
+        ('新疆', '新疆'),
+        ('台湾', '台湾'),
+        ('香港', '香港'),
+        ('澳门', '澳门')
+    ]
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self, include_details=False):
+        """转换为字典"""
+        data = {
+            'id': str(self.id),
+            'supplier_code': self.supplier_code,
+            'supplier_name': self.supplier_name,
+            'supplier_abbreviation': self.supplier_abbreviation,
+            'supplier_category_id': str(self.supplier_category_id) if self.supplier_category_id else None,
+            'purchaser_id': str(self.purchaser_id) if self.purchaser_id else None,
+            'is_disabled': self.is_disabled,
+            'region': self.region,
+            'delivery_method_id': str(self.delivery_method_id) if self.delivery_method_id else None,
+            'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,
+            'tax_rate': float(self.tax_rate) if self.tax_rate else None,
+            'currency_id': str(self.currency_id) if self.currency_id else None,
+            'payment_method_id': str(self.payment_method_id) if self.payment_method_id else None,
+            'deposit_ratio': float(self.deposit_ratio) if self.deposit_ratio else None,
+            'delivery_preparation_days': self.delivery_preparation_days,
+            'copyright_square_price': float(self.copyright_square_price) if self.copyright_square_price else None,
+            'supplier_level': self.supplier_level,
+            'organization_code': self.organization_code,
+            'company_website': self.company_website,
+            'foreign_currency_id': str(self.foreign_currency_id) if self.foreign_currency_id else None,
+            'barcode_prefix_code': self.barcode_prefix_code,
+            'business_start_date': self.business_start_date.isoformat() if self.business_start_date else None,
+            'business_end_date': self.business_end_date.isoformat() if self.business_end_date else None,
+            'production_permit_start_date': self.production_permit_start_date.isoformat() if self.production_permit_start_date else None,
+            'production_permit_end_date': self.production_permit_end_date.isoformat() if self.production_permit_end_date else None,
+            'inspection_report_start_date': self.inspection_report_start_date.isoformat() if self.inspection_report_start_date else None,
+            'inspection_report_end_date': self.inspection_report_end_date.isoformat() if self.inspection_report_end_date else None,
+            'barcode_authorization': float(self.barcode_authorization) if self.barcode_authorization else None,
+            'ufriend_code': self.ufriend_code,
+            'enterprise_type': self.enterprise_type,
+            'province': self.province,
+            'city': self.city,
+            'district': self.district,
+            'company_address': self.company_address,
+            'remarks': self.remarks,
+            'image_url': self.image_url,
+            'sort_order': self.sort_order,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None
+        }
+        
+        if include_details:
+            data.update({
+                'contacts': [contact.to_dict() for contact in self.contacts],
+                'delivery_addresses': [addr.to_dict() for addr in self.delivery_addresses],
+                'invoice_units': [unit.to_dict() for unit in self.invoice_units],
+                'affiliated_companies': [company.to_dict() for company in self.affiliated_companies]
+            })
+        
+        return data
+    
+    @classmethod
+    def get_enabled_list(cls):
+        """获取启用的供应商列表"""
+        return cls.query.filter_by(is_enabled=True).order_by(cls.sort_order, cls.supplier_name).all()
+    
+    @classmethod
+    def get_supplier_level_options(cls):
+        """获取供应商等级选项"""
+        return [{'value': value, 'label': label} for value, label in cls.SUPPLIER_LEVELS]
+    
+    @classmethod
+    def get_enterprise_type_options(cls):
+        """获取企业类型选项"""
+        return [{'value': value, 'label': label} for value, label in cls.ENTERPRISE_TYPES]
+    
+    def __repr__(self):
+        return f'<SupplierManagement {self.supplier_name}>'
+
+
+class SupplierContact(TenantModel):
+    """供应商联系人子表"""
+    __tablename__ = 'supplier_management_contacts'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    contact_name = db.Column(db.String(100), comment='联系人')
+    landline = db.Column(db.String(100), comment='座机')
+    mobile = db.Column(db.String(100), comment='手机')
+    fax = db.Column(db.String(100), comment='传真')
+    qq = db.Column(db.String(100), comment='QQ')
+    wechat = db.Column(db.String(100), comment='微信')
+    email = db.Column(db.String(255), comment='e-mail')
+    department = db.Column(db.String(100), comment='部门')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'supplier_id': str(self.supplier_id),
+            'contact_name': self.contact_name,
+            'landline': self.landline,
+            'mobile': self.mobile,
+            'fax': self.fax,
+            'qq': self.qq,
+            'wechat': self.wechat,
+            'email': self.email,
+            'department': self.department,
+            'sort_order': self.sort_order
+        }
+
+
+class SupplierDeliveryAddress(TenantModel):
+    """供应商发货地址子表"""
+    __tablename__ = 'supplier_management_delivery_addresses'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    delivery_address = db.Column(db.Text, comment='发货地址')
+    contact_name = db.Column(db.String(100), comment='联系人')
+    contact_method = db.Column(db.String(150), comment='联系方式')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'supplier_id': str(self.supplier_id),
+            'delivery_address': self.delivery_address,
+            'contact_name': self.contact_name,
+            'contact_method': self.contact_method,
+            'sort_order': self.sort_order
+        }
+
+
+class SupplierInvoiceUnit(TenantModel):
+    """供应商开票单位子表"""
+    __tablename__ = 'supplier_management_invoice_units'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    invoice_unit = db.Column(db.String(255), comment='开票单位')
+    taxpayer_id = db.Column(db.String(100), comment='纳税人识别号')
+    invoice_address = db.Column(db.String(255), comment='开票地址')
+    invoice_phone = db.Column(db.String(100), comment='电话')
+    invoice_bank = db.Column(db.String(255), comment='开票银行')
+    invoice_account = db.Column(db.String(100), comment='开票账户')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'supplier_id': str(self.supplier_id),
+            'invoice_unit': self.invoice_unit,
+            'taxpayer_id': self.taxpayer_id,
+            'invoice_address': self.invoice_address,
+            'invoice_phone': self.invoice_phone,
+            'invoice_bank': self.invoice_bank,
+            'invoice_account': self.invoice_account,
+            'sort_order': self.sort_order
+        }
+
+
+class SupplierAffiliatedCompany(TenantModel):
+    """供应商归属公司子表"""
+    __tablename__ = 'supplier_management_affiliated_companies'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    affiliated_company = db.Column(db.String(255), comment='归属公司')
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        {'schema': 'mytenant'}
+    )
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'supplier_id': str(self.supplier_id),
+            'affiliated_company': self.affiliated_company,
+            'sort_order': self.sort_order
+        }

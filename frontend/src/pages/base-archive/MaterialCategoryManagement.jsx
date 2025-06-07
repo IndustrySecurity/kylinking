@@ -42,8 +42,9 @@ import {
   FilterOutlined,
   ClearOutlined
 } from '@ant-design/icons';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+// 暂时移除拖拽功能，避免依赖问题
+// import { DndProvider, useDrag, useDrop } from 'react-dnd';
+// import { HTML5Backend } from 'react-dnd-html5-backend';
 import { materialCategoryApi } from '../../api/materialCategory';
 
 const { Title, Text } = Typography;
@@ -51,50 +52,19 @@ const { Option } = Select;
 const { TabPane } = Tabs;
 const { Panel } = Collapse;
 
-// 拖拽类型
-const DragTypes = {
-  COLUMN: 'column'
-};
+// 拖拽功能暂时禁用
 
-// 可拖拽的列头组件
-const DraggableColumnHeader = ({ children, onMove, moveKey, ...restProps }) => {
-  const ref = useRef();
-  
-  const [{ isDragging }, drag] = useDrag({
-    type: DragTypes.COLUMN,
-    item: { key: moveKey },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  const [, drop] = useDrop({
-    accept: DragTypes.COLUMN,
-    hover: (item) => {
-      if (item.key !== moveKey) {
-        onMove(item.key, moveKey);
-        item.key = moveKey;
-      }
-    },
-  });
-
-  drag(drop(ref));
-
+// 简化的列头组件（移除拖拽功能）
+const SimpleColumnHeader = ({ children, ...restProps }) => {
   return (
     <th
-      ref={ref}
       {...restProps}
       style={{
         ...restProps.style,
-        opacity: isDragging ? 0.5 : 1,
-        cursor: 'move',
         userSelect: 'none'
       }}
     >
-      <Space>
-        <DragOutlined style={{ color: '#999' }} />
-        {children}
-      </Space>
+      {children}
     </th>
   );
 };
@@ -241,21 +211,10 @@ const MaterialCategoryManagement = () => {
     return visible.filter(key => fieldConfig[key]);
   };
 
-  // 移动列
+  // 移动列功能暂时禁用
   const moveColumn = (dragKey, hoverKey) => {
-    const visibleColumns = getVisibleColumns();
-    const dragIndex = visibleColumns.indexOf(dragKey);
-    const hoverIndex = visibleColumns.indexOf(hoverKey);
-    
-    if (dragIndex === -1 || hoverIndex === -1) return;
-    
-    const newOrder = [...visibleColumns];
-    const dragColumn = newOrder[dragIndex];
-    newOrder.splice(dragIndex, 1);
-    newOrder.splice(hoverIndex, 0, dragColumn);
-    
-    setColumnOrder(newOrder);
-    localStorage.setItem('materialCategory_columnOrder', JSON.stringify(newOrder));
+    // 暂时禁用拖拽功能
+    console.log('Column move disabled temporarily');
   };
 
   // 加载选项数据
@@ -631,7 +590,6 @@ const MaterialCategoryManagement = () => {
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
       <div style={{ padding: '24px' }}>
         <Card>
           <div style={{ marginBottom: 16 }}>
@@ -717,7 +675,7 @@ const MaterialCategoryManagement = () => {
           <Table
             components={{
               header: {
-                cell: DraggableColumnHeader,
+                cell: SimpleColumnHeader,
               },
             }}
             bordered
@@ -921,7 +879,6 @@ const MaterialCategoryManagement = () => {
           </Drawer>
         </Card>
       </div>
-    </DndProvider>
   );
 };
 
