@@ -302,11 +302,15 @@ class CustomerService:
         """生成客户编号：CUS000001 格式"""
         CustomerService._set_schema()
         
+        # 获取当前租户schema名称
+        from flask import g, current_app
+        schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
+        
         # 查询当前最大编号
-        max_code_query = text("""
+        max_code_query = text(f"""
             SELECT customer_code 
-            FROM mytenant.customer_management 
-            WHERE customer_code ~ '^CUS[0-9]{6}$' 
+            FROM {schema_name}.customer_management 
+            WHERE customer_code ~ '^CUS[0-9]{{6}}$' 
             ORDER BY customer_code DESC 
             LIMIT 1
         """)

@@ -360,6 +360,13 @@ class ProductManagementService:
     @staticmethod
     def _generate_product_code():
         """生成产品编码"""
+        # 设置schema路径
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+        
         # 查找最新的产品编码
         last_product = db.session.query(Product).filter(
             Product.product_code.like('P%')
@@ -537,7 +544,7 @@ class ProductManagementService:
             from sqlalchemy import text
             
             # 设置schema路径（用于多租户支持）
-            schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'mytenant'))
+            schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
             if schema_name != 'public':
                 db.session.execute(text(f'SET search_path TO {schema_name}, public'))
             

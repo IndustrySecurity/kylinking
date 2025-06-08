@@ -18,6 +18,15 @@ import uuid
 class MaterialService:
     """材料服务类"""
     
+    @staticmethod
+    def _set_schema():
+        """设置当前租户的schema搜索路径"""
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+    
     @classmethod
     def get_materials(
         cls,
@@ -31,6 +40,7 @@ class MaterialService:
         sort_order: str = 'asc'
     ) -> Dict[str, Any]:
         """获取材料列表"""
+        cls._set_schema()
         query = Material.query
         
         # 搜索条件
@@ -126,6 +136,9 @@ class MaterialService:
     def create_material(cls, data: Dict[str, Any], created_by: str = None) -> Dict[str, Any]:
         """创建材料"""
         try:
+            # 设置schema路径
+            cls._set_schema()
+            
             # 自动生成材料编号
             data['material_code'] = Material.generate_material_code()
             

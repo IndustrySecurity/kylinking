@@ -470,6 +470,13 @@ class ColorCard(TenantModel):
     @classmethod
     def generate_color_code(cls):
         """生成色卡编号 SK + 8位自增数字"""
+        # 设置schema路径
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+        
         # 获取当前最大编号
         latest = cls.query.filter(
             cls.color_code.like('SK%')
@@ -1509,7 +1516,13 @@ class Machine(TenantModel):
     @classmethod
     def generate_machine_code(cls):
         """生成机台编号"""
-        from sqlalchemy import func
+        from sqlalchemy import func, text
+        from flask import g, current_app
+        
+        # 设置schema路径
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
         
         # 获取当前最大编号
         max_code = db.session.query(func.max(cls.machine_code)).scalar()
@@ -3124,6 +3137,7 @@ class Process(TenantModel):
             'scheduling_method': self.scheduling_method,
             'mes_condition_code': self.mes_condition_code,
             'unit': self.unit,
+            'unit_id': self.unit,  # 为了兼容前端期望的字段名
             'production_allowance': float(self.production_allowance) if self.production_allowance is not None else None,
             'return_allowance_kg': float(self.return_allowance_kg) if self.return_allowance_kg is not None else None,
             'sort_order': self.sort_order,
@@ -4417,17 +4431,34 @@ class Material(TenantModel):
     @classmethod
     def generate_material_code(cls):
         """生成材料编号"""
-        # 查询最大编号
-        max_code = db.session.query(func.max(cls.material_code)).scalar()
-        if max_code:
-            # 提取数字部分并加1
-            try:
-                number = int(max_code[2:])  # 去掉MT前缀
-                new_number = number + 1
-            except (ValueError, TypeError):
-                new_number = 1
-        else:
-            new_number = 1
+        # 设置schema路径
+        from flask import g, current_app
+        from sqlalchemy import text
+        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
+        if schema_name != 'public':
+            db.session.execute(text(f'SET search_path TO {schema_name}, public'))
+        
+        # 查询所有以MT开头的编号
+        results = db.session.query(cls.material_code).filter(
+            cls.material_code.like('MT%')
+        ).all()
+        
+        max_number = 0
+        if results:
+            # 遍历所有编号，找到最大的数字
+            for result in results:
+                code = result[0]
+                try:
+                    # 提取数字部分
+                    number_str = code[2:]  # 去掉MT前缀
+                    number = int(number_str)
+                    if number > max_number:
+                        max_number = number
+                except (ValueError, TypeError):
+                    continue
+        
+        # 新编号 = 最大编号 + 1
+        new_number = max_number + 1
         
         # 格式化为8位数字
         return f"MT{new_number:08d}"

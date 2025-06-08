@@ -232,7 +232,7 @@ class SupplierService:
             if not data.get('supplier_code'):
                 # 获取当前最大编号
                 max_code_result = db.session.execute(
-                    text(f"SELECT supplier_code FROM {getattr(g, 'schema_name', 'mytenant')}.supplier_management WHERE supplier_code LIKE 'SUP%' ORDER BY supplier_code DESC LIMIT 1")
+                    text(f"SELECT supplier_code FROM {getattr(g, 'schema_name', 'public')}.supplier_management WHERE supplier_code LIKE 'SUP%' ORDER BY supplier_code DESC LIMIT 1")
                 ).first()
                 
                 if max_code_result and max_code_result[0]:

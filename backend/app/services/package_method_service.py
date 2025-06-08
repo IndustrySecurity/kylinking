@@ -7354,6 +7354,22 @@ class ProcessService:
     """工序服务类"""
     
     @staticmethod
+    def _get_unit_name(unit_value):
+        """获取单位名称，如果是UUID则查找单位名称，否则直接返回"""
+        if not unit_value:
+            return None
+        
+        try:
+            import uuid
+            unit_uuid = uuid.UUID(unit_value)
+            from app.models.basic_data import Unit
+            unit_obj = Unit.query.get(unit_uuid)
+            return unit_obj.unit_name if unit_obj else unit_value
+        except ValueError:
+            # 不是UUID格式，直接返回原值
+            return unit_value
+    
+    @staticmethod
     def _set_schema():
         """设置当前租户的schema搜索路径"""
         schema_name = getattr(g, 'schema_name', current_app.config['DEFAULT_SCHEMA'])
@@ -7498,7 +7514,7 @@ class ProcessService:
                 process_category_id=uuid.UUID(data.get('process_category_id')) if data.get('process_category_id') else None,
                 scheduling_method=data.get('scheduling_method'),
                 mes_condition_code=data.get('mes_condition_code'),
-                unit=data.get('unit'),
+                unit=ProcessService._get_unit_name(data.get('unit') or data.get('unit_id')),  # 兼容前端传来的unit_id
                 production_allowance=data.get('production_allowance'),
                 return_allowance_kg=data.get('return_allowance_kg'),
                 sort_order=data.get('sort_order'),
@@ -7602,7 +7618,7 @@ class ProcessService:
             
             # 更新基本字段
             fields = [
-                'process_name', 'scheduling_method', 'mes_condition_code', 'unit',
+                'process_name', 'scheduling_method', 'mes_condition_code',
                 'production_allowance', 'return_allowance_kg', 'sort_order',
                 'over_production_allowance', 'self_check_allowance_kg', 'workshop_difference',
                 'max_upload_count', 'standard_weight_difference', 'workshop_worker_difference',
@@ -7620,6 +7636,11 @@ class ProcessService:
             for field in fields:
                 if field in data:
                     setattr(process, field, data[field])
+            
+            # 处理单位字段 - 兼容前端传来的unit_id
+            if 'unit' in data or 'unit_id' in data:
+                unit_value = data.get('unit') or data.get('unit_id')
+                process.unit = ProcessService._get_unit_name(unit_value)
             
             # 更新工序分类
             if 'process_category_id' in data:
