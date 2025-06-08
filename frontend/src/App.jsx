@@ -30,6 +30,7 @@ import MaterialManagement from './pages/base-archive/MaterialManagement';
 import CalculationParameterManagement from './pages/base-archive/CalculationParameterManagement';
 import CalculationSchemeManagement from './pages/base-archive/CalculationSchemeManagement';
 import ProductCategoryManagement from './pages/base-archive/ProductCategoryManagement';
+import ProductManagement from './pages/base-archive/ProductManagement';
 import InkOptionManagement from './pages/base-archive/InkOptionManagement';
 import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
 import LossTypeManagement from './pages/base-archive/LossTypeManagement';
@@ -48,6 +49,7 @@ import SettlementMethod from './pages/base-archive/financial-management/Settleme
 import AccountManagement from './pages/base-archive/financial-management/AccountManagement';
 import PaymentMethod from './pages/base-archive/financial-management/PaymentMethod';
 import Debug from './pages/auth/Debug';
+
 import { useApi } from './hooks/useApi';
 import './index.css';
 
@@ -308,6 +310,14 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <ProductCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-data/products" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProductManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />

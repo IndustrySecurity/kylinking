@@ -300,6 +300,137 @@ def get_products():
         return jsonify({'error': str(e)}), 500
 
 
+# 产品管理相关API
+@bp.route('/product-management', methods=['GET'])
+@jwt_required()
+def get_product_management_list():
+    """获取产品管理列表"""
+    try:
+        from app.services.product_management_service import ProductManagementService
+        
+        page = int(request.args.get('page', 1))
+        per_page = min(int(request.args.get('per_page', 20)), 100)
+        search = request.args.get('search')
+        customer_id = request.args.get('customer_id')
+        bag_type_id = request.args.get('bag_type_id')
+        status = request.args.get('status')
+        
+        result = ProductManagementService.get_products(
+            page=page,
+            per_page=per_page,
+            search=search,
+            customer_id=customer_id,
+            bag_type_id=bag_type_id,
+            status=status
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/product-management/<product_id>', methods=['GET'])
+@jwt_required()
+def get_product_management_detail(product_id):
+    """获取产品管理详情"""
+    try:
+        from app.services.product_management_service import ProductManagementService
+        
+        result = ProductManagementService.get_product_detail(product_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/product-management', methods=['POST'])
+@jwt_required()
+def create_product_management():
+    """创建产品管理"""
+    try:
+        from app.services.product_management_service import ProductManagementService
+        
+        data = request.json
+        user_id = get_jwt_identity()
+        
+        result = ProductManagementService.create_product(data, user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '产品创建成功'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/product-management/<product_id>', methods=['PUT'])
+@jwt_required()
+def update_product_management(product_id):
+    """更新产品管理"""
+    try:
+        from app.services.product_management_service import ProductManagementService
+        
+        data = request.json
+        user_id = get_jwt_identity()
+        
+        result = ProductManagementService.update_product(product_id, data, user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '产品更新成功'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/product-management/<product_id>', methods=['DELETE'])
+@jwt_required()
+def delete_product_management(product_id):
+    """删除产品管理"""
+    try:
+        from app.services.product_management_service import ProductManagementService
+        
+        ProductManagementService.delete_product(product_id)
+        
+        return jsonify({
+            'success': True,
+            'message': '产品删除成功'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@bp.route('/product-management/form-options', methods=['GET'])
+@jwt_required()
+def get_product_management_form_options():
+    """获取产品管理表单选项数据"""
+    try:
+        from app.services.product_management_service import ProductManagementService
+        
+        result = ProductManagementService.get_form_options()
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @bp.route('/products', methods=['POST'])
 @jwt_required()
 def create_product():
@@ -311,7 +442,8 @@ def create_product():
         if not data or not data.get('product_name'):
             return jsonify({'error': '产品名称不能为空'}), 400
         
-        product = ProductService.create_product(data, current_user_id)
+        from app.services.product_management_service import ProductManagementService
+        product = ProductManagementService.create_product(data, current_user_id)
         
         return jsonify({
             'success': True,
@@ -7351,3 +7483,62 @@ def batch_update_materials():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# 在文件末尾添加图片上传端点
+
+@bp.route('/product-management/upload-image', methods=['POST'])
+@tenant_required
+@jwt_required()
+def upload_product_image():
+    """上传产品图片"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': '没有上传文件'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': '没有选择文件'}), 400
+        
+        # 检查文件类型
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+        if not ('.' in file.filename and 
+                file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+            return jsonify({'error': '不支持的文件类型'}), 400
+        
+        # 检查文件大小 (2MB)
+        if len(file.read()) > 2 * 1024 * 1024:
+            return jsonify({'error': '文件大小不能超过2MB'}), 400
+        
+        file.seek(0)  # 重置文件指针
+        
+        # 生成文件名
+        import uuid
+        import os
+        file_extension = file.filename.rsplit('.', 1)[1].lower()
+        filename = f"{uuid.uuid4().hex}.{file_extension}"
+        
+        # 保存文件到uploads目录
+        upload_dir = os.path.join(current_app.root_path, 'uploads', 'products')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        file_path = os.path.join(upload_dir, filename)
+        file.save(file_path)
+        
+        # 返回文件URL
+        file_url = f"/uploads/products/{filename}"
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'url': file_url,
+                'filename': filename,
+                'original_name': file.filename,
+                'size': os.path.getsize(file_path)
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"上传图片失败: {str(e)}")
+        return jsonify({'error': '上传失败'}), 500
+
+
