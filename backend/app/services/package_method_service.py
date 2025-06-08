@@ -7386,46 +7386,46 @@ class ProcessService:
                 
                 query = query.filter(db.or_(*search_conditions))
             
-                # 是否只获取启用的
+            # 是否只获取启用的
             if enabled_only:
                 query = query.filter(Process.is_enabled == True)
             
-                # 分页查询
-                pagination = query.order_by(Process.sort_order, Process.created_at.desc()).paginate(
-                    page=page, per_page=per_page, error_out=False
-                )
-                
-                # 获取用户信息
-                from app.models.user import User
-                user_ids = []
-                for process in pagination.items:
-                    if process.created_by:
-                        user_ids.append(process.created_by)
-                    if process.updated_by:
-                        user_ids.append(process.updated_by)
-                
-                users = {}
-                if user_ids:
-                    user_list = User.query.filter(User.id.in_(user_ids)).all()
-                    users = {str(user.id): user.get_full_name() for user in user_list}
-                
-                # 构建返回结果
-                items = []
-                for process in pagination.items:
-                    process_dict = process.to_dict(include_machines=True)
-                    process_dict['created_by_name'] = users.get(str(process.created_by), '')
-                    process_dict['updated_by_name'] = users.get(str(process.updated_by), '')
-                    items.append(process_dict)
-                
-                return {
-                    'items': items,
-                    'total': pagination.total,
-                    'pages': pagination.pages,
-                    'current_page': pagination.page,
-                    'per_page': pagination.per_page,
-                    'has_next': pagination.has_next,
-                    'has_prev': pagination.has_prev
-                }
+            # 分页查询
+            pagination = query.order_by(Process.sort_order, Process.created_at.desc()).paginate(
+                page=page, per_page=per_page, error_out=False
+            )
+            
+            # 获取用户信息
+            from app.models.user import User
+            user_ids = []
+            for process in pagination.items:
+                if process.created_by:
+                    user_ids.append(process.created_by)
+                if process.updated_by:
+                    user_ids.append(process.updated_by)
+            
+            users = {}
+            if user_ids:
+                user_list = User.query.filter(User.id.in_(user_ids)).all()
+                users = {str(user.id): user.get_full_name() for user in user_list}
+            
+            # 构建返回结果
+            items = []
+            for process in pagination.items:
+                process_dict = process.to_dict(include_machines=True)
+                process_dict['created_by_name'] = users.get(str(process.created_by), '')
+                process_dict['updated_by_name'] = users.get(str(process.updated_by), '')
+                items.append(process_dict)
+            
+            return {
+                'items': items,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
                 
         except Exception as e:
             from flask import current_app

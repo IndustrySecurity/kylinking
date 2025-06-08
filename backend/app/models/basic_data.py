@@ -3575,7 +3575,7 @@ class TeamGroupProcess(TenantModel):
         return f'<TeamGroupProcess {self.process_category.process_name if self.process_category else "Unknown"}>'
 
 
-class CustomerManagement(BaseModel):
+class CustomerManagement(TenantModel):
     """客户管理模型 - 完整字段版本"""
     __tablename__ = 'customer_management'
     
@@ -3750,7 +3750,7 @@ class CustomerManagement(BaseModel):
     ]
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self, include_details=False):
@@ -3864,7 +3864,7 @@ class CustomerContact(TenantModel):
     __tablename__ = 'customer_management_contacts'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), nullable=False)
     contact_name = db.Column(db.String(100), comment='联系人')
     position = db.Column(db.String(100), comment='职位')
     mobile = db.Column(db.String(100), comment='手机')
@@ -3878,6 +3878,10 @@ class CustomerContact(TenantModel):
     # 审计字段
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        # TenantModel自动处理schema
+    )
     
     def to_dict(self):
         return {
@@ -3902,7 +3906,7 @@ class CustomerDeliveryAddress(TenantModel):
     __tablename__ = 'customer_management_delivery_addresses'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), nullable=False)
     delivery_address = db.Column(db.Text, comment='送货地址')
     contact_name = db.Column(db.String(100), comment='联系人')
     contact_method = db.Column(db.String(150), comment='联系方式')
@@ -3911,6 +3915,10 @@ class CustomerDeliveryAddress(TenantModel):
     # 审计字段
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        # TenantModel自动处理schema
+    )
     
     def to_dict(self):
         return {
@@ -3930,7 +3938,7 @@ class CustomerInvoiceUnit(TenantModel):
     __tablename__ = 'customer_management_invoice_units'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), nullable=False)
     invoice_unit = db.Column(db.String(255), comment='开票单位')
     taxpayer_id = db.Column(db.String(100), comment='纳税人识别号')
     invoice_address = db.Column(db.String(255), comment='开票地址')
@@ -3942,6 +3950,10 @@ class CustomerInvoiceUnit(TenantModel):
     # 审计字段
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        # TenantModel自动处理schema
+    )
     
     def to_dict(self):
         return {
@@ -3964,7 +3976,7 @@ class CustomerPaymentUnit(TenantModel):
     __tablename__ = 'customer_management_payment_units'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), nullable=False)
     payment_unit = db.Column(db.String(255), comment='付款单位')
     unit_code = db.Column(db.String(100), comment='单位编号')
     sort_order = db.Column(db.Integer, default=0, comment='排序')
@@ -3972,6 +3984,10 @@ class CustomerPaymentUnit(TenantModel):
     # 审计字段
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        # TenantModel自动处理schema
+    )
     
     def to_dict(self):
         return {
@@ -3990,13 +4006,17 @@ class CustomerAffiliatedCompany(TenantModel):
     __tablename__ = 'customer_management_affiliated_companies'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.customer_management.id'), nullable=False)
+    customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), nullable=False)
     affiliated_company = db.Column(db.String(255), comment='归属公司')
     sort_order = db.Column(db.Integer, default=0, comment='排序')
     
     # 审计字段
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        # TenantModel自动处理schema
+    )
     
     def to_dict(self):
         return {
@@ -4009,7 +4029,7 @@ class CustomerAffiliatedCompany(TenantModel):
         }
 
 
-class SupplierManagement(BaseModel):
+class SupplierManagement(TenantModel):
     """供应商管理模型"""
     __tablename__ = 'supplier_management'
     
@@ -4126,7 +4146,7 @@ class SupplierManagement(BaseModel):
     ]
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self, include_details=False):
@@ -4210,7 +4230,7 @@ class SupplierContact(TenantModel):
     __tablename__ = 'supplier_management_contacts'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_management.id'), nullable=False)
     contact_name = db.Column(db.String(100), comment='联系人')
     landline = db.Column(db.String(100), comment='座机')
     mobile = db.Column(db.String(100), comment='手机')
@@ -4226,7 +4246,7 @@ class SupplierContact(TenantModel):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self):
@@ -4250,7 +4270,7 @@ class SupplierDeliveryAddress(TenantModel):
     __tablename__ = 'supplier_management_delivery_addresses'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_management.id'), nullable=False)
     delivery_address = db.Column(db.Text, comment='发货地址')
     contact_name = db.Column(db.String(100), comment='联系人')
     contact_method = db.Column(db.String(150), comment='联系方式')
@@ -4261,7 +4281,7 @@ class SupplierDeliveryAddress(TenantModel):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self):
@@ -4280,7 +4300,7 @@ class SupplierInvoiceUnit(TenantModel):
     __tablename__ = 'supplier_management_invoice_units'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_management.id'), nullable=False)
     invoice_unit = db.Column(db.String(255), comment='开票单位')
     taxpayer_id = db.Column(db.String(100), comment='纳税人识别号')
     invoice_address = db.Column(db.String(255), comment='开票地址')
@@ -4294,7 +4314,7 @@ class SupplierInvoiceUnit(TenantModel):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self):
@@ -4316,7 +4336,7 @@ class SupplierAffiliatedCompany(TenantModel):
     __tablename__ = 'supplier_management_affiliated_companies'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.supplier_management.id'), nullable=False)
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_management.id'), nullable=False)
     affiliated_company = db.Column(db.String(255), comment='归属公司')
     sort_order = db.Column(db.Integer, default=0, comment='排序')
     
@@ -4325,7 +4345,7 @@ class SupplierAffiliatedCompany(TenantModel):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self):
@@ -4445,7 +4465,7 @@ class Material(TenantModel):
         db.Index('idx_material_management_code', 'material_code'),
         db.Index('idx_material_management_name', 'material_name'),
         db.Index('idx_material_management_category', 'material_category_id'),
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self, include_details=False):
@@ -4558,7 +4578,7 @@ class MaterialProperty(TenantModel):
     __tablename__ = 'material_properties'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.materials.id'), nullable=False)
+    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('materials.id'), nullable=False)
     property_name = db.Column(db.String(100), comment='属性名称')
     property_value = db.Column(db.String(255), comment='属性值')
     property_unit = db.Column(db.String(50), comment='属性单位')
@@ -4569,7 +4589,7 @@ class MaterialProperty(TenantModel):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self):
@@ -4591,7 +4611,7 @@ class MaterialSupplier(TenantModel):
     __tablename__ = 'material_suppliers'
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('mytenant.materials.id'), nullable=False)
+    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('materials.id'), nullable=False)
     supplier_id = db.Column(UUID(as_uuid=True), comment='供应商ID')
     supplier_material_code = db.Column(db.String(100), comment='供应商材料编码')
     supplier_price = db.Column(db.Numeric(15, 4), comment='供应商价格')
@@ -4604,7 +4624,7 @@ class MaterialSupplier(TenantModel):
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
     
     __table_args__ = (
-        {'schema': 'mytenant'}
+        # TenantModel自动处理schema
     )
     
     def to_dict(self):
