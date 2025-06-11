@@ -1,183 +1,216 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   Table,
   Button,
   Input,
+  Switch,
+  InputNumber,
   Space,
   message,
   Popconfirm,
-  Switch,
-  Form,
-  InputNumber,
+  Typography,
   Row,
   Col,
-  Tooltip,
-  Typography
+  Form,
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
   SaveOutlined,
+  DeleteOutlined,
   SearchOutlined,
-  TransactionOutlined
+  ReloadOutlined,
+  EditOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  UserOutlined
 } from '@ant-design/icons';
-import { settlementMethodApi } from '../../../api/financial-management/settlementMethod';
+import { customerCategoryApi } from '../../../api/base-category/customerCategory';
 
-const { Search } = Input;
 const { Title } = Typography;
 
-const SettlementMethod = () => {
+const CustomerCategoryManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [editingKey, setEditingKey] = useState('');
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
     total: 0,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
   });
-  const [editingKey, setEditingKey] = useState('');
+  
   const [form] = Form.useForm();
-  const searchInputRef = React.useRef(null);
+  const searchInputRef = useRef(null);
 
-  // 获取数据
-  const fetchData = async (page = 1, pageSize = 20, search = '') => {
+  // 判断是否在编辑状态
+  const isEditing = (record) => record.key === editingKey;
+
+  // 加载数据
+  const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const params = {
-        page,
-        per_page: pageSize,
-      };
-      if (search) {
-        params.search = search;
-      }
+      const response = await customerCategoryApi.getCustomerCategories({
+        page: pagination.current,
+        per_page: pagination.pageSize,
+        search: searchText,
+        ...params
+      });
 
-      const result = await settlementMethodApi.getSettlementMethods(params);
       // 正确处理后端响应格式
-      if (result.data && result.data.success) {
-        const { settlement_methods, total, current_page } = result.data.data;
-        setData(settlement_methods || []);
-        setPagination({
-          current: current_page || page,
-          pageSize,
-          total: total || 0,
-        });
+      if (response.data.success) {
+        const { customer_categories, total, current_page } = response.data.data;
+        
+        // 为每行数据添加key
+        const dataWithKeys = customer_categories.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}`
+        }));
+        
+        setData(dataWithKeys);
+        setPagination(prev => ({
+          ...prev,
+          total,
+          current: current_page
+        }));
       }
     } catch (error) {
-      console.error('获取结算方式列表失败:', error);
-      message.error('获取数据失败');
+      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
   };
 
+  // 初始加载
   useEffect(() => {
-    fetchData();
+    loadData();
   }, []);
 
   // 搜索
   const handleSearch = () => {
-    fetchData(1, pagination.pageSize, searchText);
+    setPagination(prev => ({ ...prev, current: 1 }));
+    loadData({ page: 1 });
   };
 
-  // 重置
+  // 重置搜索
   const handleReset = () => {
     setSearchText('');
-    fetchData(1, pagination.pageSize, '');
-  };
-
-  // 刷新
-  const handleRefresh = () => {
-    fetchData(pagination.current, pagination.pageSize, searchText);
+    setPagination(prev => ({ ...prev, current: 1 }));
+    loadData({ page: 1, search: '' });
   };
 
   // 分页变化
-  const handleTableChange = (paginationConfig) => {
-    fetchData(paginationConfig.current, paginationConfig.pageSize, searchText);
+  const handleTableChange = (newPagination) => {
+    setPagination(newPagination);
+    loadData({
+      page: newPagination.current,
+      per_page: newPagination.pageSize
+    });
   };
 
-  // 编辑行
-  const isEditing = (record) => record.id === editingKey;
-
+  // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      settlement_name: '',
+      category_name: '',
+      category_code: '',
       description: '',
       sort_order: 0,
       is_enabled: true,
       ...record,
     });
-    setEditingKey(record.id);
+    setEditingKey(record.key);
   };
 
+  // 取消编辑
   const cancel = () => {
     setEditingKey('');
+    form.resetFields();
   };
 
   // 保存编辑
-  const save = async (id) => {
+  const save = async (key) => {
     try {
       const row = await form.validateFields();
       const newData = [...data];
-      const index = newData.findIndex((item) => id === item.id);
+      const index = newData.findIndex((item) => key === item.key);
 
       if (index > -1) {
         const item = newData[index];
+        const updatedItem = { ...item, ...row };
         
-        // 如果是新增的临时记录
-        if (id.startsWith('temp_')) {
-          await settlementMethodApi.createSettlementMethod(row);
-          message.success('创建成功');
-          setEditingKey('');
-          fetchData(pagination.current, pagination.pageSize, searchText);
-        } else {
+        // 调用API保存
+        let response;
+        if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          await settlementMethodApi.updateSettlementMethod(id, row);
-          message.success('更新成功');
+          response = await customerCategoryApi.updateCustomerCategory(item.id, row);
+        } else {
+          // 创建新记录
+          response = await customerCategoryApi.createCustomerCategory(row);
+        }
+
+        // 正确处理后端响应格式
+        if (response.data.success) {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response.data.data,
+            key: response.data.data.id
+          });
+          setData(newData);
           setEditingKey('');
-          fetchData(pagination.current, pagination.pageSize, searchText);
+          message.success('保存成功');
         }
       }
-    } catch (errInfo) {
-      // 表单验证失败，不做处理
+    } catch (error) {
+      if (error.errorFields) {
+        message.error('请检查输入内容');
+      } else {
+        message.error('保存失败：' + (error.response?.data?.error || error.message));
+      }
     }
   };
 
-  // 删除
-  const handleDelete = async (id) => {
+  // 删除记录
+  const handleDelete = async (key) => {
     try {
-      // 如果是临时记录，直接从列表中删除
-      if (id.startsWith('temp_')) {
-        const newData = data.filter(item => item.id !== id);
-        setData(newData);
-        message.success('删除成功');
-        return;
+      const record = data.find(item => item.key === key);
+      
+      if (record.id && !record.id.startsWith('temp_')) {
+        // 删除服务器记录
+        const response = await customerCategoryApi.deleteCustomerCategory(record.id);
+        if (response.data.success) {
+          message.success('删除成功');
+        }
       }
-
-      await settlementMethodApi.deleteSettlementMethod(id);
-      message.success('删除成功');
-      fetchData(pagination.current, pagination.pageSize, searchText);
+      
+      // 删除本地记录
+      const newData = data.filter(item => item.key !== key);
+      setData(newData);
     } catch (error) {
-      console.error('删除失败:', error);
-      message.error('删除失败');
+      message.error('删除失败：' + (error.response?.data?.error || error.message));
     }
   };
 
   // 添加新行
   const handleAdd = () => {
+    const newKey = `temp_${Date.now()}`;
     const newData = {
-      id: `temp_${Date.now()}`,
-      settlement_name: '',
+      key: newKey,
+      category_name: '',
+      category_code: '',
       description: '',
       sort_order: 0,
       is_enabled: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by_name: '当前用户',
+      created_by_name: '',
+      created_at: '',
       updated_by_name: '',
+      updated_at: ''
     };
+    
     setData([newData, ...data]);
     edit(newData);
   };
@@ -195,12 +228,15 @@ const SettlementMethod = () => {
   }) => {
     let inputNode;
     
-    if (inputType === 'number') {
-      inputNode = <InputNumber style={{ width: '100%' }} min={0} />;
-    } else if (inputType === 'switch') {
-      inputNode = <Switch />;
-    } else {
-      inputNode = <Input />;
+    switch (inputType) {
+      case 'number':
+        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+        break;
+      case 'switch':
+        inputNode = <Switch />;
+        break;
+      default:
+        inputNode = <Input />;
     }
 
     return (
@@ -211,13 +247,9 @@ const SettlementMethod = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['settlement_name'].includes(dataIndex),
+                required: ['category_name'].includes(dataIndex),
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'settlement_name' ? [{
-                max: 100,
-                message: '结算方式名称不能超过100个字符'
-              }] : [])
             ]}
           >
             {inputNode}
@@ -232,55 +264,75 @@ const SettlementMethod = () => {
   // 表格列定义
   const columns = [
     {
-      title: '结算方式',
-      dataIndex: 'settlement_name',
-      key: 'settlement_name',
-      width: 200,
+      title: '分类名称',
+      dataIndex: 'category_name',
+      key: 'category_name',
+      width: 150,
       editable: true,
+      render: (text, record) => {
+        const editable = isEditing(record);
+        return editable ? text : (
+          <span style={{ fontWeight: 500 }}>{text}</span>
+        );
+      }
+    },
+    {
+      title: '分类编码',
+      dataIndex: 'category_code',
+      key: 'category_code',
+      width: 120,
+      editable: true,
+      render: (text) => text || '-'
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
+      width: 200,
       editable: true,
       ellipsis: {
         showTitle: false,
       },
       render: (text) => (
         <Tooltip placement="topLeft" title={text}>
-          {text}
+          {text || '-'}
         </Tooltip>
-      ),
+      )
     },
     {
-      title: '排序',
+      title: '显示排序',
       dataIndex: 'sort_order',
       key: 'sort_order',
-      width: 80,
-      align: 'center',
+      width: 100,
       editable: true,
+      inputType: 'number',
+      align: 'center'
     },
     {
       title: '是否启用',
       dataIndex: 'is_enabled',
       key: 'is_enabled',
-      width: 80,
-      align: 'center',
+      width: 100,
       editable: true,
-      render: (value, record) => (
-        <Switch
-          checked={value}
-          disabled={!isEditing(record)}
-          size="small"
-        />
-      ),
+      inputType: 'switch',
+      align: 'center',
+      render: (enabled, record) => {
+        const editable = isEditing(record);
+        return editable ? enabled : (
+          <Switch 
+            checked={enabled} 
+            disabled 
+            size="small"
+          />
+        );
+      }
     },
     {
       title: '创建人',
       dataIndex: 'created_by_name',
       key: 'created_by_name',
       width: 100,
-      align: 'center',
+      align: 'center'
     },
     {
       title: '创建时间',
@@ -288,14 +340,14 @@ const SettlementMethod = () => {
       key: 'created_at',
       width: 150,
       align: 'center',
-      render: (text) => text ? new Date(text).toLocaleString() : '',
+      render: (text) => text ? new Date(text).toLocaleString() : ''
     },
     {
       title: '修改人',
       dataIndex: 'updated_by_name',
       key: 'updated_by_name',
       width: 100,
-      align: 'center',
+      align: 'center'
     },
     {
       title: '修改时间',
@@ -303,12 +355,12 @@ const SettlementMethod = () => {
       key: 'updated_at',
       width: 150,
       align: 'center',
-      render: (text) => text ? new Date(text).toLocaleString() : '',
+      render: (text) => text ? new Date(text).toLocaleString() : ''
     },
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_, record) => {
@@ -318,14 +370,15 @@ const SettlementMethod = () => {
             <Button
               type="link"
               size="small"
-              icon={<SaveOutlined />}
-              onClick={() => save(record.id)}
+              icon={<CheckOutlined />}
+              onClick={() => save(record.key)}
             >
               保存
             </Button>
             <Button
               type="link"
               size="small"
+              icon={<CloseOutlined />}
               onClick={cancel}
             >
               取消
@@ -344,7 +397,7 @@ const SettlementMethod = () => {
             </Button>
             <Popconfirm
               title="确定删除这条记录吗？"
-              onConfirm={() => handleDelete(record.id)}
+              onConfirm={() => handleDelete(record.key)}
               disabled={editingKey !== ''}
             >
               <Button
@@ -368,19 +421,11 @@ const SettlementMethod = () => {
     if (!col.editable) {
       return col;
     }
-    
-    let inputType = 'text';
-    if (col.dataIndex === 'sort_order') {
-      inputType = 'number';
-    } else if (col.dataIndex === 'is_enabled') {
-      inputType = 'switch';
-    }
-
     return {
       ...col,
       onCell: (record) => ({
         record,
-        inputType,
+        inputType: col.inputType || 'text',
         dataIndex: col.dataIndex,
         title: col.title,
         editing: isEditing(record),
@@ -395,15 +440,15 @@ const SettlementMethod = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0 }}>
-                <TransactionOutlined style={{ marginRight: 8 }} />
-                结算方式管理
+                <UserOutlined style={{ marginRight: 8 }} />
+                客户分类管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索结算方式名称、描述"
+                  placeholder="搜索分类名称、编码或描述"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
@@ -426,7 +471,7 @@ const SettlementMethod = () => {
                 </Button>
                 <Button 
                   icon={<ReloadOutlined />}
-                  onClick={handleRefresh}
+                  onClick={() => loadData()}
                   disabled={editingKey !== ''}
                 >
                   刷新
@@ -447,17 +492,10 @@ const SettlementMethod = () => {
             dataSource={data}
             columns={mergedColumns}
             rowClassName="editable-row"
-            rowKey="id"
+            pagination={pagination}
             loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) =>
-                `第 ${range[0]}-${range[1]} 条/共 ${total} 条`,
-            }}
             onChange={handleTableChange}
-            scroll={{ x: 1600 }}
+            scroll={{ x: 1200 }}
             size="small"
           />
         </Form>
@@ -466,4 +504,4 @@ const SettlementMethod = () => {
   );
 };
 
-export default SettlementMethod; 
+export default CustomerCategoryManagement; 

@@ -7,14 +7,14 @@ import {
   Switch,
   InputNumber,
   Space,
-  message,
   Popconfirm,
   Typography,
   Row,
   Col,
   Form,
   Tooltip,
-  Tag
+  Select,
+  App
 } from 'antd';
 import {
   PlusOutlined,
@@ -24,15 +24,16 @@ import {
   ReloadOutlined,
   EditOutlined,
   CheckOutlined,
-  CloseOutlined,
-  StarOutlined,
-  PercentageOutlined
+  CloseOutlined
 } from '@ant-design/icons';
-import { taxRateApi } from '../../../api/financial-management/taxRate';
+import quoteLossApi from '../../../../api/production/production-config/quoteLossApi';
 
 const { Title } = Typography;
+const { TextArea } = Input;
+const { Option } = Select;
 
-const TaxRate = () => {
+const QuoteLossManagement = () => {
+  const { message } = App.useApp();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
@@ -49,6 +50,18 @@ const TaxRate = () => {
   const [form] = Form.useForm();
   const searchInputRef = useRef(null);
 
+  // 袋型选项
+  const bagTypeOptions = [
+    { value: '三边封', label: '三边封' },
+    { value: '中封', label: '中封' },
+    { value: '背封', label: '背封' },
+    { value: '四边封', label: '四边封' },
+    { value: '自立袋', label: '自立袋' },
+    { value: '拉链袋', label: '拉链袋' },
+    { value: '吸嘴袋', label: '吸嘴袋' },
+    { value: '异形袋', label: '异形袋' }
+  ];
+
   // 判断是否在编辑状态
   const isEditing = (record) => record.key === editingKey;
 
@@ -56,7 +69,7 @@ const TaxRate = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await taxRateApi.getTaxRates({
+      const response = await quoteLossApi.getQuoteLosses({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
@@ -65,10 +78,10 @@ const TaxRate = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { tax_rates, total, current_page } = response.data.data;
+        const { quote_losses, total, current_page } = response.data.data;
         
         // 为每行数据添加key
-        const dataWithKeys = tax_rates.map((item, index) => ({
+        const dataWithKeys = quote_losses.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -81,7 +94,8 @@ const TaxRate = () => {
         }));
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      console.error('加载数据失败:', error);
+      message.error('加载数据失败：' + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -117,12 +131,14 @@ const TaxRate = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      tax_name: '',
-      tax_rate: 0,
-      description: '',
+      bag_type: '',
+      layer_count: null,
+      meter_range: null,
+      loss_rate: null,
+      cost: null,
       sort_order: 0,
+      description: '',
       is_enabled: true,
-      is_default: false,
       ...record,
     });
     setEditingKey(record.key);
@@ -143,27 +159,16 @@ const TaxRate = () => {
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为默认税率，需要先取消其他默认税率的设置
-        if (row.is_default) {
-          // 在本地数据中取消其他项的默认设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_default) {
-              dataItem.is_default = false;
-            }
-          });
-        }
-        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await taxRateApi.updateTaxRate(item.id, row);
+          response = await quoteLossApi.updateQuoteLoss(item.id, row);
         } else {
           // 创建新记录
-          response = await taxRateApi.createTaxRate(row);
+          response = await quoteLossApi.createQuoteLoss(row);
         }
 
         // 正确处理后端响应格式
@@ -177,20 +182,14 @@ const TaxRate = () => {
           setData(newData);
           setEditingKey('');
           message.success('保存成功');
-          
-          // 如果设置了默认税率，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_default) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
         }
       }
     } catch (error) {
       if (error.errorFields) {
         message.error('请检查输入内容');
       } else {
-        message.error('保存失败：' + (error.response?.data?.error || error.message));
+        console.error('保存失败:', error);
+        message.error('保存失败：' + (error.response?.data?.message || error.message));
       }
     }
   };
@@ -202,7 +201,7 @@ const TaxRate = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await taxRateApi.deleteTaxRate(record.id);
+        const response = await quoteLossApi.deleteQuoteLoss(record.id);
         if (response.data.success) {
           message.success('删除成功');
         }
@@ -212,23 +211,31 @@ const TaxRate = () => {
       const newData = data.filter(item => item.key !== key);
       setData(newData);
     } catch (error) {
-      message.error('删除失败：' + (error.response?.data?.error || error.message));
+      console.error('删除失败:', error);
+      message.error('删除失败：' + (error.response?.data?.message || error.message));
     }
   };
 
-
-
   // 添加新行
   const handleAdd = () => {
+    if (editingKey !== '') {
+      message.warning('请先保存当前编辑的记录');
+      return;
+    }
+
     const newData = {
       key: `temp_${Date.now()}`,
-      tax_name: '',
-      tax_rate: 0,
-      is_default: false,
-      description: '',
+      id: `temp_${Date.now()}`,
+      bag_type: '',
+      layer_count: null,
+      meter_range: null,
+      loss_rate: null,
+      cost: null,
       sort_order: 0,
+      description: '',
       is_enabled: true,
     };
+    
     setData([newData, ...data]);
     edit(newData);
   };
@@ -244,26 +251,30 @@ const TaxRate = () => {
     children,
     ...restProps
   }) => {
-    let inputNode;
-    
-    if (inputType === 'number') {
-      inputNode = (
-        <InputNumber
-          style={{ width: '100%' }}
-          min={0}
-          max={100}
-          precision={2}
-          formatter={value => `${value}%`}
-          parser={value => value.replace('%', '')}
-        />
-      );
-    } else if (inputType === 'switch') {
-      inputNode = <Switch />;
-    } else if (inputType === 'sort') {
-      inputNode = <InputNumber style={{ width: '100%' }} min={0} />;
-    } else {
-      inputNode = <Input />;
-    }
+    const getInputNode = () => {
+      switch (inputType) {
+        case 'number':
+          return <InputNumber style={{ width: '100%' }} precision={4} />;
+        case 'integer':
+          return <InputNumber style={{ width: '100%' }} precision={0} min={1} />;
+        case 'switch':
+          return <Switch />;
+        case 'textarea':
+          return <TextArea rows={2} />;
+        case 'select':
+          return (
+            <Select style={{ width: '100%' }} allowClear>
+              {bagTypeOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          );
+        default:
+          return <Input />;
+      }
+    };
 
     return (
       <td {...restProps}>
@@ -273,22 +284,12 @@ const TaxRate = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['tax_name', 'tax_rate'].includes(dataIndex),
+                required: ['bag_type', 'layer_count', 'meter_range', 'loss_rate', 'cost'].includes(dataIndex),
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'tax_name' ? [{
-                max: 100,
-                message: '税收名称不能超过100个字符'
-              }] : []),
-              ...(dataIndex === 'tax_rate' ? [{
-                type: 'number',
-                min: 0,
-                max: 100,
-                message: '税率必须在0-100之间'
-              }] : [])
             ]}
           >
-            {inputNode}
+            {getInputNode()}
           </Form.Item>
         ) : (
           children
@@ -300,57 +301,49 @@ const TaxRate = () => {
   // 表格列定义
   const columns = [
     {
-      title: '税收',
-      dataIndex: 'tax_name',
-      key: 'tax_name',
-      width: 200,
-      editable: true,
-      render: (text, record) => (
-        <Space>
-          {text}
-          {record.is_default && (
-            <Tag color="gold" icon={<StarOutlined />}>
-              默认
-            </Tag>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: '税率(%)',
-      dataIndex: 'tax_rate',
-      key: 'tax_rate',
+      title: '袋型',
+      dataIndex: 'bag_type',
+      key: 'bag_type',
       width: 120,
       editable: true,
-      render: (value) => `${value}%`,
+      inputType: 'select',
+      render: (text) => text || '-',
     },
     {
-      title: '评审默认',
-      dataIndex: 'is_default',
-      key: 'is_default',
+      title: '层数',
+      dataIndex: 'layer_count',
+      key: 'layer_count',
+      width: 80,
+      editable: true,
+      inputType: 'integer',
+      render: (value) => value || '-',
+    },
+    {
+      title: '米数区间',
+      dataIndex: 'meter_range',
+      key: 'meter_range',
       width: 100,
       editable: true,
-      render: (value, record) => (
-        <Switch
-          checked={value}
-          disabled={!isEditing(record)}
-          size="small"
-        />
-      ),
+      inputType: 'number',
+      render: (value) => value ? `${Number(value).toFixed(2)}m` : '-',
     },
     {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
+      title: '损耗',
+      dataIndex: 'loss_rate',
+      key: 'loss_rate',
+      width: 100,
       editable: true,
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text) => (
-        <Tooltip placement="topLeft" title={text}>
-          {text}
-        </Tooltip>
-      ),
+      inputType: 'number',
+      render: (value) => value ? `${Number(value).toFixed(4)}` : '-',
+    },
+    {
+      title: '费用',
+      dataIndex: 'cost',
+      key: 'cost',
+      width: 120,
+      editable: true,
+      inputType: 'number',
+      render: (value) => value ? `¥${Number(value).toFixed(4)}` : '-',
     },
     {
       title: '排序',
@@ -358,104 +351,89 @@ const TaxRate = () => {
       key: 'sort_order',
       width: 80,
       editable: true,
+      inputType: 'integer',
+      render: (value) => value || 0,
     },
     {
-      title: '是否启用',
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      width: 200,
+      editable: true,
+      inputType: 'textarea',
+      render: (text) => text || '-',
+    },
+    {
+      title: '启用状态',
       dataIndex: 'is_enabled',
       key: 'is_enabled',
-      width: 80,
-      editable: true,
-      align: 'center',
-      render: (value, record) => (
-        <Switch
-          checked={value}
-          disabled={!isEditing(record)}
-          size="small"
-        />
-      ),
-    },
-    {
-      title: '创建人',
-      dataIndex: 'created_by_name',
-      key: 'created_by_name',
       width: 100,
-      align: 'center'
+      editable: true,
+      inputType: 'switch',
+      render: (value, record) => {
+        const editing = isEditing(record);
+        return editing ? null : <Switch checked={value} disabled />;
+      },
     },
     {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 150,
-      align: 'center',
-      render: (text) => text ? new Date(text).toLocaleString() : ''
-    },
-    {
-      title: '修改人',
-      dataIndex: 'updated_by_name',
-      key: 'updated_by_name',
-      width: 100,
-      align: 'center'
-    },
-    {
-      title: '修改时间',
-      dataIndex: 'updated_at',
-      key: 'updated_at',
-      width: 150,
-      align: 'center',
-      render: (text) => text ? new Date(text).toLocaleString() : ''
+      render: (text) => text ? new Date(text).toLocaleString() : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
-      align: 'center',
       render: (_, record) => {
-        const editable = isEditing(record);
-        return editable ? (
+        const editing = isEditing(record);
+        return editing ? (
           <Space>
             <Button
               type="link"
-              size="small"
               icon={<CheckOutlined />}
               onClick={() => save(record.key)}
+              size="small"
             >
               保存
             </Button>
             <Button
               type="link"
-              size="small"
               icon={<CloseOutlined />}
               onClick={cancel}
+              size="small"
             >
               取消
             </Button>
           </Space>
         ) : (
           <Space>
-            <Button
-              type="link"
-              size="small"
-              icon={<EditOutlined />}
-              disabled={editingKey !== ''}
-              onClick={() => edit(record)}
-            >
-              编辑
-            </Button>
-            <Popconfirm
-              title="确定删除这条记录吗？"
-              onConfirm={() => handleDelete(record.key)}
-              disabled={editingKey !== ''}
-            >
+            <Tooltip title="编辑">
               <Button
                 type="link"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
+                icon={<EditOutlined />}
                 disabled={editingKey !== ''}
-              >
-                删除
-              </Button>
+                onClick={() => edit(record)}
+                size="small"
+              />
+            </Tooltip>
+            <Popconfirm
+              title="确定删除吗？"
+              onConfirm={() => handleDelete(record.key)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Tooltip title="删除">
+                <Button
+                  type="link"
+                  icon={<DeleteOutlined />}
+                  disabled={editingKey !== ''}
+                  danger
+                  size="small"
+                />
+              </Tooltip>
             </Popconfirm>
           </Space>
         );
@@ -468,21 +446,11 @@ const TaxRate = () => {
     if (!col.editable) {
       return col;
     }
-    
-    let inputType = 'text';
-    if (col.dataIndex === 'tax_rate') {
-      inputType = 'number';
-    } else if (col.dataIndex === 'is_enabled' || col.dataIndex === 'is_default') {
-      inputType = 'switch';
-    } else if (col.dataIndex === 'sort_order') {
-      inputType = 'sort';
-    }
-
     return {
       ...col,
       onCell: (record) => ({
         record,
-        inputType,
+        inputType: col.inputType,
         dataIndex: col.dataIndex,
         title: col.title,
         editing: isEditing(record),
@@ -494,50 +462,56 @@ const TaxRate = () => {
     <div style={{ padding: '24px' }}>
       <Card>
         <div style={{ marginBottom: 16 }}>
-          <Row justify="space-between" align="middle">
-            <Col>
-              <Title level={4} style={{ margin: 0 }}>
-                <PercentageOutlined style={{ marginRight: 8 }} />
-                税率管理
-              </Title>
+          <Title level={4}>报价损耗管理</Title>
+          
+          {/* 搜索和操作栏 */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={8}>
+              <Input
+                ref={searchInputRef}
+                placeholder="搜索袋型、层数或描述"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onPressEnter={handleSearch}
+                suffix={
+                  <Button
+                    type="text"
+                    icon={<SearchOutlined />}
+                    onClick={handleSearch}
+                    size="small"
+                  />
+                }
+              />
             </Col>
-            <Col>
+            <Col span={16}>
               <Space>
-                <Input
-                  ref={searchInputRef}
-                  placeholder="搜索税收名称、描述"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  onPressEnter={handleSearch}
-                  style={{ width: 250 }}
-                  prefix={<SearchOutlined />}
-                />
-                <Button onClick={handleSearch} type="primary">
-                  搜索
-                </Button>
-                <Button onClick={handleReset}>
-                  重置
-                </Button>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<PlusOutlined />}
                   onClick={handleAdd}
                   disabled={editingKey !== ''}
                 >
                   新增
                 </Button>
-                <Button 
+                <Button
                   icon={<ReloadOutlined />}
                   onClick={() => loadData()}
                   disabled={editingKey !== ''}
                 >
                   刷新
                 </Button>
+                <Button
+                  onClick={handleReset}
+                  disabled={editingKey !== ''}
+                >
+                  重置
+                </Button>
               </Space>
             </Col>
           </Row>
         </div>
 
+        {/* 表格 */}
         <Form form={form} component={false}>
           <Table
             components={{
@@ -549,10 +523,17 @@ const TaxRate = () => {
             dataSource={data}
             columns={mergedColumns}
             rowClassName="editable-row"
-            pagination={pagination}
-            onChange={handleTableChange}
+            pagination={{
+              ...pagination,
+              onChange: (page, pageSize) => {
+                handleTableChange({ ...pagination, current: page, pageSize });
+              },
+              onShowSizeChange: (current, size) => {
+                handleTableChange({ ...pagination, current: 1, pageSize: size });
+              },
+            }}
             loading={loading}
-            scroll={{ x: 1600 }}
+            scroll={{ x: 1200 }}
             size="small"
           />
         </Form>
@@ -561,4 +542,4 @@ const TaxRate = () => {
   );
 };
 
-export default TaxRate; 
+export default QuoteLossManagement; 

@@ -14,6 +14,7 @@ import {
   Col,
   Form,
   Tooltip,
+  Select,
   Tag
 } from 'antd';
 import {
@@ -25,18 +26,28 @@ import {
   EditOutlined,
   CheckOutlined,
   CloseOutlined,
-  StarOutlined,
-  DollarOutlined
+  TeamOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { 
+  getDepartments, 
+  getDepartment, 
+  createDepartment, 
+  updateDepartment, 
+  deleteDepartment, 
+  batchUpdateDepartments, 
+  getDepartmentOptions, 
+  getDepartmentTree 
+} from '../../../api/base-data/department';
 
 const { Title } = Typography;
+const { Option } = Select;
 
-const Currency = () => {
+const DepartmentManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [departmentOptions, setDepartmentOptions] = useState([]);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -56,19 +67,18 @@ const Currency = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      const response = await getDepartments({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
         ...params
       });
 
-      // 正确处理后端响应格式
       if (response.data.success) {
-        const { currencies, total, current_page } = response.data.data;
+        const { departments, total, current_page } = response.data.data;
         
         // 为每行数据添加key
-        const dataWithKeys = currencies.map((item, index) => ({
+        const dataWithKeys = departments.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -87,9 +97,22 @@ const Currency = () => {
     }
   };
 
+  // 获取部门选项
+  const loadDepartmentOptions = async () => {
+    try {
+      const response = await getDepartmentOptions();
+      if (response.data.success) {
+        setDepartmentOptions(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching department options:', error);
+    }
+  };
+
   // 初始加载
   useEffect(() => {
     loadData();
+    loadDepartmentOptions();
   }, []);
 
   // 搜索
@@ -117,13 +140,13 @@ const Currency = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
+      dept_name: '',
+      dept_code: '',
+      parent_id: null,
+      is_blown_film: false,
       description: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
       ...record,
     });
     setEditingKey(record.key);
@@ -144,30 +167,18 @@ const Currency = () => {
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为本位币，需要先取消其他本位币的设置
-        if (row.is_base_currency) {
-          // 在本地数据中取消其他项的本位币设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_base_currency) {
-              dataItem.is_base_currency = false;
-            }
-          });
-        }
-        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+          response = await updateDepartment(item.id, row);
         } else {
           // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await createDepartment(row);
         }
 
-        // 正确处理后端响应格式
         if (response.data.success) {
           // 更新本地数据
           newData.splice(index, 1, {
@@ -179,12 +190,8 @@ const Currency = () => {
           setEditingKey('');
           message.success('保存成功');
           
-          // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_base_currency) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
+          // 刷新部门选项
+          loadDepartmentOptions();
         }
       }
     } catch (error) {
@@ -203,9 +210,12 @@ const Currency = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await currencyApi.deleteCurrency(record.id);
+        const response = await deleteDepartment(record.id);
         if (response.data.success) {
           message.success('删除成功');
+          
+          // 刷新部门选项
+          loadDepartmentOptions();
         }
       }
       
@@ -222,17 +232,14 @@ const Currency = () => {
     const newKey = `temp_${Date.now()}`;
     const newData = {
       key: newKey,
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
+      dept_code: '',
+      dept_name: '',
+      parent_id: null,
+      parent_name: '',
+      is_blown_film: false,
       description: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
-      created_by_name: '',
-      created_at: '',
-      updated_by_name: '',
-      updated_at: ''
     };
     
     setData([newData, ...data]);
@@ -252,24 +259,31 @@ const Currency = () => {
   }) => {
     let inputNode;
     
-    switch (inputType) {
-      case 'number':
-        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
-        break;
-      case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
-        break;
-      case 'integer':
-        inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
-        break;
-      case 'switch':
-        inputNode = <Switch />;
-        break;
-      case 'textarea':
-        inputNode = <Input.TextArea rows={2} />;
-        break;
-      default:
-        inputNode = <Input />;
+    if (inputType === 'select') {
+      inputNode = (
+        <Select 
+          placeholder="请选择上级部门"
+          allowClear
+          showSearch
+          filterOption={(input, option) =>
+            option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+          }
+        >
+          {departmentOptions
+            .filter(option => option.value !== record?.id) // 防止选择自己作为上级
+            .map(option => (
+              <Option key={option.value} value={option.value}>
+                {option.label}
+              </Option>
+            ))}
+        </Select>
+      );
+    } else if (inputType === 'switch') {
+      inputNode = <Switch />;
+    } else if (inputType === 'number') {
+      inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+    } else {
+      inputNode = <Input />;
     }
 
     return (
@@ -278,21 +292,14 @@ const Currency = () => {
           <Form.Item
             name={dataIndex}
             style={{ margin: 0 }}
-            rules={[
-              {
-                required: ['currency_code', 'currency_name', 'exchange_rate'].includes(dataIndex),
-                message: `请输入${title}!`,
-              },
-              ...(dataIndex === 'currency_code' ? [
-                { max: 10, message: '币别代码不能超过10个字符' }
-              ] : []),
-                             ...(dataIndex === 'currency_name' ? [
-                 { max: 100, message: '币别名称不能超过100个字符' }
-               ] : []),
-               ...(dataIndex === 'exchange_rate' ? [
-                 { type: 'number', min: 0.0001, message: '汇率必须大于0' }
-               ] : [])
-            ]}
+            rules={
+              dataIndex === 'dept_name' ? [
+                {
+                  required: true,
+                  message: `请输入${title}!`,
+                },
+              ] : []
+            }
           >
             {inputNode}
           </Form.Item>
@@ -306,30 +313,23 @@ const Currency = () => {
   // 表格列定义
   const columns = [
     {
-      title: '币别代码',
-      dataIndex: 'currency_code',
-      key: 'currency_code',
+      title: '部门编号',
+      dataIndex: 'dept_code',
+      key: 'dept_code',
       width: 120,
-      editable: true,
+      align: 'center',
       render: (text, record) => {
         const editable = isEditing(record);
         return editable ? text : (
-          <span style={{ fontWeight: 500 }}>
-            {text}
-            {record.is_base_currency && (
-              <Tag color="gold" style={{ marginLeft: 8 }}>
-                <StarOutlined /> 本位币
-              </Tag>
-            )}
-          </span>
+          <span style={{ fontWeight: 500, color: '#1890ff' }}>{text}</span>
         );
       }
     },
     {
-      title: '币别名称',
-      dataIndex: 'currency_name',
-      key: 'currency_name',
-      width: 150,
+      title: '部门名称',
+      dataIndex: 'dept_name',
+      key: 'dept_name',
+      width: 180,
       editable: true,
       render: (text, record) => {
         const editable = isEditing(record);
@@ -339,16 +339,36 @@ const Currency = () => {
       }
     },
     {
-      title: '汇率',
-      dataIndex: 'exchange_rate',
-      key: 'exchange_rate',
-      width: 120,
+      title: '上级部门',
+      dataIndex: 'parent_name',
+      key: 'parent_name',
+      width: 150,
       editable: true,
-      inputType: 'decimal',
-      align: 'right',
-      render: (value, record) => {
+      inputType: 'select',
+      render: (text) => text || '无',
+      onCell: (record) => ({
+        record,
+        inputType: 'select',
+        dataIndex: 'parent_id',
+        title: '上级部门',
+        editing: isEditing(record),
+      }),
+    },
+    {
+      title: '是否吹膜',
+      dataIndex: 'is_blown_film',
+      key: 'is_blown_film',
+      width: 100,
+      editable: true,
+      inputType: 'switch',
+      align: 'center',
+      render: (enabled, record) => {
         const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
+        return editable ? enabled : (
+          <Tag color={enabled ? '#87d068' : '#f50'}>
+            {enabled ? '是' : '否'}
+          </Tag>
+        );
       }
     },
     {
@@ -357,7 +377,6 @@ const Currency = () => {
       key: 'description',
       width: 200,
       editable: true,
-      inputType: 'textarea',
       ellipsis: {
         showTitle: false,
       },
@@ -389,25 +408,6 @@ const Currency = () => {
         return editable ? enabled : (
           <Switch 
             checked={enabled} 
-            disabled 
-            size="small"
-          />
-        );
-      }
-    },
-    {
-      title: '是否本位币',
-      dataIndex: 'is_base_currency',
-      key: 'is_base_currency',
-      width: 120,
-      editable: true,
-      inputType: 'switch',
-      align: 'center',
-      render: (isBase, record) => {
-        const editable = isEditing(record);
-        return editable ? isBase : (
-          <Switch 
-            checked={isBase} 
             disabled 
             size="small"
           />
@@ -447,7 +447,7 @@ const Currency = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_, record) => {
@@ -482,21 +482,21 @@ const Currency = () => {
             >
               编辑
             </Button>
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+            <Popconfirm
+              title="确定删除这条记录吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
               >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
+                删除
+              </Button>
+            </Popconfirm>
           </Space>
         );
       },
@@ -510,13 +510,13 @@ const Currency = () => {
     }
     return {
       ...col,
-      onCell: (record) => ({
+      onCell: col.onCell || ((record) => ({
         record,
         inputType: col.inputType || 'text',
         dataIndex: col.dataIndex,
         title: col.title,
         editing: isEditing(record),
-      }),
+      })),
     };
   });
 
@@ -526,16 +526,16 @@ const Currency = () => {
         <div style={{ marginBottom: 16 }}>
           <Row justify="space-between" align="middle">
             <Col>
-              <Title level={4} style={{ margin: 0 }}>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                币别管理
+              <Title level={4} style={{ margin: 0, color: '#eb2f96' }}>
+                <TeamOutlined style={{ marginRight: 8 }} />
+                部门管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索币别代码、名称或描述"
+                  placeholder="搜索部门名称、编号或描述"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
@@ -582,7 +582,7 @@ const Currency = () => {
             pagination={pagination}
             loading={loading}
             onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            scroll={{ x: 1400 }}
             size="small"
           />
         </Form>
@@ -591,4 +591,4 @@ const Currency = () => {
   );
 };
 
-export default Currency; 
+export default DepartmentManagement; 

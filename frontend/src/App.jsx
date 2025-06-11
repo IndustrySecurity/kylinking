@@ -9,40 +9,47 @@ import SystemManagement from './pages/admin/SystemManagement';
 import TenantModuleManagement from './pages/admin/TenantModuleManagement';
 import Login from './pages/auth/Login';
 import BaseData from './pages/base-archive/BaseData';
-import ProductionManagement from './pages/base-archive/ProductionManagement';
+import ProductionData from './pages/base-archive/ProductionData';
 import FinancialManagement from './pages/base-archive/FinancialManagement';
-import PackageMethodManagement from './pages/base-archive/PackageMethodManagement';
-import DeliveryMethodManagement from './pages/base-archive/DeliveryMethodManagement';
-import ColorCardManagement from './pages/base-archive/ColorCardManagement';
-import UnitManagement from './pages/base-archive/UnitManagement';
-import SpecificationManagement from './pages/base-archive/SpecificationManagement';
-import MachineManagement from './pages/base-archive/MachineManagement';
-import QuoteInkManagement from './pages/base-archive/QuoteInkManagement';
-import QuoteMaterialManagement from './pages/base-archive/QuoteMaterialManagement';
-import QuoteAccessoryManagement from './pages/base-archive/QuoteAccessoryManagement';
-import QuoteLossManagement from './pages/base-archive/QuoteLossManagement';
-import CustomerCategoryManagement from './pages/base-archive/CustomerCategoryManagement';
-import CustomerManagement from './pages/base-archive/CustomerManagement';
-import SupplierCategoryManagement from './pages/base-archive/SupplierCategoryManagement';
-import SupplierManagement from './pages/base-archive/SupplierManagement';
-import MaterialCategoryManagement from './pages/base-archive/MaterialCategoryManagement';
-import MaterialManagement from './pages/base-archive/MaterialManagement';
-import CalculationParameterManagement from './pages/base-archive/CalculationParameterManagement';
-import CalculationSchemeManagement from './pages/base-archive/CalculationSchemeManagement';
-import ProductCategoryManagement from './pages/base-archive/ProductCategoryManagement';
-import ProductManagement from './pages/base-archive/ProductManagement';
-import InkOptionManagement from './pages/base-archive/InkOptionManagement';
-import QuoteFreightManagement from './pages/base-archive/QuoteFreightManagement';
-import LossTypeManagement from './pages/base-archive/LossTypeManagement';
-import DepartmentManagement from './pages/base-archive/DepartmentManagement';
-import PositionManagement from './pages/base-archive/PositionManagement';
-import EmployeeManagement from './pages/base-archive/EmployeeManagement';
-import WarehouseManagement from './pages/base-archive/WarehouseManagement';
-import ProcessCategoryManagement from './pages/base-archive/ProcessCategoryManagement';
-import ProcessManagement from './pages/production/archive/ProcessManagement';
-import BagTypeManagement from './pages/base-archive/BagTypeManagement';
-import BagRelatedFormulaManagement from './pages/base-archive/BagRelatedFormulaManagement';
-import TeamGroupManagement from './pages/base-archive/TeamGroupManagement';
+
+// 基础数据相关导入
+import CustomerManagement from './pages/base-archive/base-data/CustomerManagement';
+import ProductManagement from './pages/base-archive/base-data/ProductManagement';
+import SupplierManagement from './pages/base-archive/base-data/SupplierManagement';
+import MaterialManagement from './pages/base-archive/base-data/MaterialManagement';
+import DepartmentManagement from './pages/base-archive/base-data/DepartmentManagement';
+import PositionManagement from './pages/base-archive/base-data/PositionManagement';
+import EmployeeManagement from './pages/base-archive/base-data/EmployeeManagement';
+// 基础分类相关导入
+import CustomerCategoryManagement from './pages/base-archive/base-category/CustomerCategoryManagement';
+import ProductCategoryManagement from './pages/base-archive/base-category/ProductCategoryManagement';
+import SupplierCategoryManagement from './pages/base-archive/base-category/SupplierCategoryManagement';
+import MaterialCategoryManagement from './pages/base-archive/base-category/MaterialCategoryManagement';
+import ProcessCategoryManagement from './pages/base-archive/base-category/ProcessCategoryManagement';
+
+// 生产档案相关导入
+import TeamGroupManagement from './pages/base-archive/production/production-archive/TeamGroupManagement';
+import MachineManagement from './pages/base-archive/production/production-archive/MachineManagement';
+import WarehouseManagement from './pages/base-archive/production/production-archive/WarehouseManagement';
+import ProcessManagement from './pages/base-archive/production/production-archive/ProcessManagement';
+import BagTypeManagement from './pages/base-archive/production/production-archive/BagTypeManagement';
+import PackageMethodManagement from './pages/base-archive/production/production-archive/PackageMethodManagement';
+import DeliveryMethodManagement from './pages/base-archive/production/production-archive/DeliveryMethodManagement';
+import LossTypeManagement from './pages/base-archive/production/production-archive/LossTypeManagement';
+import SpecificationManagement from './pages/base-archive/production/production-archive/SpecificationManagement';
+import ColorCardManagement from './pages/base-archive/production/production-archive/ColorCardManagement';
+import UnitManagement from './pages/base-archive/production/production-archive/UnitManagement';
+
+// 生产配置相关导入
+import BagRelatedFormulaManagement from './pages/base-archive/production/production-config/BagRelatedFormulaManagement';
+import CalculationSchemeManagement from './pages/base-archive/production/production-config/CalculationSchemeManagement';
+import CalculationParameterManagement from './pages/base-archive/production/production-config/CalculationParameterManagement';
+import QuoteAccessoryManagement from './pages/base-archive/production/production-config/QuoteAccessoryManagement';
+import QuoteInkManagement from './pages/base-archive/production/production-config/QuoteInkManagement';
+import QuoteLossManagement from './pages/base-archive/production/production-config/QuoteLossManagement';
+import QuoteMaterialManagement from './pages/base-archive/production/production-config/QuoteMaterialManagement';
+import QuoteFreightManagement from './pages/base-archive/production/production-config/QuoteFreightManagement';
+import InkOptionManagement from './pages/base-archive/production/production-config/InkOptionManagement';
 import Currency from './pages/base-archive/financial-management/Currency';
 import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
@@ -137,55 +144,17 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/base-archive/package-methods" element={
+            {/* 生产档案路由 */}
+            <Route path="/base-archive/production-data" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <PackageMethodManagement />
+                  <ProductionData />
                 </MainLayout>
               </ProtectedRoute>
             } />
             
-            <Route path="/base-archive/delivery-methods" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DeliveryMethodManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/color-cards" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ColorCardManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/units" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <UnitManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/specifications" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SpecificationManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/customer-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CustomerCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/customer-management" element={
+            {/* 基础数据路由 */}
+            <Route path="/base-archive/base-data/customer-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <CustomerManagement />
@@ -193,128 +162,7 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/base-archive/supplier-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SupplierCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/supplier-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SupplierManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/material-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/material-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/calculation-parameters" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CalculationParameterManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/calculation-schemes" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CalculationSchemeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/departments" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DepartmentManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/positions" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PositionManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/positions" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PositionManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/employees" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <EmployeeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/employees" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <EmployeeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/warehouses" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <WarehouseManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 班组管理 */}
-            <Route path="/base-archive/team-groups" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <TeamGroupManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/warehouses" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <WarehouseManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/product-categories" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProductCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/products" element={
+            <Route path="/base-archive/base-data/product-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <ProductManagement />
@@ -322,32 +170,82 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/base-archive/ink-options" element={
+            <Route path="/base-archive/base-data/supplier-management" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <InkOptionManagement />
+                  <SupplierManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
             
-            <Route path="/base-archive/quote-freights" element={
+            <Route path="/base-archive/base-data/material-management" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <QuoteFreightManagement />
+                  <MaterialManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
             
-            <Route path="/base-archive/loss-type-management" element={
+            <Route path="/base-archive/base-data/department-management" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <LossTypeManagement />
+                  <DepartmentManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
             
-            {/* 工序分类管理 */}
-            <Route path="/base-archive/process-categories" element={
+            <Route path="/base-archive/base-data/position-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PositionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-data/employee-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <EmployeeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+
+            
+            {/* 基础分类路由 */}
+            <Route path="/base-archive/base-category/customer-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CustomerCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-category/product-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProductCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-category/supplier-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SupplierCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-category/material-category-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialCategoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/base-category/process-category-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <ProcessCategoryManagement />
@@ -355,44 +253,18 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 袋型管理 */}
-            <Route path="/base-archive/bag-types" element={
+
+            
+            {/* 生产档案路由 */}
+            <Route path="/base-archive/production/production-archive/team-group-management" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <BagTypeManagement />
+                  <TeamGroupManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
             
-            {/* 报价损耗管理 */}
-            <Route path="/base-archive/quote-losses" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteLossManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 袋型相关公式管理 */}
-            <Route path="/base-archive/bag-related-formulas" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <BagRelatedFormulaManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案 - 生产管理 */}
-            <Route path="/base-archive/production-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProductionManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 机台管理 */}
-            <Route path="/base-archive/machines" element={
+            <Route path="/base-archive/production/production-archive/machine-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <MachineManagement />
@@ -400,8 +272,115 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 报价油墨管理 */}
-            <Route path="/base-archive/quote-inks" element={
+            <Route path="/base-archive/production/production-archive/warehouse-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <WarehouseManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/process-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ProcessManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+
+            
+            <Route path="/base-archive/production/production-archive/bag-type-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BagTypeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/package-method-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PackageMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/delivery-method-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <DeliveryMethodManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/loss-type-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <LossTypeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/specification-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SpecificationManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/color-card-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ColorCardManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-archive/unit-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <UnitManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            {/* 生产配置路由 */}
+            
+            <Route path="/base-archive/production/production-config/bag-related-formula-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BagRelatedFormulaManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-config/calculation-scheme-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CalculationSchemeManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-config/calculation-parameter-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CalculationParameterManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-config/quote-accessory-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteAccessoryManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-config/quote-ink-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <QuoteInkManagement />
@@ -409,8 +388,15 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 报价材料管理 */}
-            <Route path="/base-archive/quote-materials" element={
+            <Route path="/base-archive/production/production-config/quote-loss-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <QuoteLossManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/base-archive/production/production-config/quote-material-management" element={
               <ProtectedRoute>
                 <MainLayout>
                   <QuoteMaterialManagement />
@@ -418,14 +404,23 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 报价辅材管理 */}
-            <Route path="/base-archive/quote-accessories" element={
+            <Route path="/base-archive/production/production-config/quote-freight-management" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <QuoteAccessoryManagement />
+                  <QuoteFreightManagement />
                 </MainLayout>
               </ProtectedRoute>
             } />
+            
+            <Route path="/base-archive/production/production-config/ink-option-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <InkOptionManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+
             
             {/* 基础档案 - 财务管理 */}
             <Route path="/base-archive/financial-management" element={
@@ -478,23 +473,7 @@ const AppRoot = () => {
             } />
 
             
-            {/* 生产档案路由 */}
-            <Route path="/production/archive/packaging" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PackageMethodManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 工序管理路由 */}
-            <Route path="/production/archive/process" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProcessManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
+
             
             {/* 平台管理路由 */}
             <Route path="/admin/tenants" element={
@@ -545,9 +524,54 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 兼容旧路径 */}
+            {/* 兼容旧路径重定向 */}
+            <Route path="/base-archive/customer-management" element={
+              <Navigate to="/base-archive/base-data/customer-management" replace />
+            } />
+            <Route path="/base-archive/product-management" element={
+              <Navigate to="/base-archive/base-data/product-management" replace />
+            } />
+            <Route path="/base-archive/supplier-management" element={
+              <Navigate to="/base-archive/base-data/supplier-management" replace />
+            } />
+            <Route path="/base-archive/material-management" element={
+              <Navigate to="/base-archive/base-data/material-management" replace />
+            } />
+            <Route path="/base-archive/departments" element={
+              <Navigate to="/base-archive/base-data/department-management" replace />
+            } />
+            <Route path="/base-archive/positions" element={
+              <Navigate to="/base-archive/base-data/position-management" replace />
+            } />
+            <Route path="/base-archive/employees" element={
+              <Navigate to="/base-archive/base-data/employee-management" replace />
+            } />
+            <Route path="/base-archive/units" element={
+              <Navigate to="/base-archive/production/production-archive/unit-management" replace />
+            } />
+            <Route path="/base-archive/customer-category-management" element={
+              <Navigate to="/base-archive/base-category/customer-category-management" replace />
+            } />
+            <Route path="/base-archive/product-categories" element={
+              <Navigate to="/base-archive/base-category/product-category-management" replace />
+            } />
+            <Route path="/base-archive/supplier-category-management" element={
+              <Navigate to="/base-archive/base-category/supplier-category-management" replace />
+            } />
+            <Route path="/base-archive/material-category-management" element={
+              <Navigate to="/base-archive/base-category/material-category-management" replace />
+            } />
+            <Route path="/base-archive/process-categories" element={
+              <Navigate to="/base-archive/base-category/process-category-management" replace />
+            } />
+            <Route path="/base-archive/color-cards" element={
+              <Navigate to="/base-archive/production/production-archive/color-card-management" replace />
+            } />
             <Route path="/production/config/bag-formula" element={
-              <Navigate to="/base-archive/bag-related-formulas" replace />
+              <Navigate to="/base-archive/production/production-config/bag-related-formula-management" replace />
+            } />
+            <Route path="/production/archive/process" element={
+              <Navigate to="/base-archive/production/production-archive/process-management" replace />
             } />
             
             {/* Redirect all other routes to dashboard */}

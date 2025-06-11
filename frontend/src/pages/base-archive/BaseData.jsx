@@ -8,13 +8,7 @@ import {
   ApartmentOutlined,
   IdcardOutlined,
   AppstoreOutlined,
-  ToolOutlined,
-  InboxOutlined,
-  TruckOutlined,
-  BgColorsOutlined,
-  TagsOutlined,
-  ColumnWidthOutlined,
-  CalculatorOutlined
+  ToolOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,49 +23,49 @@ const BaseData = () => {
       key: 'customers',
       title: '客户',
       icon: <UserOutlined style={{ fontSize: '48px' }} />,
-      path: '/base-archive/customer-management',
+      path: '/base-archive/base-data/customer-management',
       color: '#1890ff'
     },
     {
       key: 'products',
       title: '产品',
       icon: <ShoppingOutlined />,
-      path: '/base-archive/base-data/products',
+      path: '/base-archive/base-data/product-management',
       color: '#52c41a'
     },
     {
       key: 'suppliers',
       title: '供应商',
       icon: <BankOutlined />,
-      path: '/base-archive/supplier-management',
+      path: '/base-archive/base-data/supplier-management',
       color: '#fa8c16'
     },
     {
       key: 'materials',
       title: '材料',
       icon: <ShoppingOutlined />,
-      path: '/base-archive/material-management',
+      path: '/base-archive/base-data/material-management',
       color: '#722ed1'
     },
     {
       key: 'departments',
       title: '部门管理',
       icon: <ApartmentOutlined />,
-      path: '/base-archive/departments',
+      path: '/base-archive/base-data/department-management',
       color: '#eb2f96'
     },
     {
       key: 'positions',
       title: '职位',
       icon: <IdcardOutlined />,
-      path: '/base-archive/base-data/positions',
+      path: '/base-archive/base-data/position-management',
       color: '#f5222d'
     },
     {
       key: 'employees',
       title: '员工',
       icon: <TeamOutlined />,
-      path: '/base-archive/base-data/employees',
+      path: '/base-archive/base-data/employee-management',
       color: '#13c2c2'
     }
   ];
@@ -82,35 +76,35 @@ const BaseData = () => {
       key: 'customerCategories',
       title: '客户分类',
       icon: <UserOutlined />,
-      path: '/base-archive/customer-category-management',
+      path: '/base-archive/base-category/customer-category-management',
       color: '#1890ff'
     },
     {
       key: 'productCategories',
       title: '产品分类',
       icon: <ShoppingOutlined />,
-      path: '/base-archive/product-categories',
+      path: '/base-archive/base-category/product-category-management',
       color: '#52c41a'
     },
     {
       key: 'supplierCategories',
       title: '供应商分类',
       icon: <BankOutlined />,
-      path: '/base-archive/supplier-category-management',
+      path: '/base-archive/base-category/supplier-category-management',
       color: '#fa8c16'
     },
     {
       key: 'materialCategories',
       title: '材料分类',
       icon: <AppstoreOutlined />,
-      path: '/base-archive/material-category-management',
+      path: '/base-archive/base-category/material-category-management',
       color: '#722ed1'
     },
     {
       key: 'processCategories',
       title: '工序分类',
       icon: <ToolOutlined />,
-      path: '/base-archive/process-categories',
+      path: '/base-archive/base-category/process-category-management',
       color: '#eb2f96'
     }
   ];
@@ -153,6 +147,8 @@ const BaseData = () => {
       ))}
     </Row>
   );
+
+
 
   // Tabs配置
   const tabItems = [

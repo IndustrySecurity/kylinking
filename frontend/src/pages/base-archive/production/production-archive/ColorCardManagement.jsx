@@ -14,6 +14,7 @@ import {
   Col,
   Form,
   Tooltip,
+  ColorPicker,
   Tag
 } from 'antd';
 import {
@@ -25,14 +26,13 @@ import {
   EditOutlined,
   CheckOutlined,
   CloseOutlined,
-  StarOutlined,
-  DollarOutlined
+  BgColorsOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { colorCardApi } from '../../../../api/production/production-archive/colorCard';
 
 const { Title } = Typography;
 
-const Currency = () => {
+const ColorCardManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
@@ -56,7 +56,7 @@ const Currency = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      const response = await colorCardApi.getColorCards({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
@@ -65,10 +65,10 @@ const Currency = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { currencies, total, current_page } = response.data.data;
+        const { color_cards, total, current_page } = response.data.data;
         
         // 为每行数据添加key
-        const dataWithKeys = currencies.map((item, index) => ({
+        const dataWithKeys = color_cards.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -117,13 +117,12 @@ const Currency = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
-      description: '',
+      color_code: '',
+      color_name: '',
+      color_value: '#000000',
+      remarks: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
       ...record,
     });
     setEditingKey(record.key);
@@ -145,14 +144,10 @@ const Currency = () => {
       if (index > -1) {
         const item = newData[index];
         
-        // 如果设置为本位币，需要先取消其他本位币的设置
-        if (row.is_base_currency) {
-          // 在本地数据中取消其他项的本位币设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_base_currency) {
-              dataItem.is_base_currency = false;
-            }
-          });
+        // 处理颜色值格式
+        if (row.color_value && typeof row.color_value === 'object') {
+          // 如果是ColorPicker返回的对象，转换为十六进制字符串
+          row.color_value = row.color_value.toHexString ? row.color_value.toHexString() : '#000000';
         }
         
         const updatedItem = { ...item, ...row };
@@ -161,10 +156,10 @@ const Currency = () => {
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+          response = await colorCardApi.updateColorCard(item.id, row);
         } else {
           // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await colorCardApi.createColorCard(row);
         }
 
         // 正确处理后端响应格式
@@ -178,13 +173,6 @@ const Currency = () => {
           setData(newData);
           setEditingKey('');
           message.success('保存成功');
-          
-          // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_base_currency) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
         }
       }
     } catch (error) {
@@ -203,7 +191,7 @@ const Currency = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await currencyApi.deleteCurrency(record.id);
+        const response = await colorCardApi.deleteColorCard(record.id);
         if (response.data.success) {
           message.success('删除成功');
         }
@@ -222,13 +210,12 @@ const Currency = () => {
     const newKey = `temp_${Date.now()}`;
     const newData = {
       key: newKey,
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
-      description: '',
+      color_code: '',
+      color_name: '',
+      color_value: '#000000',
+      remarks: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
       created_by_name: '',
       created_at: '',
       updated_by_name: '',
@@ -256,17 +243,22 @@ const Currency = () => {
       case 'number':
         inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
         break;
-      case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
-        break;
-      case 'integer':
-        inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
-        break;
       case 'switch':
         inputNode = <Switch />;
         break;
-      case 'textarea':
-        inputNode = <Input.TextArea rows={2} />;
+      case 'color':
+        inputNode = (
+          <ColorPicker 
+            showText 
+            format="hex"
+            style={{ width: '100%' }}
+            onChange={(color) => {
+              // 确保颜色值以十六进制字符串形式保存
+              const hexValue = color.toHexString();
+              form.setFieldValue(dataIndex, hexValue);
+            }}
+          />
+        );
         break;
       default:
         inputNode = <Input />;
@@ -280,18 +272,9 @@ const Currency = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['currency_code', 'currency_name', 'exchange_rate'].includes(dataIndex),
+                required: ['color_name', 'color_value'].includes(dataIndex),
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'currency_code' ? [
-                { max: 10, message: '币别代码不能超过10个字符' }
-              ] : []),
-                             ...(dataIndex === 'currency_name' ? [
-                 { max: 100, message: '币别名称不能超过100个字符' }
-               ] : []),
-               ...(dataIndex === 'exchange_rate' ? [
-                 { type: 'number', min: 0.0001, message: '汇率必须大于0' }
-               ] : [])
             ]}
           >
             {inputNode}
@@ -306,29 +289,23 @@ const Currency = () => {
   // 表格列定义
   const columns = [
     {
-      title: '币别代码',
-      dataIndex: 'currency_code',
-      key: 'currency_code',
-      width: 120,
-      editable: true,
+      title: '色卡编号',
+      dataIndex: 'color_code',
+      key: 'color_code',
+      width: 150,
+      editable: false,
       render: (text, record) => {
-        const editable = isEditing(record);
-        return editable ? text : (
+        return (
           <span style={{ fontWeight: 500 }}>
-            {text}
-            {record.is_base_currency && (
-              <Tag color="gold" style={{ marginLeft: 8 }}>
-                <StarOutlined /> 本位币
-              </Tag>
-            )}
+            {text || '自动生成'}
           </span>
         );
       }
     },
     {
-      title: '币别名称',
-      dataIndex: 'currency_name',
-      key: 'currency_name',
+      title: '色卡名称',
+      dataIndex: 'color_name',
+      key: 'color_name',
       width: 150,
       editable: true,
       render: (text, record) => {
@@ -339,25 +316,41 @@ const Currency = () => {
       }
     },
     {
-      title: '汇率',
-      dataIndex: 'exchange_rate',
-      key: 'exchange_rate',
+      title: '色值',
+      dataIndex: 'color_value',
+      key: 'color_value',
       width: 120,
       editable: true,
-      inputType: 'decimal',
-      align: 'right',
-      render: (value, record) => {
+      inputType: 'color',
+      align: 'center',
+      render: (colorValue, record) => {
         const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
+        if (editable) {
+          return colorValue;
+        }
+        return (
+          <Space>
+            <div 
+              style={{
+                width: 20,
+                height: 20,
+                backgroundColor: colorValue,
+                border: '1px solid #d9d9d9',
+                borderRadius: 4,
+                display: 'inline-block'
+              }}
+            />
+            <span style={{ fontSize: '12px', color: '#666' }}>{colorValue}</span>
+          </Space>
+        );
       }
     },
     {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
+      title: '备注',
+      dataIndex: 'remarks',
+      key: 'remarks',
       width: 200,
       editable: true,
-      inputType: 'textarea',
       ellipsis: {
         showTitle: false,
       },
@@ -389,25 +382,6 @@ const Currency = () => {
         return editable ? enabled : (
           <Switch 
             checked={enabled} 
-            disabled 
-            size="small"
-          />
-        );
-      }
-    },
-    {
-      title: '是否本位币',
-      dataIndex: 'is_base_currency',
-      key: 'is_base_currency',
-      width: 120,
-      editable: true,
-      inputType: 'switch',
-      align: 'center',
-      render: (isBase, record) => {
-        const editable = isEditing(record);
-        return editable ? isBase : (
-          <Switch 
-            checked={isBase} 
             disabled 
             size="small"
           />
@@ -447,7 +421,7 @@ const Currency = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_, record) => {
@@ -482,21 +456,21 @@ const Currency = () => {
             >
               编辑
             </Button>
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+            <Popconfirm
+              title="确定删除这条记录吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
               >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
+                删除
+              </Button>
+            </Popconfirm>
           </Space>
         );
       },
@@ -527,15 +501,15 @@ const Currency = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0 }}>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                币别管理
+                <BgColorsOutlined style={{ marginRight: 8 }} />
+                色卡管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索币别代码、名称或描述"
+                  placeholder="搜索色卡名称、编号或备注"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
@@ -582,7 +556,7 @@ const Currency = () => {
             pagination={pagination}
             loading={loading}
             onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            scroll={{ x: 1400 }}
             size="small"
           />
         </Form>
@@ -591,4 +565,4 @@ const Currency = () => {
   );
 };
 
-export default Currency; 
+export default ColorCardManagement; 

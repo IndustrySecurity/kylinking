@@ -14,7 +14,8 @@ import {
   Col,
   Form,
   Tooltip,
-  Tag
+  Checkbox,
+  Select
 } from 'antd';
 import {
   PlusOutlined,
@@ -24,15 +25,14 @@ import {
   ReloadOutlined,
   EditOutlined,
   CheckOutlined,
-  CloseOutlined,
-  StarOutlined,
-  DollarOutlined
+  CloseOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { getQuoteInks, createQuoteInk, updateQuoteInk, deleteQuoteInk } from '../../../../api/production/production-config/quoteInkApi';
 
 const { Title } = Typography;
+const { Option } = Select;
 
-const Currency = () => {
+const QuoteInkManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
@@ -56,7 +56,7 @@ const Currency = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      const response = await getQuoteInks({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
@@ -65,10 +65,10 @@ const Currency = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { currencies, total, current_page } = response.data.data;
+        const { quote_inks, total, current_page } = response.data.data;
         
         // 为每行数据添加key
-        const dataWithKeys = currencies.map((item, index) => ({
+        const dataWithKeys = quote_inks.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -81,7 +81,8 @@ const Currency = () => {
         }));
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      console.error('加载数据失败:', error);
+      message.error('加载数据失败');
     } finally {
       setLoading(false);
     }
@@ -117,13 +118,15 @@ const Currency = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
-      description: '',
+      category_name: '',
+      square_price: null,
+      unit_price_formula: '',
+      gram_weight: null,
+      is_ink: false,
+      is_solvent: false,
       sort_order: 0,
+      description: '',
       is_enabled: true,
-      is_base_currency: false,
       ...record,
     });
     setEditingKey(record.key);
@@ -144,27 +147,16 @@ const Currency = () => {
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为本位币，需要先取消其他本位币的设置
-        if (row.is_base_currency) {
-          // 在本地数据中取消其他项的本位币设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_base_currency) {
-              dataItem.is_base_currency = false;
-            }
-          });
-        }
-        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+          response = await updateQuoteInk(item.id, row);
         } else {
           // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await createQuoteInk(row);
         }
 
         // 正确处理后端响应格式
@@ -178,20 +170,14 @@ const Currency = () => {
           setData(newData);
           setEditingKey('');
           message.success('保存成功');
-          
-          // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_base_currency) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
         }
       }
     } catch (error) {
       if (error.errorFields) {
         message.error('请检查输入内容');
       } else {
-        message.error('保存失败：' + (error.response?.data?.error || error.message));
+        console.error('保存失败:', error);
+        message.error('保存失败');
       }
     }
   };
@@ -203,17 +189,16 @@ const Currency = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await currencyApi.deleteCurrency(record.id);
-        if (response.data.success) {
-          message.success('删除成功');
-        }
+        await deleteQuoteInk(record.id);
+        message.success('删除成功');
       }
       
       // 删除本地记录
       const newData = data.filter(item => item.key !== key);
       setData(newData);
     } catch (error) {
-      message.error('删除失败：' + (error.response?.data?.error || error.message));
+      console.error('删除失败:', error);
+      message.error('删除失败');
     }
   };
 
@@ -222,13 +207,15 @@ const Currency = () => {
     const newKey = `temp_${Date.now()}`;
     const newData = {
       key: newKey,
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
-      description: '',
+      category_name: '',
+      square_price: null,
+      unit_price_formula: '',
+      gram_weight: null,
+      is_ink: false,
+      is_solvent: false,
       sort_order: 0,
+      description: '',
       is_enabled: true,
-      is_base_currency: false,
       created_by_name: '',
       created_at: '',
       updated_by_name: '',
@@ -257,13 +244,24 @@ const Currency = () => {
         inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
         break;
       case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
-        break;
-      case 'integer':
-        inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
+        inputNode = <InputNumber min={0} step={0.01} style={{ width: '100%' }} />;
         break;
       case 'switch':
         inputNode = <Switch />;
+        break;
+      case 'checkbox':
+        inputNode = <Checkbox />;
+        break;
+      case 'select':
+        inputNode = (
+          <Select style={{ width: '100%' }}>
+            <Option value="按平方计算">按平方计算</Option>
+            <Option value="按重量计算">按重量计算</Option>
+            <Option value="按用量计算">按用量计算</Option>
+            <Option value="固定单价">固定单价</Option>
+            <Option value="自定义公式">自定义公式</Option>
+          </Select>
+        );
         break;
       case 'textarea':
         inputNode = <Input.TextArea rows={2} />;
@@ -278,20 +276,12 @@ const Currency = () => {
           <Form.Item
             name={dataIndex}
             style={{ margin: 0 }}
+            valuePropName={inputType === 'checkbox' || inputType === 'switch' ? 'checked' : 'value'}
             rules={[
               {
-                required: ['currency_code', 'currency_name', 'exchange_rate'].includes(dataIndex),
+                required: dataIndex === 'category_name',
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'currency_code' ? [
-                { max: 10, message: '币别代码不能超过10个字符' }
-              ] : []),
-                             ...(dataIndex === 'currency_name' ? [
-                 { max: 100, message: '币别名称不能超过100个字符' }
-               ] : []),
-               ...(dataIndex === 'exchange_rate' ? [
-                 { type: 'number', min: 0.0001, message: '汇率必须大于0' }
-               ] : [])
             ]}
           >
             {inputNode}
@@ -306,30 +296,11 @@ const Currency = () => {
   // 表格列定义
   const columns = [
     {
-      title: '币别代码',
-      dataIndex: 'currency_code',
-      key: 'currency_code',
-      width: 120,
-      editable: true,
-      render: (text, record) => {
-        const editable = isEditing(record);
-        return editable ? text : (
-          <span style={{ fontWeight: 500 }}>
-            {text}
-            {record.is_base_currency && (
-              <Tag color="gold" style={{ marginLeft: 8 }}>
-                <StarOutlined /> 本位币
-              </Tag>
-            )}
-          </span>
-        );
-      }
-    },
-    {
-      title: '币别名称',
-      dataIndex: 'currency_name',
-      key: 'currency_name',
+      title: '分类名称',
+      dataIndex: 'category_name',
+      key: 'category_name',
       width: 150,
+      fixed: 'left',
       editable: true,
       render: (text, record) => {
         const editable = isEditing(record);
@@ -339,17 +310,78 @@ const Currency = () => {
       }
     },
     {
-      title: '汇率',
-      dataIndex: 'exchange_rate',
-      key: 'exchange_rate',
+      title: '平方价',
+      dataIndex: 'square_price',
+      key: 'square_price',
       width: 120,
       editable: true,
       inputType: 'decimal',
       align: 'right',
-      render: (value, record) => {
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      title: '单价计算公式',
+      dataIndex: 'unit_price_formula',
+      key: 'unit_price_formula',
+      width: 150,
+      editable: true,
+      inputType: 'select',
+      render: (text) => text || '-'
+    },
+    {
+      title: '克重',
+      dataIndex: 'gram_weight',
+      key: 'gram_weight',
+      width: 100,
+      editable: true,
+      inputType: 'decimal',
+      align: 'right',
+      render: (value) => value ? `${value}` : '-'
+    },
+    {
+      title: '油墨',
+      dataIndex: 'is_ink',
+      key: 'is_ink',
+      width: 80,
+      editable: true,
+      inputType: 'checkbox',
+      align: 'center',
+      render: (checked, record) => {
         const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
+        return editable ? checked : (
+          <Checkbox 
+            checked={checked} 
+            disabled 
+          />
+        );
       }
+    },
+    {
+      title: '溶剂',
+      dataIndex: 'is_solvent',
+      key: 'is_solvent',
+      width: 80,
+      editable: true,
+      inputType: 'checkbox',
+      align: 'center',
+      render: (checked, record) => {
+        const editable = isEditing(record);
+        return editable ? checked : (
+          <Checkbox 
+            checked={checked} 
+            disabled 
+          />
+        );
+      }
+    },
+    {
+      title: '排序',
+      dataIndex: 'sort_order',
+      key: 'sort_order',
+      width: 80,
+      editable: true,
+      inputType: 'number',
+      align: 'center'
     },
     {
       title: '描述',
@@ -363,18 +395,9 @@ const Currency = () => {
       },
       render: (text) => (
         <Tooltip placement="topLeft" title={text}>
-          {text}
+          {text || '-'}
         </Tooltip>
       )
-    },
-    {
-      title: '显示排序',
-      dataIndex: 'sort_order',
-      key: 'sort_order',
-      width: 100,
-      editable: true,
-      inputType: 'number',
-      align: 'center'
     },
     {
       title: '是否启用',
@@ -396,32 +419,6 @@ const Currency = () => {
       }
     },
     {
-      title: '是否本位币',
-      dataIndex: 'is_base_currency',
-      key: 'is_base_currency',
-      width: 120,
-      editable: true,
-      inputType: 'switch',
-      align: 'center',
-      render: (isBase, record) => {
-        const editable = isEditing(record);
-        return editable ? isBase : (
-          <Switch 
-            checked={isBase} 
-            disabled 
-            size="small"
-          />
-        );
-      }
-    },
-    {
-      title: '创建人',
-      dataIndex: 'created_by_name',
-      key: 'created_by_name',
-      width: 100,
-      align: 'center'
-    },
-    {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -430,24 +427,9 @@ const Currency = () => {
       render: (text) => text ? new Date(text).toLocaleString() : ''
     },
     {
-      title: '修改人',
-      dataIndex: 'updated_by_name',
-      key: 'updated_by_name',
-      width: 100,
-      align: 'center'
-    },
-    {
-      title: '修改时间',
-      dataIndex: 'updated_at',
-      key: 'updated_at',
-      width: 150,
-      align: 'center',
-      render: (text) => text ? new Date(text).toLocaleString() : ''
-    },
-    {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_, record) => {
@@ -482,25 +464,25 @@ const Currency = () => {
             >
               编辑
             </Button>
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+            <Popconfirm
+              title="确定删除这条记录吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
               >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
+                删除
+              </Button>
+            </Popconfirm>
           </Space>
         );
-      },
-    },
+      }
+    }
   ];
 
   // 合并列配置
@@ -523,50 +505,45 @@ const Currency = () => {
   return (
     <div style={{ padding: '24px' }}>
       <Card>
-        <div style={{ marginBottom: 16 }}>
-          <Row justify="space-between" align="middle">
-            <Col>
-              <Title level={4} style={{ margin: 0 }}>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                币别管理
-              </Title>
-            </Col>
-            <Col>
-              <Space>
-                <Input
-                  ref={searchInputRef}
-                  placeholder="搜索币别代码、名称或描述"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  onPressEnter={handleSearch}
-                  style={{ width: 250 }}
-                  prefix={<SearchOutlined />}
-                />
-                <Button onClick={handleSearch} type="primary">
-                  搜索
-                </Button>
-                <Button onClick={handleReset}>
-                  重置
-                </Button>
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />}
-                  onClick={handleAdd}
-                  disabled={editingKey !== ''}
-                >
-                  新增
-                </Button>
-                <Button 
-                  icon={<ReloadOutlined />}
-                  onClick={() => loadData()}
-                  disabled={editingKey !== ''}
-                >
-                  刷新
-                </Button>
-              </Space>
-            </Col>
-          </Row>
-        </div>
+        <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+          <Col>
+            <Title level={4} style={{ margin: 0 }}>报价油墨管理</Title>
+          </Col>
+          <Col>
+            <Space>
+              <Input
+                ref={searchInputRef}
+                placeholder="搜索分类名称、公式、描述"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                onPressEnter={handleSearch}
+                style={{ width: 250 }}
+                allowClear
+              />
+              <Button 
+                type="primary" 
+                icon={<SearchOutlined />} 
+                onClick={handleSearch}
+              >
+                搜索
+              </Button>
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={handleReset}
+              >
+                重置
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleAdd}
+                disabled={editingKey !== ''}
+              >
+                新增报价油墨
+              </Button>
+            </Space>
+          </Col>
+        </Row>
 
         <Form form={form} component={false}>
           <Table
@@ -579,10 +556,17 @@ const Currency = () => {
             dataSource={data}
             columns={mergedColumns}
             rowClassName="editable-row"
-            pagination={pagination}
+            pagination={{
+              ...pagination,
+              onChange: (page, pageSize) => {
+                handleTableChange({ ...pagination, current: page, pageSize });
+              },
+              onShowSizeChange: (current, size) => {
+                handleTableChange({ ...pagination, current: 1, pageSize: size });
+              }
+            }}
             loading={loading}
-            onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            scroll={{ x: 1200 }}
             size="small"
           />
         </Form>
@@ -591,4 +575,4 @@ const Currency = () => {
   );
 };
 
-export default Currency; 
+export default QuoteInkManagement; 

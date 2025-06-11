@@ -14,7 +14,8 @@ import {
   Col,
   Form,
   Tooltip,
-  Tag
+  Select,
+  Checkbox
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,14 +26,14 @@ import {
   EditOutlined,
   CheckOutlined,
   CloseOutlined,
-  StarOutlined,
-  DollarOutlined
+  AppstoreOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { productCategoryApi } from '../../../api/base-category/productCategory';
 
 const { Title } = Typography;
+const { Option } = Select;
 
-const Currency = () => {
+const ProductCategoryManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
@@ -54,33 +55,33 @@ const Currency = () => {
 
   // 加载数据
   const loadData = async (params = {}) => {
-    setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      setLoading(true);
+      const response = await productCategoryApi.getProductCategories({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
         ...params
       });
 
-      // 正确处理后端响应格式
       if (response.data.success) {
-        const { currencies, total, current_page } = response.data.data;
+        const { product_categories, total, current_page } = response.data.data;
         
-        // 为每行数据添加key
-        const dataWithKeys = currencies.map((item, index) => ({
+        const dataWithKeys = product_categories.map((item, index) => ({
           ...item,
-          key: item.id || `temp_${index}`
+          key: item.id || `temp-${index}`,
+          index: (current_page - 1) * pagination.pageSize + index + 1
         }));
         
         setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
-          total,
-          current: current_page
+          current: current_page,
+          total: total
         }));
       }
     } catch (error) {
+      console.error('Load data error:', error);
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
@@ -117,13 +118,13 @@ const Currency = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
+      category_name: '',
+      subject_name: '',
+      is_blown_film: false,
+      delivery_days: null,
       description: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
       ...record,
     });
     setEditingKey(record.key);
@@ -139,32 +140,22 @@ const Currency = () => {
   const save = async (key) => {
     try {
       const row = await form.validateFields();
+      
       const newData = [...data];
       const index = newData.findIndex((item) => key === item.key);
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为本位币，需要先取消其他本位币的设置
-        if (row.is_base_currency) {
-          // 在本地数据中取消其他项的本位币设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_base_currency) {
-              dataItem.is_base_currency = false;
-            }
-          });
-        }
-        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+          response = await productCategoryApi.updateProductCategory(item.id, row);
         } else {
           // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await productCategoryApi.createProductCategory(row);
         }
 
         // 正确处理后端响应格式
@@ -178,16 +169,10 @@ const Currency = () => {
           setData(newData);
           setEditingKey('');
           message.success('保存成功');
-          
-          // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_base_currency) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
         }
       }
     } catch (error) {
+      console.error('Save error:', error);
       if (error.errorFields) {
         message.error('请检查输入内容');
       } else {
@@ -203,7 +188,7 @@ const Currency = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await currencyApi.deleteCurrency(record.id);
+        const response = await productCategoryApi.deleteProductCategory(record.id);
         if (response.data.success) {
           message.success('删除成功');
         }
@@ -222,13 +207,13 @@ const Currency = () => {
     const newKey = `temp_${Date.now()}`;
     const newData = {
       key: newKey,
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
+      category_name: '',
+      subject_name: '',
+      is_blown_film: false,
+      delivery_days: null,
       description: '',
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
       created_by_name: '',
       created_at: '',
       updated_by_name: '',
@@ -256,17 +241,18 @@ const Currency = () => {
       case 'number':
         inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
         break;
-      case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
-        break;
-      case 'integer':
-        inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
-        break;
       case 'switch':
         inputNode = <Switch />;
         break;
-      case 'textarea':
-        inputNode = <Input.TextArea rows={2} />;
+      case 'checkbox':
+        inputNode = <Checkbox />;
+        break;
+      case 'select':
+        inputNode = (
+          <Select placeholder="请选择科目名称" allowClear>
+            {/* 这里可以添加科目选项，当前先留空 */}
+          </Select>
+        );
         break;
       default:
         inputNode = <Input />;
@@ -280,18 +266,9 @@ const Currency = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['currency_code', 'currency_name', 'exchange_rate'].includes(dataIndex),
+                required: dataIndex === 'category_name',
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'currency_code' ? [
-                { max: 10, message: '币别代码不能超过10个字符' }
-              ] : []),
-                             ...(dataIndex === 'currency_name' ? [
-                 { max: 100, message: '币别名称不能超过100个字符' }
-               ] : []),
-               ...(dataIndex === 'exchange_rate' ? [
-                 { type: 'number', min: 0.0001, message: '汇率必须大于0' }
-               ] : [])
             ]}
           >
             {inputNode}
@@ -303,33 +280,13 @@ const Currency = () => {
     );
   };
 
-  // 表格列定义
+  // 表格列配置
   const columns = [
     {
-      title: '币别代码',
-      dataIndex: 'currency_code',
-      key: 'currency_code',
-      width: 120,
-      editable: true,
-      render: (text, record) => {
-        const editable = isEditing(record);
-        return editable ? text : (
-          <span style={{ fontWeight: 500 }}>
-            {text}
-            {record.is_base_currency && (
-              <Tag color="gold" style={{ marginLeft: 8 }}>
-                <StarOutlined /> 本位币
-              </Tag>
-            )}
-          </span>
-        );
-      }
-    },
-    {
-      title: '币别名称',
-      dataIndex: 'currency_name',
-      key: 'currency_name',
-      width: 150,
+      title: '产品分类',
+      dataIndex: 'category_name',
+      key: 'category_name',
+      width: 200,
       editable: true,
       render: (text, record) => {
         const editable = isEditing(record);
@@ -339,17 +296,41 @@ const Currency = () => {
       }
     },
     {
-      title: '汇率',
-      dataIndex: 'exchange_rate',
-      key: 'exchange_rate',
-      width: 120,
+      title: '科目名称',
+      dataIndex: 'subject_name',
+      key: 'subject_name',
+      width: 150,
       editable: true,
-      inputType: 'decimal',
-      align: 'right',
+      inputType: 'select',
+      render: (text) => text || '-'
+    },
+    {
+      title: '是否吹膜',
+      dataIndex: 'is_blown_film',
+      key: 'is_blown_film',
+      width: 100,
+      editable: true,
+      inputType: 'checkbox',
+      align: 'center',
       render: (value, record) => {
         const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
+        return editable ? value : (
+          <Checkbox 
+            checked={value} 
+            disabled 
+          />
+        );
       }
+    },
+    {
+      title: '交货天数',
+      dataIndex: 'delivery_days',
+      key: 'delivery_days',
+      width: 100,
+      editable: true,
+      inputType: 'number',
+      align: 'center',
+      render: (value) => value || '-'
     },
     {
       title: '描述',
@@ -357,7 +338,6 @@ const Currency = () => {
       key: 'description',
       width: 200,
       editable: true,
-      inputType: 'textarea',
       ellipsis: {
         showTitle: false,
       },
@@ -389,25 +369,6 @@ const Currency = () => {
         return editable ? enabled : (
           <Switch 
             checked={enabled} 
-            disabled 
-            size="small"
-          />
-        );
-      }
-    },
-    {
-      title: '是否本位币',
-      dataIndex: 'is_base_currency',
-      key: 'is_base_currency',
-      width: 120,
-      editable: true,
-      inputType: 'switch',
-      align: 'center',
-      render: (isBase, record) => {
-        const editable = isEditing(record);
-        return editable ? isBase : (
-          <Switch 
-            checked={isBase} 
             disabled 
             size="small"
           />
@@ -447,7 +408,7 @@ const Currency = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_, record) => {
@@ -482,21 +443,21 @@ const Currency = () => {
             >
               编辑
             </Button>
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+            <Popconfirm
+              title="确定删除这条记录吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
               >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
+                删除
+              </Button>
+            </Popconfirm>
           </Space>
         );
       },
@@ -527,15 +488,15 @@ const Currency = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0 }}>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                币别管理
+                <AppstoreOutlined style={{ marginRight: 8 }} />
+                产品分类管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索币别代码、名称或描述"
+                  placeholder="搜索产品分类名称、科目名称或描述"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
@@ -579,10 +540,19 @@ const Currency = () => {
             dataSource={data}
             columns={mergedColumns}
             rowClassName="editable-row"
-            pagination={pagination}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) =>
+                `第 ${range[0]}-${range[1]} 条/共 ${total} 条`,
+              onChange: handleTableChange,
+              onShowSizeChange: handleTableChange,
+            }}
             loading={loading}
-            onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            scroll={{ x: 1400 }}
             size="small"
           />
         </Form>
@@ -591,4 +561,4 @@ const Currency = () => {
   );
 };
 
-export default Currency; 
+export default ProductCategoryManagement; 

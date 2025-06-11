@@ -25,7 +25,7 @@ import {
   SearchOutlined,
   CreditCardOutlined
 } from '@ant-design/icons';
-import { paymentMethodApi } from '../../../api/paymentMethod';
+import { paymentMethodApi } from '../../../api/financial-management/paymentMethod';
 
 const { Search } = Input;
 const { Title } = Typography;

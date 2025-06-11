@@ -26,8 +26,8 @@ import {
   SearchOutlined,
   BankOutlined
 } from '@ant-design/icons';
-import accountManagementApi from '../../../api/accountManagement';
-import { currencyApi } from '../../../api/currency';
+import accountManagementApi from '../../../api/financial-management/accountManagement';
+import { currencyApi } from '../../../api/financial-management/currency';
 import dayjs from 'dayjs';
 
 const { Search } = Input;

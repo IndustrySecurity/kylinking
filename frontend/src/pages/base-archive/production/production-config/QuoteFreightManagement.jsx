@@ -13,8 +13,7 @@ import {
   Row,
   Col,
   Form,
-  Tooltip,
-  Tag
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,14 +24,14 @@ import {
   EditOutlined,
   CheckOutlined,
   CloseOutlined,
-  StarOutlined,
-  DollarOutlined
+  CarOutlined,
+  ExportOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { quoteFreightApi } from '../../../../api/production/production-config/quoteFreight';
 
 const { Title } = Typography;
 
-const Currency = () => {
+const QuoteFreightManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState('');
@@ -56,7 +55,7 @@ const Currency = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      const response = await quoteFreightApi.getQuoteFreights({
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
@@ -65,10 +64,10 @@ const Currency = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { currencies, total, current_page } = response.data.data;
+        const { quote_freights, total, current_page } = response.data.data;
         
         // 为每行数据添加key
-        const dataWithKeys = currencies.map((item, index) => ({
+        const dataWithKeys = quote_freights.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -117,13 +116,11 @@ const Currency = () => {
   // 开始编辑
   const edit = (record) => {
     form.setFieldsValue({
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
-      description: '',
+      region: '',
+      percentage: 0,
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
+      description: '',
       ...record,
     });
     setEditingKey(record.key);
@@ -144,27 +141,16 @@ const Currency = () => {
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为本位币，需要先取消其他本位币的设置
-        if (row.is_base_currency) {
-          // 在本地数据中取消其他项的本位币设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_base_currency) {
-              dataItem.is_base_currency = false;
-            }
-          });
-        }
-        
         const updatedItem = { ...item, ...row };
         
         // 调用API保存
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+          response = await quoteFreightApi.updateQuoteFreight(item.id, row);
         } else {
           // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await quoteFreightApi.createQuoteFreight(row);
         }
 
         // 正确处理后端响应格式
@@ -178,13 +164,6 @@ const Currency = () => {
           setData(newData);
           setEditingKey('');
           message.success('保存成功');
-          
-          // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_base_currency) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
         }
       }
     } catch (error) {
@@ -203,7 +182,7 @@ const Currency = () => {
       
       if (record.id && !record.id.startsWith('temp_')) {
         // 删除服务器记录
-        const response = await currencyApi.deleteCurrency(record.id);
+        const response = await quoteFreightApi.deleteQuoteFreight(record.id);
         if (response.data.success) {
           message.success('删除成功');
         }
@@ -222,13 +201,11 @@ const Currency = () => {
     const newKey = `temp_${Date.now()}`;
     const newData = {
       key: newKey,
-      currency_code: '',
-      currency_name: '',
-      exchange_rate: 1.0000,
-      description: '',
+      region: '',
+      percentage: 0,
       sort_order: 0,
       is_enabled: true,
-      is_base_currency: false,
+      description: '',
       created_by_name: '',
       created_at: '',
       updated_by_name: '',
@@ -237,6 +214,11 @@ const Currency = () => {
     
     setData([newData, ...data]);
     edit(newData);
+  };
+
+  // 导出功能
+  const handleExport = () => {
+    message.info('导出功能开发中...');
   };
 
   // 可编辑单元格组件
@@ -254,19 +236,28 @@ const Currency = () => {
     
     switch (inputType) {
       case 'number':
-        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
-        break;
-      case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
-        break;
-      case 'integer':
-        inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
+        if (dataIndex === 'percentage') {
+          // 百分比字段：0-100，支持小数，仿照税率管理
+          inputNode = (
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              max={100}
+              precision={2}
+              formatter={value => `${value}%`}
+              parser={value => value.replace('%', '')}
+            />
+          );
+        } else if (dataIndex === 'sort_order') {
+          // 排序字段：整数
+          inputNode = <InputNumber min={0} precision={0} style={{ width: '100%' }} />;
+        } else {
+          // 其他数字字段
+          inputNode = <InputNumber style={{ width: '100%' }} />;
+        }
         break;
       case 'switch':
         inputNode = <Switch />;
-        break;
-      case 'textarea':
-        inputNode = <Input.TextArea rows={2} />;
         break;
       default:
         inputNode = <Input />;
@@ -280,18 +271,15 @@ const Currency = () => {
             style={{ margin: 0 }}
             rules={[
               {
-                required: ['currency_code', 'currency_name', 'exchange_rate'].includes(dataIndex),
+                required: ['region'].includes(dataIndex),
                 message: `请输入${title}!`,
               },
-              ...(dataIndex === 'currency_code' ? [
-                { max: 10, message: '币别代码不能超过10个字符' }
-              ] : []),
-                             ...(dataIndex === 'currency_name' ? [
-                 { max: 100, message: '币别名称不能超过100个字符' }
-               ] : []),
-               ...(dataIndex === 'exchange_rate' ? [
-                 { type: 'number', min: 0.0001, message: '汇率必须大于0' }
-               ] : [])
+              ...(dataIndex === 'percentage' ? [{
+                type: 'number',
+                min: 0,
+                max: 100,
+                message: '百分比必须在0-100之间'
+              }] : [])
             ]}
           >
             {inputNode}
@@ -306,29 +294,9 @@ const Currency = () => {
   // 表格列定义
   const columns = [
     {
-      title: '币别代码',
-      dataIndex: 'currency_code',
-      key: 'currency_code',
-      width: 120,
-      editable: true,
-      render: (text, record) => {
-        const editable = isEditing(record);
-        return editable ? text : (
-          <span style={{ fontWeight: 500 }}>
-            {text}
-            {record.is_base_currency && (
-              <Tag color="gold" style={{ marginLeft: 8 }}>
-                <StarOutlined /> 本位币
-              </Tag>
-            )}
-          </span>
-        );
-      }
-    },
-    {
-      title: '币别名称',
-      dataIndex: 'currency_name',
-      key: 'currency_name',
+      title: '区域',
+      dataIndex: 'region',
+      key: 'region',
       width: 150,
       editable: true,
       render: (text, record) => {
@@ -339,39 +307,20 @@ const Currency = () => {
       }
     },
     {
-      title: '汇率',
-      dataIndex: 'exchange_rate',
-      key: 'exchange_rate',
+      title: '百分比(%)',
+      dataIndex: 'percentage',
+      key: 'percentage',
       width: 120,
       editable: true,
-      inputType: 'decimal',
-      align: 'right',
-      render: (value, record) => {
-        const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
-      }
+      inputType: 'number',
+      align: 'center',
+      render: (value) => `${value}%`
     },
     {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
-      width: 200,
-      editable: true,
-      inputType: 'textarea',
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (text) => (
-        <Tooltip placement="topLeft" title={text}>
-          {text}
-        </Tooltip>
-      )
-    },
-    {
-      title: '显示排序',
+      title: '排序',
       dataIndex: 'sort_order',
       key: 'sort_order',
-      width: 100,
+      width: 80,
       editable: true,
       inputType: 'number',
       align: 'center'
@@ -396,23 +345,19 @@ const Currency = () => {
       }
     },
     {
-      title: '是否本位币',
-      dataIndex: 'is_base_currency',
-      key: 'is_base_currency',
-      width: 120,
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      width: 200,
       editable: true,
-      inputType: 'switch',
-      align: 'center',
-      render: (isBase, record) => {
-        const editable = isEditing(record);
-        return editable ? isBase : (
-          <Switch 
-            checked={isBase} 
-            disabled 
-            size="small"
-          />
-        );
-      }
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text) => (
+        <Tooltip placement="topLeft" title={text}>
+          {text}
+        </Tooltip>
+      )
     },
     {
       title: '创建人',
@@ -447,7 +392,7 @@ const Currency = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 150,
       fixed: 'right',
       align: 'center',
       render: (_, record) => {
@@ -482,21 +427,21 @@ const Currency = () => {
             >
               编辑
             </Button>
-              <Popconfirm
-                title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+            <Popconfirm
+              title="确定删除这条记录吗？"
+              onConfirm={() => handleDelete(record.key)}
+              disabled={editingKey !== ''}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
                 disabled={editingKey !== ''}
               >
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  disabled={editingKey !== ''}
-                >
-                  删除
-                </Button>
-              </Popconfirm>
+                删除
+              </Button>
+            </Popconfirm>
           </Space>
         );
       },
@@ -527,15 +472,15 @@ const Currency = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0 }}>
-                <DollarOutlined style={{ marginRight: 8 }} />
-                币别管理
+                <CarOutlined style={{ marginRight: 8 }} />
+                报价运费管理
               </Title>
             </Col>
             <Col>
               <Space>
                 <Input
                   ref={searchInputRef}
-                  placeholder="搜索币别代码、名称或描述"
+                  placeholder="搜索区域或描述"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onPressEnter={handleSearch}
@@ -554,7 +499,14 @@ const Currency = () => {
                   onClick={handleAdd}
                   disabled={editingKey !== ''}
                 >
-                  新增
+                  新建
+                </Button>
+                <Button 
+                  icon={<ExportOutlined />}
+                  onClick={handleExport}
+                  disabled={editingKey !== ''}
+                >
+                  导出
                 </Button>
                 <Button 
                   icon={<ReloadOutlined />}
@@ -582,7 +534,7 @@ const Currency = () => {
             pagination={pagination}
             loading={loading}
             onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            scroll={{ x: 1400 }}
             size="small"
           />
         </Form>
@@ -591,4 +543,4 @@ const Currency = () => {
   );
 };
 
-export default Currency; 
+export default QuoteFreightManagement; 

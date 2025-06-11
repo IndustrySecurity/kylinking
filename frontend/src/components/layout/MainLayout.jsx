@@ -224,9 +224,9 @@ const MainLayout = ({ children }) => {
           path: '/base-archive/base-data',
         },
         {
-          key: 'productionManagement',
-          label: '生产管理',
-          path: '/base-archive/production-management',
+          key: 'productionData',
+          label: '生产档案',
+          path: '/base-archive/production-data',
         },
         {
           key: 'financialManagement',
