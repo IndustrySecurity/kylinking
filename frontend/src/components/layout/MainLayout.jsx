@@ -11,7 +11,23 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
   UserSwitchOutlined,
-  LaptopOutlined
+  LaptopOutlined,
+  InboxOutlined,
+  ShoppingOutlined,
+  ImportOutlined,
+  ExportOutlined,
+  AuditOutlined,
+  SwapOutlined,
+  FileTextOutlined,
+  TagsOutlined,
+  ReloadOutlined,
+  FileSyncOutlined,
+  ReconciliationOutlined,
+  RetweetOutlined,
+  ContainerOutlined,
+  RedoOutlined,
+  ToolOutlined,
+  CalculatorOutlined
 } from '@ant-design/icons';
 import styled, { css } from 'styled-components';
 import { useApi } from '../../hooks/useApi';
@@ -212,6 +228,18 @@ const MainLayout = ({ children }) => {
       icon: <SettingOutlined />,
       label: '系统设置',
       path: '/settings',
+    },
+    {
+      key: 'materialWarehouse',
+      icon: <InboxOutlined />,
+      label: '材料仓库',
+      path: '/business/material-warehouse',
+    },
+    {
+      key: 'finishedGoodsWarehouse',
+      icon: <ShoppingOutlined />,
+      label: '成品仓库',
+      path: '/business/finished-goods-warehouse',
     },
     {
       key: 'baseArchive',

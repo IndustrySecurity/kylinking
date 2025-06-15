@@ -2576,15 +2576,22 @@ class WarehouseService:
             raise ValueError(f"批量更新仓库失败: {str(e)}")
     
     @staticmethod
-    def get_warehouse_options():
+    def get_warehouse_options(warehouse_type=None):
         """获取仓库选项数据"""
         # 设置schema
         WarehouseService._set_schema()
         
         try:
             from app.models.basic_data import Warehouse
+            from app.extensions import db
             
-            warehouses = Warehouse.get_enabled_list()
+            query = db.session.query(Warehouse).filter(Warehouse.is_enabled == True)
+            
+            # 按类型筛选
+            if warehouse_type:
+                query = query.filter(Warehouse.warehouse_type == warehouse_type)
+            
+            warehouses = query.all()
             return [
                 {
                     'value': str(warehouse.id),

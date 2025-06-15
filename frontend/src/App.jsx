@@ -55,6 +55,31 @@ import TaxRate from './pages/base-archive/financial-management/TaxRate';
 import SettlementMethod from './pages/base-archive/financial-management/SettlementMethod';
 import AccountManagement from './pages/base-archive/financial-management/AccountManagement';
 import PaymentMethod from './pages/base-archive/financial-management/PaymentMethod';
+
+// 仓库管理导入
+import MaterialWarehouse from './pages/business/MaterialWarehouse';
+import FinishedGoodsWarehouse from './pages/business/FinishedGoodsWarehouse';
+
+// 成品仓库子页面导入
+import FinishedGoodsInbound from './pages/business/finished-goods/FinishedGoodsInbound';
+import FinishedGoodsOutbound from './pages/business/finished-goods/FinishedGoodsOutbound';
+import FinishedGoodsInventory from './pages/business/finished-goods/FinishedGoodsInventory';
+import FinishedGoodsTransfer from './pages/business/finished-goods/FinishedGoodsTransfer';
+import FinishedGoodsWeighingSlip from './pages/business/finished-goods/FinishedGoodsWeighingSlip';
+import PackingWeighingSlip from './pages/business/finished-goods/PackingWeighingSlip';
+import RewindingOutputReport from './pages/business/finished-goods/RewindingOutputReport';
+import BagPickingOutputReport from './pages/business/finished-goods/BagPickingOutputReport';
+import SemiFinishedInbound from './pages/business/semi-finished/SemiFinishedInbound';
+import SemiFinishedOutbound from './pages/business/semi-finished/SemiFinishedOutbound';
+import BagPickingReturn from './pages/business/finished-goods/BagPickingReturn';
+import FinishedGoodsToTray from './pages/business/finished-goods/FinishedGoodsToTray';
+import FinishedGoodsRework from './pages/business/finished-goods/FinishedGoodsRework';
+import FinishedGoodsPacking from './pages/business/finished-goods/FinishedGoodsPacking';
+import SemiFinishedWeighing from './pages/business/semi-finished/SemiFinishedWeighing';
+import FinishedGoodsInboundAccounting from './pages/business/finished-goods/FinishedGoodsInboundAccounting';
+
+
+
 import Debug from './pages/auth/Debug';
 
 import { useApi } from './hooks/useApi';
@@ -472,7 +497,152 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
 
+            {/* 仓库管理路由 */}
+            <Route path="/business/material-warehouse" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialWarehouse />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/business/finished-goods-warehouse" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsWarehouse />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* 成品仓库子页面路由 */}
+            <Route path="/business/finished-goods/inbound" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsInbound />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
             
+            <Route path="/business/finished-goods/outbound" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsOutbound />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/inventory" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsInventory />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/transfer" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsTransfer />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/weighing-slip" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsWeighingSlip />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/packing-weighing-slip" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PackingWeighingSlip />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/rewinding-output-report" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <RewindingOutputReport />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/bag-picking-output-report" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BagPickingOutputReport />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/semi-finished/inbound" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SemiFinishedInbound />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/semi-finished/outbound" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SemiFinishedOutbound />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/bag-picking-return" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <BagPickingReturn />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/to-tray" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsToTray />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/rework" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsRework />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/packing" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsPacking />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/semi-finished/weighing" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SemiFinishedWeighing />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/finished-goods/inbound-accounting" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <FinishedGoodsInboundAccounting />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
 
             
             {/* 平台管理路由 */}

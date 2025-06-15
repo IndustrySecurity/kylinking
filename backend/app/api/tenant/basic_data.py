@@ -275,20 +275,22 @@ def create_customer_category():
 def get_products():
     """获取产品列表"""
     try:
+        from app.services.product_management_service import ProductManagementService
+        
         page = int(request.args.get('page', 1))
         per_page = min(int(request.args.get('per_page', 20)), 100)
         search = request.args.get('search')
-        category_id = request.args.get('category_id')
+        customer_id = request.args.get('customer_id')
+        bag_type_id = request.args.get('bag_type_id')
         status = request.args.get('status')
-        product_type = request.args.get('product_type')
         
-        result = ProductService.get_products(
+        result = ProductManagementService.get_products(
             page=page,
             per_page=per_page,
             search=search,
-            category_id=category_id,
-            status=status,
-            product_type=product_type
+            customer_id=customer_id,
+            bag_type_id=bag_type_id,
+            status=status
         )
         
         return jsonify({
@@ -4939,7 +4941,10 @@ def get_warehouse_options():
     try:
         from app.services.basic_data_service import WarehouseService
         
-        result = WarehouseService.get_warehouse_options()
+        # 获取筛选参数
+        warehouse_type = request.args.get('warehouse_type')
+        
+        result = WarehouseService.get_warehouse_options(warehouse_type=warehouse_type)
         return jsonify({
             'success': True,
             'data': result
