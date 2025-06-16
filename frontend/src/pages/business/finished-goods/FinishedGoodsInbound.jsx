@@ -18,7 +18,8 @@ import {
   message,
   Divider,
   Typography,
-  Checkbox
+  Checkbox,
+  Collapse
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -28,7 +29,10 @@ import {
   CheckOutlined,
   CloseOutlined,
   PlayCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  SearchOutlined,
+  ReloadOutlined,
+  FilterOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
@@ -44,6 +48,8 @@ const { Option } = Select;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
+const { Panel } = Collapse;
+const { RangePicker } = DatePicker;
 
 // 样式组件
 const PageContainer = styled.div`
@@ -100,6 +106,42 @@ const DetailTable = styled(Table)`
   }
 `;
 
+// 创建模拟明细数据的函数
+const createMockDetails = (orderId) => {
+  return [
+    {
+      id: `mock-${orderId}-1`,
+      product_code: 'P001',
+      product_name: '产品A',
+      product_spec: '规格A',
+      inbound_quantity: 10,
+      unit: '个',
+      unit_cost: 50.00,
+      inbound_kg_quantity: 5.5,
+      inbound_m_quantity: 0,
+      inbound_roll_quantity: 0,
+      box_quantity: 2,
+      batch_number: 'BATCH001',
+      location_code: 'A01-01'
+    },
+    {
+      id: `mock-${orderId}-2`,
+      product_code: 'P002',
+      product_name: '产品B',
+      product_spec: '规格B',
+      inbound_quantity: 20,
+      unit: '箱',
+      unit_cost: 25.00,
+      inbound_kg_quantity: 0,
+      inbound_m_quantity: 15.2,
+      inbound_roll_quantity: 0,
+      box_quantity: 1,
+      batch_number: 'BATCH002',
+      location_code: 'A01-02'
+    }
+  ];
+};
+
 const FinishedGoodsInbound = () => {
   // 状态管理
   const [inboundOrders, setInboundOrders] = useState([]);
@@ -116,6 +158,7 @@ const FinishedGoodsInbound = () => {
   const [isViewMode, setIsViewMode] = useState(false); // 标识是否为查看模式
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
+  const [searchForm] = Form.useForm();
 
   // 基础数据状态
   const [warehouses, setWarehouses] = useState([]);
@@ -130,6 +173,7 @@ const FinishedGoodsInbound = () => {
     total: 0
   });
   const [filters, setFilters] = useState({});
+  const [searchParams, setSearchParams] = useState({});
 
   // 初始化数据
   useEffect(() => {
@@ -140,8 +184,31 @@ const FinishedGoodsInbound = () => {
   // 监听分页和筛选条件变化
   useEffect(() => {
     fetchInboundOrders();
-  }, [pagination.current, pagination.pageSize, filters]);
+  }, [pagination.current, pagination.pageSize, filters, searchParams]);
 
+  // 搜索功能
+  const handleSearch = (values) => {
+    const params = {
+      ...values,
+      start_date: values.date_range?.[0]?.format('YYYY-MM-DD'),
+      end_date: values.date_range?.[1]?.format('YYYY-MM-DD')
+    };
+    delete params.date_range;
+    setSearchParams(params);
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  // 重置搜索
+  const handleReset = () => {
+    searchForm.resetFields();
+    setSearchParams({});
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  // 刷新数据
+  const handleRefresh = () => {
+    fetchInboundOrders();
+  };
 
   // 获取基础数据
   const fetchBaseData = async () => {
@@ -205,14 +272,14 @@ const FinishedGoodsInbound = () => {
       } else {
         setEmployees([]);
       }
-          } catch (error) {
-        message.error('获取基础数据失败，请检查网络连接');
-        // 设置空数组，不使用模拟数据
-        setWarehouses([]);
-        setProducts([]);
-        setDepartments([]);
-        setEmployees([]);
-      }
+    } catch (error) {
+      message.error('获取基础数据失败，请检查网络连接');
+      // 设置空数组，不使用模拟数据
+      setWarehouses([]);
+      setProducts([]);
+      setDepartments([]);
+      setEmployees([]);
+    }
   };
 
   const fetchInboundOrders = async () => {
@@ -221,7 +288,8 @@ const FinishedGoodsInbound = () => {
       const params = {
         page: pagination.current,
         page_size: pagination.pageSize,
-        ...filters
+        ...filters,
+        ...searchParams
       };
       
       const response = await finishedGoodsInboundService.getInboundOrderList(params);
@@ -342,20 +410,20 @@ const FinishedGoodsInbound = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 250,
-              render: (text) => {
-          if (!text) return '-';
-          try {
-            // 将UTC时间转换为本地时间显示
-            const localTime = dayjs.utc(text).local();
-            return (
-              <div style={{ whiteSpace: 'nowrap' }}>
-                <div>{localTime.format('YYYY-MM-DD  HH:mm:ss')}</div>
-              </div>
-            );
-          } catch (error) {
-            return text;
-          }
+      render: (text) => {
+        if (!text) return '-';
+        try {
+          // 将UTC时间转换为本地时间显示
+          const localTime = dayjs.utc(text).local();
+          return (
+            <div style={{ whiteSpace: 'nowrap' }}>
+              <div>{localTime.format('YYYY-MM-DD  HH:mm:ss')}</div>
+            </div>
+          );
+        } catch (error) {
+          return text;
         }
+      }
     },
     {
       title: '操作',
@@ -959,6 +1027,116 @@ const FinishedGoodsInbound = () => {
 
   return (
     <PageContainer>
+      {/* 搜索筛选区域 */}
+      <StyledCard 
+        title={
+          <Space>
+            <FilterOutlined />
+            筛选条件
+          </Space>
+        }
+        size="small"
+        style={{ marginBottom: 16 }}
+      >
+        <Collapse ghost>
+          <Panel header="展开筛选" key="1">
+            <Form
+              form={searchForm}
+              layout="vertical"
+              onFinish={handleSearch}
+            >
+              <Row gutter={16}>
+                <Col span={6}>
+                  <Form.Item name="search" label="关键字搜索">
+                    <Input 
+                      placeholder="输入入库单号、入库人等"
+                      allowClear
+                      prefix={<SearchOutlined />}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="warehouse_id" label="仓库">
+                    <Select placeholder="选择仓库" allowClear>
+                      {warehouses.map((warehouse, index) => (
+                        <Option key={warehouse.id || `warehouse-${index}`} value={warehouse.id || ''}>
+                          {warehouse.warehouse_name || warehouse.name || '未知仓库'}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="status" label="单据状态">
+                    <Select placeholder="选择状态" allowClear>
+                      <Option value="draft">草稿</Option>
+                      <Option value="confirmed">已确认</Option>
+                      <Option value="in_progress">执行中</Option>
+                      <Option value="completed">已完成</Option>
+                      <Option value="cancelled">已取消</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="approval_status" label="审核状态">
+                    <Select placeholder="选择审核状态" allowClear>
+                      <Option value="pending">待审核</Option>
+                      <Option value="approved">已审核</Option>
+                      <Option value="rejected">已拒绝</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item name="date_range" label="发生日期">
+                    <RangePicker 
+                      style={{ width: '100%' }}
+                      format="YYYY-MM-DD"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="inbound_person" label="入库人">
+                    <Select placeholder="选择入库人" allowClear>
+                      {employees.map((employee, index) => (
+                        <Option key={employee.id || `employee-${index}`} value={employee.employee_name || employee.name || ''}>
+                          {employee.employee_name || employee.name || '未知员工'}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="department" label="部门">
+                    <Select placeholder="选择部门" allowClear>
+                      {departments.map((dept, index) => (
+                        <Option key={dept.id || `dept-${index}`} value={dept.department_name || dept.name || ''}>
+                          {dept.department_name || dept.name || '未知部门'}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={4}>
+                  <Form.Item label=" " style={{ marginTop: 8 }}>
+                    <Space>
+                      <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+                        搜索
+                      </Button>
+                      <Button onClick={handleReset} icon={<ReloadOutlined />}>
+                        重置
+                      </Button>
+                    </Space>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </Panel>
+        </Collapse>
+      </StyledCard>
+
+      {/* 入库单列表 */}
       <StyledCard 
         title={
           <Space>
@@ -967,13 +1145,21 @@ const FinishedGoodsInbound = () => {
           </Space>
         }
         extra={
-          <ActionButton 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={handleCreateOrder}
-          >
-            新建入库单
-          </ActionButton>
+          <Space>
+            <ActionButton 
+              icon={<ReloadOutlined />} 
+              onClick={handleRefresh}
+            >
+              刷新
+            </ActionButton>
+            <ActionButton 
+              type="primary" 
+              icon={<PlusOutlined />} 
+              onClick={handleCreateOrder}
+            >
+              新建入库单
+            </ActionButton>
+          </Space>
         }
       >
         <Table

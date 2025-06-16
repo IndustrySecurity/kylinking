@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.models.base import TenantModel
 import uuid
+from decimal import Decimal
 
 
 class Inventory(TenantModel):
@@ -146,7 +147,10 @@ class Inventory(TenantModel):
         计算总成本
         """
         if self.unit_cost:
-            self.total_cost = self.current_quantity * self.unit_cost
+            # 确保两个值都是Decimal类型以避免类型错误
+            unit_cost = Decimal(str(self.unit_cost)) if not isinstance(self.unit_cost, Decimal) else self.unit_cost
+            current_quantity = Decimal(str(self.current_quantity)) if not isinstance(self.current_quantity, Decimal) else self.current_quantity
+            self.total_cost = current_quantity * unit_cost
     
     def is_below_safety_stock(self):
         """
@@ -383,7 +387,10 @@ class InventoryTransaction(TenantModel):
         计算总金额
         """
         if self.unit_price:
-            self.total_amount = abs(self.quantity_change) * self.unit_price
+            # 确保两个值都是Decimal类型以避免类型错误
+            unit_price = Decimal(str(self.unit_price)) if not isinstance(self.unit_price, Decimal) else self.unit_price
+            quantity_change = Decimal(str(abs(self.quantity_change))) if not isinstance(self.quantity_change, Decimal) else abs(self.quantity_change)
+            self.total_amount = quantity_change * unit_price
     
     def to_dict(self):
         """
@@ -938,7 +945,10 @@ class InboundOrderDetail(TenantModel):
         计算总成本
         """
         if self.unit_cost and self.inbound_quantity:
-            self.total_cost = self.unit_cost * self.inbound_quantity
+            # 确保两个值都是Decimal类型以避免类型错误
+            unit_cost = Decimal(str(self.unit_cost)) if not isinstance(self.unit_cost, Decimal) else self.unit_cost
+            inbound_quantity = Decimal(str(self.inbound_quantity)) if not isinstance(self.inbound_quantity, Decimal) else self.inbound_quantity
+            self.total_cost = unit_cost * inbound_quantity
     
     def to_dict(self):
         """
