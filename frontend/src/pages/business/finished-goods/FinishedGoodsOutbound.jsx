@@ -1,229 +1,1482 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Table, Button, Input, Select, Form, Modal, message, Space, Tag, Typography } from 'antd';
-import {
-  PlusOutlined,
+import { 
+  Table, 
+  Button, 
+  Modal, 
+  Form, 
+  Input, 
+  Select, 
+  DatePicker, 
+  InputNumber, 
+  Space, 
+  Card, 
+  Row, 
+  Col, 
+  Tabs, 
+  Tag, 
+  Popconfirm, 
+  message,
+  Divider,
+  Typography,
+  Checkbox,
+  Collapse
+} from 'antd';
+import { 
+  PlusOutlined, 
+  EditOutlined, 
+  DeleteOutlined, 
+  EyeOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  PlayCircleOutlined,
+  FileTextOutlined,
   SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
+  ReloadOutlined,
+  FilterOutlined,
   ImportOutlined,
-  ExportOutlined,
-  ReloadOutlined
+  ExportOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import { finishedGoodsOutboundService, baseDataService } from '../../../services/finishedGoodsOutboundService';
 
-const { Title } = Typography;
-const { Search } = Input;
+// 扩展dayjs插件
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 const { Option } = Select;
+const { TextArea } = Input;
+const { Title, Text } = Typography;
+const { TabPane } = Tabs;
+const { Panel } = Collapse;
+const { RangePicker } = DatePicker;
 
-const StyledCard = styled(Card)`
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: none;
+// 样式组件
+const PageContainer = styled.div`
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: 100vh;
 `;
 
-const SectionTitle = styled(Title)`
-  position: relative;
-  margin-bottom: 24px !important;
-  font-weight: 600 !important;
+const StyledCard = styled(Card)`
+  margin-bottom: 16px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
   
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 0;
-    width: 48px;
-    height: 3px;
-    background: #1890ff;
-    border-radius: 2px;
+  .ant-card-head {
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    
+    .ant-card-head-title {
+      color: #262626;
+      font-weight: 500;
+      font-size: 16px;
+    }
+  }
+  
+  .ant-card-body {
+    padding: 24px;
   }
 `;
 
+const ActionButton = styled(Button)`
+  margin-right: 8px;
+  margin-bottom: 8px;
+`;
+
+const StatusTag = styled(Tag)`
+  margin-right: 8px;
+  border-radius: 4px;
+`;
+
+const DetailTable = styled(Table)`
+  .ant-table-thead > tr > th {
+    background: #fafafa;
+    font-weight: 500;
+    color: #262626;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .ant-table-tbody > tr > td {
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .ant-table-tbody > tr:hover > td {
+    background: #fafafa;
+  }
+`;
+
+// 创建模拟明细数据的函数
+const createMockDetails = (orderId) => {
+  return [
+    {
+      id: `mock-${orderId}-1`,
+      product_code: 'P001',
+      product_name: '产品A',
+      product_spec: '规格A',
+      outbound_quantity: 10,
+      unit: '个',
+      unit_cost: 50.00,
+      outbound_kg_quantity: 5.5,
+      outbound_m_quantity: 0,
+      outbound_roll_quantity: 0,
+      box_quantity: 2,
+      batch_number: 'BATCH001',
+      location_code: 'A01-01'
+    },
+    {
+      id: `mock-${orderId}-2`,
+      product_code: 'P002',
+      product_name: '产品B',
+      product_spec: '规格B',
+      outbound_quantity: 20,
+      unit: '箱',
+      unit_cost: 25.00,
+      outbound_kg_quantity: 0,
+      outbound_m_quantity: 15.2,
+      outbound_roll_quantity: 0,
+      box_quantity: 1,
+      batch_number: 'BATCH002',
+      location_code: 'A01-02'
+    }
+  ];
+};
+
 const FinishedGoodsOutbound = () => {
-  const [data, setData] = useState([]);
+  // 状态管理
+  const [outboundOrders, setOutboundOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const [orderDetails, setOrderDetails] = useState([]);
+  const [detailModalVisible2, setDetailModalVisible2] = useState(false);
+  const [currentDetail, setCurrentDetail] = useState(null);
+  const [productSelectVisible, setProductSelectVisible] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [productSearchText, setProductSearchText] = useState('');
+  const [isViewMode, setIsViewMode] = useState(false); // 标识是否为查看模式
   const [form] = Form.useForm();
+  const [detailForm] = Form.useForm();
+  const [searchForm] = Form.useForm();
 
-  const mockData = [
-    {
-      key: '1',
-      outboundNo: 'CK202401001',
-      productName: 'PET薄膜',
-      specification: '12μm×1000mm',
-      quantity: 500,
-      unit: 'kg',
-      customer: '客户A',
-      outboundDate: '2024-01-15',
-      status: '已出库',
-    },
-    {
-      key: '2',
-      outboundNo: 'CK202401002',
-      productName: 'BOPP薄膜',
-      specification: '15μm×1200mm',
-      quantity: 300,
-      unit: 'kg',
-      customer: '客户B',
-      outboundDate: '2024-01-16',
-      status: '待出库',
-    },
-  ];
+  // 基础数据状态
+  const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [customers, setCustomers] = useState([]);
 
+  // 分页和筛选状态
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0
+  });
+  const [filters, setFilters] = useState({});
+  const [searchParams, setSearchParams] = useState({});
+
+  // 初始化数据
   useEffect(() => {
-    loadData();
+    fetchOutboundOrders();
+    fetchBaseData();
   }, []);
 
-  const loadData = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setData(mockData);
-      setLoading(false);
-    }, 1000);
+  // 监听分页和筛选条件变化
+  useEffect(() => {
+    fetchOutboundOrders();
+  }, [pagination.current, pagination.pageSize, filters, searchParams]);
+
+  // 搜索功能
+  const handleSearch = (values) => {
+    const params = {
+      ...values,
+      start_date: values.date_range?.[0]?.format('YYYY-MM-DD'),
+      end_date: values.date_range?.[1]?.format('YYYY-MM-DD')
+    };
+    delete params.date_range;
+    setSearchParams(params);
+    setPagination(prev => ({ ...prev, current: 1 }));
   };
 
+  const handleReset = () => {
+    searchForm.resetFields();
+    setSearchParams({});
+    setPagination(prev => ({ ...prev, current: 1 }));
+  };
+
+  const handleRefresh = () => {
+    fetchOutboundOrders();
+  };
+
+  // 获取基础数据
+  const fetchBaseData = async () => {
+    try {
+      const [warehousesRes, productsRes, departmentsRes, employeesRes, customersRes] = await Promise.all([
+        baseDataService.getWarehouses(),
+        baseDataService.getProducts(),
+        baseDataService.getDepartments(),
+        baseDataService.getEmployees(),
+        baseDataService.getCustomers()
+      ]);
+
+      // 处理仓库数据 - 选项API返回格式 {value, label, code}
+      if (warehousesRes.data?.success) {
+        const warehouseData = warehousesRes.data.data;
+        const warehouses = Array.isArray(warehouseData) ? warehouseData.map(item => ({
+          id: item.value,
+          warehouse_name: item.label,
+          warehouse_code: item.code
+        })) : [];
+        setWarehouses(warehouses);
+      } else {
+        setWarehouses([]);
+      }
+
+      // 处理产品数据 - 列表API返回格式
+      if (productsRes.data?.success) {
+        const productData = productsRes.data.data;
+        let products = [];
+        if (Array.isArray(productData)) {
+          products = productData;
+        } else if (productData?.products && Array.isArray(productData.products)) {
+          products = productData.products;
+        } else if (productData?.items && Array.isArray(productData.items)) {
+          products = productData.items;
+        } else if (productData?.data && Array.isArray(productData.data)) {
+          products = productData.data;
+        }
+        setProducts(products);
+      } else {
+        setProducts([]);
+      }
+
+      // 处理部门数据 - 选项API返回格式 {value, label, code}
+      if (departmentsRes.data?.success) {
+        const departmentData = departmentsRes.data.data;
+        const departments = Array.isArray(departmentData) ? departmentData.map(item => ({
+          id: item.value,
+          department_name: item.label,
+          department_code: item.code
+        })) : [];
+        setDepartments(departments);
+      } else {
+        setDepartments([]);
+      }
+
+      // 处理员工数据 - 特殊格式 {success: true, data: [{id, employee_name, ...}]}
+      if (employeesRes.data?.success) {
+        const employeeData = employeesRes.data.data;
+        setEmployees(Array.isArray(employeeData) ? employeeData : []);
+      } else {
+        setEmployees([]);
+      }
+
+      // 处理客户数据
+      if (customersRes.data?.success) {
+        const customerData = customersRes.data.data;
+        let customers = [];
+        if (Array.isArray(customerData)) {
+          customers = customerData;
+        } else if (customerData?.customers && Array.isArray(customerData.customers)) {
+          customers = customerData.customers;
+        } else if (customerData?.items && Array.isArray(customerData.items)) {
+          customers = customerData.items;
+        } else if (customerData?.data && Array.isArray(customerData.data)) {
+          customers = customerData.data;
+        }
+        setCustomers(customers);
+      } else {
+        console.error('客户数据加载失败:', customersRes.data);
+        setCustomers([]);
+      }
+    } catch (error) {
+      message.error('获取基础数据失败，请检查网络连接');
+      // 设置空数组，不使用模拟数据
+      setWarehouses([]);
+      setProducts([]);
+      setDepartments([]);
+      setEmployees([]);
+      setCustomers([]);
+    }
+  };
+
+  const fetchOutboundOrders = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: pagination.current,
+        page_size: pagination.pageSize,
+        ...filters,
+        ...searchParams
+      };
+      
+      const response = await finishedGoodsOutboundService.getOutboundOrderList(params);
+      
+      if (response.data?.success) {
+        const orderData = response.data.data;
+        setOutboundOrders(orderData?.items || []);
+        setPagination(prev => ({
+          ...prev,
+          total: orderData?.total || 0
+        }));
+      } else {
+        message.error(response.data?.message || '获取出库单列表失败');
+      }
+    } catch (error) {
+      message.error('获取出库单列表失败');
+      
+      // 设置空数组，不使用模拟数据
+      setOutboundOrders([]);
+      setPagination(prev => ({
+        ...prev,
+        total: 0
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 获取状态标签
+  const getStatusTag = (status) => {
+    const statusMap = {
+      draft: { color: '#d9d9d9', text: '草稿' },
+      confirmed: { color: '#1890ff', text: '已确认' },
+      in_progress: { color: '#faad14', text: '执行中' },
+      completed: { color: '#52c41a', text: '已完成' },
+      cancelled: { color: '#ff4d4f', text: '已取消' }
+    };
+    const config = statusMap[status] || { color: '#d9d9d9', text: status };
+    return <StatusTag color={config.color}>{config.text}</StatusTag>;
+  };
+
+  const getApprovalStatusTag = (status) => {
+    const statusMap = {
+      pending: { color: '#faad14', text: '待审核' },
+      approved: { color: '#52c41a', text: '已审核' },
+      rejected: { color: '#ff4d4f', text: '已拒绝' }
+    };
+    const config = statusMap[status] || { color: '#d9d9d9', text: status };
+    return <StatusTag color={config.color}>{config.text}</StatusTag>;
+  };
+
+  // 表格列定义
   const columns = [
     {
       title: '出库单号',
-      dataIndex: 'outboundNo',
-      key: 'outboundNo',
+      dataIndex: 'order_number',
+      key: 'order_number',
+      width: 180,
+      render: (text) => <Text strong>{text}</Text>
     },
     {
-      title: '产品名称',
-      dataIndex: 'productName',
-      key: 'productName',
+      title: '发生日期',
+      dataIndex: 'order_date',
+      key: 'order_date',
+      width: 120,
+      render: (text) => text ? dayjs(text).format('YYYY-MM-DD') : '-'
     },
     {
-      title: '规格',
-      dataIndex: 'specification',
-      key: 'specification',
+      title: '仓库名称',
+      dataIndex: 'warehouse_name',
+      key: 'warehouse_name',
+      width: 120,
+      render: (text, record) => {
+        // 如果有仓库名称直接显示，否则根据仓库ID查找
+        if (text) return text;
+        if (record.warehouse_id && warehouses.length > 0) {
+          const warehouse = warehouses.find(w => w.id === record.warehouse_id);
+          return warehouse ? warehouse.warehouse_name : '未知仓库';
+        }
+        return '未知仓库';
+      }
     },
     {
-      title: '数量',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      render: (quantity, record) => `${quantity} ${record.unit}`,
+      title: '出库人',
+      dataIndex: 'outbound_person',
+      key: 'outbound_person',
+      width: 100
     },
     {
       title: '客户',
-      dataIndex: 'customer',
-      key: 'customer',
+      dataIndex: 'customer_name',
+      key: 'customer_name',
+      width: 120,
+      render: (text, record) => {
+        if (text) return text;
+        if (record.customer_id && customers.length > 0) {
+          const customer = customers.find(c => c.id === record.customer_id);
+          return customer ? customer.customer_name : '未知客户';
+        }
+        return '-';
+      }
     },
     {
-      title: '出库日期',
-      dataIndex: 'outboundDate',
-      key: 'outboundDate',
+      title: '部门',
+      dataIndex: 'department',
+      key: 'department',
+      width: 100
     },
     {
-      title: '状态',
+      title: '托盘套数',
+      dataIndex: 'pallet_count',
+      key: 'pallet_count',
+      width: 100,
+      render: (text) => `${text || 0} 套`
+    },
+    {
+      title: '单据状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
-        <Tag color={status === '已出库' ? 'green' : 'orange'}>
-          {status}
-        </Tag>
-      ),
+      width: 100,
+      render: getStatusTag
+    },
+    {
+      title: '审核状态',
+      dataIndex: 'approval_status',
+      key: 'approval_status',
+      width: 100,
+      render: getApprovalStatusTag
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 150,
+      render: (text) => text ? dayjs(text).format('YYYY-MM-DD HH:mm') : '-'
     },
     {
       title: '操作',
       key: 'action',
+      width: 200,
+      fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />}>
-            编辑
+        <Space size="small" wrap>
+          <Button 
+            type="link" 
+            size="small" 
+            icon={<EyeOutlined />}
+            onClick={() => viewOrder(record)}
+          >
+            查看
           </Button>
-          <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-            删除
-          </Button>
+          {record.status === 'draft' && (
+            <Button 
+              type="link" 
+              size="small" 
+              icon={<EditOutlined />}
+              onClick={() => editOrder(record)}
+            >
+              编辑
+            </Button>
+          )}
+          {record.status === 'confirmed' && record.approval_status === 'approved' && (
+            <Button 
+              type="link" 
+              size="small" 
+              icon={<PlayCircleOutlined />}
+              onClick={() => executeOrder(record)}
+            >
+              执行
+            </Button>
+          )}
+          {(record.status === 'draft' || record.status === 'confirmed') && record.approval_status === 'pending' && (
+            <>
+              <Button 
+                type="link" 
+                size="small" 
+                icon={<CheckOutlined />}
+                onClick={() => approveOrder(record, 'approved')}
+                style={{ color: '#52c41a' }}
+              >
+                审核
+              </Button>
+              <Button 
+                type="link" 
+                size="small" 
+                icon={<CloseOutlined />}
+                onClick={() => approveOrder(record, 'rejected')}
+                danger
+              >
+                拒绝
+              </Button>
+            </>
+          )}
+          {record.status !== 'completed' && record.status !== 'cancelled' && (
+            <Popconfirm
+              title="确定要取消这个出库单吗？"
+              onConfirm={() => cancelOrder(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button 
+                type="link" 
+                size="small" 
+                danger
+                icon={<CloseOutlined />}
+              >
+                取消
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
-      ),
-    },
+      )
+    }
   ];
 
-  return (
-    <div>
-      <SectionTitle level={4}>成品出库管理</SectionTitle>
-      
-      <StyledCard>
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-              新增出库单
+  // 明细表格列定义
+  const detailColumns = [
+    {
+      title: '产品编码',
+      dataIndex: 'product_code',
+      key: 'product_code',
+      width: 120
+    },
+    {
+      title: '产品名称',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 150
+    },
+    {
+      title: '规格',
+      dataIndex: 'product_spec',
+      key: 'product_spec',
+      width: 120
+    },
+    {
+      title: '出库数量',
+      dataIndex: 'outbound_quantity',
+      key: 'outbound_quantity',
+      width: 100,
+      render: (text, record) => `${text || 0} ${record.unit || '个'}`
+    },
+    {
+      title: '单价',
+      dataIndex: 'unit_cost',
+      key: 'unit_cost',
+      width: 100,
+      render: (text) => `¥${(text || 0).toFixed(2)}`
+    },
+    {
+      title: '出库公斤数',
+      dataIndex: 'outbound_kg_quantity',
+      key: 'outbound_kg_quantity',
+      width: 100,
+      render: (text) => `${text || 0} kg`
+    },
+    {
+      title: '出库米数',
+      dataIndex: 'outbound_m_quantity',
+      key: 'outbound_m_quantity',
+      width: 100,
+      render: (text) => `${text || 0} m`
+    },
+    {
+      title: '出库卷数',
+      dataIndex: 'outbound_roll_quantity',
+      key: 'outbound_roll_quantity',
+      width: 100,
+      render: (text) => `${text || 0} 卷`
+    },
+    {
+      title: '箱数',
+      dataIndex: 'box_quantity',
+      key: 'box_quantity',
+      width: 80,
+      render: (text) => `${text || 0} 箱`
+    },
+    {
+      title: '批次号',
+      dataIndex: 'batch_number',
+      key: 'batch_number',
+      width: 120
+    },
+    {
+      title: '库位码',
+      dataIndex: 'location_code',
+      key: 'location_code',
+      width: 100
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 120,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space size="small">
+          <Button 
+            type="link" 
+            size="small" 
+            icon={<EditOutlined />}
+            onClick={() => editDetail(record)}
+            disabled={isViewMode}
+          >
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定要删除这条明细吗？"
+            onConfirm={() => deleteDetail(record)}
+            okText="确定"
+            cancelText="取消"
+            disabled={isViewMode}
+          >
+            <Button 
+              type="link" 
+              size="small" 
+              danger
+              icon={<DeleteOutlined />}
+              disabled={isViewMode}
+            >
+              删除
             </Button>
-          </Col>
-          <Col>
-            <Button icon={<ImportOutlined />}>导入</Button>
-          </Col>
-          <Col>
-            <Button icon={<ExportOutlined />}>导出</Button>
-          </Col>
-          <Col>
-            <Button icon={<ReloadOutlined />} onClick={loadData}>刷新</Button>
-          </Col>
-          <Col flex="auto" />
-          <Col>
-            <Search placeholder="搜索出库单号、产品名称..." allowClear style={{ width: 250 }} />
-          </Col>
-        </Row>
+          </Popconfirm>
+        </Space>
+      )
+    }
+  ];
 
+  // 新增出库单
+  const handleCreateOrder = () => {
+    setCurrentOrder(null);
+    setIsViewMode(false);
+    setOrderDetails([]);
+    form.resetFields();
+    // 设置默认发生日期为当前日期
+    form.setFieldsValue({
+      order_date: dayjs()
+    });
+    setModalVisible(true);
+  };
+
+  // 查看出库单
+  const viewOrder = async (record) => {
+    try {
+      const response = await finishedGoodsOutboundService.getOutboundOrderById(record.id);
+      if (response.data?.success) {
+        setCurrentOrder(response.data.data);
+        setIsViewMode(true);
+        form.setFieldsValue({
+          ...response.data.data,
+          order_date: response.data.data.order_date ? dayjs(response.data.data.order_date) : null
+        });
+        
+        // 加载出库单明细
+        try {
+          const detailResponse = await finishedGoodsOutboundService.getOutboundOrderDetails(record.id);
+          if (detailResponse.data?.success) {
+            setOrderDetails(detailResponse.data.data || []);
+          } else {
+            setOrderDetails(createMockDetails(record.id));
+          }
+        } catch (error) {
+          console.error('加载明细失败:', error);
+          setOrderDetails(createMockDetails(record.id));
+        }
+        
+        setModalVisible(true);
+      } else {
+        message.error('获取出库单详情失败');
+      }
+    } catch (error) {
+      message.error('获取出库单详情失败');
+    }
+  };
+
+  // 编辑出库单
+  const editOrder = async (record) => {
+    setCurrentOrder(record);
+    setIsViewMode(false);
+    form.setFieldsValue({
+      ...record,
+      order_date: record.order_date ? dayjs(record.order_date) : null
+    });
+    
+    // 加载出库单明细
+    try {
+      const detailResponse = await finishedGoodsOutboundService.getOutboundOrderDetails(record.id);
+      if (detailResponse.data?.success) {
+        setOrderDetails(detailResponse.data.data || []);
+      } else {
+        setOrderDetails(createMockDetails(record.id));
+      }
+    } catch (error) {
+      console.error('加载明细失败:', error);
+      setOrderDetails(createMockDetails(record.id));
+    }
+    
+    setModalVisible(true);
+  };
+
+  // 执行出库单
+  const executeOrder = async (record) => {
+    try {
+      const response = await finishedGoodsOutboundService.executeOutboundOrder(record.id);
+      if (response.data?.success) {
+        message.success('出库单执行成功');
+        fetchOutboundOrders();
+      } else {
+        message.error(response.data?.message || '出库单执行失败');
+      }
+    } catch (error) {
+      message.error('出库单执行失败');
+    }
+  };
+
+  // 审核出库单
+  const approveOrder = async (record, status) => {
+    try {
+      const response = await finishedGoodsOutboundService.approveOutboundOrder(record.id, {
+        approval_status: status,
+        approval_comment: status === 'rejected' ? '不符合出库要求' : '审核通过'
+      });
+      if (response.data?.success) {
+        message.success(status === 'approved' ? '审核通过' : '已拒绝');
+        fetchOutboundOrders();
+      } else {
+        message.error(response.data?.message || '审核失败');
+      }
+    } catch (error) {
+      message.error('审核失败');
+    }
+  };
+
+  // 取消出库单
+  const cancelOrder = async (record) => {
+    try {
+      const response = await finishedGoodsOutboundService.cancelOutboundOrder(record.id, {
+        cancel_reason: '用户取消'
+      });
+      if (response.data?.success) {
+        message.success('出库单已取消');
+        fetchOutboundOrders();
+      } else {
+        message.error(response.data?.message || '取消失败');
+      }
+    } catch (error) {
+      message.error('取消失败');
+    }
+  };
+
+  // 提交出库单
+  const handleSubmit = async (values) => {
+    try {
+      // 清理明细数据，去掉临时ID和多余字段
+      const cleanDetails = orderDetails.map(detail => {
+        const cleanDetail = { ...detail };
+        // 如果是临时ID，去掉ID字段让后端生成
+        if (cleanDetail.id && cleanDetail.id.toString().startsWith('temp-')) {
+          delete cleanDetail.id;
+        }
+        return cleanDetail;
+      });
+
+      const formData = {
+        ...values,
+        order_date: values.order_date ? values.order_date.format('YYYY-MM-DD') : null,
+        status: 'draft',
+        details: cleanDetails  // 包含清理后的明细数据
+      };
+
+      if (currentOrder) {
+        // 更新
+        const response = await finishedGoodsOutboundService.updateOutboundOrder(currentOrder.id, formData);
+        if (response.data?.success) {
+          message.success('出库单更新成功');
+          setModalVisible(false);
+          fetchOutboundOrders();
+        } else {
+          message.error(response.data?.message || '更新失败');
+        }
+      } else {
+        // 新增
+        const response = await finishedGoodsOutboundService.createOutboundOrder(formData);
+        if (response.data?.success) {
+          message.success('出库单创建成功');
+          setModalVisible(false);
+          fetchOutboundOrders();
+        } else {
+          message.error(response.data?.message || '创建失败');
+        }
+      }
+    } catch (error) {
+      message.error(currentOrder ? '更新失败' : '创建失败');
+    }
+  };
+
+  // 添加明细
+  const addDetail = async () => {
+    setCurrentDetail(null);
+    detailForm.resetFields();
+    setDetailModalVisible2(true);
+  };
+
+  // 选择产品
+  const selectProducts = async () => {
+    setSelectedProducts([]);
+    setProductSearchText('');
+    setProductSelectVisible(true);
+  };
+
+  // 确认产品选择
+  const confirmProductSelection = () => {
+    const newDetails = selectedProducts.map(product => ({
+      id: `temp-${Date.now()}-${product.id}`,
+      product_id: product.id,
+      product_code: product.product_code,
+      product_name: product.product_name,
+      product_spec: product.product_spec,
+      outbound_quantity: 1,
+      unit: product.unit || '个',
+      unit_cost: 0,
+      outbound_kg_quantity: 0,
+      outbound_m_quantity: 0,
+      outbound_roll_quantity: 0,
+      box_quantity: 0,
+      batch_number: '',
+      location_code: '',
+      remark: ''
+    }));
+
+    setOrderDetails([...orderDetails, ...newDetails]);
+    setProductSelectVisible(false);
+    message.success(`已添加 ${selectedProducts.length} 个产品明细`);
+  };
+
+  // 编辑明细
+  const editDetail = async (record) => {
+    setCurrentDetail(record);
+    detailForm.setFieldsValue({
+      ...record,
+      // 确保日期等特殊字段的格式正确
+    });
+    setDetailModalVisible2(true);
+  };
+
+  // 删除明细
+  const deleteDetail = async (record) => {
+    if (currentOrder && record.id && !record.id.toString().startsWith('temp-')) {
+      // 如果是编辑模式且明细已保存，调用API删除
+      try {
+        const response = await finishedGoodsOutboundService.deleteOutboundOrderDetail(currentOrder.id, record.id);
+        if (response.data?.success) {
+          setOrderDetails(orderDetails.filter(item => item.id !== record.id));
+          message.success('明细删除成功');
+        } else {
+          message.error(response.data?.message || '删除明细失败');
+        }
+      } catch (error) {
+        console.error('删除明细失败:', error);
+        message.error('删除失败');
+      }
+    } else {
+      // 新建模式或临时明细，直接从本地数据中删除
+      setOrderDetails(orderDetails.filter(item => item.id !== record.id));
+      message.success('明细删除成功');
+    }
+  };
+
+  // 提交明细表单
+  const handleDetailSubmit = async (values) => {
+    try {
+      // 从产品数据中获取产品详细信息
+      const selectedProduct = products.find(p => p.id === values.product_id);
+      const productInfo = {
+        product_code: selectedProduct?.product_code || '',
+        product_name: selectedProduct?.product_name || '',
+        product_spec: selectedProduct?.specification || selectedProduct?.spec || ''
+      };
+
+      if (currentDetail) {
+        // 编辑明细
+        if (currentOrder && currentDetail.id && !currentDetail.id.toString().startsWith('temp-')) {
+          // 如果是编辑模式且明细已保存，调用API更新
+          const response = await finishedGoodsOutboundService.updateOutboundOrderDetail(currentOrder.id, currentDetail.id, values);
+          if (response.data?.success) {
+            const updatedDetail = response.data.data || { ...currentDetail, ...values, ...productInfo };
+            setOrderDetails(orderDetails.map(item => 
+              item.id === currentDetail.id ? updatedDetail : item
+            ));
+            message.success('明细更新成功');
+          } else {
+            message.error(response.data?.message || '更新明细失败');
+            return;
+          }
+        } else {
+          // 新建模式或临时明细，直接更新本地数据
+          const updatedDetail = { 
+            ...currentDetail, 
+            ...values,
+            ...productInfo
+          };
+          setOrderDetails(orderDetails.map(item => 
+            item.id === currentDetail.id ? updatedDetail : item
+          ));
+          message.success('明细更新成功');
+        }
+      } else {
+        // 新增明细
+        if (currentOrder) {
+          // 如果是编辑模式，调用API添加明细
+          const response = await finishedGoodsOutboundService.createOutboundOrderDetail(currentOrder.id, values);
+          if (response.data?.success) {
+            const newDetail = {
+              ...response.data.data,
+              ...productInfo
+            };
+            setOrderDetails([...orderDetails, newDetail]);
+            message.success('明细添加成功');
+          } else {
+            message.error(response.data?.message || '添加明细失败');
+            return;
+          }
+        } else {
+          // 新建模式下，直接添加到本地数据
+          const newDetail = {
+            id: `temp-${Date.now()}`,
+            ...values,
+            ...productInfo
+          };
+          setOrderDetails([...orderDetails, newDetail]);
+          message.success('明细添加成功');
+        }
+      }
+      
+      setDetailModalVisible2(false);
+    } catch (error) {
+      console.error('保存明细失败:', error);
+      message.error('保存失败');
+    }
+  };
+
+  return (
+    <PageContainer>
+      <StyledCard>
+        <div style={{ marginBottom: 16 }}>
+          <Title level={4} style={{ margin: 0, display: 'inline-block' }}>
+            成品出库管理
+          </Title>
+        </div>
+
+        {/* 搜索表单 */}
+        <Collapse style={{ marginBottom: 16 }} ghost>
+          <Panel header="展开筛选" key="1">
+            <Form
+              form={searchForm}
+              layout="vertical"
+              onFinish={handleSearch}
+            >
+              <Row gutter={16}>
+                <Col span={6}>
+                  <Form.Item name="search" label="关键字搜索">
+                    <Input 
+                      placeholder="输入出库单号、出库人等"
+                      allowClear
+                      prefix={<SearchOutlined />}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="warehouse_id" label="仓库">
+                    <Select placeholder="选择仓库" allowClear>
+                      {warehouses.map((warehouse, index) => (
+                        <Option key={warehouse.id || `warehouse-${index}`} value={warehouse.id || ''}>
+                          {warehouse.warehouse_name || warehouse.name || '未知仓库'}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="status" label="单据状态">
+                    <Select placeholder="选择状态" allowClear>
+                      <Option value="draft">草稿</Option>
+                      <Option value="confirmed">已确认</Option>
+                      <Option value="in_progress">执行中</Option>
+                      <Option value="completed">已完成</Option>
+                      <Option value="cancelled">已取消</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="approval_status" label="审核状态">
+                    <Select placeholder="选择审核状态" allowClear>
+                      <Option value="pending">待审核</Option>
+                      <Option value="approved">已审核</Option>
+                      <Option value="rejected">已拒绝</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item name="date_range" label="发生日期">
+                    <RangePicker 
+                      style={{ width: '100%' }}
+                      format="YYYY-MM-DD"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="outbound_person" label="出库人">
+                    <Select placeholder="选择出库人" allowClear>
+                      {employees.map((employee, index) => (
+                        <Option key={employee.id || `employee-${index}`} value={employee.employee_name || employee.name || ''}>
+                          {employee.employee_name || employee.name || '未知员工'}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="department" label="部门">
+                    <Select placeholder="选择部门" allowClear>
+                      {departments.map((dept, index) => (
+                        <Option key={dept.id || `dept-${index}`} value={dept.department_name || dept.name || ''}>
+                          {dept.department_name || dept.name || '未知部门'}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={4}>
+                  <Form.Item label=" " style={{ marginTop: 8 }}>
+                    <Space>
+                      <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>
+                        搜索
+                      </Button>
+                      <Button onClick={handleReset} icon={<ReloadOutlined />}>
+                        重置
+                      </Button>
+                    </Space>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </Form>
+          </Panel>
+        </Collapse>
+
+        {/* 操作按钮 */}
+        <div style={{ marginBottom: 16 }}>
+          <Space wrap>
+            <ActionButton type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder}>
+              新增出库单
+            </ActionButton>
+            <ActionButton icon={<ImportOutlined />}>
+              导入
+            </ActionButton>
+            <ActionButton icon={<ExportOutlined />}>
+              导出
+            </ActionButton>
+            <ActionButton icon={<ReloadOutlined />} onClick={handleRefresh}>
+              刷新
+            </ActionButton>
+          </Space>
+        </div>
+
+        {/* 表格 */}
         <Table
           columns={columns}
-          dataSource={data}
+          dataSource={outboundOrders}
           loading={loading}
+          rowKey="id"
           pagination={{
+            ...pagination,
+            onChange: (page, pageSize) => {
+              setPagination(prev => ({
+                ...prev,
+                current: page,
+                pageSize: pageSize
+              }));
+            },
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
           }}
+          scroll={{ x: 1500 }}
         />
       </StyledCard>
 
+      {/* 新增/编辑出库单弹窗 */}
       <Modal
-        title="新增出库单"
+        title={isViewMode ? '查看出库单' : (currentOrder ? '编辑出库单' : '新增出库单')}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
-        onOk={() => {
-          form.validateFields().then(() => {
-            message.success('操作成功');
-            setModalVisible(false);
-            loadData();
-          });
-        }}
-        width={800}
+        footer={isViewMode ? [
+          <Button key="close" onClick={() => setModalVisible(false)}>
+            关闭
+          </Button>
+        ] : [
+          <Button key="cancel" onClick={() => setModalVisible(false)}>
+            取消
+          </Button>,
+          <Button key="submit" type="primary" onClick={() => form.submit()}>
+            确定
+          </Button>
+        ]}
+        width={1200}
+        destroyOnClose
       >
-        <Form form={form} layout="vertical">
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="基本信息" key="1">
+            <Form 
+              form={form} 
+              layout="vertical" 
+              onFinish={handleSubmit}
+              disabled={isViewMode}
+            >
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item 
+                    name="warehouse_id" 
+                    label="出库仓库" 
+                    rules={[{ required: true, message: '请选择出库仓库' }]}
+                  >
+                    <Select placeholder="请选择出库仓库">
+                      {warehouses.map(warehouse => (
+                        <Option key={warehouse.id} value={warehouse.id}>
+                          {warehouse.warehouse_name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item 
+                    name="order_date" 
+                    label="发生日期" 
+                    rules={[{ required: true, message: '请选择发生日期' }]}
+                  >
+                    <DatePicker style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item 
+                    name="customer_id" 
+                    label="客户"
+                  >
+                    <Select placeholder="请选择客户" allowClear>
+                      {customers.map(customer => (
+                        <Option key={customer.id} value={customer.id}>
+                          {customer.customer_name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="outbound_person" label="出库人">
+                    <Select placeholder="请选择出库人" showSearch allowClear
+                      filterOption={(input, option) =>
+                        (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
+                    >
+                      {employees.map(employee => (
+                        <Option key={employee.id} value={employee.employee_name || employee.name}>
+                          {employee.employee_name || employee.name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+              
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="department_id" label="部门">
+                    <Select placeholder="请选择部门">
+                      {departments.map(department => (
+                        <Option key={department.id} value={department.id}>
+                          {department.department_name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item name="pallet_count" label="托盘套数">
+                    <InputNumber 
+                      placeholder="请输入托盘套数" 
+                      min={0} 
+                      style={{ width: '100%' }} 
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+              
+              <Form.Item name="remark" label="备注">
+                <TextArea rows={3} placeholder="请输入备注信息" />
+              </Form.Item>
+            </Form>
+          </TabPane>
+
+          <TabPane tab="出库明细" key="2">
+            <div style={{ marginBottom: 16 }}>
+              <Space>
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={addDetail}
+                  disabled={isViewMode}
+                >
+                  添加明细
+                </Button>
+                <Button 
+                  icon={<PlusOutlined />} 
+                  onClick={selectProducts}
+                  disabled={isViewMode}
+                >
+                  选择产品
+                </Button>
+                <Text type="secondary">共 {orderDetails.length} 条明细</Text>
+              </Space>
+            </div>
+
+            <DetailTable
+              columns={detailColumns}
+              dataSource={orderDetails}
+              rowKey="id"
+              pagination={false}
+              size="small"
+              scroll={{ x: 1200 }}
+            />
+          </TabPane>
+        </Tabs>
+      </Modal>
+
+      {/* 产品明细弹窗 */}
+      <Modal
+        title={currentDetail ? '编辑明细' : '添加明细'}
+        open={detailModalVisible2}
+        onCancel={() => setDetailModalVisible2(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setDetailModalVisible2(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={() => detailForm.submit()}
+            disabled={isViewMode}
+          >
+            确定
+          </Button>
+        ]}
+        width={800}
+        destroyOnClose
+      >
+        <Form
+          form={detailForm}
+          layout="vertical"
+          onFinish={handleDetailSubmit}
+          disabled={isViewMode}
+        >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="产品名称" name="productName" rules={[{ required: true }]}>
-                <Select placeholder="请选择产品">
-                  <Option value="PET薄膜">PET薄膜</Option>
-                  <Option value="BOPP薄膜">BOPP薄膜</Option>
+              <Form.Item 
+                name="product_id" 
+                label="产品" 
+                rules={[{ required: true, message: '请选择产品' }]}
+              >
+                <Select 
+                  placeholder="请选择产品" 
+                  showSearch
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                  }
+                  onChange={(productId) => {
+                    // 当选择产品时，自动填入单位
+                    const selectedProduct = products.find(p => p.id === productId);
+                    if (selectedProduct && selectedProduct.unit) {
+                      detailForm.setFieldsValue({
+                        unit: selectedProduct.unit
+                      });
+                    }
+                  }}
+                >
+                  {products.map(product => (
+                    <Option key={product.id} value={product.id}>
+                      {product.product_name} ({product.product_code})
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="规格" name="specification" rules={[{ required: true }]}>
-                <Input placeholder="请输入规格" />
+              <Form.Item 
+                name="batch_number" 
+                label="批次号"
+              >
+                <Input placeholder="请输入批次号" />
               </Form.Item>
             </Col>
           </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item 
+                name="outbound_quantity" 
+                label="出库数量" 
+                rules={[{ required: true, message: '请输入出库数量' }]}
+              >
+                <InputNumber 
+                  placeholder="请输入出库数量" 
+                  min={0} 
+                  precision={2}
+                  style={{ width: '100%' }} 
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="unit" label="单位">
+                <Input placeholder="自动填入" readOnly />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="unit_cost" label="单价">
+                <InputNumber 
+                  placeholder="请输入单价" 
+                  min={0} 
+                  precision={2}
+                  style={{ width: '100%' }} 
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="outbound_kg_quantity" label="出库公斤数">
+                <InputNumber 
+                  placeholder="请输入出库公斤数" 
+                  min={0} 
+                  precision={2}
+                  style={{ width: '100%' }} 
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="outbound_m_quantity" label="出库米数">
+                <InputNumber 
+                  placeholder="请输入出库米数" 
+                  min={0} 
+                  precision={2}
+                  style={{ width: '100%' }} 
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="outbound_roll_quantity" label="出库卷数">
+                <InputNumber 
+                  placeholder="请输入出库卷数" 
+                  min={0} 
+                  precision={0}
+                  style={{ width: '100%' }} 
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="数量" name="quantity" rules={[{ required: true }]}>
-                <Input type="number" placeholder="请输入数量" />
+              <Form.Item name="box_quantity" label="箱数">
+                <InputNumber 
+                  placeholder="请输入箱数" 
+                  min={0} 
+                  precision={0}
+                  style={{ width: '100%' }} 
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="客户" name="customer" rules={[{ required: true }]}>
-                <Select placeholder="请选择客户">
-                  <Option value="客户A">客户A</Option>
-                  <Option value="客户B">客户B</Option>
-                </Select>
+              <Form.Item name="location_code" label="库位码">
+                <Input placeholder="请输入库位码" />
               </Form.Item>
             </Col>
           </Row>
+
+          <Form.Item name="remark" label="备注">
+            <TextArea rows={2} placeholder="请输入备注信息" />
+          </Form.Item>
         </Form>
       </Modal>
-    </div>
+
+      {/* 产品选择弹窗 */}
+      <Modal
+        title="选择产品"
+        open={productSelectVisible}
+        onCancel={() => setProductSelectVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setProductSelectVisible(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={confirmProductSelection}
+            disabled={selectedProducts.length === 0}
+          >
+            确定选择 ({selectedProducts.length})
+          </Button>
+        ]}
+        width={800}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Input
+            placeholder="搜索产品名称或编码"
+            value={productSearchText}
+            onChange={(e) => setProductSearchText(e.target.value)}
+            prefix={<SearchOutlined />}
+            allowClear
+          />
+        </div>
+        
+        <Table
+          rowSelection={{
+            selectedRowKeys: selectedProducts.map(p => p.id),
+            onChange: (selectedRowKeys, selectedRows) => {
+              setSelectedProducts(selectedRows);
+            },
+          }}
+          columns={[
+            {
+              title: '产品编码',
+              dataIndex: 'product_code',
+              key: 'product_code',
+            },
+            {
+              title: '产品名称',
+              dataIndex: 'product_name',
+              key: 'product_name',
+            },
+            {
+              title: '规格',
+              dataIndex: 'product_spec',
+              key: 'product_spec',
+            },
+            {
+              title: '单位',
+              dataIndex: 'unit',
+              key: 'unit',
+            },
+          ]}
+          dataSource={products.filter(product => 
+            !productSearchText || 
+            product.product_name?.toLowerCase().includes(productSearchText.toLowerCase()) ||
+            product.product_code?.toLowerCase().includes(productSearchText.toLowerCase())
+          )}
+          rowKey="id"
+          pagination={false}
+          size="small"
+          scroll={{ y: 400 }}
+        />
+      </Modal>
+    </PageContainer>
   );
 };
 

@@ -27,7 +27,9 @@ import {
   ContainerOutlined,
   RedoOutlined,
   ToolOutlined,
-  CalculatorOutlined
+  CalculatorOutlined,
+  DatabaseOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import styled, { css } from 'styled-components';
 import { useApi } from '../../hooks/useApi';
@@ -230,16 +232,29 @@ const MainLayout = ({ children }) => {
       path: '/settings',
     },
     {
-      key: 'materialWarehouse',
-      icon: <InboxOutlined />,
-      label: '材料仓库',
-      path: '/business/material-warehouse',
-    },
-    {
-      key: 'finishedGoodsWarehouse',
-      icon: <ShoppingOutlined />,
-      label: '成品仓库',
-      path: '/business/finished-goods-warehouse',
+      key: 'warehouseManagement',
+      icon: <DatabaseOutlined />,
+      label: '仓库管理',
+      children: [
+        {
+          key: 'inventoryOverview',
+          icon: <BarChartOutlined />,
+          label: '库存总览',
+          path: '/business/inventory-overview',
+        },
+        {
+          key: 'materialWarehouse',
+          icon: <InboxOutlined />,
+          label: '材料仓库',
+          path: '/business/material-warehouse',
+        },
+        {
+          key: 'finishedGoodsWarehouse',
+          icon: <ShoppingOutlined />,
+          label: '成品仓库',
+          path: '/business/finished-goods-warehouse',
+        },
+      ],
     },
     {
       key: 'baseArchive',
@@ -339,7 +354,7 @@ const MainLayout = ({ children }) => {
   // Determine selected menu key from current path
   const selectedKey = location.pathname.split('/')[1] || 'dashboard';
   // Only show open keys when sidebar is expanded
-  const openKeys = collapsed ? [] : ['admin', 'production', 'baseArchive'];
+  const openKeys = collapsed ? [] : ['admin', 'production', 'warehouseManagement', 'baseArchive'];
 
   return (
     <RootLayout>

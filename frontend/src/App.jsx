@@ -59,6 +59,7 @@ import PaymentMethod from './pages/base-archive/financial-management/PaymentMeth
 // 仓库管理导入
 import MaterialWarehouse from './pages/business/MaterialWarehouse';
 import FinishedGoodsWarehouse from './pages/business/FinishedGoodsWarehouse';
+import InventoryOverview from './pages/business/InventoryOverview';
 
 // 成品仓库子页面导入
 import FinishedGoodsInbound from './pages/business/finished-goods/FinishedGoodsInbound';
@@ -498,6 +499,14 @@ const AppRoot = () => {
             } />
 
             {/* 仓库管理路由 */}
+            <Route path="/business/inventory-overview" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <InventoryOverview />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
             <Route path="/business/material-warehouse" element={
               <ProtectedRoute>
                 <MainLayout>

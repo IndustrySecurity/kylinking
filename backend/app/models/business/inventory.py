@@ -988,4 +988,335 @@ class InboundOrderDetail(TenantModel):
         }
     
     def __repr__(self):
-        return f'<InboundOrderDetail {self.product_name} Qty:{self.inbound_quantity}>' 
+        return f'<InboundOrderDetail {self.product_name} Qty:{self.inbound_quantity}>'
+
+
+class OutboundOrder(TenantModel):
+    """
+    出库单主表
+    """
+    
+    __tablename__ = 'outbound_orders'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 单据信息
+    order_number = Column(String(100), unique=True, nullable=False, comment='出库单号')
+    order_date = Column(DateTime, default=func.now(), nullable=False, comment='发生日期')
+    order_type = Column(String(20), default='finished_goods', comment='出库类型')  # finished_goods/raw_materials/semi_finished
+    
+    # 仓库信息
+    warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
+    warehouse_name = Column(String(200), comment='仓库名称')
+    
+    # 出库人员信息
+    outbound_person = Column(String(100), comment='出库人')
+    department = Column(String(100), comment='部门')
+    
+    # 托盘信息
+    pallet_barcode = Column(String(200), comment='托盘条码')
+    pallet_count = Column(Integer, default=0, comment='托盘套数')
+    
+    # 单据状态
+    status = Column(String(20), default='draft', comment='单据状态')  # draft/confirmed/in_progress/completed/cancelled
+    
+    # 审核信息
+    approval_status = Column(String(20), default='pending', comment='审核状态')  # pending/approved/rejected
+    approved_by = Column(UUID(as_uuid=True), comment='审核人')
+    approved_at = Column(DateTime, comment='审核时间')
+    
+    # 业务关联
+    source_document_type = Column(String(50), comment='来源单据类型')  # sales_order/transfer_order/production_order
+    source_document_id = Column(UUID(as_uuid=True), comment='来源单据ID')
+    source_document_number = Column(String(100), comment='来源单据号')
+    
+    # 客户信息
+    customer_id = Column(UUID(as_uuid=True), comment='客户ID')
+    customer_name = Column(String(200), comment='客户名称')
+    
+    # 物流信息
+    delivery_address = Column(Text, comment='配送地址')
+    delivery_contact = Column(String(100), comment='联系人')
+    delivery_phone = Column(String(50), comment='联系电话')
+    expected_delivery_date = Column(DateTime, comment='预计发货日期')
+    actual_delivery_date = Column(DateTime, comment='实际发货日期')
+    
+    # 扩展字段
+    remark = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    details = relationship("OutboundOrderDetail", back_populates="outbound_order", cascade="all, delete-orphan")
+    
+    # 出库类型常量
+    ORDER_TYPES = [
+        ('finished_goods', '成品出库'),
+        ('raw_materials', '原材料出库'),
+        ('semi_finished', '半成品出库'),
+        ('other', '其他出库')
+    ]
+    
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('confirmed', '已确认'),
+        ('in_progress', '执行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消')
+    ]
+    
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', '待审核'),
+        ('approved', '已审核'),
+        ('rejected', '已拒绝')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_outbound_order_number', 'order_number'),
+        Index('ix_outbound_order_date', 'order_date'),
+        Index('ix_outbound_order_warehouse', 'warehouse_id'),
+        Index('ix_outbound_order_status', 'status', 'approval_status'),
+        Index('ix_outbound_order_source', 'source_document_type', 'source_document_id'),
+        Index('ix_outbound_order_customer', 'customer_id'),
+    )
+    
+    def __init__(self, warehouse_id, order_type, created_by, **kwargs):
+        """
+        初始化出库单
+        """
+        self.warehouse_id = warehouse_id
+        self.order_type = order_type
+        self.created_by = created_by
+        
+        # 生成出库单号
+        if not kwargs.get('order_number'):
+            self.order_number = self.generate_order_number(order_type)
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    @staticmethod
+    def generate_order_number(order_type='finished_goods'):
+        """
+        生成出库单号
+        """
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d')
+        import random
+        random_suffix = str(random.randint(1000, 9999))
+        
+        prefix_map = {
+            'finished_goods': 'OUT',
+            'raw_materials': 'ORM',
+            'semi_finished': 'OSM',
+            'other': 'OOT'
+        }
+        prefix = prefix_map.get(order_type, 'OUT')
+        
+        return f"{prefix}{timestamp}{random_suffix}"
+    
+    def calculate_totals(self):
+        """
+        计算汇总数据
+        """
+        if self.details:
+            self.total_quantity = sum(detail.outbound_quantity for detail in self.details)
+            self.total_kg_quantity = sum(detail.outbound_kg_quantity or 0 for detail in self.details)
+            self.total_m_quantity = sum(detail.outbound_m_quantity or 0 for detail in self.details)
+            self.total_roll_quantity = sum(detail.outbound_roll_quantity or 0 for detail in self.details)
+            self.total_box_quantity = sum(detail.box_quantity or 0 for detail in self.details)
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'order_number': self.order_number,
+            'order_date': self.order_date.isoformat() if self.order_date else None,
+            'order_type': self.order_type,
+            'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
+            'warehouse_name': self.warehouse_name,
+            'outbound_person': self.outbound_person,
+            'department': self.department,
+            'pallet_barcode': self.pallet_barcode,
+            'pallet_count': self.pallet_count,
+            'status': self.status,
+            'approval_status': self.approval_status,
+            'approved_by': str(self.approved_by) if self.approved_by else None,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'source_document_type': self.source_document_type,
+            'source_document_id': str(self.source_document_id) if self.source_document_id else None,
+            'source_document_number': self.source_document_number,
+            'customer_id': str(self.customer_id) if self.customer_id else None,
+            'customer_name': self.customer_name,
+            'delivery_address': self.delivery_address,
+            'delivery_contact': self.delivery_contact,
+            'delivery_phone': self.delivery_phone,
+            'expected_delivery_date': self.expected_delivery_date.isoformat() if self.expected_delivery_date else None,
+            'actual_delivery_date': self.actual_delivery_date.isoformat() if self.actual_delivery_date else None,
+            'remark': self.remark,
+            'custom_fields': self.custom_fields,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'details': [detail.to_dict() for detail in self.details] if self.details else []
+        }
+    
+    def __repr__(self):
+        return f'<OutboundOrder {self.order_number} {self.order_type}>'
+
+
+class OutboundOrderDetail(TenantModel):
+    """
+    出库单明细表
+    """
+    
+    __tablename__ = 'outbound_order_details'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联主表
+    outbound_order_id = Column(UUID(as_uuid=True), ForeignKey('outbound_orders.id'), nullable=False, comment='出库单ID')
+    
+    # 产品信息
+    product_id = Column(UUID(as_uuid=True), comment='产品ID')
+    product_name = Column(String(200), comment='产品名称')
+    product_code = Column(String(100), comment='产品编码')
+    product_spec = Column(String(500), comment='产品规格')
+    
+    # 数量信息
+    outbound_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='出库数')
+    outbound_kg_quantity = Column(Numeric(15, 3), comment='出库kg数')
+    outbound_m_quantity = Column(Numeric(15, 3), comment='出库m数')
+    outbound_roll_quantity = Column(Numeric(15, 3), comment='出库卷数')
+    box_quantity = Column(Numeric(15, 3), comment='装箱数')
+    case_quantity = Column(Integer, comment='箱数')
+    
+    # 单位信息
+    unit = Column(String(20), nullable=False, comment='基本单位')
+    kg_unit = Column(String(20), default='kg', comment='重量单位')
+    m_unit = Column(String(20), default='m', comment='长度单位')
+    
+    # 批次信息
+    batch_number = Column(String(100), comment='批次号')
+    production_date = Column(DateTime, comment='生产日期')
+    expiry_date = Column(DateTime, comment='到期日期')
+    
+    # 质量信息
+    quality_status = Column(String(20), default='qualified', comment='质量状态')  # qualified/unqualified/pending
+    quality_certificate = Column(String(200), comment='质检证书')
+    
+    # 成本信息
+    unit_cost = Column(Numeric(15, 4), comment='单位成本')
+    total_cost = Column(Numeric(18, 4), comment='总成本')
+    
+    # 库位信息
+    location_code = Column(String(100), comment='出库库位')
+    actual_location_code = Column(String(100), comment='实际出库库位')
+    
+    # 库存关联
+    inventory_id = Column(UUID(as_uuid=True), comment='库存ID')
+    available_quantity = Column(Numeric(15, 3), comment='可用库存数量')
+    
+    # 行号和排序
+    line_number = Column(Integer, comment='行号')
+    sort_order = Column(Integer, default=0, comment='排序')
+    
+    # 扩展字段
+    notes = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    outbound_order = relationship("OutboundOrder", back_populates="details")
+    
+    # 质量状态常量
+    QUALITY_STATUS_CHOICES = [
+        ('qualified', '合格'),
+        ('unqualified', '不合格'),
+        ('pending', '待检')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_outbound_detail_order', 'outbound_order_id'),
+        Index('ix_outbound_detail_product', 'product_id'),
+        Index('ix_outbound_detail_batch', 'batch_number'),
+        Index('ix_outbound_detail_location', 'location_code'),
+        Index('ix_outbound_detail_inventory', 'inventory_id'),
+    )
+    
+    def __init__(self, outbound_order_id, outbound_quantity, unit, created_by, **kwargs):
+        """
+        初始化出库单明细
+        """
+        self.outbound_order_id = outbound_order_id
+        self.outbound_quantity = outbound_quantity
+        self.unit = unit
+        self.created_by = created_by
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def calculate_total_cost(self):
+        """
+        计算总成本
+        """
+        if self.unit_cost and self.outbound_quantity:
+            # 确保两个值都是Decimal类型以避免类型错误
+            unit_cost = Decimal(str(self.unit_cost)) if not isinstance(self.unit_cost, Decimal) else self.unit_cost
+            outbound_quantity = Decimal(str(self.outbound_quantity)) if not isinstance(self.outbound_quantity, Decimal) else self.outbound_quantity
+            self.total_cost = unit_cost * outbound_quantity
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'outbound_order_id': str(self.outbound_order_id),
+            'product_id': str(self.product_id) if self.product_id else None,
+            'product_name': self.product_name,
+            'product_code': self.product_code,
+            'product_spec': self.product_spec,
+            'outbound_quantity': float(self.outbound_quantity) if self.outbound_quantity else 0,
+            'outbound_kg_quantity': float(self.outbound_kg_quantity) if self.outbound_kg_quantity else None,
+            'outbound_m_quantity': float(self.outbound_m_quantity) if self.outbound_m_quantity else None,
+            'outbound_roll_quantity': float(self.outbound_roll_quantity) if self.outbound_roll_quantity else None,
+            'box_quantity': float(self.box_quantity) if self.box_quantity else None,
+            'case_quantity': self.case_quantity,
+            'unit': self.unit,
+            'kg_unit': self.kg_unit,
+            'm_unit': self.m_unit,
+            'batch_number': self.batch_number,
+            'production_date': self.production_date.isoformat() if self.production_date else None,
+            'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
+            'quality_status': self.quality_status,
+            'quality_certificate': self.quality_certificate,
+            'unit_cost': float(self.unit_cost) if self.unit_cost else None,
+            'total_cost': float(self.total_cost) if self.total_cost else None,
+            'location_code': self.location_code,
+            'actual_location_code': self.actual_location_code,
+            'inventory_id': str(self.inventory_id) if self.inventory_id else None,
+            'available_quantity': float(self.available_quantity) if self.available_quantity else None,
+            'line_number': self.line_number,
+            'sort_order': self.sort_order,
+            'notes': self.notes,
+            'custom_fields': self.custom_fields,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<OutboundOrderDetail {self.product_name} Qty:{self.outbound_quantity}>' 
