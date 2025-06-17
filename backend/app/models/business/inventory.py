@@ -896,6 +896,10 @@ class InboundOrderDetail(TenantModel):
     location_code = Column(String(100), comment='建议库位')
     actual_location_code = Column(String(100), comment='实际库位')
     
+    # 包装信息
+    package_quantity = Column(Numeric(15, 3), comment='包装数量')
+    package_unit = Column(String(20), comment='包装单位')
+    
     # 行号和排序
     line_number = Column(Integer, comment='行号')
     sort_order = Column(Integer, default=0, comment='排序')
@@ -1219,6 +1223,10 @@ class OutboundOrderDetail(TenantModel):
     # 库位信息
     location_code = Column(String(100), comment='出库库位')
     actual_location_code = Column(String(100), comment='实际出库库位')
+
+        # 包装信息
+    package_quantity = Column(Numeric(15, 3), comment='包装数量')
+    package_unit = Column(String(20), comment='包装单位')
     
     # 库存关联
     inventory_id = Column(UUID(as_uuid=True), comment='库存ID')
@@ -1310,6 +1318,8 @@ class OutboundOrderDetail(TenantModel):
             'actual_location_code': self.actual_location_code,
             'inventory_id': str(self.inventory_id) if self.inventory_id else None,
             'available_quantity': float(self.available_quantity) if self.available_quantity else None,
+            'package_quantity': float(self.package_quantity) if self.package_quantity else None,
+            'package_unit': self.package_unit,
             'line_number': self.line_number,
             'sort_order': self.sort_order,
             'notes': self.notes,
@@ -1319,4 +1329,631 @@ class OutboundOrderDetail(TenantModel):
         }
     
     def __repr__(self):
-        return f'<OutboundOrderDetail {self.product_name} Qty:{self.outbound_quantity}>' 
+        return f'<OutboundOrderDetail {self.product_name} Qty:{self.outbound_quantity}>'
+
+
+class MaterialInboundOrder(TenantModel):
+    """
+    材料入库单主表
+    """
+    
+    __tablename__ = 'material_inbound_orders'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 单据信息
+    order_number = Column(String(100), unique=True, nullable=False, comment='入库单号')
+    order_date = Column(DateTime, default=func.now(), nullable=False, comment='发生日期')
+    order_type = Column(String(20), default='material', comment='入库类型')  # material/auxiliary/packaging
+    
+    # 仓库信息
+    warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
+    warehouse_name = Column(String(200), comment='仓库名称')
+    
+    # 入库人员信息
+    inbound_person = Column(String(100), comment='入库人')
+    department = Column(String(100), comment='部门')
+    
+    # 托盘信息
+    pallet_barcode = Column(String(200), comment='托盘条码')
+    pallet_count = Column(Integer, default=0, comment='托盘套数')
+    
+    # 单据状态
+    status = Column(String(20), default='draft', comment='单据状态')  # draft/confirmed/in_progress/completed/cancelled
+    
+    # 审核信息
+    approval_status = Column(String(20), default='pending', comment='审核状态')  # pending/approved/rejected
+    approved_by = Column(UUID(as_uuid=True), comment='审核人')
+    approved_at = Column(DateTime, comment='审核时间')
+    
+    # 业务关联
+    source_document_type = Column(String(50), comment='来源单据类型')  # purchase_order/transfer_order/adjustment_order
+    source_document_id = Column(UUID(as_uuid=True), comment='来源单据ID')
+    source_document_number = Column(String(100), comment='来源单据号')
+    
+    # 供应商信息
+    supplier_id = Column(UUID(as_uuid=True), comment='供应商ID')
+    supplier_name = Column(String(200), comment='供应商名称')
+    
+    # 扩展字段
+    notes = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    details = relationship("MaterialInboundOrderDetail", back_populates="material_inbound_order", cascade="all, delete-orphan")
+    
+    # 入库类型常量
+    ORDER_TYPES = [
+        ('material', '材料入库'),
+        ('auxiliary', '辅料入库'),
+        ('packaging', '包装入库'),
+        ('other', '其他入库')
+    ]
+    
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('confirmed', '已确认'),
+        ('in_progress', '执行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消')
+    ]
+    
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', '待审核'),
+        ('approved', '已审核'),
+        ('rejected', '已拒绝')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_material_inbound_order_number', 'order_number'),
+        Index('ix_material_inbound_order_date', 'order_date'),
+        Index('ix_material_inbound_order_warehouse', 'warehouse_id'),
+        Index('ix_material_inbound_order_status', 'status', 'approval_status'),
+        Index('ix_material_inbound_order_source', 'source_document_type', 'source_document_id'),
+        Index('ix_material_inbound_order_supplier', 'supplier_id'),
+    )
+    
+    def __init__(self, warehouse_id, order_type, created_by, **kwargs):
+        """
+        初始化材料入库单
+        """
+        self.warehouse_id = warehouse_id
+        self.order_type = order_type
+        self.created_by = created_by
+        
+        # 生成入库单号
+        if not kwargs.get('order_number'):
+            self.order_number = self.generate_order_number(order_type)
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    @staticmethod
+    def generate_order_number(order_type='material'):
+        """
+        生成材料入库单号
+        """
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d')
+        import random
+        random_suffix = str(random.randint(1000, 9999))
+        
+        prefix_map = {
+            'material': 'MIN',
+            'auxiliary': 'AIN',
+            'packaging': 'PIN',
+            'other': 'OIN'
+        }
+        prefix = prefix_map.get(order_type, 'MIN')
+        
+        return f"{prefix}{timestamp}{random_suffix}"
+    
+    def calculate_totals(self):
+        """
+        计算汇总数据
+        """
+        if self.details:
+            self.total_quantity = sum(detail.inbound_quantity for detail in self.details)
+            self.total_weight = sum(detail.inbound_weight or 0 for detail in self.details)
+            self.total_amount = sum(detail.total_amount or 0 for detail in self.details)
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'order_number': self.order_number,
+            'order_date': self.order_date.isoformat() if self.order_date else None,
+            'order_type': self.order_type,
+            'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
+            'warehouse_name': self.warehouse_name,
+            'inbound_person': self.inbound_person,
+            'department': self.department,
+            'pallet_barcode': self.pallet_barcode,
+            'pallet_count': self.pallet_count,
+            'status': self.status,
+            'approval_status': self.approval_status,
+            'approved_by': str(self.approved_by) if self.approved_by else None,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'source_document_type': self.source_document_type,
+            'source_document_id': str(self.source_document_id) if self.source_document_id else None,
+            'source_document_number': self.source_document_number,
+            'supplier_id': str(self.supplier_id) if self.supplier_id else None,
+            'supplier_name': self.supplier_name,
+            'notes': self.notes,
+            'custom_fields': self.custom_fields,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # 'details': [detail.to_dict() for detail in self.details] if self.details else []  # 避免懒加载
+        }
+    
+    def __repr__(self):
+        return f'<MaterialInboundOrder {self.order_number} {self.order_type}>'
+
+
+class MaterialInboundOrderDetail(TenantModel):
+    """
+    材料入库单明细表
+    """
+    
+    __tablename__ = 'material_inbound_order_details'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联主表
+    material_inbound_order_id = Column(UUID(as_uuid=True), ForeignKey('material_inbound_orders.id'), nullable=False, comment='材料入库单ID')
+    
+    # 材料信息
+    material_id = Column(UUID(as_uuid=True), comment='材料ID')
+    material_name = Column(String(200), comment='材料名称')
+    material_code = Column(String(100), comment='材料编码')
+    material_spec = Column(String(500), comment='材料规格')
+    
+    # 数量信息
+    inbound_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='入库数量')
+    inbound_weight = Column(Numeric(15, 3), comment='入库重量(kg)')
+    inbound_length = Column(Numeric(15, 3), comment='入库长度(m)')
+    inbound_rolls = Column(Numeric(15, 3), comment='入库卷数')
+    
+    # 单位信息
+    unit = Column(String(20), nullable=False, comment='基本单位')
+    weight_unit = Column(String(20), default='kg', comment='重量单位')
+    length_unit = Column(String(20), default='m', comment='长度单位')
+    
+    # 批次信息
+    batch_number = Column(String(100), comment='批次号')
+    production_date = Column(DateTime, comment='生产日期')
+    expiry_date = Column(DateTime, comment='到期日期')
+    
+    # 质量信息
+    quality_status = Column(String(20), default='qualified', comment='质量状态')  # qualified/unqualified/pending
+    quality_certificate = Column(String(200), comment='质检证书')
+    
+    # 成本信息
+    unit_price = Column(Numeric(15, 4), comment='单价')
+    total_amount = Column(Numeric(18, 4), comment='总金额')
+    
+    # 库位信息
+    location_code = Column(String(100), comment='建议库位')
+    actual_location_code = Column(String(100), comment='实际库位')
+    
+    # 行号和排序
+    line_number = Column(Integer, comment='行号')
+    sort_order = Column(Integer, default=0, comment='排序')
+    
+    # 扩展字段
+    notes = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    material_inbound_order = relationship("MaterialInboundOrder", back_populates="details")
+    
+    # 质量状态常量
+    QUALITY_STATUS_CHOICES = [
+        ('qualified', '合格'),
+        ('unqualified', '不合格'),
+        ('pending', '待检')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_material_inbound_detail_order', 'material_inbound_order_id'),
+        Index('ix_material_inbound_detail_material', 'material_id'),
+        Index('ix_material_inbound_detail_batch', 'batch_number'),
+        Index('ix_material_inbound_detail_location', 'location_code'),
+    )
+    
+    def __init__(self, material_inbound_order_id, inbound_quantity, unit, created_by, **kwargs):
+        """
+        初始化材料入库单明细
+        """
+        self.material_inbound_order_id = material_inbound_order_id
+        self.inbound_quantity = inbound_quantity
+        self.unit = unit
+        self.created_by = created_by
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def calculate_total_amount(self):
+        """
+        计算总金额
+        """
+        if self.unit_price and self.inbound_quantity:
+            # 确保两个值都是Decimal类型以避免类型错误
+            unit_price = Decimal(str(self.unit_price)) if not isinstance(self.unit_price, Decimal) else self.unit_price
+            inbound_quantity = Decimal(str(self.inbound_quantity)) if not isinstance(self.inbound_quantity, Decimal) else self.inbound_quantity
+            self.total_amount = unit_price * inbound_quantity
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'order_id': str(self.material_inbound_order_id),
+            'material_id': str(self.material_id) if self.material_id else None,
+            'material_name': self.material_name,
+            'material_code': self.material_code,
+            'specification': self.material_spec,
+            'inbound_quantity': float(self.inbound_quantity) if self.inbound_quantity else 0,
+            'weight': float(self.inbound_weight) if self.inbound_weight else None,
+            'length': float(self.inbound_length) if self.inbound_length else None,
+            'roll_count': float(self.inbound_rolls) if self.inbound_rolls else None,
+            'unit': self.unit,
+            'weight_unit': self.weight_unit,
+            'length_unit': self.length_unit,
+            'batch_number': self.batch_number,
+            'production_date': self.production_date.isoformat() if self.production_date else None,
+            'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
+            'quality_status': self.quality_status,
+            'quality_certificate': self.quality_certificate,
+            'unit_price': float(self.unit_price) if self.unit_price else None,
+            'total_amount': float(self.total_amount) if self.total_amount else None,
+            'suggested_location': self.location_code,
+            'actual_location': self.actual_location_code,
+            'line_number': self.line_number,
+            'sort_order': self.sort_order,
+            'notes': self.notes,
+            'custom_fields': self.custom_fields,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<MaterialInboundOrderDetail {self.material_name} Qty:{self.inbound_quantity}>'
+
+
+class MaterialOutboundOrder(TenantModel):
+    """
+    材料出库单主表
+    """
+    
+    __tablename__ = 'material_outbound_orders'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 单据信息
+    order_number = Column(String(100), unique=True, nullable=False, comment='出库单号')
+    order_date = Column(DateTime, default=func.now(), nullable=False, comment='发生日期')
+    order_type = Column(String(20), default='material', comment='出库类型')  # material/auxiliary/packaging
+    
+    # 仓库信息
+    warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
+    warehouse_name = Column(String(200), comment='仓库名称')
+    
+    # 出库人员信息
+    outbound_person = Column(String(100), comment='出库人')
+    department = Column(String(100), comment='部门')
+    
+    # 托盘信息
+    pallet_barcode = Column(String(200), comment='托盘条码')
+    pallet_count = Column(Integer, default=0, comment='托盘套数')
+    
+    # 单据状态
+    status = Column(String(20), default='draft', comment='单据状态')  # draft/confirmed/in_progress/completed/cancelled
+    
+    # 审核信息
+    approval_status = Column(String(20), default='pending', comment='审核状态')  # pending/approved/rejected
+    approved_by = Column(UUID(as_uuid=True), comment='审核人')
+    approved_at = Column(DateTime, comment='审核时间')
+    
+    # 业务关联
+    source_document_type = Column(String(50), comment='来源单据类型')  # production_order/transfer_order/requisition_order
+    source_document_id = Column(UUID(as_uuid=True), comment='来源单据ID')
+    source_document_number = Column(String(100), comment='来源单据号')
+    
+    # 领用部门信息
+    requisition_department = Column(String(100), comment='领用部门')
+    requisition_person = Column(String(100), comment='领用人')
+    requisition_purpose = Column(String(200), comment='领用用途')
+    
+    # 扩展字段
+    remark = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    details = relationship("MaterialOutboundOrderDetail", back_populates="material_outbound_order", cascade="all, delete-orphan")
+    
+    # 出库类型常量
+    ORDER_TYPES = [
+        ('material', '材料出库'),
+        ('auxiliary', '辅料出库'),
+        ('packaging', '包装出库'),
+        ('other', '其他出库')
+    ]
+    
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('confirmed', '已确认'),
+        ('in_progress', '执行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消')
+    ]
+    
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', '待审核'),
+        ('approved', '已审核'),
+        ('rejected', '已拒绝')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_material_outbound_order_number', 'order_number'),
+        Index('ix_material_outbound_order_date', 'order_date'),
+        Index('ix_material_outbound_order_warehouse', 'warehouse_id'),
+        Index('ix_material_outbound_order_status', 'status', 'approval_status'),
+        Index('ix_material_outbound_order_source', 'source_document_type', 'source_document_id'),
+        Index('ix_material_outbound_order_department', 'requisition_department'),
+    )
+    
+    def __init__(self, warehouse_id, order_type, created_by, **kwargs):
+        """
+        初始化材料出库单
+        """
+        self.warehouse_id = warehouse_id
+        self.order_type = order_type
+        self.created_by = created_by
+        
+        # 生成出库单号
+        if not kwargs.get('order_number'):
+            self.order_number = self.generate_order_number(order_type)
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    @staticmethod
+    def generate_order_number(order_type='material'):
+        """
+        生成材料出库单号
+        """
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d')
+        import random
+        random_suffix = str(random.randint(1000, 9999))
+        
+        prefix_map = {
+            'material': 'MOUT',
+            'auxiliary': 'AOUT',
+            'packaging': 'POUT',
+            'other': 'OOUT'
+        }
+        prefix = prefix_map.get(order_type, 'MOUT')
+        
+        return f"{prefix}{timestamp}{random_suffix}"
+    
+    def calculate_totals(self):
+        """
+        计算汇总数据
+        """
+        if self.details:
+            self.total_quantity = sum(detail.outbound_quantity for detail in self.details)
+            self.total_weight = sum(detail.outbound_weight or 0 for detail in self.details)
+            self.total_amount = sum(detail.total_amount or 0 for detail in self.details)
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'order_number': self.order_number,
+            'order_date': self.order_date.isoformat() if self.order_date else None,
+            'order_type': self.order_type,
+            'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
+            'warehouse_name': self.warehouse_name,
+            'outbound_person': self.outbound_person,
+            'department': self.department,
+            'pallet_barcode': self.pallet_barcode,
+            'pallet_count': self.pallet_count,
+            'status': self.status,
+            'approval_status': self.approval_status,
+            'approved_by': str(self.approved_by) if self.approved_by else None,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'source_document_type': self.source_document_type,
+            'source_document_id': str(self.source_document_id) if self.source_document_id else None,
+            'source_document_number': self.source_document_number,
+            'requisition_department': self.requisition_department,
+            'requisition_person': self.requisition_person,
+            'requisition_purpose': self.requisition_purpose,
+            'remark': self.remark,
+            'custom_fields': self.custom_fields,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'details': [detail.to_dict() for detail in self.details] if self.details else []
+        }
+    
+    def __repr__(self):
+        return f'<MaterialOutboundOrder {self.order_number} {self.order_type}>'
+
+
+class MaterialOutboundOrderDetail(TenantModel):
+    """
+    材料出库单明细表
+    """
+    
+    __tablename__ = 'material_outbound_order_details'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联主表
+    material_outbound_order_id = Column(UUID(as_uuid=True), ForeignKey('material_outbound_orders.id'), nullable=False, comment='材料出库单ID')
+    
+    # 材料信息
+    material_id = Column(UUID(as_uuid=True), comment='材料ID')
+    material_name = Column(String(200), comment='材料名称')
+    material_code = Column(String(100), comment='材料编码')
+    material_spec = Column(String(500), comment='材料规格')
+    
+    # 数量信息
+    outbound_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='出库数量')
+    outbound_weight = Column(Numeric(15, 3), comment='出库重量(kg)')
+    outbound_length = Column(Numeric(15, 3), comment='出库长度(m)')
+    outbound_rolls = Column(Numeric(15, 3), comment='出库卷数')
+    
+    # 单位信息
+    unit = Column(String(20), nullable=False, comment='基本单位')
+    weight_unit = Column(String(20), default='kg', comment='重量单位')
+    length_unit = Column(String(20), default='m', comment='长度单位')
+    
+    # 批次信息
+    batch_number = Column(String(100), comment='批次号')
+    production_date = Column(DateTime, comment='生产日期')
+    expiry_date = Column(DateTime, comment='到期日期')
+    
+    # 质量信息
+    quality_status = Column(String(20), default='qualified', comment='质量状态')  # qualified/unqualified/pending
+    quality_certificate = Column(String(200), comment='质检证书')
+    
+    # 成本信息
+    unit_price = Column(Numeric(15, 4), comment='单价')
+    total_amount = Column(Numeric(18, 4), comment='总金额')
+    
+    # 库位信息
+    location_code = Column(String(100), comment='出库库位')
+    actual_location_code = Column(String(100), comment='实际出库库位')
+    
+    # 库存关联
+    inventory_id = Column(UUID(as_uuid=True), comment='库存ID')
+    available_quantity = Column(Numeric(15, 3), comment='可用库存数量')
+    
+    # 行号和排序
+    line_number = Column(Integer, comment='行号')
+    sort_order = Column(Integer, default=0, comment='排序')
+    
+    # 扩展字段
+    notes = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    material_outbound_order = relationship("MaterialOutboundOrder", back_populates="details")
+    
+    # 质量状态常量
+    QUALITY_STATUS_CHOICES = [
+        ('qualified', '合格'),
+        ('unqualified', '不合格'),
+        ('pending', '待检')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_material_outbound_detail_order', 'material_outbound_order_id'),
+        Index('ix_material_outbound_detail_material', 'material_id'),
+        Index('ix_material_outbound_detail_batch', 'batch_number'),
+        Index('ix_material_outbound_detail_location', 'location_code'),
+        Index('ix_material_outbound_detail_inventory', 'inventory_id'),
+    )
+    
+    def __init__(self, material_outbound_order_id, outbound_quantity, unit, created_by, **kwargs):
+        """
+        初始化材料出库单明细
+        """
+        self.material_outbound_order_id = material_outbound_order_id
+        self.outbound_quantity = outbound_quantity
+        self.unit = unit
+        self.created_by = created_by
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def calculate_total_amount(self):
+        """
+        计算总金额
+        """
+        if self.unit_price and self.outbound_quantity:
+            # 确保两个值都是Decimal类型以避免类型错误
+            unit_price = Decimal(str(self.unit_price)) if not isinstance(self.unit_price, Decimal) else self.unit_price
+            outbound_quantity = Decimal(str(self.outbound_quantity)) if not isinstance(self.outbound_quantity, Decimal) else self.outbound_quantity
+            self.total_amount = unit_price * outbound_quantity
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'material_outbound_order_id': str(self.material_outbound_order_id),
+            'material_id': str(self.material_id) if self.material_id else None,
+            'material_name': self.material_name,
+            'material_code': self.material_code,
+            'material_spec': self.material_spec,
+            'outbound_quantity': float(self.outbound_quantity) if self.outbound_quantity else 0,
+            'outbound_weight': float(self.outbound_weight) if self.outbound_weight else None,
+            'outbound_length': float(self.outbound_length) if self.outbound_length else None,
+            'outbound_rolls': float(self.outbound_rolls) if self.outbound_rolls else None,
+            'unit': self.unit,
+            'weight_unit': self.weight_unit,
+            'length_unit': self.length_unit,
+            'batch_number': self.batch_number,
+            'production_date': self.production_date.isoformat() if self.production_date else None,
+            'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
+            'quality_status': self.quality_status,
+            'quality_certificate': self.quality_certificate,
+            'unit_price': float(self.unit_price) if self.unit_price else None,
+            'total_amount': float(self.total_amount) if self.total_amount else None,
+            'location_code': self.location_code,
+            'actual_location_code': self.actual_location_code,
+            'inventory_id': str(self.inventory_id) if self.inventory_id else None,
+            'available_quantity': float(self.available_quantity) if self.available_quantity else None,
+            'line_number': self.line_number,
+            'sort_order': self.sort_order,
+            'notes': self.notes,
+            'custom_fields': self.custom_fields,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<MaterialOutboundOrderDetail {self.material_name} Qty:{self.outbound_quantity}>'
+
+
+# 注释：材料库存将使用统一的inventory表，不需要单独的MaterialInventory表
+
+
+# 注释：材料库存变动记录将使用统一的inventory_transactions表，不需要单独的MaterialInventoryTransaction表 

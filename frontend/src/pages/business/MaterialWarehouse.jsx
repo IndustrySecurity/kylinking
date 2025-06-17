@@ -1,246 +1,247 @@
-import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Table, Button, Input, Select, Form, Modal, message, Space, Tag, Typography } from 'antd';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  PlusOutlined,
-  SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ImportOutlined,
-  ExportOutlined,
-  ReloadOutlined
+  InboxOutlined,
+  SendOutlined,
+  AuditOutlined,
+  SwapOutlined,
+  FileTextOutlined,
+  ContainerOutlined,
+  ReloadOutlined,
+  SettingOutlined,
+  BarChartOutlined,
+  SafetyOutlined,
+  TagsOutlined,
+  ReconciliationOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 
-const { Title } = Typography;
-const { Search } = Input;
-const { Option } = Select;
-
-// Styled Card with box-shadow and hover effect
-const StyledCard = styled(Card)`
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: none;
+// 页面容器
+const PageContainer = styled.div`
+  padding: 0;
 `;
 
-// Page section title
-const SectionTitle = styled(Title)`
+// 主标题样式
+const SectionTitle = styled.h2`
+  margin: 0 0 32px 0;
+  color: #1c1c1c;
+  font-size: 24px;
+  font-weight: 600;
   position: relative;
-  margin-bottom: 24px !important;
-  font-weight: 600 !important;
+  padding-left: 12px;
   
-  &::after {
+  &:before {
     content: '';
     position: absolute;
-    bottom: -8px;
     left: 0;
-    width: 48px;
-    height: 3px;
-    background: #1890ff;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(135deg, #1890ff, #40a9ff);
     border-radius: 2px;
   }
 `;
 
-const MaterialWarehouse = () => {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [form] = Form.useForm();
+// 功能网格容器
+const FunctionGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+`;
 
-  // 模拟数据
-  const mockData = [
+// 功能卡片样式
+const FunctionCard = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 32px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #1890ff, #40a9ff);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border-color: #1890ff;
+    
+    &:before {
+      transform: scaleX(1);
+    }
+    
+    .card-icon {
+      transform: scale(1.1);
+      color: #1890ff;
+    }
+    
+    .card-title {
+      color: #1890ff;
+    }
+  }
+`;
+
+// 图标容器
+const IconContainer = styled.div`
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #f0f9ff, #e6f4ff);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+`;
+
+// 卡片标题
+const CardTitle = styled.h3`
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1c1c1c;
+  transition: color 0.3s ease;
+`;
+
+// 卡片描述
+const CardDescription = styled.p`
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+`;
+
+const MaterialWarehouse = () => {
+  const navigate = useNavigate();
+
+  // 材料仓库功能配置
+  const warehouseFunctions = [
     {
-      key: '1',
-      warehouseCode: 'CL001',
-      warehouseName: '原材料一库',
-      warehouseType: '材料',
-      location: 'A区1号',
-      capacity: '1000',
-      currentStock: '750',
-      unit: 't',
-      status: '正常',
+      key: 'inbound',
+      title: '材料入库',
+      description: '材料入库管理，记录材料入库信息',
+      icon: <InboxOutlined style={{ fontSize: '32px', color: '#52c41a' }} />,
+      path: '/business/material-warehouse/inbound',
     },
     {
-      key: '2',
-      warehouseCode: 'CL002',
-      warehouseName: '原材料二库',
-      warehouseType: '材料',
-      location: 'A区2号',
-      capacity: '800',
-      currentStock: '520',
-      unit: 't',
-      status: '正常',
+      key: 'outbound',
+      title: '材料出库',
+      description: '材料出库管理，处理材料出库业务',
+      icon: <SendOutlined style={{ fontSize: '32px', color: '#1890ff' }} />,
+      path: '/business/material-warehouse/outbound',
+    },
+    {
+      key: 'count',
+      title: '材料盘点',
+      description: '材料库存盘点，确保库存准确性',
+      icon: <AuditOutlined style={{ fontSize: '32px', color: '#722ed1' }} />,
+      path: '/business/material-warehouse/count',
+    },
+    {
+      key: 'transfer',
+      title: '材料调拨',
+      description: '材料仓库间调拨管理',
+      icon: <SwapOutlined style={{ fontSize: '32px', color: '#fa8c16' }} />,
+      path: '/business/material-warehouse/transfer',
+    },
+    {
+      key: 'receipt',
+      title: '材料收货单',
+      description: '材料收货单管理，验收入库',
+      icon: <FileTextOutlined style={{ fontSize: '32px', color: '#13c2c2' }} />,
+      path: '/business/material-warehouse/receipt',
+    },
+    {
+      key: 'requisition',
+      title: '材料领用单',
+      description: '生产部门材料领用申请',
+      icon: <ContainerOutlined style={{ fontSize: '32px', color: '#eb2f96' }} />,
+      path: '/business/material-warehouse/requisition',
+    },
+    {
+      key: 'return',
+      title: '材料退库',
+      description: '剩余材料退库管理',
+      icon: <ReloadOutlined style={{ fontSize: '32px', color: '#52c41a' }} />,
+      path: '/business/material-warehouse/return',
+    },
+    {
+      key: 'quality',
+      title: '材料质检',
+      description: '材料质量检验管理',
+      icon: <SafetyOutlined style={{ fontSize: '32px', color: '#1890ff' }} />,
+      path: '/business/material-warehouse/quality',
+    },
+    {
+      key: 'labeling',
+      title: '材料标签',
+      description: '材料标签打印管理',
+      icon: <TagsOutlined style={{ fontSize: '32px', color: '#722ed1' }} />,
+      path: '/business/material-warehouse/labeling',
+    },
+    {
+      key: 'location',
+      title: '库位管理',
+      description: '材料仓库库位管理',
+      icon: <SettingOutlined style={{ fontSize: '32px', color: '#fa8c16' }} />,
+      path: '/business/material-warehouse/location',
+    },
+    {
+      key: 'report',
+      title: '库存报表',
+      description: '材料库存统计报表',
+      icon: <BarChartOutlined style={{ fontSize: '32px', color: '#13c2c2' }} />,
+      path: '/business/material-warehouse/report',
+    },
+    {
+      key: 'reconciliation',
+      title: '库存对账',
+      description: '材料库存对账管理',
+      icon: <ReconciliationOutlined style={{ fontSize: '32px', color: '#eb2f96' }} />,
+      path: '/business/material-warehouse/reconciliation',
     },
   ];
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
-    setLoading(true);
-    // 模拟API调用
-    setTimeout(() => {
-      setData(mockData);
-      setLoading(false);
-    }, 1000);
+  const handleCardClick = (path) => {
+    navigate(path);
   };
 
-  const columns = [
-    {
-      title: '仓库编号',
-      dataIndex: 'warehouseCode',
-      key: 'warehouseCode',
-    },
-    {
-      title: '仓库名称',
-      dataIndex: 'warehouseName',
-      key: 'warehouseName',
-    },
-    {
-      title: '仓库类型',
-      dataIndex: 'warehouseType',
-      key: 'warehouseType',
-      render: () => <Tag color="blue">材料</Tag>,
-    },
-    {
-      title: '位置',
-      dataIndex: 'location',
-      key: 'location',
-    },
-    {
-      title: '容量',
-      dataIndex: 'capacity',
-      key: 'capacity',
-      render: (capacity, record) => `${capacity} ${record.unit}`,
-    },
-    {
-      title: '当前库存',
-      dataIndex: 'currentStock',
-      key: 'currentStock',
-      render: (stock, record) => `${stock} ${record.unit}`,
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={status === '正常' ? 'green' : 'red'}>
-          {status}
-        </Tag>
-      ),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: (_, record) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EditOutlined />}>
-            编辑
-          </Button>
-          <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-            删除
-          </Button>
-        </Space>
-      ),
-    },
-  ];
-
   return (
-    <div>
-      <SectionTitle level={4}>材料仓库管理</SectionTitle>
+    <PageContainer>
+      <SectionTitle>材料仓库</SectionTitle>
       
-      <StyledCard>
-        {/* 操作按钮栏 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalVisible(true)}>
-              新增仓库
-            </Button>
-          </Col>
-          <Col>
-            <Button icon={<ImportOutlined />}>
-              导入
-            </Button>
-          </Col>
-          <Col>
-            <Button icon={<ExportOutlined />}>
-              导出
-            </Button>
-          </Col>
-          <Col>
-            <Button icon={<ReloadOutlined />} onClick={loadData}>
-              刷新
-            </Button>
-          </Col>
-          <Col flex="auto" />
-          <Col>
-            <Search
-              placeholder="搜索仓库编号、名称..."
-              allowClear
-              style={{ width: 250 }}
-            />
-          </Col>
-        </Row>
-
-        {/* 数据表格 */}
-        <Table
-          columns={columns}
-          dataSource={data}
-          loading={loading}
-          pagination={{
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
-          }}
-        />
-      </StyledCard>
-
-      {/* 新增/编辑弹窗 */}
-      <Modal
-        title="新增仓库"
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        onOk={() => {
-          form.validateFields().then(() => {
-            message.success('操作成功');
-            setModalVisible(false);
-            loadData();
-          });
-        }}
-        width={800}
-      >
-        <Form form={form} layout="vertical">
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="仓库名称" name="warehouseName" rules={[{ required: true }]}>
-                <Input placeholder="请输入仓库名称" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="位置" name="location" rules={[{ required: true }]}>
-                <Input placeholder="请输入仓库位置" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="容量" name="capacity" rules={[{ required: true }]}>
-                <Input type="number" placeholder="请输入容量" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="单位" name="unit" rules={[{ required: true }]}>
-                <Select placeholder="请选择单位">
-                  <Option value="t">吨</Option>
-                  <Option value="kg">千克</Option>
-                  <Option value="m³">立方米</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
-      </Modal>
-    </div>
+      <FunctionGrid>
+        {warehouseFunctions.map((func) => (
+          <FunctionCard
+            key={func.key}
+            onClick={() => handleCardClick(func.path)}
+          >
+            <IconContainer className="card-icon">
+              {func.icon}
+            </IconContainer>
+            <CardTitle className="card-title">{func.title}</CardTitle>
+            <CardDescription>{func.description}</CardDescription>
+          </FunctionCard>
+        ))}
+      </FunctionGrid>
+    </PageContainer>
   );
 };
 

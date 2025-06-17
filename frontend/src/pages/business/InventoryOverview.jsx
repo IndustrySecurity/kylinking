@@ -32,6 +32,7 @@ import styled from 'styled-components';
 import dayjs from 'dayjs';
 import { useApi } from '../../hooks/useApi';
 import { inventoryService, baseDataService } from '../../services/inventoryService';
+import request from '../../utils/request';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -166,8 +167,8 @@ const InventoryOverview = () => {
 
   const fetchWarehouses = async () => {
     try {
-      // 使用通用仓库API，不限制仓库类型
-      const response = await api.get('/tenant/basic-data/warehouses/options');
+      // 使用request直接获取仓库数据
+      const response = await request.get('/tenant/basic-data/warehouses/options');
       
       if (response.data?.success) {
         const warehouseData = response.data.data;
@@ -194,7 +195,9 @@ const InventoryOverview = () => {
         }
         
         setWarehouses(warehouses);
+        
       } else {
+        console.warn('仓库API返回失败:', response.data);
         setWarehouses([]);
       }
     } catch (error) {

@@ -79,7 +79,11 @@ import FinishedGoodsPacking from './pages/business/finished-goods/FinishedGoodsP
 import SemiFinishedWeighing from './pages/business/semi-finished/SemiFinishedWeighing';
 import FinishedGoodsInboundAccounting from './pages/business/finished-goods/FinishedGoodsInboundAccounting';
 
-
+// 材料仓库子页面导入
+import MaterialInbound from './pages/business/material-warehouse/MaterialInbound';
+import MaterialOutbound from './pages/business/material-warehouse/MaterialOutbound';
+import MaterialCount from './pages/business/material-warehouse/MaterialCount';
+import MaterialTransfer from './pages/business/material-warehouse/MaterialTransfer';
 
 import Debug from './pages/auth/Debug';
 
@@ -652,6 +656,46 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
 
+            {/* 材料仓库路由 */}
+            <Route path="/business/material-warehouse" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialWarehouse />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/material-warehouse/inbound" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialInbound />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/material-warehouse/outbound" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialOutbound />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/material-warehouse/count" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialCount />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/material-warehouse/transfer" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MaterialTransfer />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
 
             
             {/* 平台管理路由 */}

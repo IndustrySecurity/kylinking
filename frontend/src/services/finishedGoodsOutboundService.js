@@ -108,7 +108,7 @@ export const baseDataService = {
 
   // 获取供应商列表
   getSuppliers: (params = {}) => {
-    return request.get('/tenant/basic-data/suppliers', { params });
+    return request.get('/tenant/basic-data/supplier-management', { params });
   },
 
   // 获取客户列表
