@@ -155,12 +155,24 @@ const MaterialOutbound = ({ onBack }) => {
   };
 
   useEffect(() => {
-    fetchData();
-    fetchWarehouses();
-    fetchMaterials();
-    fetchEmployees();
-    fetchDepartments();
+    const initializeData = async () => {
+      // 先获取基础数据
+      await Promise.all([
+        fetchWarehouses(),
+        fetchMaterials(), 
+        fetchEmployees(),
+        fetchDepartments()
+      ]);
+      // 等待一点时间确保state更新
+      setTimeout(() => {
+        fetchData();
+      }, 100);
+    };
+    
+    initializeData();
   }, [pagination.current, pagination.pageSize]);
+
+
 
   // 获取出库单列表
   const fetchData = async (params = {}) => {
@@ -169,20 +181,44 @@ const MaterialOutbound = ({ onBack }) => {
       const response = await request.get('/tenant/inventory/material-outbound-orders', {
         params: {
           page: pagination.current,
-          per_page: pagination.pageSize,
+          page_size: pagination.pageSize,
           ...params
         }
       });
       
-      if (response.data.success) {
-        setData(response.data.data.orders || response.data.data);
+      console.log('材料出库API响应:', response.data);
+      
+      if (response.data.success || response.data.code === 200) {
+        const responseData = response.data.data;
+        let orders = [];
+        
+        // 处理不同的数据格式
+        if (Array.isArray(responseData)) {
+          orders = responseData;
+        } else if (responseData?.items && Array.isArray(responseData.items)) {
+          orders = responseData.items;
+        } else if (responseData?.orders && Array.isArray(responseData.orders)) {
+          orders = responseData.orders;
+        } else {
+          orders = [];
+        }
+        
+        console.log('解析出的订单数据:', orders);
+        
+        setData(orders);
+        
         setPagination(prev => ({
           ...prev,
-          total: response.data.data.total || response.data.data.length
+          total: responseData?.total || orders.length
         }));
+      } else {
+        console.error('API返回失败:', response.data);
+        setData([]);
       }
     } catch (error) {
-      message.error('获取数据失败');
+      console.error('获取数据失败:', error);
+      message.error('获取数据失败: ' + (error.response?.data?.error || error.message));
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -225,7 +261,12 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取材料列表
   const fetchMaterials = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/material-management');
+      const response = await request.get('/tenant/basic-data/material-management', {
+        params: {
+          page_size: 1000, // 获取更多数据
+          is_enabled: true // 只获取启用的材料
+        }
+      });
       console.log('材料API响应:', response.data);
       if (response.data?.success) {
         const materialData = response.data.data;
@@ -263,7 +304,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await request.get('/tenant/inventory/departments/options');
+      const response = await request.get('/tenant/basic-data/departments/options');
       console.log('部门API响应:', response.data);
       if (response.data?.success) {
         setDepartments(response.data.data);
@@ -271,15 +312,7 @@ const MaterialOutbound = ({ onBack }) => {
       }
     } catch (error) {
       console.error('获取部门列表失败', error);
-      // 如果获取失败，尝试使用备用API
-      try {
-        const response = await request.get('/tenant/basic-data/departments/options');
-        if (response.data?.success) {
-          setDepartments(response.data.data);
-        }
-      } catch (backupError) {
-        console.error('备用部门API也失败', backupError);
-      }
+      message.error('获取部门列表失败: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -328,11 +361,14 @@ const MaterialOutbound = ({ onBack }) => {
   const fetchOrderDetails = async (orderId) => {
     try {
       const response = await request.get(`/tenant/inventory/material-outbound-orders/${orderId}`);
-      if (response.data.success) {
+      if (response.data.success || response.data.code === 200) {
         setDetails(response.data.data.details || []);
+      } else {
+        message.error(response.data.message || '获取详情失败');
       }
     } catch (error) {
-      message.error('获取详情失败');
+      console.error('获取详情失败:', error);
+      message.error('获取详情失败: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -340,11 +376,31 @@ const MaterialOutbound = ({ onBack }) => {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      
+      // 构建订单数据，确保字段格式正确
       const orderData = {
-        ...values,
+        warehouse_id: values.warehouse_id,
         order_date: values.order_date ? values.order_date.format('YYYY-MM-DD') : null,
-        details: details
+        order_type: values.order_type,
+        outbound_person: values.outbound_person,
+        department: values.department,
+        source_order_type: values.source_order_type,
+        source_order_number: values.source_order_number,
+        remarks: values.remarks,
+        details: details.map(detail => ({
+          material_id: detail.material_id,
+          material_name: detail.material_name,
+          material_code: detail.material_code,
+          specification: detail.specification,
+          outbound_quantity: detail.outbound_quantity,
+          unit: detail.unit,
+          batch_number: detail.batch_number,
+          location_code: detail.location_code,
+          remarks: detail.remarks
+        }))
       };
+
+      console.log('发送的订单数据:', orderData);
 
       let response;
       if (currentRecord) {
@@ -353,13 +409,19 @@ const MaterialOutbound = ({ onBack }) => {
         response = await request.post('/tenant/inventory/material-outbound-orders', orderData);
       }
 
-      if (response.data.success) {
+      if (response.data.code === 200 || response.data.success) {
         message.success(currentRecord ? '更新成功' : '创建成功');
         setModalVisible(false);
+        form.resetFields();
+        setDetails([]);
+        setCurrentRecord(null);
         fetchData();
+      } else {
+        message.error(response.data.message || '保存失败');
       }
     } catch (error) {
-      message.error('保存失败');
+      console.error('保存失败:', error);
+      message.error('保存失败: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -367,12 +429,15 @@ const MaterialOutbound = ({ onBack }) => {
   const handleDelete = async (record) => {
     try {
       const response = await request.delete(`/tenant/inventory/material-outbound-orders/${record.id}`);
-      if (response.data.success) {
+      if (response.data.code === 200 || response.data.success) {
         message.success('删除成功');
         fetchData();
+      } else {
+        message.error(response.data.message || '删除失败');
       }
     } catch (error) {
-      message.error('删除失败');
+      console.error('删除失败:', error);
+      message.error('删除失败: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -380,26 +445,32 @@ const MaterialOutbound = ({ onBack }) => {
   const handleSubmit = async (record) => {
     try {
       const response = await request.post(`/tenant/inventory/material-outbound-orders/${record.id}/submit`);
-      if (response.data.success) {
+      if (response.data.code === 200 || response.data.success) {
         message.success('提交成功');
         fetchData();
+      } else {
+        message.error(response.data.message || '提交失败');
       }
     } catch (error) {
-      message.error('提交失败');
+      console.error('提交失败:', error);
+      message.error('提交失败: ' + (error.response?.data?.message || error.message));
     }
   };
 
   // 审核
   const handleAudit = async (values) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-outbound-orders/${currentRecord.id}/audit`, values);
-      if (response.data.success) {
+      const response = await request.post(`/tenant/inventory/material-outbound-orders/${currentRecord.id}/approve`, values);
+      if (response.data.code === 200 || response.data.success) {
         message.success('审核成功');
         setAuditModalVisible(false);
         fetchData();
+      } else {
+        message.error(response.data.message || '审核失败');
       }
     } catch (error) {
-      message.error('审核失败');
+      console.error('审核失败:', error);
+      message.error('审核失败: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -407,13 +478,15 @@ const MaterialOutbound = ({ onBack }) => {
   const handleExecute = async (record) => {
     try {
       const response = await request.post(`/tenant/inventory/material-outbound-orders/${record.id}/execute`);
-      if (response.data.success) {
+      if (response.data.code === 200 || response.data.success) {
         message.success('执行成功');
-        setExecuteModalVisible(false);
         fetchData();
+      } else {
+        message.error(response.data.message || '执行失败');
       }
     } catch (error) {
-      message.error('执行失败');
+      console.error('执行失败:', error);
+      message.error('执行失败: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -433,9 +506,9 @@ const MaterialOutbound = ({ onBack }) => {
         ...values,
         key: Date.now(),
         material_id: values.material_id,
-        material_name: materials.find(m => m.id === values.material_id)?.name || '',
-        material_code: materials.find(m => m.id === values.material_id)?.code || '',
-        specification: materials.find(m => m.id === values.material_id)?.specification || ''
+        material_name: materials.find(m => m.id === values.material_id)?.material_name || materials.find(m => m.id === values.material_id)?.name || '',
+        material_code: materials.find(m => m.id === values.material_id)?.material_code || materials.find(m => m.id === values.material_id)?.code || '',
+        specification: materials.find(m => m.id === values.material_id)?.specification_model || materials.find(m => m.id === values.material_id)?.specification || ''
       };
       setDetails([...details, newDetail]);
       detailForm.resetFields();
@@ -473,23 +546,35 @@ const MaterialOutbound = ({ onBack }) => {
   const handleDetailSubmit = (values) => {
     if (currentDetail) {
       // 编辑模式
+      const material = materials.find(m => m.id === values.material_id);
+      const updatedDetail = {
+        ...currentDetail,
+        ...values,
+        material_name: material?.material_name || material?.name || values.material_name || '',
+        material_code: material?.material_code || material?.code || values.material_code || '',
+        specification: material?.specification_model || material?.specification || values.specification || '',
+        unit: material?.unit_name || material?.unit || values.unit || ''
+      };
       setDetails(prev => prev.map(item => 
-        item.key === currentDetail.key ? { ...item, ...values } : item
+        item.key === currentDetail.key ? updatedDetail : item
       ));
     } else {
       // 新增模式
+      const material = materials.find(m => m.id === values.material_id);
       const newDetail = {
         ...values,
         key: Date.now(),
         material_id: values.material_id,
-        material_name: materials.find(m => m.id === values.material_id)?.name || '',
-        material_code: materials.find(m => m.id === values.material_id)?.code || '',
-        specification: materials.find(m => m.id === values.material_id)?.specification || ''
+        material_name: material?.material_name || material?.name || values.material_name || '',
+        material_code: material?.material_code || material?.code || values.material_code || '',
+        specification: material?.specification_model || material?.specification || values.specification || '',
+        unit: material?.unit_name || material?.unit || values.unit || ''
       };
       setDetails(prev => [...prev, newDetail]);
     }
     setDetailModalVisible2(false);
     detailForm.resetFields();
+    setCurrentDetail(null);
   };
 
   // 表格列定义
@@ -539,7 +624,19 @@ const MaterialOutbound = ({ onBack }) => {
       title: '部门',
       dataIndex: 'department',
       key: 'department',
-      width: 100
+      width: 100,
+      render: (departmentId) => {
+        if (!departmentId) return '-';
+        
+        // 如果是UUID格式，尝试映射为部门名称
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(departmentId);
+        if (isUUID && departments.length > 0) {
+          const dept = departments.find(d => d.value === departmentId);
+          return dept ? dept.label : departmentId;
+        }
+        
+        return departmentId;
+      }
     },
     {
       title: '单据状态',
@@ -591,31 +688,14 @@ const MaterialOutbound = ({ onBack }) => {
             详情
           </Button>
           {record.status === 'draft' && (
-            <>
-              <Button 
-                type="link" 
-                icon={<EditOutlined />} 
-                onClick={() => handleModalOpen(record)}
-                size="small"
-              >
-            编辑
-          </Button>
-              <Popconfirm
-                title="确定要删除这条记录吗？"
-                onConfirm={() => handleDelete(record)}
-                okText="确定"
-                cancelText="取消"
-              >
-                <Button 
-                  type="link" 
-                  danger 
-                  icon={<DeleteOutlined />}
-                  size="small"
-                >
-                  删除
-              </Button>
-              </Popconfirm>
-            </>
+            <Button 
+              type="link" 
+              icon={<EditOutlined />} 
+              onClick={() => handleModalOpen(record)}
+              size="small"
+            >
+              编辑
+            </Button>
           )}
           {record.status === 'draft' && (
             <Button 
@@ -649,6 +729,23 @@ const MaterialOutbound = ({ onBack }) => {
             >
               执行
             </Button>
+          )}
+          {record.status === 'draft' && (
+            <Popconfirm
+              title="确定要删除这条记录吗？"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button 
+                type="link" 
+                danger 
+                icon={<DeleteOutlined />}
+                size="small"
+              >
+                删除
+              </Button>
+            </Popconfirm>
           )}
         </Space>
       )
@@ -738,7 +835,7 @@ const MaterialOutbound = ({ onBack }) => {
     <PageContainer>
       {/* 搜索表单 */}
       <StyledCard>
-        <Collapse defaultActiveKey={['1']}>
+        <Collapse defaultActiveKey={[]}>
           <Panel header="搜索条件" key="1" extra={<FilterOutlined />}>
             <Form
               form={searchForm}
@@ -943,8 +1040,8 @@ const MaterialOutbound = ({ onBack }) => {
                       }}
                     >
                       {employees.map(emp => (
-                        <Option key={emp.id} value={emp.name}>
-                          {emp.name}
+                        <Option key={emp.id} value={emp.employee_name || emp.name}>
+                          {emp.employee_name || emp.name}
                         </Option>
                       ))}
                     </Select>
@@ -1149,17 +1246,17 @@ const MaterialOutbound = ({ onBack }) => {
                     const material = materials.find(m => m.id === value);
                     if (material) {
                       detailForm.setFieldsValue({
-                        material_name: material.name,
-                        material_code: material.code,
-                        specification: material.specification,
-                        unit: material.unit
+                        material_name: material.material_name || material.name,
+                        material_code: material.material_code || material.code,
+                        specification: material.specification_model || material.specification,
+                        unit: material.unit_name || material.unit || ''
                       });
                     }
                   }}
                 >
                   {materials.map(material => (
                     <Option key={material.id} value={material.id}>
-                      {material.code} - {material.name}
+                      {material.material_code || material.code} - {material.material_name || material.name}
                     </Option>
                   ))}
                 </Select>

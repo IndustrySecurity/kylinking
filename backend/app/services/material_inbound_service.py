@@ -256,13 +256,59 @@ class MaterialInboundService:
         if not order:
             return None
         
+        # 提取明细数据
+        details_data = update_data.pop('details', None)
+        
+        # 过滤掉SQLAlchemy内部属性和不允许更新的字段
+        forbidden_fields = ['id', 'created_at', 'created_by', '_sa_instance_state', '_state']
+        allowed_data = {k: v for k, v in update_data.items() 
+                       if k not in forbidden_fields and hasattr(order, k)}
+        
+        # 处理特殊字段
+        if 'warehouse_id' in allowed_data:
+            allowed_data['warehouse_id'] = uuid.UUID(allowed_data['warehouse_id']) if isinstance(allowed_data['warehouse_id'], str) else allowed_data['warehouse_id']
+        
+        if 'order_date' in allowed_data and isinstance(allowed_data['order_date'], str):
+            try:
+                allowed_data['order_date'] = datetime.fromisoformat(allowed_data['order_date'].replace('Z', '+00:00')).date()
+            except:
+                # 如果转换失败，保持原值
+                pass
+        
         # 更新字段
-        for key, value in update_data.items():
-            if hasattr(order, key) and key not in ['id', 'created_at', 'created_by']:
-                setattr(order, key, value)
+        for key, value in allowed_data.items():
+            setattr(order, key, value)
         
         order.updated_by = uuid.UUID(updated_by) if isinstance(updated_by, str) else updated_by
         order.updated_at = datetime.now()
+        
+        # 处理明细数据更新
+        if details_data is not None:
+            # 删除现有明细
+            self.db.query(MaterialInboundOrderDetail).filter(
+                MaterialInboundOrderDetail.material_inbound_order_id == order.id
+            ).delete()
+            
+            # 添加新明细
+            for detail_data in details_data:
+                if detail_data.get('material_id') and detail_data.get('inbound_quantity'):
+                    detail = MaterialInboundOrderDetail(
+                        material_inbound_order_id=order.id,
+                        material_id=uuid.UUID(detail_data['material_id']),
+                        material_name=detail_data.get('material_name'),
+                        material_code=detail_data.get('material_code'),
+                        material_spec=detail_data.get('specification'),
+                        inbound_quantity=Decimal(str(detail_data['inbound_quantity'])),
+                        inbound_weight=Decimal(str(detail_data['inbound_weight'])) if detail_data.get('inbound_weight') else None,
+                        inbound_length=Decimal(str(detail_data['inbound_length'])) if detail_data.get('inbound_length') else None,
+                        inbound_rolls=int(detail_data['inbound_rolls']) if detail_data.get('inbound_rolls') else None,
+                        unit=detail_data.get('unit', '个'),
+                        batch_number=detail_data.get('batch_number'),
+                        unit_price=Decimal(str(detail_data['unit_price'])) if detail_data.get('unit_price') else None,
+                        notes=detail_data.get('notes'),
+                        created_by=uuid.UUID(updated_by) if isinstance(updated_by, str) else updated_by
+                    )
+                    self.db.add(detail)
         
         self.db.commit()
         self.db.refresh(order)
@@ -417,7 +463,7 @@ class MaterialInboundService:
                     production_date=detail.production_date,
                     expiry_date=detail.expiry_date,
                     location_code=detail.actual_location_code or detail.location_code,
-                    created_by=executed_by
+                    created_by=uuid.UUID(executed_by) if isinstance(executed_by, str) else executed_by
                 )
                 self.db.add(inventory)
                 self.db.flush()
@@ -440,7 +486,7 @@ class MaterialInboundService:
                     if total_quantity > 0:
                         inventory.unit_cost = inventory.total_cost / total_quantity
                 
-                inventory.updated_by = executed_by
+                inventory.updated_by = uuid.UUID(executed_by) if isinstance(executed_by, str) else executed_by
                 inventory.updated_at = datetime.now()
                 
                 # 创建库存流水记录
@@ -460,7 +506,7 @@ class MaterialInboundService:
                     batch_number=detail.batch_number,
                     to_location=detail.actual_location_code or detail.location_code,
                     supplier_id=order.supplier_id,
-                    created_by=executed_by
+                    created_by=uuid.UUID(executed_by) if isinstance(executed_by, str) else executed_by
                 )
                 
                 self.db.add(transaction)
@@ -468,12 +514,40 @@ class MaterialInboundService:
         
         # 更新入库单状态
         order.status = 'completed'
-        order.updated_by = executed_by
+        order.updated_by = uuid.UUID(executed_by) if isinstance(executed_by, str) else executed_by
         order.updated_at = datetime.now()
         
         self.db.commit()
         
         return transactions
+
+    def submit_material_inbound_order(
+        self,
+        order_id: str,
+        submitted_by: str
+    ) -> MaterialInboundOrder:
+        """提交材料入库单"""
+        self._set_schema()
+        order = self.db.query(MaterialInboundOrder).filter(MaterialInboundOrder.id == order_id).first()
+        
+        if not order:
+            raise ValueError("材料入库单不存在")
+        
+        if order.status != 'draft':
+            raise ValueError("只能提交草稿状态的入库单")
+        
+        # 简化流程：提交后自动审核通过
+        order.status = 'confirmed'
+        order.approval_status = 'approved'
+        order.approved_by = uuid.UUID(submitted_by) if isinstance(submitted_by, str) else submitted_by
+        order.approved_at = datetime.now()
+        order.updated_by = uuid.UUID(submitted_by) if isinstance(submitted_by, str) else submitted_by
+        order.updated_at = datetime.now()
+        
+        self.db.commit()
+        self.db.refresh(order)
+        
+        return order
 
     def cancel_material_inbound_order(
         self,

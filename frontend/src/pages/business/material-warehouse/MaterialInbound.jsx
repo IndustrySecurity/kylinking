@@ -146,9 +146,9 @@ const MaterialInbound = ({ onBack }) => {
   const statusConfig = {
     draft: { color: 'default', text: '草稿' },
     submitted: { color: 'processing', text: '已提交' },
-    approved: { color: 'success', text: '已审核' },
+    confirmed: { color: 'success', text: '已确认' },
+    completed: { color: 'purple', text: '已完成' },
     rejected: { color: 'error', text: '已拒绝' },
-    executed: { color: 'purple', text: '已执行' },
     cancelled: { color: 'warning', text: '已取消' }
   };
 
@@ -351,12 +351,28 @@ const MaterialInbound = ({ onBack }) => {
   // 获取入库单详情
   const fetchOrderDetails = async (orderId) => {
     try {
-      const response = await request.get(`/tenant/inventory/material-inbound-orders/${orderId}`);
-      if (response.data.code === 200) {
-        setDetails(response.data.data.details || []);
+      // 获取明细数据
+      const detailResponse = await request.get(`/tenant/inventory/material-inbound-orders/${orderId}/details`);
+      if (detailResponse.data.success) {
+        console.log('明细数据:', detailResponse.data.data);
+        // 清理数据，移除SQLAlchemy内部属性
+        const cleanDetails = (detailResponse.data.data || []).map(detail => {
+          const cleanDetail = { ...detail };
+          // 删除SQLAlchemy的内部属性
+          delete cleanDetail._sa_instance_state;
+          // 添加React需要的key属性
+          cleanDetail.key = cleanDetail.id || Date.now() + Math.random();
+          return cleanDetail;
+        });
+        setDetails(cleanDetails);
+      } else {
+        console.error('获取明细失败:', detailResponse.data.error);
+        setDetails([]);
       }
     } catch (error) {
+      console.error('获取详情失败:', error);
       message.error('获取详情失败');
+      setDetails([]);
     }
   };
 
@@ -364,10 +380,34 @@ const MaterialInbound = ({ onBack }) => {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      
+      // 清理明细数据，移除SQLAlchemy的内部属性
+      const cleanDetails = details.map(detail => {
+        const cleanDetail = { ...detail };
+        // 删除SQLAlchemy和React的内部属性
+        delete cleanDetail._sa_instance_state;
+        delete cleanDetail.key;
+        // 确保必要字段存在
+        return {
+          material_id: cleanDetail.material_id,
+          material_name: cleanDetail.material_name,
+          material_code: cleanDetail.material_code,
+          specification: cleanDetail.specification || cleanDetail.material_spec,
+          inbound_quantity: cleanDetail.inbound_quantity || cleanDetail.quantity,
+          inbound_weight: cleanDetail.inbound_weight || cleanDetail.weight,
+          inbound_length: cleanDetail.inbound_length || cleanDetail.length,
+          inbound_rolls: cleanDetail.inbound_rolls || cleanDetail.roll_count,
+          unit: cleanDetail.unit,
+          batch_number: cleanDetail.batch_number,
+          unit_price: cleanDetail.unit_price,
+          notes: cleanDetail.notes
+        };
+      });
+      
       const orderData = {
         ...values,
         order_date: values.order_date ? values.order_date.format('YYYY-MM-DD') : null,
-        details: details
+        details: cleanDetails
       };
 
       let response;
@@ -589,8 +629,8 @@ const MaterialInbound = ({ onBack }) => {
     },
     {
       title: '审核状态',
-      dataIndex: 'audit_status',
-      key: 'audit_status',
+      dataIndex: 'approval_status',
+      key: 'approval_status',
       width: 100,
       render: (status) => {
         const config = auditStatusConfig[status] || { color: 'default', text: status };
@@ -615,7 +655,7 @@ const MaterialInbound = ({ onBack }) => {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 240,
+      width: 180,
       render: (_, record) => (
         <Space size="small">
           <Button
@@ -661,20 +701,7 @@ const MaterialInbound = ({ onBack }) => {
               </Popconfirm>
             </>
           )}
-          {record.status === 'submitted' && (
-            <Button
-              type="link"
-              size="small"
-              icon={<CheckOutlined />}
-              onClick={() => {
-                setCurrentRecord(record);
-                setAuditModalVisible(true);
-              }}
-            >
-              审核
-            </Button>
-          )}
-          {record.status === 'approved' && (
+          {(record.status === 'submitted' || record.status === 'confirmed') && record.approval_status === 'approved' && (
             <Button
               type="link"
               size="small"

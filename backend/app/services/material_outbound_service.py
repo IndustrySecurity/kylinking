@@ -161,12 +161,16 @@ class MaterialOutboundService:
         # 提取明细数据
         details_data = data.pop('details', [])
         
-        order = MaterialOutboundOrder(
-            warehouse_id=uuid.UUID(data['warehouse_id']),
-            order_type=data.get('order_type', 'material'),
-            created_by=created_by_uuid,
-            **data
-        )
+        # 复制数据并处理warehouse_id
+        order_data = data.copy()
+        order_data['warehouse_id'] = uuid.UUID(order_data['warehouse_id'])
+        order_data['created_by'] = created_by_uuid
+        
+        # 设置默认值
+        if 'order_type' not in order_data:
+            order_data['order_type'] = 'material'
+        
+        order = MaterialOutboundOrder(**order_data)
         
         self.db.add(order)
         self.db.flush()  # 获取order.id

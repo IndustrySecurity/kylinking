@@ -11,276 +11,16 @@ from sqlalchemy import text, func
 import time
 
 
-class CustomerCategory(BaseModel):
-    """客户分类模型"""
-    __tablename__ = 'customer_categories'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category_code = db.Column(db.String(50), unique=True, nullable=False)
-    category_name = db.Column(db.String(100), nullable=False)
-    parent_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_categories.id'))
-    level = db.Column(db.Integer, default=1)
-    sort_order = db.Column(db.Integer, default=0)
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
-    
-    # 自引用关系
-    children = db.relationship('CustomerCategory', 
-                             backref=db.backref('parent', remote_side=[id]),
-                             lazy='dynamic')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': str(self.id),
-            'category_code': self.category_code,
-            'category_name': self.category_name,
-            'parent_id': str(self.parent_id) if self.parent_id else None,
-            'level': self.level,
-            'sort_order': self.sort_order,
-            'description': self.description,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'children_count': self.children.count()
-        }
+# CustomerCategory 已移至下方的 CustomerCategoryManagement 模型
 
 
-class Customer(BaseModel):
-    """客户档案模型"""
-    __tablename__ = 'customers'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_code = db.Column(db.String(50), unique=True, nullable=False)
-    customer_name = db.Column(db.String(200), nullable=False)
-    customer_type = db.Column(db.String(20), default='enterprise')  # enterprise/individual
-    category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_categories.id'))
-    
-    # 基本信息
-    legal_name = db.Column(db.String(200))
-    unified_credit_code = db.Column(db.String(50))  # 统一社会信用代码
-    tax_number = db.Column(db.String(50))
-    industry = db.Column(db.String(100))
-    scale = db.Column(db.String(20))  # large/medium/small/micro
-    
-    # 联系信息
-    contact_person = db.Column(db.String(100))
-    contact_phone = db.Column(db.String(50))
-    contact_email = db.Column(db.String(100))
-    contact_address = db.Column(db.Text)
-    postal_code = db.Column(db.String(20))
-    
-    # 业务信息
-    credit_limit = db.Column(db.Numeric(15, 2), default=0)
-    payment_terms = db.Column(db.Integer, default=30)  # 付款天数
-    currency = db.Column(db.String(10), default='CNY')
-    price_level = db.Column(db.String(20), default='standard')
-    sales_person_id = db.Column(UUID(as_uuid=True))
-    
-    # 系统字段
-    status = db.Column(db.String(20), default='active')  # active/inactive/pending
-    is_approved = db.Column(db.Boolean, default=False)
-    approved_by = db.Column(UUID(as_uuid=True))
-    approved_at = db.Column(db.DateTime)
-    
-    # 租户模块配置支持
-    custom_fields = db.Column(JSONB, default={})
-    
-    # 关联关系
-    category = db.relationship('CustomerCategory', backref='customers', lazy='select')
-    
-    __table_args__ = (
-        db.CheckConstraint("status IN ('active', 'inactive', 'pending')", name='customers_status_check'),
-        db.CheckConstraint("customer_type IN ('enterprise', 'individual')", name='customers_type_check'),
-    )
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': str(self.id),
-            'customer_code': self.customer_code,
-            'customer_name': self.customer_name,
-            'customer_type': self.customer_type,
-            'category': self.category.to_dict() if self.category else None,
-            
-            # 基本信息
-            'legal_name': self.legal_name,
-            'unified_credit_code': self.unified_credit_code,
-            'tax_number': self.tax_number,
-            'industry': self.industry,
-            'scale': self.scale,
-            
-            # 联系信息
-            'contact_person': self.contact_person,
-            'contact_phone': self.contact_phone,
-            'contact_email': self.contact_email,
-            'contact_address': self.contact_address,
-            'postal_code': self.postal_code,
-            
-            # 业务信息
-            'credit_limit': float(self.credit_limit) if self.credit_limit else 0,
-            'payment_terms': self.payment_terms,
-            'currency': self.currency,
-            'price_level': self.price_level,
-            'sales_person_id': str(self.sales_person_id) if self.sales_person_id else None,
-            
-            # 系统字段
-            'status': self.status,
-            'is_approved': self.is_approved,
-            'approved_by': str(self.approved_by) if self.approved_by else None,
-            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
-            
-            # 自定义字段
-            'custom_fields': self.custom_fields or {},
-            
-            # 审计字段
-            'created_by': str(self.created_by) if self.created_by else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_by': str(self.updated_by) if self.updated_by else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-        }
+# Customer 已移至下方的 CustomerManagement 模型
 
 
-class SupplierCategory(BaseModel):
-    """供应商分类模型"""
-    __tablename__ = 'supplier_categories'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    category_code = db.Column(db.String(50), unique=True, nullable=False)
-    category_name = db.Column(db.String(100), nullable=False)
-    parent_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_categories.id'))
-    level = db.Column(db.Integer, default=1)
-    sort_order = db.Column(db.Integer, default=0)
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
-    
-    # 自引用关系
-    children = db.relationship('SupplierCategory', 
-                             backref=db.backref('parent', remote_side=[id]),
-                             lazy='dynamic')
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': str(self.id),
-            'category_code': self.category_code,
-            'category_name': self.category_name,
-            'parent_id': str(self.parent_id) if self.parent_id else None,
-            'level': self.level,
-            'sort_order': self.sort_order,
-            'description': self.description,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'children_count': self.children.count()
-        }
+# SupplierCategory 已移至下方的 SupplierCategoryManagement 模型
 
 
-class Supplier(BaseModel):
-    """供应商档案模型"""
-    __tablename__ = 'suppliers'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    supplier_code = db.Column(db.String(50), unique=True, nullable=False)
-    supplier_name = db.Column(db.String(200), nullable=False)
-    supplier_type = db.Column(db.String(20), default='material')  # material/service/both
-    category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_categories.id'))
-    
-    # 基本信息
-    legal_name = db.Column(db.String(200))
-    unified_credit_code = db.Column(db.String(50))
-    business_license = db.Column(db.String(50))
-    industry = db.Column(db.String(100))
-    established_date = db.Column(db.Date)
-    
-    # 联系信息
-    contact_person = db.Column(db.String(100))
-    contact_phone = db.Column(db.String(50))
-    contact_email = db.Column(db.String(100))
-    office_address = db.Column(db.Text)
-    factory_address = db.Column(db.Text)
-    
-    # 业务信息
-    payment_terms = db.Column(db.Integer, default=30)
-    currency = db.Column(db.String(10), default='CNY')
-    quality_level = db.Column(db.String(20), default='qualified')  # excellent/good/qualified/poor
-    cooperation_level = db.Column(db.String(20), default='ordinary')  # strategic/important/ordinary
-    
-    # 评估信息
-    quality_score = db.Column(db.Numeric(3, 1), default=0)  # 0-10分
-    delivery_score = db.Column(db.Numeric(3, 1), default=0)
-    service_score = db.Column(db.Numeric(3, 1), default=0)
-    price_score = db.Column(db.Numeric(3, 1), default=0)
-    overall_score = db.Column(db.Numeric(3, 1), default=0)
-    
-    # 系统字段
-    status = db.Column(db.String(20), default='active')
-    is_approved = db.Column(db.Boolean, default=False)
-    approved_by = db.Column(UUID(as_uuid=True))
-    approved_at = db.Column(db.DateTime)
-    
-    # 租户模块配置支持
-    custom_fields = db.Column(JSONB, default={})
-    
-    # 关联关系
-    category = db.relationship('SupplierCategory', backref='suppliers', lazy='select')
-    
-    __table_args__ = (
-        db.CheckConstraint("status IN ('active', 'inactive', 'pending')", name='suppliers_status_check'),
-        db.CheckConstraint("supplier_type IN ('material', 'service', 'both')", name='suppliers_type_check'),
-        db.CheckConstraint("quality_level IN ('excellent', 'good', 'qualified', 'poor')", name='suppliers_quality_check'),
-        db.CheckConstraint("cooperation_level IN ('strategic', 'important', 'ordinary')", name='suppliers_cooperation_check'),
-    )
-    
-    def to_dict(self):
-        """转换为字典"""
-        return {
-            'id': str(self.id),
-            'supplier_code': self.supplier_code,
-            'supplier_name': self.supplier_name,
-            'supplier_type': self.supplier_type,
-            'category': self.category.to_dict() if self.category else None,
-            
-            # 基本信息
-            'legal_name': self.legal_name,
-            'unified_credit_code': self.unified_credit_code,
-            'business_license': self.business_license,
-            'industry': self.industry,
-            'established_date': self.established_date.isoformat() if self.established_date else None,
-            
-            # 联系信息
-            'contact_person': self.contact_person,
-            'contact_phone': self.contact_phone,
-            'contact_email': self.contact_email,
-            'office_address': self.office_address,
-            'factory_address': self.factory_address,
-            
-            # 业务信息
-            'payment_terms': self.payment_terms,
-            'currency': self.currency,
-            'quality_level': self.quality_level,
-            'cooperation_level': self.cooperation_level,
-            
-            # 评估信息
-            'quality_score': float(self.quality_score) if self.quality_score else 0,
-            'delivery_score': float(self.delivery_score) if self.delivery_score else 0,
-            'service_score': float(self.service_score) if self.service_score else 0,
-            'price_score': float(self.price_score) if self.price_score else 0,
-            'overall_score': float(self.overall_score) if self.overall_score else 0,
-            
-            # 系统字段
-            'status': self.status,
-            'is_approved': self.is_approved,
-            'approved_by': str(self.approved_by) if self.approved_by else None,
-            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
-            
-            # 自定义字段
-            'custom_fields': self.custom_fields or {},
-            
-            # 审计字段
-            'created_by': str(self.created_by) if self.created_by else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_by': str(self.updated_by) if self.updated_by else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-        }
+# Supplier 已移至下方的 SupplierManagement 模型
 
 
 class ProductCategory(TenantModel):
@@ -5136,4 +4876,13 @@ class ProductImage(TenantModel):
         }
 
 
+# ===== 向后兼容别名 =====
+# 为了保证现有代码继续工作，创建别名指向新的管理模型
 
+# 客户相关别名
+Customer = CustomerManagement
+CustomerCategory = CustomerCategoryManagement
+
+# 供应商相关别名  
+Supplier = SupplierManagement
+SupplierCategory = SupplierCategoryManagement

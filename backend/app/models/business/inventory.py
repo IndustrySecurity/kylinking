@@ -1614,6 +1614,10 @@ class MaterialInboundOrderDetail(TenantModel):
             'weight': float(self.inbound_weight) if self.inbound_weight else None,
             'length': float(self.inbound_length) if self.inbound_length else None,
             'roll_count': float(self.inbound_rolls) if self.inbound_rolls else None,
+            # 添加前端需要的字段别名
+            'inbound_weight': float(self.inbound_weight) if self.inbound_weight else None,
+            'inbound_length': float(self.inbound_length) if self.inbound_length else None,
+            'inbound_rolls': float(self.inbound_rolls) if self.inbound_rolls else None,
             'unit': self.unit,
             'weight_unit': self.weight_unit,
             'length_unit': self.length_unit,

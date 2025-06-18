@@ -72,10 +72,24 @@ class MaterialService:
         total = query.count()
         materials = query.offset((page - 1) * page_size).limit(page_size).all()
         
-        # 构建材料数据，包含用户信息
+        # 构建材料数据，包含用户信息和单位信息
         material_items = []
         for material in materials:
             material_data = material.to_dict()
+            
+            # 获取单位信息
+            if material.unit_id:
+                from app.models.basic_data import Unit
+                unit = Unit.query.get(material.unit_id)
+                if unit:
+                    material_data['unit'] = unit.unit_name
+                    material_data['unit_name'] = unit.unit_name
+                else:
+                    material_data['unit'] = ''
+                    material_data['unit_name'] = ''
+            else:
+                material_data['unit'] = ''
+                material_data['unit_name'] = ''
             
             # 获取创建人和修改人用户名
             if material.created_by:

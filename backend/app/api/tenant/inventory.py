@@ -1333,9 +1333,12 @@ def execute_material_inbound_order(order_id):
     """执行材料入库单"""
     try:
         current_user_id = get_jwt_identity()
+        current_app.logger.info(f"开始执行材料入库单: {order_id}, 操作人: {current_user_id}")
         
         service = MaterialInboundService(db.session)
         transactions = service.execute_material_inbound_order(order_id, current_user_id)
+        
+        current_app.logger.info(f"执行完成，创建了 {len(transactions)} 个库存事务")
         
         return jsonify({
             'success': True,
@@ -1347,9 +1350,33 @@ def execute_material_inbound_order(order_id):
         })
         
     except ValueError as e:
+        current_app.logger.error(f"执行材料入库单失败 - ValueError: {str(e)}")
         return jsonify({'error': str(e)}), 400
     except Exception as e:
+        current_app.logger.error(f"执行材料入库单失败 - Exception: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-inbound-orders/<order_id>/submit', methods=['POST'])
+@jwt_required()
+def submit_material_inbound_order(order_id):
+    """提交材料入库单"""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        service = MaterialInboundService(db.session)
+        order = service.submit_material_inbound_order(order_id, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': order.to_dict() if hasattr(order, 'to_dict') else order,
+            'message': '入库单提交成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @bp.route('/material-inbound-orders/<order_id>/cancel', methods=['POST'])
@@ -1640,7 +1667,7 @@ def create_material_outbound_order():
         return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>', methods=['GET'])
+@bp.route('/material-outbound-orders/<order_id>', methods=['GET'])
 @jwt_required()
 def get_material_outbound_order(order_id):
     """获取材料出库单详情"""
@@ -1668,7 +1695,7 @@ def get_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>', methods=['PUT'])
+@bp.route('/material-outbound-orders/<order_id>', methods=['PUT'])
 @jwt_required()
 def update_material_outbound_order(order_id):
     """更新材料出库单"""
@@ -1729,7 +1756,7 @@ def update_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>', methods=['DELETE'])
+@bp.route('/material-outbound-orders/<order_id>', methods=['DELETE'])
 @jwt_required()
 def delete_material_outbound_order(order_id):
     """删除材料出库单"""
@@ -1758,7 +1785,7 @@ def delete_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>/submit', methods=['POST'])
+@bp.route('/material-outbound-orders/<order_id>/submit', methods=['POST'])
 @jwt_required()
 def submit_material_outbound_order(order_id):
     """提交材料出库单"""
@@ -1790,7 +1817,7 @@ def submit_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'提交失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>/approve', methods=['POST'])
+@bp.route('/material-outbound-orders/<order_id>/approve', methods=['POST'])
 @jwt_required()
 def approve_material_outbound_order(order_id):
     """审核材料出库单"""
@@ -1830,11 +1857,14 @@ def approve_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'审核失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>/execute', methods=['POST'])
+@bp.route('/material-outbound-orders/<order_id>/execute', methods=['POST'])
 @jwt_required()
 def execute_material_outbound_order(order_id):
     """执行材料出库单"""
     try:
+        from app.models.business.inventory import Inventory, InventoryTransaction, MaterialOutboundOrderDetail
+        from decimal import Decimal
+        
         current_user = get_jwt_identity()
         
         order = MaterialOutboundOrder.query.get(order_id)
@@ -1844,18 +1874,102 @@ def execute_material_outbound_order(order_id):
         if order.status != 'approved':
             return jsonify({'code': 400, 'message': '只能执行已审核通过的出库单'}), 400
         
+        # 获取出库单明细
+        details = MaterialOutboundOrderDetail.query.filter_by(
+            material_outbound_order_id=order_id
+        ).all()
+        
+        if not details:
+            return jsonify({'code': 400, 'message': '出库单没有明细数据'}), 400
+        
+        # 处理每个明细的库存更新
+        for detail in details:
+            if not detail.material_id:
+                continue
+                
+            # 查找对应的库存记录
+            inventory = Inventory.query.filter_by(
+                warehouse_id=order.warehouse_id,
+                material_id=detail.material_id,
+                batch_number=detail.batch_number,
+                is_active=True
+            ).first()
+            
+            if not inventory:
+                # 如果没有找到精确匹配的库存（包括批次），尝试找不指定批次的库存
+                inventory = Inventory.query.filter_by(
+                    warehouse_id=order.warehouse_id,
+                    material_id=detail.material_id,
+                    is_active=True
+                ).first()
+            
+            if not inventory:
+                return jsonify({
+                    'code': 400, 
+                    'message': f'材料 {detail.material_name} 在仓库中没有库存记录'
+                }), 400
+            
+            outbound_qty = Decimal(str(detail.outbound_quantity))
+            
+            # 检查库存是否足够
+            if inventory.available_quantity < outbound_qty:
+                return jsonify({
+                    'code': 400,
+                    'message': f'材料 {detail.material_name} 库存不足，可用数量: {inventory.available_quantity}，需要出库: {outbound_qty}'
+                }), 400
+            
+            # 记录出库前数量
+            quantity_before = inventory.current_quantity
+            
+            # 更新库存数量
+            inventory.current_quantity -= outbound_qty
+            inventory.available_quantity -= outbound_qty
+            inventory.updated_by = current_user
+            inventory.updated_at = datetime.now()
+            
+            # 重新计算总成本
+            inventory.calculate_total_cost()
+            
+            # 生成库存流水记录
+            transaction = InventoryTransaction(
+                inventory_id=inventory.id,
+                warehouse_id=inventory.warehouse_id,
+                material_id=inventory.material_id,
+                transaction_number=InventoryTransaction.generate_transaction_number(),
+                transaction_type='out',
+                quantity_change=-outbound_qty,
+                quantity_before=quantity_before,
+                quantity_after=inventory.current_quantity,
+                unit=detail.unit,
+                unit_price=detail.unit_price,
+                total_amount=detail.total_amount,
+                source_document_type='material_outbound_order',
+                source_document_id=order.id,
+                source_document_number=order.order_number,
+                batch_number=detail.batch_number,
+                from_location=detail.location_code,
+                reason=f'材料出库单 {order.order_number} 执行',
+                approval_status='approved',
+                approved_by=current_user,
+                approved_at=datetime.now(),
+                created_by=current_user
+            )
+            
+            # 计算流水总金额
+            transaction.calculate_total_amount()
+            
+            db.session.add(transaction)
+        
+        # 更新出库单状态
         order.status = 'executed'
         order.executed_by = current_user
         order.executed_at = datetime.now()
-        
-        # TODO: 这里应该更新库存和生成库存事务记录
-        # 暂时只更新订单状态
         
         db.session.commit()
 
         return jsonify({
             'code': 200,
-            'message': '执行成功',
+            'message': '执行成功，库存已更新',
             'data': order.to_dict()
         })
 
@@ -1864,7 +1978,7 @@ def execute_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'执行失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<int:order_id>/cancel', methods=['POST'])
+@bp.route('/material-outbound-orders/<order_id>/cancel', methods=['POST'])
 @jwt_required()
 def cancel_material_outbound_order(order_id):
     """取消材料出库单"""

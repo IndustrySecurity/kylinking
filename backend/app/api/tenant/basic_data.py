@@ -493,7 +493,7 @@ def get_statistics():
         
         # 获取统计数据
         from sqlalchemy import func
-        from app.models.basic_data import Customer, Supplier, Product
+        from app.models.basic_data import CustomerManagement, SupplierManagement, Product
         
         stats = {
             'customers': {

@@ -4,7 +4,7 @@
 """
 
 from app.extensions import db
-from app.models.basic_data import Customer, CustomerCategory, Supplier, SupplierCategory, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType, BagTypeStructure, BagRelatedFormula, TeamGroup, TeamGroupMember, TeamGroupMachine, TeamGroupProcess, Machine, ProcessCategory
+from app.models.basic_data import CustomerManagement, CustomerCategoryManagement, SupplierManagement, SupplierCategoryManagement, Product, ProductCategory, CalculationParameter, CalculationScheme, Department, Position, Employee, Warehouse, BagType, BagTypeStructure, BagRelatedFormula, TeamGroup, TeamGroupMember, TeamGroupMachine, TeamGroupProcess, Machine, ProcessCategory
 from app.models.user import User
 from app.services.module_service import TenantConfigService
 from sqlalchemy import func, text, and_, or_
@@ -23,10 +23,10 @@ class BasicDataService:
         # 这里需要实现动态的租户表切换
         # 目前先返回基础模型，后续需要实现多租户表切换逻辑
         return {
-            'Customer': Customer,
-            'CustomerCategory': CustomerCategory,
-            'Supplier': Supplier,
-            'SupplierCategory': SupplierCategory,
+            'Customer': CustomerManagement,
+            'CustomerCategory': CustomerCategoryManagement,
+            'Supplier': SupplierManagement,
+            'SupplierCategory': SupplierCategoryManagement,
             'Product': Product,
             'ProductCategory': ProductCategory
         }
@@ -44,9 +44,9 @@ class BasicDataService:
         
         # 获取当前最大编号
         if entity_type == 'customer':
-            model = Customer
+            model = CustomerManagement
         elif entity_type == 'supplier':
-            model = Supplier
+            model = SupplierManagement
         elif entity_type == 'product':
             model = Product
         else:
@@ -89,25 +89,25 @@ class CustomerService:
         # 设置schema
         CustomerService._set_schema()
         
-        query = db.session.query(Customer)
+        query = db.session.query(CustomerManagement)
         
         # 搜索条件
         if search:
             search_pattern = f"%{search}%"
             query = query.filter(or_(
-                Customer.customer_code.ilike(search_pattern),
-                Customer.customer_name.ilike(search_pattern),
-                Customer.contact_person.ilike(search_pattern),
-                Customer.contact_phone.ilike(search_pattern)
+                CustomerManagement.customer_code.ilike(search_pattern),
+                CustomerManagement.customer_name.ilike(search_pattern),
+                CustomerManagement.contact_person.ilike(search_pattern) if hasattr(CustomerManagement, 'contact_person') else None,
+                CustomerManagement.contact_phone.ilike(search_pattern) if hasattr(CustomerManagement, 'contact_phone') else None
             ))
         
         # 分类筛选
         if category_id:
-            query = query.filter(Customer.category_id == uuid.UUID(category_id))
+            query = query.filter(CustomerManagement.customer_category_id == uuid.UUID(category_id))
         
         # 状态筛选
         if status:
-            query = query.filter(Customer.status == status)
+            query = query.filter(CustomerManagement.is_enabled == (status == 'active'))
         
         # 应用租户字段配置
         if tenant_config:
@@ -115,7 +115,7 @@ class CustomerService:
             pass
         
         # 排序
-        query = query.order_by(Customer.created_at.desc())
+        query = query.order_by(CustomerManagement.created_at.desc())
         
         # 分页
         total = query.count()
@@ -135,7 +135,7 @@ class CustomerService:
         # 设置schema
         CustomerService._set_schema()
         
-        customer = db.session.query(Customer).get(uuid.UUID(customer_id))
+        customer = db.session.query(CustomerManagement).get(uuid.UUID(customer_id))
         if not customer:
             raise ValueError("客户不存在")
         return customer.to_dict()
@@ -151,36 +151,20 @@ class CustomerService:
             if not data.get('customer_code'):
                 data['customer_code'] = BasicDataService.generate_code('customer')
             
-            # 创建客户对象
-            customer = Customer(
+            # 创建客户对象 - 使用CustomerManagement模型的字段
+            customer = CustomerManagement(
                 customer_code=data['customer_code'],
                 customer_name=data['customer_name'],
-                customer_type=data.get('customer_type', 'enterprise'),
-                category_id=uuid.UUID(data['category_id']) if data.get('category_id') else None,
+                customer_category_id=uuid.UUID(data['customer_category_id']) if data.get('customer_category_id') else None,
                 
                 # 基本信息
-                legal_name=data.get('legal_name'),
-                unified_credit_code=data.get('unified_credit_code'),
-                tax_number=data.get('tax_number'),
-                industry=data.get('industry'),
-                scale=data.get('scale'),
-                
-                # 联系信息
-                contact_person=data.get('contact_person'),
-                contact_phone=data.get('contact_phone'),
-                contact_email=data.get('contact_email'),
-                contact_address=data.get('contact_address'),
-                postal_code=data.get('postal_code'),
+                company_legal_person=data.get('company_legal_person'),
+                organization_code=data.get('organization_code'),
                 
                 # 业务信息
-                credit_limit=data.get('credit_limit', 0),
-                payment_terms=data.get('payment_terms', 30),
-                currency=data.get('currency', 'CNY'),
-                price_level=data.get('price_level', 'standard'),
-                sales_person_id=uuid.UUID(data['sales_person_id']) if data.get('sales_person_id') else None,
-                
-                # 自定义字段
-                custom_fields=data.get('custom_fields', {}),
+                credit_amount=data.get('credit_amount', 0),
+                currency_id=uuid.UUID(data['currency_id']) if data.get('currency_id') else None,
+                salesperson_id=uuid.UUID(data['salesperson_id']) if data.get('salesperson_id') else None,
                 
                 # 审计字段
                 created_by=uuid.UUID(created_by)
@@ -204,16 +188,15 @@ class CustomerService:
     def update_customer(customer_id, data, updated_by):
         """更新客户"""
         try:
-            customer = db.session.query(Customer).get(uuid.UUID(customer_id))
+            customer = db.session.query(CustomerManagement).get(uuid.UUID(customer_id))
             if not customer:
                 raise ValueError("客户不存在")
             
-            # 更新字段
+            # 更新字段 - 使用CustomerManagement模型的字段
             update_fields = [
-                'customer_name', 'customer_type', 'legal_name', 'unified_credit_code',
-                'tax_number', 'industry', 'scale', 'contact_person', 'contact_phone',
-                'contact_email', 'contact_address', 'postal_code', 'credit_limit',
-                'payment_terms', 'currency', 'price_level'
+                'customer_name', 'company_legal_person', 'organization_code',
+                'customer_abbreviation', 'customer_level', 'business_type',
+                'enterprise_type', 'company_address'
             ]
             
             for field in update_fields:
@@ -221,19 +204,21 @@ class CustomerService:
                     setattr(customer, field, data[field])
             
             # 处理外键字段
-            if 'category_id' in data:
-                customer.category_id = uuid.UUID(data['category_id']) if data['category_id'] else None
+            if 'customer_category_id' in data:
+                customer.customer_category_id = uuid.UUID(data['customer_category_id']) if data['customer_category_id'] else None
             
-            if 'sales_person_id' in data:
-                customer.sales_person_id = uuid.UUID(data['sales_person_id']) if data['sales_person_id'] else None
+            if 'salesperson_id' in data:
+                customer.salesperson_id = uuid.UUID(data['salesperson_id']) if data['salesperson_id'] else None
             
-            # 自定义字段
-            if 'custom_fields' in data:
-                customer.custom_fields = data['custom_fields']
+            if 'currency_id' in data:
+                customer.currency_id = uuid.UUID(data['currency_id']) if data['currency_id'] else None
+            
+            # 数值字段
+            if 'credit_amount' in data:
+                customer.credit_amount = data['credit_amount']
             
             # 审计字段
             customer.updated_by = uuid.UUID(updated_by)
-            customer.updated_at = datetime.now()
             
             db.session.commit()
             return customer.to_dict()
@@ -246,7 +231,7 @@ class CustomerService:
     def delete_customer(customer_id):
         """删除客户"""
         try:
-            customer = db.session.query(Customer).get(uuid.UUID(customer_id))
+            customer = db.session.query(CustomerManagement).get(uuid.UUID(customer_id))
             if not customer:
                 raise ValueError("客户不存在")
             
@@ -266,14 +251,12 @@ class CustomerService:
     def approve_customer(customer_id, approved_by):
         """审批客户"""
         try:
-            customer = db.session.query(Customer).get(uuid.UUID(customer_id))
+            customer = db.session.query(CustomerManagement).get(uuid.UUID(customer_id))
             if not customer:
                 raise ValueError("客户不存在")
             
-            customer.is_approved = True
-            customer.approved_by = uuid.UUID(approved_by)
-            customer.approved_at = datetime.now()
-            customer.status = 'active'
+            # CustomerManagement使用is_enabled字段而不是status
+            customer.is_enabled = True
             
             db.session.commit()
             return customer.to_dict()
@@ -289,12 +272,12 @@ class CustomerCategoryService:
     @staticmethod
     def get_categories(include_inactive=False):
         """获取客户分类树"""
-        query = db.session.query(CustomerCategory)
+        query = db.session.query(CustomerCategoryManagement)
         
         if not include_inactive:
-            query = query.filter(CustomerCategory.is_active == True)
+            query = query.filter(CustomerCategoryManagement.is_enabled == True)
         
-        categories = query.order_by(CustomerCategory.sort_order, CustomerCategory.category_name).all()
+        categories = query.order_by(CustomerCategoryManagement.sort_order, CustomerCategoryManagement.category_name).all()
         
         # 构建树形结构
         category_dict = {str(cat.id): cat.to_dict() for cat in categories}
@@ -316,18 +299,10 @@ class CustomerCategoryService:
     def create_category(data):
         """创建客户分类"""
         try:
-            # 计算层级
-            level = 1
-            if data.get('parent_id'):
-                parent = db.session.query(CustomerCategory).get(uuid.UUID(data['parent_id']))
-                if parent:
-                    level = parent.level + 1
-            
-            category = CustomerCategory(
-                category_code=data['category_code'],
+            # CustomerCategoryManagement不使用层级字段
+            category = CustomerCategoryManagement(
+                category_code=data.get('category_code'),
                 category_name=data['category_name'],
-                parent_id=uuid.UUID(data['parent_id']) if data.get('parent_id') else None,
-                level=level,
                 sort_order=data.get('sort_order', 0),
                 description=data.get('description')
             )
@@ -364,28 +339,26 @@ class SupplierService:
         # 设置schema
         SupplierService._set_schema()
         
-        query = db.session.query(Supplier)
+        query = db.session.query(SupplierManagement)
         
         # 搜索条件
         if search:
             search_pattern = f"%{search}%"
             query = query.filter(or_(
-                Supplier.supplier_code.ilike(search_pattern),
-                Supplier.supplier_name.ilike(search_pattern),
-                Supplier.contact_person.ilike(search_pattern),
-                Supplier.contact_phone.ilike(search_pattern)
+                SupplierManagement.supplier_code.ilike(search_pattern),
+                SupplierManagement.supplier_name.ilike(search_pattern)
             ))
         
         # 分类筛选
         if category_id:
-            query = query.filter(Supplier.category_id == uuid.UUID(category_id))
+            query = query.filter(SupplierManagement.supplier_category_id == uuid.UUID(category_id))
         
         # 状态筛选
         if status:
-            query = query.filter(Supplier.status == status)
+            query = query.filter(SupplierManagement.is_enabled == (status == 'active'))
         
         # 排序
-        query = query.order_by(Supplier.created_at.desc())
+        query = query.order_by(SupplierManagement.created_at.desc())
         
         # 分页
         total = query.count()
@@ -410,11 +383,10 @@ class SupplierService:
             if not data.get('supplier_code'):
                 data['supplier_code'] = BasicDataService.generate_code('supplier')
             
-            supplier = Supplier(
+            supplier = SupplierManagement(
                 supplier_code=data['supplier_code'],
                 supplier_name=data['supplier_name'],
-                supplier_type=data.get('supplier_type', 'material'),
-                category_id=uuid.UUID(data['category_id']) if data.get('category_id') else None,
+                supplier_category_id=uuid.UUID(data['supplier_category_id']) if data.get('supplier_category_id') else None,
                 
                 # 基本信息
                 legal_name=data.get('legal_name'),

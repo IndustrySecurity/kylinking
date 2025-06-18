@@ -232,7 +232,7 @@ const InventoryOverview = () => {
 
   const fetchMaterials = async () => {
     try {
-      const response = await api.get('/tenant/basic-data/material-management');
+      const response = await request.get('/tenant/basic-data/material-management');
       if (response.data?.success) {
         const materialData = response.data.data;
         let materials = [];
