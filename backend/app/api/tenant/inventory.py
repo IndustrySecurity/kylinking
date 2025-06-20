@@ -2409,3 +2409,449 @@ def get_warehouse_material_inventory(warehouse_id):
         current_app.logger.error(f"获取仓库材料库存失败: {str(e)}")
         return jsonify({'success': False, 'error': '获取仓库材料库存失败'}), 500
 
+# ==================== 材料调拨API ====================
+
+@bp.route('/material-transfer-orders', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_transfer_orders():
+    """获取材料调拨单列表"""
+    try:
+        from app.models.business.inventory import MaterialTransferOrder
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        transfer_number = request.args.get('transfer_number', '')
+        status = request.args.get('status', '')
+        transfer_type = request.args.get('transfer_type', '')
+        from_warehouse_id = request.args.get('from_warehouse_id', '')
+        to_warehouse_id = request.args.get('to_warehouse_id', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        
+        # 构建查询
+        query = MaterialTransferOrder.query
+        
+        if transfer_number:
+            query = query.filter(MaterialTransferOrder.transfer_number.like(f'%{transfer_number}%'))
+        if status:
+            query = query.filter(MaterialTransferOrder.status == status)
+        if transfer_type:
+            query = query.filter(MaterialTransferOrder.transfer_type == transfer_type)
+        if from_warehouse_id:
+            query = query.filter(MaterialTransferOrder.from_warehouse_id == from_warehouse_id)
+        if to_warehouse_id:
+            query = query.filter(MaterialTransferOrder.to_warehouse_id == to_warehouse_id)
+        if start_date:
+            query = query.filter(MaterialTransferOrder.transfer_date >= start_date)
+        if end_date:
+            query = query.filter(MaterialTransferOrder.transfer_date <= end_date)
+        
+        # 分页查询
+        pagination = query.order_by(MaterialTransferOrder.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        orders = []
+        for order in pagination.items:
+            order_data = order.to_dict()
+            orders.append(order_data)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'orders': orders,
+                'pagination': {
+                    'page': pagination.page,
+                    'pages': pagination.pages,
+                    'per_page': pagination.per_page,
+                    'total': pagination.total
+                }
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取材料调拨单列表失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取调拨单列表失败'}), 500
+
+@bp.route('/material-transfer-orders', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_material_transfer_order():
+    """创建材料调拨单"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        required_fields = ['from_warehouse_id', 'to_warehouse_id']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'success': False, 'error': f'{field} 不能为空'}), 400
+        
+        # 创建调拨单
+        transfer_order = MaterialTransferService.create_transfer_order(
+            data, get_jwt_identity()
+        )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': transfer_order.to_dict(),
+            'message': '调拨单创建成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"创建材料调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'error': '创建调拨单失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_transfer_order(order_id):
+    """获取材料调拨单详情"""
+    try:
+        from app.models.business.inventory import MaterialTransferOrder
+        
+        order = MaterialTransferOrder.query.get(order_id)
+        if not order:
+            return jsonify({'success': False, 'error': '调拨单不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': order.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取材料调拨单详情失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取调拨单详情失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_material_transfer_order(order_id):
+    """更新材料调拨单"""
+    try:
+        from app.models.business.inventory import MaterialTransferOrder
+        
+        order = MaterialTransferOrder.query.get(order_id)
+        if not order:
+            return jsonify({'success': False, 'error': '调拨单不存在'}), 404
+        
+        if order.status not in ['draft']:
+            return jsonify({'success': False, 'error': '只能修改草稿状态的调拨单'}), 400
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '请求数据不能为空'}), 400
+        
+        # 更新字段
+        updateable_fields = [
+            'transfer_date', 'transfer_type', 'transfer_person_id', 'department_id',
+            'transporter', 'transport_method', 'expected_arrival_date', 'notes'
+        ]
+        
+        for field in updateable_fields:
+            if field in data:
+                if field.endswith('_id') and data[field]:
+                    setattr(order, field, uuid.UUID(data[field]))
+                elif field == 'transfer_date' and data[field]:
+                    setattr(order, field, datetime.fromisoformat(data[field].replace('Z', '+00:00')))
+                elif field == 'expected_arrival_date' and data[field]:
+                    setattr(order, field, datetime.fromisoformat(data[field].replace('Z', '+00:00')))
+                else:
+                    setattr(order, field, data[field])
+        
+        order.updated_by = uuid.UUID(get_jwt_identity())
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': order.to_dict(),
+            'message': '调拨单更新成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"更新材料调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'error': '更新调拨单失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_transfer_order_details(order_id):
+    """获取材料调拨单明细"""
+    try:
+        from app.models.business.inventory import MaterialTransferOrderDetail
+        
+        details = MaterialTransferOrderDetail.query.filter(
+            MaterialTransferOrderDetail.transfer_order_id == order_id
+        ).order_by(MaterialTransferOrderDetail.line_number).all()
+        
+        details_data = [detail.to_dict() for detail in details]
+        
+        return jsonify({
+            'success': True,
+            'data': details_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取材料调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取调拨单明细失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/details', methods=['POST'])
+@jwt_required()
+@tenant_required
+def add_material_transfer_order_detail(order_id):
+    """添加材料调拨单明细"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '请求数据不能为空'}), 400
+        
+        # 验证必填字段
+        required_fields = ['material_id', 'transfer_quantity']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'success': False, 'error': f'{field} 不能为空'}), 400
+        
+        # 添加明细
+        detail = MaterialTransferService.add_transfer_detail(
+            order_id, data, get_jwt_identity()
+        )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': detail.to_dict(),
+            'message': '明细添加成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"添加材料调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'error': '添加明细失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/details/<detail_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_material_transfer_order_detail(order_id, detail_id):
+    """更新材料调拨单明细"""
+    try:
+        from app.models.business.inventory import MaterialTransferOrder, MaterialTransferOrderDetail
+        
+        # 检查调拨单状态
+        order = MaterialTransferOrder.query.get(order_id)
+        if not order:
+            return jsonify({'success': False, 'error': '调拨单不存在'}), 404
+        
+        if order.status not in ['draft']:
+            return jsonify({'success': False, 'error': '只能修改草稿状态的调拨单明细'}), 400
+        
+        detail = MaterialTransferOrderDetail.query.get(detail_id)
+        if not detail or detail.transfer_order_id != uuid.UUID(order_id):
+            return jsonify({'success': False, 'error': '明细不存在'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '请求数据不能为空'}), 400
+        
+        # 更新字段
+        if 'transfer_quantity' in data:
+            transfer_quantity = Decimal(str(data['transfer_quantity']))
+            if transfer_quantity <= 0:
+                return jsonify({'success': False, 'error': '调拨数量必须大于0'}), 400
+            
+            # 检查库存
+            from app.models.business.inventory import Inventory
+            inventory = Inventory.query.get(detail.from_inventory_id)
+            if inventory and inventory.available_quantity < transfer_quantity:
+                return jsonify({'success': False, 'error': '库存不足'}), 400
+            
+            detail.transfer_quantity = transfer_quantity
+            detail.calculate_total_amount()
+        
+        updateable_fields = ['unit_price', 'batch_number', 'notes']
+        for field in updateable_fields:
+            if field in data:
+                setattr(detail, field, data[field])
+        
+        detail.updated_by = uuid.UUID(get_jwt_identity())
+        
+        # 更新调拨单统计信息
+        order.calculate_totals()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': detail.to_dict(),
+            'message': '明细更新成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"更新材料调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'error': '更新明细失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/details/<detail_id>', methods=['DELETE'])
+@jwt_required()
+@tenant_required
+def delete_material_transfer_order_detail(order_id, detail_id):
+    """删除材料调拨单明细"""
+    try:
+        from app.models.business.inventory import MaterialTransferOrder, MaterialTransferOrderDetail
+        
+        # 检查调拨单状态
+        order = MaterialTransferOrder.query.get(order_id)
+        if not order:
+            return jsonify({'success': False, 'error': '调拨单不存在'}), 404
+        
+        if order.status not in ['draft']:
+            return jsonify({'success': False, 'error': '只能删除草稿状态的调拨单明细'}), 400
+        
+        detail = MaterialTransferOrderDetail.query.get(detail_id)
+        if not detail or detail.transfer_order_id != uuid.UUID(order_id):
+            return jsonify({'success': False, 'error': '明细不存在'}), 404
+        
+        db.session.delete(detail)
+        
+        # 更新调拨单统计信息
+        order.calculate_totals()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '明细删除成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"删除材料调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'error': '删除明细失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/confirm', methods=['POST'])
+@jwt_required()
+@tenant_required
+def confirm_material_transfer_order(order_id):
+    """确认材料调拨单"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        MaterialTransferService.confirm_transfer_order(order_id, get_jwt_identity())
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨单确认成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"确认材料调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'error': '确认调拨单失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/execute', methods=['POST'])
+@jwt_required()
+@tenant_required
+def execute_material_transfer_order(order_id):
+    """执行材料调拨单（出库）"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        MaterialTransferService.execute_transfer_order(order_id, get_jwt_identity())
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨单执行成功，材料已出库'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"执行材料调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'error': '执行调拨单失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/receive', methods=['POST'])
+@jwt_required()
+@tenant_required
+def receive_material_transfer_order(order_id):
+    """接收材料调拨单（入库）"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        MaterialTransferService.receive_transfer_order(order_id, get_jwt_identity())
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨单接收成功，材料已入库'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"接收材料调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'error': '接收调拨单失败'}), 500
+
+@bp.route('/material-transfer-orders/<order_id>/cancel', methods=['POST'])
+@jwt_required()
+@tenant_required
+def cancel_material_transfer_order(order_id):
+    """取消材料调拨单"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        data = request.get_json() or {}
+        reason = data.get('reason', '')
+        
+        MaterialTransferService.cancel_transfer_order(order_id, get_jwt_identity(), reason)
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨单取消成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"取消材料调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'error': '取消调拨单失败'}), 500
+
+@bp.route('/warehouses/<warehouse_id>/transfer-materials', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_warehouse_transfer_materials(warehouse_id):
+    """获取仓库可调拨材料库存"""
+    try:
+        from app.services.material_transfer_service import MaterialTransferService
+        
+        materials = MaterialTransferService.get_warehouse_material_inventory(warehouse_id)
+        
+        return jsonify({
+            'success': True,
+            'data': materials
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取仓库可调拨材料失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取可调拨材料失败'}), 500
+
