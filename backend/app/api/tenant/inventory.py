@@ -22,6 +22,7 @@ from app.models.business.inventory import (
     MaterialCountPlan, MaterialCountRecord
 )
 from app.models.basic_data import Material, Employee, Department
+from app.utils.database import get_current_tenant_id
 
 bp = Blueprint('inventory', __name__)
 
@@ -3165,4 +3166,442 @@ def get_warehouse_product_inventory(warehouse_id):
             'success': False,
             'message': f"获取成品库存失败: {str(e)}"
         }), 500
+
+# ===== 成品调拨管理 =====
+
+@bp.route('/product-transfer-orders', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_transfer_orders():
+    """获取成品调拨单列表"""
+    try:
+        from app.models.business.inventory import ProductTransferOrder
+        from app.services.product_transfer_service import ProductTransferService
+        
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        status = request.args.get('status')
+        transfer_type = request.args.get('transfer_type')
+        from_warehouse_id = request.args.get('from_warehouse_id')
+        to_warehouse_id = request.args.get('to_warehouse_id')
+        transfer_number = request.args.get('transfer_number')
+        
+        # 构建查询 - 移除tenant_id过滤
+        query = db.session.query(ProductTransferOrder)
+        
+        # 添加过滤条件
+        if status:
+            query = query.filter(ProductTransferOrder.status == status)
+        if transfer_type:
+            query = query.filter(ProductTransferOrder.transfer_type == transfer_type)
+        if from_warehouse_id:
+            query = query.filter(ProductTransferOrder.from_warehouse_id == from_warehouse_id)
+        if to_warehouse_id:
+            query = query.filter(ProductTransferOrder.to_warehouse_id == to_warehouse_id)
+        if transfer_number:
+            query = query.filter(ProductTransferOrder.transfer_number.ilike(f'%{transfer_number}%'))
+        
+        # 排序
+        query = query.order_by(ProductTransferOrder.created_at.desc())
+        
+        # 分页
+        pagination = query.paginate(
+            page=page, 
+            per_page=per_page, 
+            error_out=False
+        )
+        
+        # 转换数据
+        orders = []
+        for order in pagination.items:
+            order_dict = order.to_dict()
+            orders.append(order_dict)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'orders': orders,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': pagination.total,
+                    'pages': pagination.pages,
+                    'has_prev': pagination.has_prev,
+                    'has_next': pagination.has_next
+                }
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取成品调拨单列表失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_product_transfer_order():
+    """创建成品调拨单"""
+    try:
+        from app.services.product_transfer_service import ProductTransferService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        current_user_id = get_jwt_identity()
+        result = ProductTransferService.create_transfer_order(data, current_user_id)
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"创建成品调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'创建失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_transfer_order(order_id):
+    """获取成品调拨单详情"""
+    try:
+        from app.models.business.inventory import ProductTransferOrder
+        
+        order = db.session.query(ProductTransferOrder).filter_by(
+            id=order_id
+        ).first()
+        
+        if not order:
+            return jsonify({'success': False, 'message': '调拨单不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': order.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取成品调拨单详情失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_product_transfer_order(order_id):
+    """更新成品调拨单"""
+    try:
+        from app.models.business.inventory import ProductTransferOrder
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        order = db.session.query(ProductTransferOrder).filter_by(
+            id=order_id
+        ).first()
+        
+        if not order:
+            return jsonify({'success': False, 'message': '调拨单不存在'}), 404
+        
+        if order.status != 'draft':
+            return jsonify({'success': False, 'message': '只能修改草稿状态的调拨单'}), 400
+        
+        # 更新字段
+        current_user_id = get_jwt_identity()
+        updatable_fields = [
+            'transfer_type', 'transfer_person_id', 'department_id',
+            'transporter', 'transport_method', 'expected_arrival_date', 'notes'
+        ]
+        
+        for field in updatable_fields:
+            if field in data:
+                if field == 'expected_arrival_date' and data[field]:
+                    setattr(order, field, datetime.fromisoformat(data[field].replace('Z', '+00:00')))
+                else:
+                    setattr(order, field, data[field])
+        
+        order.updated_by = current_user_id
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨单更新成功',
+            'data': order.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"更新成品调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_transfer_order_details(order_id):
+    """获取成品调拨单明细"""
+    try:
+        from app.models.business.inventory import ProductTransferOrderDetail
+        
+        details = db.session.query(ProductTransferOrderDetail).filter_by(
+            transfer_order_id=order_id
+        ).order_by(ProductTransferOrderDetail.line_number).all()
+        
+        detail_list = []
+        for detail in details:
+            detail_list.append(detail.to_dict())
+        
+        return jsonify({
+            'success': True,
+            'data': detail_list
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取成品调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/details', methods=['POST'])
+@jwt_required()
+@tenant_required
+def add_product_transfer_order_detail(order_id):
+    """添加成品调拨单明细"""
+    try:
+        from app.services.product_transfer_service import ProductTransferService
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        current_user_id = get_jwt_identity()
+        result = ProductTransferService.add_transfer_detail(order_id, data, current_user_id)
+        
+        if result['success']:
+            return jsonify(result), 201
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"添加成品调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'添加失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/details/<detail_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_product_transfer_order_detail(order_id, detail_id):
+    """更新成品调拨单明细"""
+    try:
+        from app.models.business.inventory import ProductTransferOrderDetail, ProductTransferOrder
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': '请求数据不能为空'}), 400
+        
+        # 验证调拨单状态
+        order = db.session.query(ProductTransferOrder).filter_by(
+            id=order_id
+        ).first()
+        
+        if not order:
+            return jsonify({'success': False, 'message': '调拨单不存在'}), 404
+        
+        if order.status != 'draft':
+            return jsonify({'success': False, 'message': '只能修改草稿状态的调拨单明细'}), 400
+        
+        detail = db.session.query(ProductTransferOrderDetail).filter_by(
+            id=detail_id,
+            transfer_order_id=order_id
+        ).first()
+        
+        if not detail:
+            return jsonify({'success': False, 'message': '调拨明细不存在'}), 404
+        
+        # 更新明细
+        current_user_id = get_jwt_identity()
+        if 'transfer_quantity' in data:
+            detail.transfer_quantity = data['transfer_quantity']
+            detail.calculate_total_amount()
+        
+        if 'to_location_code' in data:
+            detail.to_location_code = data['to_location_code']
+        
+        if 'notes' in data:
+            detail.notes = data['notes']
+        
+        detail.updated_by = current_user_id
+        
+        # 更新调拨单统计信息
+        order.calculate_totals()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨明细更新成功',
+            'data': detail.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"更新成品调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'更新失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/details/<detail_id>', methods=['DELETE'])
+@jwt_required()
+@tenant_required
+def delete_product_transfer_order_detail(order_id, detail_id):
+    """删除成品调拨单明细"""
+    try:
+        from app.models.business.inventory import ProductTransferOrderDetail, ProductTransferOrder
+        
+        # 验证调拨单状态
+        order = db.session.query(ProductTransferOrder).filter_by(
+            id=order_id
+        ).first()
+        
+        if not order:
+            return jsonify({'success': False, 'message': '调拨单不存在'}), 404
+        
+        if order.status != 'draft':
+            return jsonify({'success': False, 'message': '只能删除草稿状态的调拨单明细'}), 400
+        
+        detail = db.session.query(ProductTransferOrderDetail).filter_by(
+            id=detail_id,
+            transfer_order_id=order_id
+        ).first()
+        
+        if not detail:
+            return jsonify({'success': False, 'message': '调拨明细不存在'}), 404
+        
+        db.session.delete(detail)
+        
+        # 更新调拨单统计信息
+        order.calculate_totals()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '调拨明细删除成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"删除成品调拨单明细失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/confirm', methods=['POST'])
+@jwt_required()
+@tenant_required
+def confirm_product_transfer_order(order_id):
+    """确认成品调拨单"""
+    try:
+        from app.services.product_transfer_service import ProductTransferService
+        
+        current_user_id = get_jwt_identity()
+        result = ProductTransferService.confirm_transfer_order(order_id, current_user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"确认成品调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'确认失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/execute', methods=['POST'])
+@jwt_required()
+@tenant_required
+def execute_product_transfer_order(order_id):
+    """执行成品调拨单"""
+    try:
+        from app.services.product_transfer_service import ProductTransferService
+        
+        current_user_id = get_jwt_identity()
+        result = ProductTransferService.execute_transfer_order(order_id, current_user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"执行成品调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'执行失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/receive', methods=['POST'])
+@jwt_required()
+@tenant_required
+def receive_product_transfer_order(order_id):
+    """收货确认成品调拨单"""
+    try:
+        from app.services.product_transfer_service import ProductTransferService
+        
+        current_user_id = get_jwt_identity()
+        result = ProductTransferService.receive_transfer_order(order_id, current_user_id)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"收货确认成品调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'收货确认失败: {str(e)}'}), 500
+
+
+@bp.route('/product-transfer-orders/<order_id>/cancel', methods=['POST'])
+@jwt_required()
+@tenant_required
+def cancel_product_transfer_order(order_id):
+    """取消成品调拨单"""
+    try:
+        from app.services.product_transfer_service import ProductTransferService
+        
+        data = request.get_json() or {}
+        reason = data.get('reason', '用户取消')
+        
+        current_user_id = get_jwt_identity()
+        result = ProductTransferService.cancel_transfer_order(order_id, current_user_id, reason)
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"取消成品调拨单失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'取消失败: {str(e)}'}), 500
+
+
+@bp.route('/warehouses/<warehouse_id>/transfer-product-inventory', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_warehouse_transfer_product_inventory(warehouse_id):
+    """获取仓库成品库存（用于调拨）"""
+    try:
+        current_app.logger.info(f"获取仓库成品库存，仓库ID: {warehouse_id}")
+        from app.services.product_transfer_service import ProductTransferService
+        
+        result = ProductTransferService.get_warehouse_product_inventory(warehouse_id)
+        current_app.logger.info(f"服务返回结果: {result}")
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"获取仓库成品库存失败: {str(e)}")
+        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'}), 500
 

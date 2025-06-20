@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Text, Numeric, Boolean, Integer, ForeignKey, func, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
-from app.models.base import TenantModel
+from app.models.base import TenantModel, BaseModel
 import uuid
 from decimal import Decimal
 
@@ -2816,3 +2816,367 @@ class ProductCountRecord(TenantModel):
     
     def __repr__(self):
         return f'<ProductCountRecord {self.product_name} Qty:{self.book_quantity}>'
+
+
+class ProductTransferOrder(TenantModel):
+    """
+    成品调拨单主表
+    """
+    
+    __tablename__ = 'product_transfer_orders'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 单据信息
+    transfer_number = Column(String(100), unique=True, nullable=False, comment='调拨单号')
+    transfer_date = Column(DateTime, default=func.now(), nullable=False, comment='发生日期')
+    transfer_type = Column(String(20), default='warehouse', comment='调拨类型')  # warehouse/department/project
+    
+    # 调出信息
+    from_warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='调出仓库ID')
+    from_warehouse_name = Column(String(200), comment='调出仓库名称')
+    from_warehouse_code = Column(String(100), comment='调出仓库编码')
+    
+    # 调入信息
+    to_warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='调入仓库ID')
+    to_warehouse_name = Column(String(200), comment='调入仓库名称')
+    to_warehouse_code = Column(String(100), comment='调入仓库编码')
+    
+    # 调拨人员信息
+    transfer_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), comment='调拨人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
+    
+    # 单据状态
+    status = Column(String(20), default='draft', comment='单据状态')  # draft/confirmed/in_transit/completed/cancelled
+    
+    # 审核信息
+    approval_status = Column(String(20), default='pending', comment='审核状态')  # pending/approved/rejected
+    approved_by = Column(UUID(as_uuid=True), comment='审核人')
+    approved_at = Column(DateTime, comment='审核时间')
+    
+    # 执行信息
+    executed_by = Column(UUID(as_uuid=True), comment='执行人')
+    executed_at = Column(DateTime, comment='执行时间')
+    
+    # 业务关联
+    source_document_type = Column(String(50), comment='来源单据类型')  # sales_order/production/manual
+    source_document_id = Column(UUID(as_uuid=True), comment='来源单据ID')
+    source_document_number = Column(String(100), comment='来源单据号')
+    
+    # 统计信息
+    total_items = Column(Integer, default=0, comment='总条目数')
+    total_quantity = Column(Numeric(15, 3), default=0, comment='总数量')
+    total_amount = Column(Numeric(18, 4), default=0, comment='总金额')
+    
+    # 物流信息
+    transporter = Column(String(200), comment='承运人')
+    transport_method = Column(String(50), comment='运输方式')  # manual/vehicle/logistics
+    expected_arrival_date = Column(DateTime, comment='预计到达时间')
+    actual_arrival_date = Column(DateTime, comment='实际到达时间')
+    
+    # 扩展字段
+    notes = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    details = relationship("ProductTransferOrderDetail", back_populates="transfer_order", cascade="all, delete-orphan")
+    transfer_person = relationship("Employee", foreign_keys=[transfer_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
+    
+    # 调拨类型常量
+    TRANSFER_TYPES = [
+        ('warehouse', '仓库调拨'),
+        ('department', '部门调拨'),
+        ('project', '项目调拨'),
+        ('emergency', '紧急调拨')
+    ]
+    
+    # 状态常量
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('confirmed', '已确认'),
+        ('in_transit', '运输中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消')
+    ]
+    
+    APPROVAL_STATUS_CHOICES = [
+        ('pending', '待审核'),
+        ('approved', '已审核'),
+        ('rejected', '已拒绝')
+    ]
+    
+    TRANSPORT_METHODS = [
+        ('manual', '人工搬运'),
+        ('vehicle', '车辆运输'),
+        ('logistics', '物流配送'),
+        ('forklift', '叉车运输')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_product_transfer_order_number', 'transfer_number'),
+        Index('ix_product_transfer_order_from_warehouse', 'from_warehouse_id'),
+        Index('ix_product_transfer_order_to_warehouse', 'to_warehouse_id'),
+        Index('ix_product_transfer_order_person', 'transfer_person_id'),
+        Index('ix_product_transfer_order_department', 'department_id'),
+        Index('ix_product_transfer_order_date', 'transfer_date'),
+        Index('ix_product_transfer_order_status', 'status'),
+    )
+    
+    def __init__(self, from_warehouse_id, to_warehouse_id, transfer_type, created_by, **kwargs):
+        """
+        初始化成品调拨单
+        """
+        self.from_warehouse_id = from_warehouse_id
+        self.to_warehouse_id = to_warehouse_id
+        self.transfer_type = transfer_type
+        self.created_by = created_by
+        
+        # 生成调拨单号
+        if not kwargs.get('transfer_number'):
+            self.transfer_number = self.generate_transfer_number()
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    @staticmethod
+    def generate_transfer_number():
+        """
+        生成调拨单号
+        """
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d')
+        import random
+        random_suffix = str(random.randint(1000, 9999))
+        return f"PT{timestamp}{random_suffix}"
+    
+    def calculate_totals(self):
+        """
+        计算总计信息
+        """
+        if self.details:
+            self.total_items = len(self.details)
+            self.total_quantity = sum(detail.transfer_quantity for detail in self.details)
+            self.total_amount = sum(detail.total_amount or 0 for detail in self.details)
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'transfer_number': self.transfer_number,
+            'transfer_date': self.transfer_date.isoformat() if self.transfer_date else None,
+            'transfer_type': self.transfer_type,
+            'from_warehouse_id': str(self.from_warehouse_id),
+            'from_warehouse_name': self.from_warehouse_name,
+            'from_warehouse_code': self.from_warehouse_code,
+            'to_warehouse_id': str(self.to_warehouse_id),
+            'to_warehouse_name': self.to_warehouse_name,
+            'to_warehouse_code': self.to_warehouse_code,
+            'transfer_person_id': str(self.transfer_person_id) if self.transfer_person_id else None,
+            'transfer_person': self.transfer_person.employee_name if self.transfer_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department': self.department.dept_name if self.department else None,
+            'status': self.status,
+            'approval_status': self.approval_status,
+            'approved_by': str(self.approved_by) if self.approved_by else None,
+            'approved_at': self.approved_at.isoformat() if self.approved_at else None,
+            'executed_by': str(self.executed_by) if self.executed_by else None,
+            'executed_at': self.executed_at.isoformat() if self.executed_at else None,
+            'source_document_type': self.source_document_type,
+            'source_document_number': self.source_document_number,
+            'total_items': self.total_items,
+            'total_quantity': float(self.total_quantity) if self.total_quantity else 0,
+            'total_amount': float(self.total_amount) if self.total_amount else 0,
+            'transporter': self.transporter,
+            'transport_method': self.transport_method,
+            'expected_arrival_date': self.expected_arrival_date.isoformat() if self.expected_arrival_date else None,
+            'actual_arrival_date': self.actual_arrival_date.isoformat() if self.actual_arrival_date else None,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ProductTransferOrder {self.transfer_number}>'
+
+
+class ProductTransferOrderDetail(TenantModel):
+    """
+    成品调拨单明细表
+    """
+    
+    __tablename__ = 'product_transfer_order_details'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联主表
+    transfer_order_id = Column(UUID(as_uuid=True), ForeignKey('product_transfer_orders.id'), nullable=False, comment='调拨单ID')
+    
+    # 产品信息
+    product_id = Column(UUID(as_uuid=True), nullable=False, comment='产品ID')
+    product_name = Column(String(200), nullable=False, comment='产品名称')
+    product_code = Column(String(100), comment='产品编码')
+    product_spec = Column(String(500), comment='产品规格')
+    
+    # 库存信息
+    from_inventory_id = Column(UUID(as_uuid=True), comment='调出库存ID')
+    current_stock = Column(Numeric(15, 3), comment='当前库存数量')
+    available_quantity = Column(Numeric(15, 3), comment='可用库存数量')
+    
+    # 调拨数量信息
+    transfer_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='调拨数量')
+    actual_transfer_quantity = Column(Numeric(15, 3), comment='实际调拨数量')
+    received_quantity = Column(Numeric(15, 3), comment='已收货数量')
+    
+    # 单位信息
+    unit = Column(String(20), nullable=False, comment='基本单位')
+    
+    # 批次信息
+    batch_number = Column(String(100), comment='批次号')
+    production_date = Column(DateTime, comment='生产日期')
+    expiry_date = Column(DateTime, comment='到期日期')
+    
+    # 成本信息
+    unit_cost = Column(Numeric(15, 4), comment='单位成本')
+    total_amount = Column(Numeric(18, 4), comment='总金额')
+    
+    # 库位信息
+    from_location_code = Column(String(100), comment='调出库位')
+    to_location_code = Column(String(100), comment='建议入库位')
+    actual_to_location_code = Column(String(100), comment='实际入库位')
+    
+    # 质量信息
+    quality_status = Column(String(20), default='qualified', comment='质量状态')  # qualified/unqualified/pending
+    quality_certificate = Column(String(200), comment='质检证书')
+    
+    # 产品特有字段
+    customer_id = Column(UUID(as_uuid=True), comment='客户ID')
+    customer_name = Column(String(200), comment='客户名称')
+    bag_type_id = Column(UUID(as_uuid=True), comment='袋型ID')
+    bag_type_name = Column(String(100), comment='袋型名称')
+    
+    # 包装信息
+    package_unit = Column(String(20), comment='包装单位')
+    package_quantity = Column(Numeric(15, 3), comment='包装数量')
+    net_weight = Column(Numeric(10, 3), comment='净重(kg)')
+    gross_weight = Column(Numeric(10, 3), comment='毛重(kg)')
+    
+    # 状态
+    detail_status = Column(String(20), default='pending', comment='明细状态')  # pending/confirmed/in_transit/received/cancelled
+    
+    # 行号和排序
+    line_number = Column(Integer, comment='行号')
+    sort_order = Column(Integer, default=0, comment='排序')
+    
+    # 扩展字段
+    notes = Column(Text, comment='备注')
+    custom_fields = Column(JSONB, default={}, comment='自定义字段')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    transfer_order = relationship("ProductTransferOrder", back_populates="details")
+    
+    # 状态常量
+    DETAIL_STATUS_CHOICES = [
+        ('pending', '待调拨'),
+        ('confirmed', '已确认'),
+        ('in_transit', '运输中'),
+        ('received', '已收货'),
+        ('cancelled', '已取消')
+    ]
+    
+    QUALITY_STATUS_CHOICES = [
+        ('qualified', '合格'),
+        ('unqualified', '不合格'),
+        ('pending', '待检')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_product_transfer_detail_order', 'transfer_order_id'),
+        Index('ix_product_transfer_detail_product', 'product_id'),
+        Index('ix_product_transfer_detail_inventory', 'from_inventory_id'),
+        Index('ix_product_transfer_detail_status', 'detail_status'),
+    )
+    
+    def __init__(self, transfer_order_id, product_id, product_name, unit, transfer_quantity, created_by, **kwargs):
+        """
+        初始化成品调拨单明细
+        """
+        self.transfer_order_id = transfer_order_id
+        self.product_id = product_id
+        self.product_name = product_name
+        self.unit = unit
+        self.transfer_quantity = transfer_quantity
+        self.created_by = created_by
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def calculate_total_amount(self):
+        """
+        计算总金额
+        """
+        if self.unit_cost and self.transfer_quantity:
+            self.total_amount = self.unit_cost * self.transfer_quantity
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'transfer_order_id': str(self.transfer_order_id),
+            'product_id': str(self.product_id),
+            'product_name': self.product_name,
+            'product_code': self.product_code,
+            'product_spec': self.product_spec,
+            'from_inventory_id': str(self.from_inventory_id) if self.from_inventory_id else None,
+            'current_stock': float(self.current_stock) if self.current_stock else 0,
+            'available_quantity': float(self.available_quantity) if self.available_quantity else 0,
+            'transfer_quantity': float(self.transfer_quantity),
+            'actual_transfer_quantity': float(self.actual_transfer_quantity) if self.actual_transfer_quantity else None,
+            'received_quantity': float(self.received_quantity) if self.received_quantity else 0,
+            'unit': self.unit,
+            'batch_number': self.batch_number,
+            'production_date': self.production_date.isoformat() if self.production_date else None,
+            'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
+            'unit_cost': float(self.unit_cost) if self.unit_cost else None,
+            'total_amount': float(self.total_amount) if self.total_amount else 0,
+            'from_location_code': self.from_location_code,
+            'to_location_code': self.to_location_code,
+            'actual_to_location_code': self.actual_to_location_code,
+            'quality_status': self.quality_status,
+            'quality_certificate': self.quality_certificate,
+            'customer_id': str(self.customer_id) if self.customer_id else None,
+            'customer_name': self.customer_name,
+            'bag_type_id': str(self.bag_type_id) if self.bag_type_id else None,
+            'bag_type_name': self.bag_type_name,
+            'package_unit': self.package_unit,
+            'package_quantity': float(self.package_quantity) if self.package_quantity else None,
+            'net_weight': float(self.net_weight) if self.net_weight else None,
+            'gross_weight': float(self.gross_weight) if self.gross_weight else None,
+            'detail_status': self.detail_status,
+            'line_number': self.line_number,
+            'sort_order': self.sort_order,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ProductTransferOrderDetail {self.product_name}: {self.transfer_quantity}{self.unit}>'
