@@ -119,7 +119,11 @@ class MaterialInboundService:
     ) -> Dict[str, Any]:
         """获取材料入库单列表"""
         self._set_schema()
-        query = self.db.query(MaterialInboundOrder)
+        from sqlalchemy.orm import joinedload
+        query = self.db.query(MaterialInboundOrder).options(
+            joinedload(MaterialInboundOrder.inbound_person),
+            joinedload(MaterialInboundOrder.department)
+        )
         
         if warehouse_id:
             query = query.filter(MaterialInboundOrder.warehouse_id == warehouse_id)
@@ -143,8 +147,7 @@ class MaterialInboundService:
             search_filter = or_(
                 MaterialInboundOrder.order_number.ilike(f'%{search}%'),
                 MaterialInboundOrder.supplier_name.ilike(f'%{search}%'),
-                MaterialInboundOrder.inbound_person.ilike(f'%{search}%'),
-                MaterialInboundOrder.department.ilike(f'%{search}%')
+                MaterialInboundOrder.notes.ilike(f'%{search}%')
             )
             query = query.filter(search_filter)
         
@@ -169,7 +172,11 @@ class MaterialInboundService:
     def get_material_inbound_order_by_id(self, order_id: str) -> Optional[MaterialInboundOrder]:
         """根据ID获取材料入库单详情"""
         self._set_schema()
-        order = self.db.query(MaterialInboundOrder).filter(MaterialInboundOrder.id == order_id).first()
+        from sqlalchemy.orm import joinedload
+        order = self.db.query(MaterialInboundOrder).options(
+            joinedload(MaterialInboundOrder.inbound_person),
+            joinedload(MaterialInboundOrder.department)
+        ).filter(MaterialInboundOrder.id == order_id).first()
         
         if order:
             # 填充仓库信息
@@ -210,6 +217,14 @@ class MaterialInboundService:
         # 转换日期字段
         if 'order_date' in data and isinstance(data['order_date'], str):
             data['order_date'] = datetime.fromisoformat(data['order_date'].replace('Z', '+00:00'))
+        
+        # 处理UUID字段
+        if 'inbound_person_id' in data and data['inbound_person_id']:
+            data['inbound_person_id'] = uuid.UUID(data['inbound_person_id'])
+        if 'department_id' in data and data['department_id']:
+            data['department_id'] = uuid.UUID(data['department_id'])
+        if 'supplier_id' in data and data['supplier_id']:
+            data['supplier_id'] = uuid.UUID(data['supplier_id'])
         
         order = MaterialInboundOrder(
             warehouse_id=uuid.UUID(warehouse_id),

@@ -145,10 +145,9 @@ const MaterialInbound = ({ onBack }) => {
   // 状态配置
   const statusConfig = {
     draft: { color: 'default', text: '草稿' },
-    submitted: { color: 'processing', text: '已提交' },
-    confirmed: { color: 'success', text: '已确认' },
-    completed: { color: 'purple', text: '已完成' },
-    rejected: { color: 'error', text: '已拒绝' },
+    confirmed: { color: 'processing', text: '已确认' },
+    in_progress: { color: 'processing', text: '执行中' },
+    completed: { color: 'success', text: '已完成' },
     cancelled: { color: 'warning', text: '已取消' }
   };
 
@@ -342,7 +341,7 @@ const MaterialInbound = ({ onBack }) => {
       form.resetFields();
       form.setFieldsValue({
         order_date: dayjs(),
-        order_type: 'purchase'
+        order_type: 'material'
       });
       setDetails([]);
     }
@@ -604,12 +603,30 @@ const MaterialInbound = ({ onBack }) => {
       dataIndex: 'inbound_person',
       key: 'inbound_person',
       width: 100,
+      render: (personName, record) => {
+        // 优先显示后端返回的员工姓名
+        if (personName) return personName;
+        
+        // 后备方案：根据inbound_person_id查找
+        if (!record.inbound_person_id) return '-';
+        const employee = employees.find(emp => emp.id === record.inbound_person_id);
+        return employee ? (employee.employee_name || employee.name) : '未知员工';
+      }
     },
     {
       title: '部门',
       dataIndex: 'department',
       key: 'department',
       width: 100,
+      render: (deptName, record) => {
+        // 优先显示后端返回的部门名称
+        if (deptName) return deptName;
+        
+        // 后备方案：根据department_id查找
+        if (!record.department_id) return '-';
+        const department = departments.find(dept => dept.id === record.department_id);
+        return department ? (department.department_name || department.dept_name || department.name) : '未知部门';
+      }
     },
     {
       title: '供应商',
@@ -895,9 +912,9 @@ const MaterialInbound = ({ onBack }) => {
                 <Col span={6}>
                   <Form.Item name="order_type" label="入库类型">
                     <Select placeholder="选择入库类型" allowClear>
-                      <Option value="purchase">采购入库</Option>
-                      <Option value="return">退货入库</Option>
-                      <Option value="transfer">调拨入库</Option>
+                      <Option value="material">材料入库</Option>
+                      <Option value="auxiliary">辅料入库</Option>
+                      <Option value="packaging">包装入库</Option>
                       <Option value="other">其他入库</Option>
                     </Select>
                   </Form.Item>
@@ -1037,9 +1054,9 @@ const MaterialInbound = ({ onBack }) => {
                     rules={[{ required: true, message: '请选择入库类型' }]}
                   >
                     <Select placeholder="请选择入库类型">
-                      <Option value="purchase">采购入库</Option>
-                      <Option value="return">退货入库</Option>
-                      <Option value="transfer">调拨入库</Option>
+                      <Option value="material">材料入库</Option>
+                      <Option value="auxiliary">辅料入库</Option>
+                      <Option value="packaging">包装入库</Option>
                       <Option value="other">其他入库</Option>
                     </Select>
                   </Form.Item>
@@ -1074,7 +1091,7 @@ const MaterialInbound = ({ onBack }) => {
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item
-                    name="inbound_person"
+                    name="inbound_person_id"
                     label="入库人"
                     rules={[{ required: true, message: '请选择入库人' }]}
                   >
@@ -1087,7 +1104,7 @@ const MaterialInbound = ({ onBack }) => {
                       }}
                     >
                       {employees.map(emp => (
-                        <Option key={emp.id} value={emp.employee_name || emp.name}>
+                        <Option key={emp.id} value={emp.id}>
                           {emp.employee_name || emp.name}
                         </Option>
                       ))}
@@ -1096,7 +1113,7 @@ const MaterialInbound = ({ onBack }) => {
                 </Col>
                 <Col span={12}>
                   <Form.Item
-                    name="department"
+                    name="department_id"
                     label="部门"
                     rules={[{ required: true, message: '请选择部门' }]}
                   >
@@ -1109,7 +1126,7 @@ const MaterialInbound = ({ onBack }) => {
                       }}
                     >
                       {departments.map(dept => (
-                        <Option key={dept.id || dept.value} value={dept.department_name || dept.dept_name || dept.name || dept.label}>
+                        <Option key={dept.id || dept.value} value={dept.id}>
                           {dept.department_name || dept.dept_name || dept.name || dept.label}
                         </Option>
                       ))}
@@ -1211,11 +1228,31 @@ const MaterialInbound = ({ onBack }) => {
               <Row gutter={16}>
                 <Col span={8}>
                   <Text strong>入库人：</Text>
-                  <Text>{currentRecord.inbound_person}</Text>
+                  <Text>
+                    {(() => {
+                      // 优先显示后端返回的员工姓名
+                      if (currentRecord.inbound_person) return currentRecord.inbound_person;
+                      
+                      // 后备方案：根据inbound_person_id查找
+                      if (!currentRecord.inbound_person_id) return '-';
+                      const employee = employees.find(emp => emp.id === currentRecord.inbound_person_id);
+                      return employee ? (employee.employee_name || employee.name) : '未知员工';
+                    })()}
+                  </Text>
                 </Col>
                 <Col span={8}>
                   <Text strong>部门：</Text>
-                  <Text>{currentRecord.department}</Text>
+                  <Text>
+                    {(() => {
+                      // 优先显示后端返回的部门名称
+                      if (currentRecord.department) return currentRecord.department;
+                      
+                      // 后备方案：根据department_id查找
+                      if (!currentRecord.department_id) return '-';
+                      const department = departments.find(dept => dept.id === currentRecord.department_id);
+                      return department ? (department.department_name || department.dept_name || department.name) : '未知部门';
+                    })()}
+                  </Text>
                 </Col>
                 <Col span={8}>
                   <Text strong>供应商：</Text>

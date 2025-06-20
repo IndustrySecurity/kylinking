@@ -79,7 +79,11 @@ class OutboundOrderService:
     ) -> Dict[str, Any]:
         """获取出库单列表"""
         self._set_schema()
-        query = self.db.query(OutboundOrder)
+        from sqlalchemy.orm import joinedload
+        query = self.db.query(OutboundOrder).options(
+            joinedload(OutboundOrder.outbound_person),
+            joinedload(OutboundOrder.department)
+        )
         
         if warehouse_id:
             query = query.filter(OutboundOrder.warehouse_id == warehouse_id)
@@ -106,18 +110,11 @@ class OutboundOrderService:
         
         if search:
             search_filter = or_(
-                OutboundOrder.order_number.ilike(f'%{search}%')
+                OutboundOrder.order_number.ilike(f'%{search}%'),
+                OutboundOrder.warehouse_name.ilike(f'%{search}%'),
+                OutboundOrder.customer_name.ilike(f'%{search}%'),
+                OutboundOrder.remark.ilike(f'%{search}%')
             )
-            # 安全地检查字段是否存在
-            if hasattr(OutboundOrder, 'warehouse_name'):
-                search_filter = or_(search_filter, OutboundOrder.warehouse_name.ilike(f'%{search}%'))
-            if hasattr(OutboundOrder, 'outbound_person'):
-                search_filter = or_(search_filter, OutboundOrder.outbound_person.ilike(f'%{search}%'))
-            if hasattr(OutboundOrder, 'department'):
-                search_filter = or_(search_filter, OutboundOrder.department.ilike(f'%{search}%'))
-            if hasattr(OutboundOrder, 'customer_name'):
-                search_filter = or_(search_filter, OutboundOrder.customer_name.ilike(f'%{search}%'))
-            
             query = query.filter(search_filter)
         
         # 获取总数
@@ -140,7 +137,11 @@ class OutboundOrderService:
     def get_outbound_order_by_id(self, order_id: str) -> Optional[Dict[str, Any]]:
         """根据ID获取出库单详情"""
         self._set_schema()
-        order = self.db.query(OutboundOrder).filter(OutboundOrder.id == order_id).first()
+        from sqlalchemy.orm import joinedload
+        order = self.db.query(OutboundOrder).options(
+            joinedload(OutboundOrder.outbound_person),
+            joinedload(OutboundOrder.department)
+        ).filter(OutboundOrder.id == order_id).first()
         
         if not order:
             return None
@@ -174,22 +175,14 @@ class OutboundOrderService:
                 order_number=order_number,
                 order_date=datetime.strptime(data['order_date'], '%Y-%m-%d') if data.get('order_date') else datetime.now(),
                 status='draft',
-                approval_status='pending'
+                approval_status='pending',
+                outbound_person_id=uuid.UUID(data['outbound_person_id']) if data.get('outbound_person_id') else None,
+                department_id=uuid.UUID(data['department_id']) if data.get('department_id') else None,
+                customer_name=data.get('customer_name', ''),
+                customer_id=uuid.UUID(data['customer_id']) if data.get('customer_id') else None,
+                pallet_count=data.get('pallet_count', 0),
+                remark=data.get('remark', '')
             )
-            
-            # 设置其他字段（如果存在）
-            if hasattr(order, 'outbound_person'):
-                order.outbound_person = data.get('outbound_person', '')
-            if hasattr(order, 'department'):
-                order.department = data.get('department', '')
-            if hasattr(order, 'customer_name'):
-                order.customer_name = data.get('customer_name', '')
-            if hasattr(order, 'customer_id') and data.get('customer_id'):
-                order.customer_id = uuid.UUID(data['customer_id'])
-            if hasattr(order, 'pallet_count'):
-                order.pallet_count = data.get('pallet_count', 0)
-            if hasattr(order, 'remark'):
-                order.remark = data.get('remark', '')
             
             self.db.add(order)
             self.db.flush()  # 获取order.id

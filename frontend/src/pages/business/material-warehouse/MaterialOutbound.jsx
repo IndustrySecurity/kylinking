@@ -382,8 +382,8 @@ const MaterialOutbound = ({ onBack }) => {
         warehouse_id: values.warehouse_id,
         order_date: values.order_date ? values.order_date.format('YYYY-MM-DD') : null,
         order_type: values.order_type,
-        outbound_person: values.outbound_person,
-        department: values.department,
+        outbound_person_id: values.outbound_person_id,
+        department_id: values.department_id,
         source_order_type: values.source_order_type,
         source_order_number: values.source_order_number,
         remarks: values.remarks,
@@ -1028,19 +1028,20 @@ const MaterialOutbound = ({ onBack }) => {
             </Col>
             <Col span={12}>
                   <Form.Item
-                    name="outbound_person"
+                name="outbound_person_id"
                     label="出库人"
                     rules={[{ required: true, message: '请选择出库人' }]}
                   >
                     <Select
                       showSearch
                       placeholder="请选择出库人"
+                  allowClear
                       filterOption={(input, option) => {
                         return option?.children?.toLowerCase().includes(input.toLowerCase());
                       }}
                     >
                       {employees.map(emp => (
-                        <Option key={emp.id} value={emp.employee_name || emp.name}>
+                    <Option key={emp.id} value={emp.id}>
                           {emp.employee_name || emp.name}
                         </Option>
                       ))}
@@ -1052,7 +1053,7 @@ const MaterialOutbound = ({ onBack }) => {
           <Row gutter={16}>
             <Col span={12}>
                   <Form.Item
-                    name="department"
+                    name="department_id"
                     label="部门"
                     rules={[{ required: true, message: '请选择部门' }]}
                   >
@@ -1065,7 +1066,7 @@ const MaterialOutbound = ({ onBack }) => {
                       }}
                     >
                       {departments.map(dept => (
-                        <Option key={dept.value || dept.id} value={dept.value || dept.id}>
+                        <Option key={dept.value || dept.id} value={dept.id}>
                           {dept.label || dept.dept_name || dept.department_name || dept.name}
                         </Option>
                       ))}

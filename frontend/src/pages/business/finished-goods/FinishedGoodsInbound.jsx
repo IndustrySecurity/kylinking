@@ -376,13 +376,33 @@ const FinishedGoodsInbound = () => {
       title: '入库人',
       dataIndex: 'inbound_person',
       key: 'inbound_person',
-      width: 100
+      width: 100,
+      render: (text, record) => {
+        // 优先显示后端返回的员工姓名
+        if (text) return text;
+        // 后备方案：根据ID查找
+        if (record.inbound_person_id && employees.length > 0) {
+          const employee = employees.find(emp => emp.id === record.inbound_person_id);
+          return employee ? (employee.employee_name || employee.name) : '未知员工';
+        }
+        return '-';
+      }
     },
     {
       title: '部门',
       dataIndex: 'department',
       key: 'department',
-      width: 100
+      width: 100,
+      render: (text, record) => {
+        // 优先显示后端返回的部门名称
+        if (text) return text;
+        // 后备方案：根据ID查找
+        if (record.department_id && departments.length > 0) {
+          const department = departments.find(dept => dept.id === record.department_id);
+          return department ? (department.department_name || department.name) : '未知部门';
+        }
+        return '-';
+      }
     },
     {
       title: '托盘套数',
@@ -1097,10 +1117,10 @@ const FinishedGoodsInbound = () => {
                   </Form.Item>
                 </Col>
                 <Col span={6}>
-                  <Form.Item name="inbound_person" label="入库人">
-                    <Select placeholder="选择入库人" allowClear>
+                  <Form.Item name="inbound_person_id" label="入库人">
+                    <Select placeholder="选择入库人">
                       {employees.map((employee, index) => (
-                        <Option key={employee.id || `employee-${index}`} value={employee.employee_name || employee.name || ''}>
+                        <Option key={employee.id || `employee-${index}`} value={employee.id}>
                           {employee.employee_name || employee.name || '未知员工'}
                         </Option>
                       ))}
@@ -1108,10 +1128,10 @@ const FinishedGoodsInbound = () => {
                   </Form.Item>
                 </Col>
                 <Col span={6}>
-                  <Form.Item name="department" label="部门">
-                    <Select placeholder="选择部门" allowClear>
+                  <Form.Item name="department_id" label="部门">
+                    <Select placeholder="选择部门">
                       {departments.map((dept, index) => (
-                        <Option key={dept.id || `dept-${index}`} value={dept.department_name || dept.name || ''}>
+                        <Option key={dept.id || `dept-${index}`} value={dept.id}>
                           {dept.department_name || dept.name || '未知部门'}
                         </Option>
                       ))}
@@ -1233,12 +1253,12 @@ const FinishedGoodsInbound = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                name="inbound_person"
+                name="inbound_person_id"
                 label="入库人"
               >
                 <Select placeholder="请选择入库人">
                   {employees.map((employee, index) => (
-                    <Option key={employee.id || `employee-${index}`} value={employee.employee_name || employee.name || ''}>
+                    <Option key={employee.id || `employee-${index}`} value={employee.id}>
                       {employee.employee_name || employee.name || '未知员工'}
                     </Option>
                   ))}
@@ -1247,12 +1267,12 @@ const FinishedGoodsInbound = () => {
             </Col>
             <Col span={12}>
               <Form.Item
-                name="department"
+                name="department_id"
                 label="部门"
               >
                 <Select placeholder="请选择部门">
                   {departments.map((dept, index) => (
-                    <Option key={dept.id || `dept-${index}`} value={dept.department_name || dept.name || ''}>
+                    <Option key={dept.id || `dept-${index}`} value={dept.id}>
                       {dept.department_name || dept.name || '未知部门'}
                     </Option>
                   ))}
@@ -1376,11 +1396,23 @@ const FinishedGoodsInbound = () => {
               <Row gutter={16}>
                 <Col span={8}>
                   <Text strong>入库人：</Text>
-                  <Text>{currentOrder.inbound_person}</Text>
+                  <Text>
+                    {(() => {
+                      if (!currentOrder.inbound_person_id) return '-';
+                      const employee = employees.find(emp => emp.id === currentOrder.inbound_person_id);
+                      return employee ? (employee.employee_name || employee.name) : '未知员工';
+                    })()}
+                  </Text>
                 </Col>
                 <Col span={8}>
                   <Text strong>部门：</Text>
-                  <Text>{currentOrder.department}</Text>
+                  <Text>
+                    {(() => {
+                      if (!currentOrder.department_id) return '-';
+                      const department = departments.find(dept => dept.id === currentOrder.department_id);
+                      return department ? (department.department_name || department.name) : '未知部门';
+                    })()}
+                  </Text>
                 </Col>
                 <Col span={8}>
                   <Text strong>托盘套数：</Text>

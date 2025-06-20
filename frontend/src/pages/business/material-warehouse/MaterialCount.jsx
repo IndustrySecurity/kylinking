@@ -1,432 +1,811 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Table, Button, Input, Select, Form, Modal, message, Space, Tag, Typography, DatePicker, Progress } from 'antd';
 import {
-  PlusOutlined,
-  SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  CheckOutlined,
-  CloseOutlined,
-  ReloadOutlined,
-  EyeOutlined,
-  PlayCircleOutlined,
-  FileTextOutlined
-} from '@ant-design/icons';
-import styled from 'styled-components';
+  Card,
+  Table,
+  Button,
+  Space,
+  Modal,
+  Form,
+  Select,
+  DatePicker,
+  Input,
+  message,
+  Tag,
+  Tabs,
+  InputNumber,
+  Tooltip,
+  Popconfirm
+} from 'antd';
+import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import {
+  getMaterialCountPlans,
+  createMaterialCountPlan,
+  getMaterialCountRecords,
+  updateMaterialCountRecord,
+  startMaterialCountPlan,
+  completeMaterialCountPlan,
+  adjustMaterialCountInventory,
+  getWarehouseMaterialInventory,
+  getWarehouses
+} from '../../../api/business/materialCount';
+import request from '../../../utils/request';
 
-const { Title } = Typography;
-const { Search } = Input;
 const { Option } = Select;
 const { TextArea } = Input;
-const { RangePicker } = DatePicker;
+const { TabPane } = Tabs;
 
-// Styled Card with box-shadow and hover effect
-const StyledCard = styled(Card)`
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: none;
-`;
-
-// Page section title
-const SectionTitle = styled(Title)`
-  position: relative;
-  margin-bottom: 24px !important;
-  font-weight: 600 !important;
+// 可编辑单元格组件
+const EditableCell = ({ value, onSave, record, disabled }) => {
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
   
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 0;
-    width: 48px;
-    height: 3px;
-    background: #1890ff;
-    border-radius: 2px;
-  }
-`;
+  // 如果没有实盘数量，自动填入账面数量作为默认值
+  const defaultValue = value !== null && value !== undefined ? value : record.book_quantity;
+  const isDefaultValue = value === null || value === undefined || Number(value).toFixed(3) === Number(record.book_quantity || 0).toFixed(3);
 
-const MaterialCount = () => {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [form] = Form.useForm();
+  const handleSave = async () => {
+    // 将输入值转换为数字进行比较
+    const numericInput = Number(inputValue);
+    const numericValue = Number(value);
+    const bookQuantity = Number(record.book_quantity || 0);
+    
+    // 如果输入值和当前值不同，才保存
+    // 对于没有修改的情况，不发送请求
+    const hasChanged = !isNaN(numericInput) && (
+      isNaN(numericValue) ? numericInput !== bookQuantity : numericInput !== numericValue
+    );
+    
+    if (hasChanged) {
+      await onSave(record.id, numericInput);
+    }
+    setEditing(false);
+  };
 
-  // 模拟数据
-  const mockData = [
-    {
-      key: '1',
-      planNumber: 'CNT202412250001',
-      planName: '材料仓库年末盘点',
-      countType: 'full',
-      planStartDate: '2024-12-25',
-      planEndDate: '2024-12-27',
-      warehouseNames: ['原材料一库', '原材料二库'],
-      supervisor: '张主管',
-      status: 'confirmed',
-      progress: 65,
-      totalItems: 150,
-      countedItems: 98,
-    },
-    {
-      key: '2',
-      planNumber: 'CNT202412250002',
-      planName: '重要材料抽盘',
-      countType: 'spot',
-      planStartDate: '2024-12-25',
-      planEndDate: '2024-12-25',
-      warehouseNames: ['原材料一库'],
-      supervisor: '李主管',
-      status: 'in_progress',
-      progress: 80,
-      totalItems: 50,
-      countedItems: 40,
-    },
-  ];
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    }
+  };
 
   useEffect(() => {
-    loadData();
+    // 如果没有实盘数量，自动设置为账面数量
+    if ((value === null || value === undefined) && record.book_quantity) {
+      setInputValue(Number(record.book_quantity).toFixed(3));
+    } else {
+      setInputValue(value);
+    }
+  }, [value, record.book_quantity]);
+
+  if (disabled) {
+    return (
+      <span style={{
+        color: isDefaultValue ? '#1890ff' : '#000',
+        fontWeight: isDefaultValue ? 'bold' : 'normal'
+      }}>
+        {defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(3) : '0.000'}
+      </span>
+    );
+  }
+
+  if (editing) {
+    return (
+      <InputNumber
+        value={inputValue}
+        onChange={setInputValue}
+        onBlur={handleSave}
+        onPressEnter={handleKeyPress}
+        style={{ width: '100%' }}
+        precision={3}
+        min={0}
+        autoFocus
+      />
+    );
+  }
+
+  const displayValue = defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(3) : Number(record.book_quantity || 0).toFixed(3);
+
+  return (
+    <div
+      onClick={() => setEditing(true)}
+      style={{
+        cursor: 'pointer',
+        padding: '4px 8px',
+        border: '1px dashed #d9d9d9',
+        borderRadius: '4px',
+        minHeight: '32px',
+        display: 'flex',
+        alignItems: 'center',
+        backgroundColor: isDefaultValue ? '#e6f7ff' : '#fff',
+        color: isDefaultValue ? '#1890ff' : '#000',
+        fontWeight: isDefaultValue ? 'bold' : 'normal',
+        border: isDefaultValue ? '1px dashed #1890ff' : '1px dashed #d9d9d9'
+      }}
+          >
+        {displayValue}
+      </div>
+  );
+};
+
+const MaterialCount = () => {
+  const [loading, setLoading] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [records, setRecords] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [viewModalVisible, setViewModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('plans');
+  const [form] = Form.useForm();
+  const [createForm] = Form.useForm();
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+
+  // 获取盘点计划列表
+  const fetchPlans = async () => {
+    try {
+      setLoading(true);
+      const response = await getMaterialCountPlans();
+      if (response.data.success) {
+        setPlans(response.data.data.plans || []);
+      }
+    } catch (error) {
+      message.error('获取盘点计划失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 获取仓库列表（只显示材料仓）
+  const fetchWarehouses = async () => {
+    try {
+      const response = await getWarehouses();
+      if (response.data.success) {
+        const warehouseData = response.data.data;
+        
+        let warehouses = [];
+        if (Array.isArray(warehouseData)) {
+          // 处理选项格式数据，只保留材料仓
+          warehouses = warehouseData
+            .filter(item => {
+              const warehouseType = item.warehouse_type || item.type;
+              return warehouseType === 'material' || warehouseType === '材料仓';
+            })
+            .map(item => ({
+              id: item.value || item.id,
+              name: item.label || item.warehouse_name || item.name,
+              code: item.code || item.warehouse_code,
+              type: item.warehouse_type || item.type
+            }));
+        } else if (warehouseData?.warehouses && Array.isArray(warehouseData.warehouses)) {
+          // 处理分页格式数据，只保留材料仓
+          warehouses = warehouseData.warehouses
+            .filter(item => {
+              const warehouseType = item.warehouse_type || item.type;
+              return warehouseType === 'material' || warehouseType === '材料仓';
+            })
+            .map(item => ({
+              id: item.id,
+              name: item.warehouse_name || item.name,
+              code: item.warehouse_code || item.code,
+              type: item.warehouse_type || item.type
+            }));
+        }
+        
+        setWarehouses(warehouses);
+      } else {
+        message.error('获取仓库列表失败');
+      }
+    } catch (error) {
+      console.error('获取仓库列表错误:', error);
+      message.error('获取仓库列表失败');
+    }
+  };
+
+  // 获取盘点记录
+  const fetchRecords = async (planId) => {
+    try {
+    setLoading(true);
+      const response = await getMaterialCountRecords(planId);
+      if (response.data.success) {
+        setRecords(response.data.data || []);
+      }
+    } catch (error) {
+      message.error('获取盘点记录失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 加载员工列表
+  const loadEmployees = async () => {
+    try {
+      const response = await request('/tenant/basic-data/employees/options');
+      if (response?.data?.success && response.data.data) {
+        const employeeData = Array.isArray(response.data.data) ? response.data.data : [];
+        setEmployees(employeeData);
+      } else {
+        setEmployees([]);
+      }
+    } catch (error) {
+      console.error('加载员工列表失败:', error);
+      setEmployees([]);
+    }
+  };
+
+  // 加载部门列表
+  const loadDepartments = async () => {
+    try {
+      const response = await request('/tenant/basic-data/departments/options');
+      if (response?.data?.success && response.data.data) {
+        const departmentData = Array.isArray(response.data.data) ? response.data.data : [];
+        setDepartments(departmentData);
+      } else {
+        setDepartments([]);
+      }
+    } catch (error) {
+      console.error('加载部门列表失败:', error);
+      setDepartments([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+    fetchWarehouses();
+    loadEmployees();
+    loadDepartments();
   }, []);
 
-  const loadData = () => {
-    setLoading(true);
-    // 模拟API调用
-    setTimeout(() => {
-      setData(mockData);
+  // 创建盘点计划
+  const handleCreatePlan = async (values) => {
+    if (!values.warehouse_id) {
+      message.error('请先选择仓库');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // 先获取选定仓库的材料库存，确保仓库有材料
+      const inventoryResponse = await getWarehouseMaterialInventory(values.warehouse_id);
+      if (!inventoryResponse.data.success || !inventoryResponse.data.data.length) {
+        message.warning('该仓库没有材料库存，无法创建盘点计划');
+        setLoading(false);
+        return;
+      }
+      
+      const planData = {
+        warehouse_id: values.warehouse_id,
+        warehouse_name: warehouses.find(w => w.id === values.warehouse_id)?.name || '',
+        warehouse_code: warehouses.find(w => w.id === values.warehouse_id)?.code || '',
+        count_person_id: values.count_person_id,
+        department_id: values.department_id,
+        count_date: values.count_date.toISOString(),
+        notes: values.notes
+      };
+
+      const response = await createMaterialCountPlan(planData);
+      
+      if (response.data) {
+        message.success('盘点计划创建成功');
+        setCreateModalVisible(false);
+        form.resetFields();
+        fetchPlans();
+      }
+    } catch (error) {
+      console.error('创建盘点计划失败:', error);
+      message.error(error.response?.data?.message || '创建盘点计划失败');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
-  const handleCreatePlan = () => {
-    setSelectedRecord(null);
-    form.resetFields();
-    setModalVisible(true);
-  };
-
-  const handleEditPlan = (record) => {
-    setSelectedRecord(record);
-    form.setFieldsValue({
-      ...record,
-      planDateRange: [record.planStartDate, record.planEndDate]
-    });
-    setModalVisible(true);
-  };
-
-  const handleViewDetail = (record) => {
-    setSelectedRecord(record);
-    setDetailModalVisible(true);
-  };
-
-  const handleStartCount = (record) => {
-    Modal.confirm({
-      title: '确认开始盘点',
-      content: `确定要开始盘点计划 ${record.planNumber} 吗？`,
-      onOk: () => {
+  // 开始盘点
+  const handleStart = async (planId) => {
+    try {
+      const response = await startMaterialCountPlan(planId);
+      if (response.data.success) {
         message.success('盘点已开始');
-        loadData();
-      },
-    });
+        fetchPlans();
+      } else {
+        message.error(response.data.error || '开始盘点失败');
+      }
+    } catch (error) {
+      message.error('开始盘点失败');
+    }
   };
 
-  const handleCompleteCount = (record) => {
-    Modal.confirm({
-      title: '确认完成盘点',
-      content: `确定要完成盘点计划 ${record.planNumber} 吗？`,
-      onOk: () => {
+  // 完成盘点
+  const handleComplete = async (planId) => {
+    try {
+      const response = await completeMaterialCountPlan(planId);
+      if (response.data.success) {
         message.success('盘点已完成');
-        loadData();
-      },
-    });
+        fetchPlans();
+      } else {
+        message.error(response.data.error || '完成盘点失败');
+      }
+    } catch (error) {
+      message.error('完成盘点失败');
+    }
   };
 
-  const getCountTypeTag = (type) => {
-    const typeMap = {
-      full: { color: 'blue', text: '全盘' },
-      partial: { color: 'green', text: '部分盘点' },
-      spot: { color: 'orange', text: '抽盘' },
-      cycle: { color: 'purple', text: '循环盘点' },
-    };
-    const config = typeMap[type] || { color: 'default', text: type };
-    return <Tag color={config.color}>{config.text}</Tag>;
+  // 调整库存
+  const handleAdjust = async (planId) => {
+    try {
+      const response = await adjustMaterialCountInventory(planId);
+      if (response.data.success) {
+        message.success(response.data.message || '库存调整完成');
+        fetchPlans(); // 刷新计划列表，更新状态
+        // 如果当前查看的就是这个计划，同时刷新记录
+        if (selectedPlan && selectedPlan.id === planId) {
+          fetchRecords(planId);
+        }
+      } else {
+        message.error(response.data.error || '库存调整失败');
+      }
+    } catch (error) {
+      message.error('库存调整失败');
+    }
   };
 
+  // 查看盘点详情
+  const handleView = (plan) => {
+    setSelectedPlan(plan);
+    fetchRecords(plan.id);
+    setViewModalVisible(true);
+  };
+
+  // 保存实盘数量
+  const handleSaveActualQuantity = async (recordId, actualQuantity) => {
+    try {
+      // 确保actualQuantity是数字类型
+      const numericQuantity = Number(actualQuantity);
+      if (isNaN(numericQuantity)) {
+        message.error('请输入有效的数字');
+        return;
+      }
+      
+      const response = await updateMaterialCountRecord(
+        selectedPlan.id,
+        recordId,
+        { actual_quantity: numericQuantity }
+      );
+      
+      if (response.data.success) {
+        // 更新本地记录
+        const updatedRecord = response.data.data;
+        setRecords(records.map(record => 
+          record.id === recordId ? updatedRecord : record
+        ));
+        message.success('实盘数量已保存');
+      } else {
+        message.error(response.data.error || '保存失败');
+      }
+    } catch (error) {
+      console.error('保存实盘数量失败:', error);
+      message.error(error.response?.data?.error || '保存实盘数量失败');
+    }
+  };
+
+  // 状态标签
   const getStatusTag = (status) => {
     const statusMap = {
       draft: { color: 'default', text: '草稿' },
-      confirmed: { color: 'blue', text: '已确认' },
-      in_progress: { color: 'processing', text: '盘点中' },
+      in_progress: { color: 'processing', text: '进行中' },
       completed: { color: 'success', text: '已完成' },
-      cancelled: { color: 'error', text: '已取消' },
+      adjusted: { color: 'purple', text: '已调整' }
     };
     const config = statusMap[status] || { color: 'default', text: status };
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  const columns = [
+  // 计算差异样式
+  const getVarianceStyle = (variance) => {
+    if (!variance || variance === 0) return {};
+    return {
+      color: variance > 0 ? '#52c41a' : '#ff4d4f',
+      fontWeight: 'bold'
+    };
+  };
+
+  // 盘点计划表格列
+  const planColumns = [
     {
-      title: '盘点计划号',
-      dataIndex: 'planNumber',
-      key: 'planNumber',
-      width: 150,
-    },
-    {
-      title: '计划名称',
-      dataIndex: 'planName',
-      key: 'planName',
-      width: 200,
-    },
-    {
-      title: '盘点类型',
-      dataIndex: 'countType',
-      key: 'countType',
-      width: 100,
-      render: (type) => getCountTypeTag(type),
-    },
-    {
-      title: '计划时间',
-      key: 'planDate',
-      width: 200,
-      render: (_, record) => `${record.planStartDate} ~ ${record.planEndDate}`,
+      title: '盘点单号',
+      dataIndex: 'count_number',
+      key: 'count_number',
+      width: 150
     },
     {
       title: '仓库',
-      dataIndex: 'warehouseNames',
-      key: 'warehouseNames',
-      width: 150,
-      render: (warehouses) => warehouses?.join(', '),
+      dataIndex: 'warehouse_name',
+      key: 'warehouse_name',
+      width: 120
     },
     {
-      title: '监盘人',
-      dataIndex: 'supervisor',
-      key: 'supervisor',
+      title: '仓库编号',
+      dataIndex: 'warehouse_code',
+      key: 'warehouse_code',
+      width: 100
+    },
+    {
+      title: '盘点人',
+      dataIndex: 'count_person',
+      key: 'count_person',
       width: 100,
+      render: (text, record) => {
+        // 优先显示后端返回的员工姓名
+        if (text) return text;
+        // 后备方案：根据ID查找
+        if (record.count_person_id && employees.length > 0) {
+          const employee = employees.find(emp => emp.id === record.count_person_id);
+          return employee ? (employee.employee_name || employee.name) : '未知员工';
+        }
+        return '-';
+      }
+    },
+    {
+      title: '部门',
+      dataIndex: 'department',
+      key: 'department',
+      width: 100,
+      render: (text, record) => {
+        // 优先显示后端返回的部门名称
+        if (text) return text;
+        // 后备方案：根据ID查找
+        if (record.department_id && departments.length > 0) {
+          const department = departments.find(dept => dept.id === record.department_id);
+          return department ? (department.department_name || department.name) : '未知部门';
+        }
+        return '-';
+      }
+    },
+    {
+      title: '发生日期',
+      dataIndex: 'count_date',
+      key: 'count_date',
+      width: 120,
+      render: (date) => dayjs(date).format('YYYY-MM-DD')
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status) => getStatusTag(status),
-    },
-    {
-      title: '进度',
-      key: 'progress',
-      width: 150,
-      render: (_, record) => (
-        <div>
-          <Progress percent={record.progress} size="small" />
-          <span style={{ fontSize: '12px', color: '#666' }}>
-            {record.countedItems}/{record.totalItems}
-          </span>
-        </div>
-      ),
+      render: (status) => getStatusTag(status)
     },
     {
       title: '操作',
       key: 'action',
-      width: 250,
+      width: 200,
       render: (_, record) => (
-        <Space size="small">
-          <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => handleViewDetail(record)}>
+        <Space>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => handleView(record)}
+          >
             查看
           </Button>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEditPlan(record)}>
-            编辑
-          </Button>
-          {record.status === 'confirmed' && (
-            <Button type="link" size="small" icon={<PlayCircleOutlined />} onClick={() => handleStartCount(record)}>
-              开始
-            </Button>
+          {record.status === 'draft' && (
+            <Popconfirm
+              title="确定开始此盘点吗？"
+              onConfirm={() => handleStart(record.id)}
+            >
+              <Button type="link">开始</Button>
+            </Popconfirm>
           )}
           {record.status === 'in_progress' && (
-            <Button type="link" size="small" icon={<CheckOutlined />} onClick={() => handleCompleteCount(record)}>
-              完成
-            </Button>
+            <Popconfirm
+              title="确定完成此盘点吗？"
+              onConfirm={() => handleComplete(record.id)}
+            >
+              <Button type="link">完成</Button>
+            </Popconfirm>
           )}
-          <Button type="link" size="small" icon={<FileTextOutlined />}>
-            报告
-          </Button>
+          {record.status === 'completed' && (
+            <Popconfirm
+              title="确定要调整库存吗？此操作不可撤销！"
+              onConfirm={() => handleAdjust(record.id)}
+            >
+              <Button type="link" danger>调整库存</Button>
+            </Popconfirm>
+          )}
+          {record.status === 'adjusted' && (
+            <span style={{ color: '#8c8c8c' }}>已完成调整</span>
+          )}
         </Space>
-      ),
+      )
+    }
+  ];
+
+  // 盘点记录表格列
+  const recordColumns = [
+    {
+      title: '材料编码',
+      dataIndex: 'material_code',
+      key: 'material_code',
+      width: 120,
+      fixed: 'left'
     },
+    {
+      title: '材料名称',
+      dataIndex: 'material_name',
+      key: 'material_name',
+      width: 200,
+      fixed: 'left'
+    },
+    {
+      title: '规格',
+      dataIndex: 'material_spec',
+      key: 'material_spec',
+      width: 150
+    },
+    {
+      title: '单位',
+      dataIndex: 'unit',
+      key: 'unit',
+      width: 80,
+      align: 'center'
+    },
+    {
+      title: '账面数量',
+      dataIndex: 'book_quantity',
+      key: 'book_quantity',
+      width: 120,
+      align: 'right',
+      render: (value) => value ? Number(value).toFixed(3) : '0.000'
+    },
+    {
+      title: (
+        <div>
+          实盘数量
+        </div>
+      ),
+      dataIndex: 'actual_quantity',
+      key: 'actual_quantity',
+      width: 140,
+      align: 'right',
+      render: (value, record) => (
+        <EditableCell
+          value={value}
+          onSave={handleSaveActualQuantity}
+          record={record}
+          disabled={selectedPlan?.status !== 'in_progress'}
+        />
+      )
+    },
+    {
+      title: '差异数量',
+      dataIndex: 'variance_quantity',
+      key: 'variance_quantity',
+      width: 120,
+      align: 'right',
+      render: (value) => (
+        <span style={getVarianceStyle(value)}>
+          {value ? Number(value).toFixed(3) : '0.000'}
+        </span>
+      )
+    },
+    {
+      title: '差异率(%)',
+      dataIndex: 'variance_rate',
+      key: 'variance_rate',
+      width: 100,
+      align: 'right',
+      render: (value) => (
+        <span style={getVarianceStyle(value)}>
+          {value ? `${Number(value).toFixed(2)}%` : '0.00%'}
+        </span>
+      )
+    },
+    {
+      title: '批次号',
+      dataIndex: 'batch_number',
+      key: 'batch_number',
+      width: 120
+    },
+    {
+      title: '库位',
+      dataIndex: 'location_code',
+      key: 'location_code',
+      width: 100
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status) => {
+        const statusMap = {
+          pending: { color: 'default', text: '待盘点' },
+          counted: { color: 'processing', text: '已盘点' },
+          adjusted: { color: 'success', text: '已调整' }
+        };
+        const config = statusMap[status] || { color: 'default', text: status };
+        return <Tag color={config.color}>{config.text}</Tag>;
+      }
+    }
   ];
 
   return (
-    <div>
-      <SectionTitle level={4}>材料盘点管理</SectionTitle>
-      
-      <StyledCard>
-        {/* 操作按钮栏 */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col>
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreatePlan}>
-              新增盘点计划
+    <div style={{ padding: 24 }}>
+      <Card title="材料盘点管理">
+        <Tabs activeKey={activeTab} onChange={setActiveTab}>
+          <TabPane tab="盘点计划" key="plans">
+            <div style={{ marginBottom: 16 }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setCreateModalVisible(true)}
+              >
+                新建盘点
             </Button>
-          </Col>
-          <Col>
-            <Button icon={<ReloadOutlined />} onClick={loadData}>
-              刷新
-            </Button>
-          </Col>
-          <Col flex="auto" />
-          <Col>
-            <Search
-              placeholder="搜索计划号、计划名称..."
-              allowClear
-              style={{ width: 300 }}
-            />
-          </Col>
-        </Row>
+            </div>
 
-        {/* 数据表格 */}
         <Table
-          columns={columns}
-          dataSource={data}
+              columns={planColumns}
+              dataSource={plans}
+              rowKey="id"
           loading={loading}
-          scroll={{ x: 1300 }}
+              scroll={{ x: 1000 }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                showTotal: (total) => `共 ${total} 条记录`
           }}
         />
-      </StyledCard>
+          </TabPane>
+        </Tabs>
+      </Card>
 
-      {/* 新增/编辑弹窗 */}
+      {/* 创建盘点计划Modal */}
       <Modal
-        title={selectedRecord ? "编辑盘点计划" : "新增盘点计划"}
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        onOk={() => {
-          form.validateFields().then((values) => {
-            console.log('Form values:', values);
-            message.success('操作成功');
-            setModalVisible(false);
-            loadData();
-          });
+        title="新建盘点计划"
+        open={createModalVisible}
+        onCancel={() => {
+          setCreateModalVisible(false);
+          form.resetFields();
         }}
-        width={800}
+        footer={null}
+        width={600}
       >
-        <Form form={form} layout="vertical">
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="计划名称" name="planName" rules={[{ required: true, message: '请输入计划名称' }]}>
-                <Input placeholder="请输入计划名称" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="盘点类型" name="countType" rules={[{ required: true, message: '请选择盘点类型' }]}>
-                <Select placeholder="请选择盘点类型">
-                  <Option value="full">全盘</Option>
-                  <Option value="partial">部分盘点</Option>
-                  <Option value="spot">抽盘</Option>
-                  <Option value="cycle">循环盘点</Option>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleCreatePlan}
+        >
+          <Form.Item
+            name="warehouse_id"
+            label="选择仓库"
+            rules={[{ required: true, message: '请选择仓库' }]}
+          >
+            <Select
+              placeholder="请选择仓库"
+              showSearch
+              optionFilterProp="children"
+              onChange={(value) => {
+                const warehouse = warehouses.find(w => w.id === value);
+                if (warehouse) {
+                  form.setFieldsValue({
+                    warehouse_name: warehouse.name,
+                    warehouse_code: warehouse.code
+                  });
+                }
+              }}
+            >
+              {warehouses.map(warehouse => (
+                <Option key={warehouse.id} value={warehouse.id}>
+                  {warehouse.name} {warehouse.code ? `(${warehouse.code})` : ''}
+                </Option>
+              ))}
                 </Select>
               </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="计划时间" name="planDateRange" rules={[{ required: true, message: '请选择计划时间' }]}>
-                <RangePicker style={{ width: '100%' }} />
+
+          <Form.Item name="warehouse_name" hidden>
+            <Input />
               </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="监盘人" name="supervisor" rules={[{ required: true, message: '请输入监盘人' }]}>
-                <Input placeholder="请输入监盘人" />
+
+          <Form.Item name="warehouse_code" hidden>
+            <Input />
               </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item label="盘点仓库" name="warehouseIds" rules={[{ required: true, message: '请选择盘点仓库' }]}>
-                <Select mode="multiple" placeholder="请选择盘点仓库">
-                  <Option value="1">原材料一库</Option>
-                  <Option value="2">原材料二库</Option>
-                  <Option value="3">辅料仓库</Option>
+
+          <Form.Item
+            name="count_person_id"
+            label="盘点人"
+            rules={[{ required: true, message: '请选择盘点人' }]}
+          >
+            <Select placeholder="请选择盘点人">
+              {Array.isArray(employees) && employees.map((employee) => (
+                <Option key={employee.id} value={employee.id}>
+                  {employee.employee_name || employee.name}
+                </Option>
+              ))}
                 </Select>
               </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item label="盘点小组" name="countTeam">
-                <Select mode="tags" placeholder="请输入盘点小组成员">
-                  <Option value="张三">张三</Option>
-                  <Option value="李四">李四</Option>
-                  <Option value="王五">王五</Option>
+
+          <Form.Item
+            name="department_id"
+            label="部门"
+          >
+            <Select placeholder="请选择部门" allowClear>
+              {Array.isArray(departments) && departments.map((dept) => (
+                <Option key={dept.id} value={dept.id}>
+                  {dept.dept_name || dept.department_name || dept.name}
+                </Option>
+              ))}
                 </Select>
               </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item label="盘点说明" name="description">
-                <TextArea rows={3} placeholder="请输入盘点说明" />
+
+          <Form.Item
+            name="count_date"
+            label="发生日期"
+            rules={[{ required: true, message: '请选择发生日期' }]}
+            initialValue={dayjs()}
+          >
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="notes"
+            label="备注"
+          >
+            <TextArea rows={3} placeholder="请输入备注" />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">
+                创建
+              </Button>
+              <Button onClick={() => {
+                setCreateModalVisible(false);
+                form.resetFields();
+              }}>
+                取消
+              </Button>
+            </Space>
               </Form.Item>
-            </Col>
-          </Row>
         </Form>
       </Modal>
 
-      {/* 详情查看弹窗 */}
+      {/* 查看盘点详情Modal */}
       <Modal
-        title="盘点计划详情"
-        open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setDetailModalVisible(false)}>
-            关闭
-          </Button>
-        ]}
-        width={1000}
+        title={`盘点详情 - ${selectedPlan?.count_number}`}
+        open={viewModalVisible}
+        onCancel={() => {
+          setViewModalVisible(false);
+          setSelectedPlan(null);
+          setRecords([]);
+        }}
+        footer={null}
+        width={1400}
       >
-        {selectedRecord && (
+        {selectedPlan && (
           <div>
-            <Row gutter={16}>
-              <Col span={8}>
-                <p><strong>计划号:</strong> {selectedRecord.planNumber}</p>
-              </Col>
-              <Col span={8}>
-                <p><strong>计划名称:</strong> {selectedRecord.planName}</p>
-              </Col>
-              <Col span={8}>
-                <p><strong>盘点类型:</strong> {getCountTypeTag(selectedRecord.countType)}</p>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={8}>
-                <p><strong>开始时间:</strong> {selectedRecord.planStartDate}</p>
-              </Col>
-              <Col span={8}>
-                <p><strong>结束时间:</strong> {selectedRecord.planEndDate}</p>
-              </Col>
-              <Col span={8}>
-                <p><strong>监盘人:</strong> {selectedRecord.supervisor}</p>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={8}>
-                <p><strong>状态:</strong> {getStatusTag(selectedRecord.status)}</p>
-              </Col>
-              <Col span={8}>
-                <p><strong>进度:</strong> {selectedRecord.progress}%</p>
-              </Col>
-              <Col span={8}>
-                <p><strong>盘点项目:</strong> {selectedRecord.countedItems}/{selectedRecord.totalItems}</p>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={24}>
-                <p><strong>盘点仓库:</strong> {selectedRecord.warehouseNames?.join(', ')}</p>
-              </Col>
-            </Row>
-            {/* TODO: 添加盘点记录表格 */}
-            <div style={{ marginTop: 16 }}>
-              <h4>盘点记录</h4>
-              <p>此处将显示详细的盘点记录信息...</p>
+            <div style={{ marginBottom: 16, padding: 16, background: '#f5f5f5', borderRadius: 4 }}>
+              <Space size="large">
+                <span><strong>仓库：</strong>{selectedPlan.warehouse_name}</span>
+                <span><strong>盘点人：</strong>{selectedPlan.count_person}</span>
+                <span><strong>部门：</strong>{selectedPlan.department}</span>
+                <span><strong>发生日期：</strong>{dayjs(selectedPlan.count_date).format('YYYY-MM-DD')}</span>
+                <span><strong>状态：</strong>{getStatusTag(selectedPlan.status)}</span>
+              </Space>
             </div>
+
+            <Table
+              columns={recordColumns}
+              dataSource={records}
+              rowKey="id"
+              loading={loading}
+              scroll={{ x: 1400, y: 400 }}
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total) => `共 ${total} 条记录`
+              }}
+            />
           </div>
         )}
       </Modal>

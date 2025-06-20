@@ -752,7 +752,11 @@ class InventoryService:
     ) -> Dict[str, Any]:
         """获取入库单列表"""
         self._set_schema()
-        query = self.db.query(InboundOrder)
+        from sqlalchemy.orm import joinedload
+        query = self.db.query(InboundOrder).options(
+            joinedload(InboundOrder.inbound_person),
+            joinedload(InboundOrder.department)
+        )
         
         if warehouse_id:
             query = query.filter(InboundOrder.warehouse_id == warehouse_id)
@@ -773,14 +777,12 @@ class InventoryService:
             query = query.filter(InboundOrder.order_date <= end_date)
         
         if search:
-            query = query.filter(
-                or_(
+            search_filter = or_(
                     InboundOrder.order_number.ilike(f'%{search}%'),
                     InboundOrder.warehouse_name.ilike(f'%{search}%'),
-                    InboundOrder.inbound_person.ilike(f'%{search}%'),
-                    InboundOrder.department.ilike(f'%{search}%')
+                InboundOrder.notes.ilike(f'%{search}%')
                 )
-            )
+            query = query.filter(search_filter)
         
         total = query.count()
         orders = query.order_by(InboundOrder.created_at.desc()).offset(
@@ -801,7 +803,11 @@ class InventoryService:
     def get_inbound_order_by_id(self, order_id: str) -> Optional[InboundOrder]:
         """根据ID获取入库单"""
         self._set_schema()
-        order = self.db.query(InboundOrder).filter(InboundOrder.id == order_id).first()
+        from sqlalchemy.orm import joinedload
+        order = self.db.query(InboundOrder).options(
+            joinedload(InboundOrder.inbound_person),
+            joinedload(InboundOrder.department)
+        ).filter(InboundOrder.id == order_id).first()
         if order:
             # 填充仓库信息
             self._fill_warehouse_info([order])
@@ -832,14 +838,14 @@ class InventoryService:
         inbound_order = InboundOrder(
             warehouse_id=data.get('warehouse_id'),
             order_type=data.get('order_type', 'finished_goods'),
+            created_by=uuid.UUID(created_by),
             warehouse_name=data.get('warehouse_name'),
-            inbound_person=data.get('inbound_person'),
-            department=data.get('department'),
+            inbound_person_id=data.get('inbound_person_id'),
+            department_id=data.get('department_id'),
             order_date=data.get('order_date'),
             pallet_barcode=data.get('pallet_barcode'),
             pallet_count=data.get('pallet_count'),
-            notes=data.get('notes'),
-            created_by=uuid.UUID(created_by)
+            notes=data.get('notes')
         )
         
         self.db.add(inbound_order)

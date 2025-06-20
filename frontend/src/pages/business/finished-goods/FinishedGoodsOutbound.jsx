@@ -397,7 +397,17 @@ const FinishedGoodsOutbound = () => {
       title: '出库人',
       dataIndex: 'outbound_person',
       key: 'outbound_person',
-      width: 100
+      width: 100,
+      render: (text, record) => {
+        // 优先显示后端返回的员工姓名
+        if (text) return text;
+        // 后备方案：根据ID查找
+        if (record.outbound_person_id && employees.length > 0) {
+          const employee = employees.find(emp => emp.id === record.outbound_person_id);
+          return employee ? (employee.employee_name || employee.name) : '未知员工';
+        }
+        return '-';
+      }
     },
     {
       title: '客户',
@@ -417,7 +427,17 @@ const FinishedGoodsOutbound = () => {
       title: '部门',
       dataIndex: 'department',
       key: 'department',
-      width: 100
+      width: 100,
+      render: (text, record) => {
+        // 优先显示后端返回的部门名称
+        if (text) return text;
+        // 后备方案：根据ID查找
+        if (record.department_id && departments.length > 0) {
+          const department = departments.find(dept => dept.id === record.department_id);
+          return department ? (department.department_name || department.name) : '未知部门';
+        }
+        return '-';
+      }
     },
     {
       title: '托盘套数',
@@ -1020,10 +1040,10 @@ const FinishedGoodsOutbound = () => {
                   </Form.Item>
                 </Col>
                 <Col span={6}>
-                  <Form.Item name="outbound_person" label="出库人">
+                  <Form.Item name="outbound_person_id" label="出库人">
                     <Select placeholder="选择出库人" allowClear>
                       {employees.map((employee, index) => (
-                        <Option key={employee.id || `employee-${index}`} value={employee.employee_name || employee.name || ''}>
+                        <Option key={employee.id || `employee-${index}`} value={employee.id}>
                           {employee.employee_name || employee.name || '未知员工'}
                         </Option>
                       ))}
@@ -1031,10 +1051,10 @@ const FinishedGoodsOutbound = () => {
                   </Form.Item>
                 </Col>
                 <Col span={6}>
-                  <Form.Item name="department" label="部门">
+                  <Form.Item name="department_id" label="部门">
                     <Select placeholder="选择部门" allowClear>
                       {departments.map((dept, index) => (
-                        <Option key={dept.id || `dept-${index}`} value={dept.department_name || dept.name || ''}>
+                        <Option key={dept.id || `dept-${index}`} value={dept.id}>
                           {dept.department_name || dept.name || '未知部门'}
                         </Option>
                       ))}
@@ -1170,15 +1190,11 @@ const FinishedGoodsOutbound = () => {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="outbound_person" label="出库人">
-                    <Select placeholder="请选择出库人" showSearch allowClear
-                      filterOption={(input, option) =>
-                        (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-                      }
-                    >
-                      {employees.map(employee => (
-                        <Option key={employee.id} value={employee.employee_name || employee.name}>
-                          {employee.employee_name || employee.name}
+                  <Form.Item name="outbound_person_id" label="出库人">
+                    <Select placeholder="请选择出库人" allowClear>
+                      {employees.map((employee, index) => (
+                        <Option key={employee.id || `employee-${index}`} value={employee.id}>
+                          {employee.employee_name || employee.name || '未知员工'}
                         </Option>
                       ))}
                     </Select>
@@ -1189,10 +1205,10 @@ const FinishedGoodsOutbound = () => {
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item name="department_id" label="部门">
-                    <Select placeholder="请选择部门">
-                      {departments.map(department => (
-                        <Option key={department.id} value={department.id}>
-                          {department.department_name}
+                    <Select placeholder="请选择部门" allowClear>
+                      {departments.map((dept, index) => (
+                        <Option key={dept.id || `dept-${index}`} value={dept.id}>
+                          {dept.department_name || dept.name || '未知部门'}
                         </Option>
                       ))}
                     </Select>

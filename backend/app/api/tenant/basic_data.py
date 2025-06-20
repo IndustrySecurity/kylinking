@@ -4392,10 +4392,23 @@ def get_department_options():
     """获取部门选项数据"""
     try:
         options = DepartmentService.get_department_options()
+        # 转换为一致的格式，兼容员工选项格式
+        formatted_options = [
+            {
+                'id': option['value'],
+                'value': option['value'], 
+                'label': option['label'],
+                'dept_name': option['label'],
+                'department_name': option['label'],
+                'name': option['label'],
+                'code': option.get('code', '')
+            }
+            for option in options
+        ]
         
         return jsonify({
             'success': True,
-            'data': options
+            'data': formatted_options
         })
         
     except Exception as e:

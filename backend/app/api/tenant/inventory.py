@@ -18,8 +18,10 @@ import uuid
 from app.models.business.inventory import (
     MaterialInboundOrder, MaterialInboundOrderDetail, 
     MaterialOutboundOrder, MaterialOutboundOrderDetail,
-    Inventory, InventoryTransaction
+    Inventory, InventoryTransaction,
+    MaterialCountPlan, MaterialCountRecord
 )
+from app.models.basic_data import Material, Employee, Department
 
 bp = Blueprint('inventory', __name__)
 
@@ -1058,19 +1060,18 @@ def create_material_inbound_order():
         service = MaterialInboundService(db.session)
         order = service.create_material_inbound_order(data, current_user_id)
         
-        # 查询部门名称（如果department是UUID）
-        department_name = order.department
-        if order.department:
-            try:
-                import uuid
-                dept_uuid = uuid.UUID(order.department)
-                from app.models.organization import Department
-                dept = db.session.query(Department).filter(Department.id == dept_uuid).first()
-                if dept:
-                    department_name = dept.department_name
-            except (ValueError, TypeError):
-                # 如果不是UUID，保持原值
-                pass
+        # 获取部门名称和员工名称
+        try:
+            department_name = order.department.dept_name if order.department else None
+        except Exception as e:
+            current_app.logger.warning(f"获取部门名称失败: {e}")
+            department_name = None
+            
+        try:
+            inbound_person_name = order.inbound_person.employee_name if order.inbound_person else None
+        except Exception as e:
+            current_app.logger.warning(f"获取员工名称失败: {e}")
+            inbound_person_name = None
         
         # 为了避免SQLAlchemy懒加载问题，手动构建返回数据
         order_data = {
@@ -1080,13 +1081,17 @@ def create_material_inbound_order():
             'order_type': order.order_type,
             'warehouse_id': str(order.warehouse_id) if order.warehouse_id else None,
             'warehouse_name': order.warehouse_name,
-            'inbound_person': order.inbound_person,
+            'inbound_person_id': str(order.inbound_person_id) if order.inbound_person_id else None,
+            'inbound_person': inbound_person_name,
+            'department_id': str(order.department_id) if order.department_id else None,
             'department': department_name,
             'status': order.status,
             'approval_status': order.approval_status,
+            'supplier_id': str(order.supplier_id) if order.supplier_id else None,
             'supplier_name': order.supplier_name,
             'notes': order.notes,
-            'created_at': order.created_at.isoformat() if order.created_at else None
+            'created_at': order.created_at.isoformat() if order.created_at else None,
+            'updated_at': order.updated_at.isoformat() if order.updated_at else None
         }
         
         return jsonify({
@@ -1595,8 +1600,8 @@ def create_material_outbound_order():
     try:
         data = request.get_json()
         
-        # 验证必需字段 - 修复：warehouse_name不是必须的，可以从warehouse_id获取
-        required_fields = ['warehouse_id', 'order_type', 'outbound_person', 'department']
+        # 验证必需字段 - 修复：使用新的外键字段名
+        required_fields = ['warehouse_id', 'order_type']
         for field in required_fields:
             if not data.get(field):
                 return jsonify({'code': 400, 'message': f'缺少必需字段: {field}'}), 400
@@ -1619,33 +1624,18 @@ def create_material_outbound_order():
                 current_app.logger.warning(f"获取仓库名称失败: {e}")
                 data['warehouse_name'] = f"仓库{data.get('warehouse_id')}"
         
-        # 处理部门名称映射
-        department_id = data.get('department')
-        department_name = None
-        if department_id:
-            try:
-                # 尝试获取部门名称
-                dept_response = get_department_options()
-                if dept_response[1] == 200:
-                    dept_data = dept_response[0].get_json()
-                    if dept_data.get('success'):
-                        departments = dept_data.get('data', [])
-                        dept = next((d for d in departments if str(d.get('value')) == str(department_id)), None)
-                        if dept:
-                            department_name = dept.get('label', dept.get('name', department_id))
-                        else:
-                            department_name = department_id
-                    else:
-                        department_name = department_id
-                else:
-                    department_name = department_id
-            except Exception as e:
-                current_app.logger.warning(f"获取部门信息失败: {e}")
-                # 如果获取失败，检查是否已经是部门名称
-                department_name = department_id
+        # 处理字段名映射 - 前端可能使用旧字段名
+        if 'outbound_person' in data and 'outbound_person_id' not in data:
+            data['outbound_person_id'] = data.pop('outbound_person')
         
-        # 更新数据中的部门信息
-        data['department'] = department_name or data.get('department')
+        if 'department' in data and 'department_id' not in data:
+            data['department_id'] = data.pop('department')
+            
+        if 'requisition_department' in data and 'requisition_department_id' not in data:
+            data['requisition_department_id'] = data.pop('requisition_department')
+            
+        if 'requisition_person' in data and 'requisition_person_id' not in data:
+            data['requisition_person_id'] = data.pop('requisition_person')
         
         # 使用新的服务类创建出库单
         service = MaterialOutboundService(db.session)
@@ -1710,11 +1700,24 @@ def update_material_outbound_order(order_id):
         if order.status != 'draft':
             return jsonify({'code': 400, 'message': '只能修改草稿状态的出库单'}), 400
 
+        # 处理字段名映射
+        if 'outbound_person' in data and 'outbound_person_id' not in data:
+            data['outbound_person_id'] = data.pop('outbound_person')
+        
+        if 'department' in data and 'department_id' not in data:
+            data['department_id'] = data.pop('department')
+            
+        if 'requisition_department' in data and 'requisition_department_id' not in data:
+            data['requisition_department_id'] = data.pop('requisition_department')
+            
+        if 'requisition_person' in data and 'requisition_person_id' not in data:
+            data['requisition_person_id'] = data.pop('requisition_person')
+
         # 更新主表字段
         updateable_fields = [
             'order_date', 'order_type', 'warehouse_id', 'warehouse_name',
-            'outbound_person', 'department', 'requisition_department', 
-            'requisition_person', 'use_purpose', 'remarks'
+            'outbound_person_id', 'department_id', 'requisition_department_id', 
+            'requisition_person_id', 'requisition_purpose', 'remark'
         ]
         
         for field in updateable_fields:
@@ -1730,8 +1733,17 @@ def update_material_outbound_order(order_id):
             
             # 添加新明细
             for detail_data in data['details']:
+                # 提取必需的位置参数
+                material_outbound_order_id = order_id
+                outbound_quantity = detail_data.pop('outbound_quantity', 0)
+                unit = detail_data.pop('unit', 'kg')
+                created_by = current_user
+                
                 detail = MaterialOutboundOrderDetail(
-                    material_outbound_order_id=order_id,
+                    material_outbound_order_id=material_outbound_order_id,
+                    outbound_quantity=outbound_quantity,
+                    unit=unit,
+                    created_by=created_by,
                     **detail_data
                 )
                 db.session.add(detail)
@@ -2010,4 +2022,390 @@ def cancel_material_outbound_order(order_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'code': 500, 'message': f'取消失败: {str(e)}'}), 500 
+
+# ==================== 材料盘点管理 ====================
+
+@bp.route('/material-count-plans', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_count_plans():
+    """获取材料盘点计划列表"""
+    try:
+        from app.models.business.inventory import MaterialCountPlan
+        from sqlalchemy.orm import joinedload
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        status = request.args.get('status')
+        warehouse_id = request.args.get('warehouse_id')
+        
+        query = MaterialCountPlan.query.options(
+            joinedload(MaterialCountPlan.count_person),
+            joinedload(MaterialCountPlan.department)
+        )
+        
+        if status:
+            query = query.filter(MaterialCountPlan.status == status)
+        if warehouse_id:
+            query = query.filter(MaterialCountPlan.warehouse_id == warehouse_id)
+            
+        query = query.order_by(MaterialCountPlan.created_at.desc())
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        plans = [plan.to_dict() for plan in pagination.items]
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'plans': plans,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': page
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取盘点计划失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取盘点计划失败'}), 500
+
+@bp.route('/material-count-plans', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_material_count_plan():
+    """创建材料盘点计划"""
+    try:
+        data = request.get_json()
+        current_user_id = get_jwt_identity()
+        
+        # 验证必需字段
+        required_fields = ['warehouse_id', 'warehouse_name', 'count_person_id', 'count_date']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'message': f'缺少必需字段: {field}'}), 400
+        
+        # 验证员工ID存在性（可选）
+        employee = db.session.query(Employee).filter_by(id=data['count_person_id']).first()
+        if not employee:
+            return jsonify({'message': '指定的员工不存在'}), 400
+        
+        # 验证部门ID存在性（如果提供了部门ID）
+        if data.get('department_id'):
+            department = db.session.query(Department).filter_by(id=data['department_id']).first()
+            if not department:
+                return jsonify({'message': '指定的部门不存在'}), 400
+        
+        # 创建盘点计划
+        plan = MaterialCountPlan(
+            warehouse_id=data['warehouse_id'],
+            warehouse_name=data['warehouse_name'],
+            count_person_id=data['count_person_id'],
+            count_date=datetime.fromisoformat(data['count_date'].replace('Z', '+00:00')),
+            created_by=current_user_id,
+            warehouse_code=data.get('warehouse_code'),
+            department_id=data.get('department_id'),
+            notes=data.get('notes')
+        )
+        
+        db.session.add(plan)
+        db.session.flush()  # 先保存获得ID，但不提交事务
+        
+        # 获取该仓库的所有材料库存并创建盘点记录
+        inventories = db.session.query(Inventory).filter(
+            Inventory.warehouse_id == data['warehouse_id'],
+            Inventory.material_id.isnot(None)
+        ).all()
+        
+        if not inventories:
+            db.session.rollback()
+            return jsonify({'message': '该仓库没有材料库存，无法创建盘点计划'}), 400
+        
+        # 为每个库存记录创建盘点记录
+        for inventory in inventories:
+            # 获取材料信息
+            material = db.session.query(Material).filter(Material.id == inventory.material_id).first()
+            
+            count_record = MaterialCountRecord(
+                count_plan_id=plan.id,
+                inventory_id=inventory.id,
+                material_id=inventory.material_id,
+                material_code=material.material_code if material else f'MAT_{inventory.material_id}',
+                material_name=material.material_name if material else '未知材料',
+                material_spec=material.specification_model if material else '',
+                batch_number=inventory.batch_number,
+                location_code=inventory.location_code,
+                unit=inventory.unit,
+                book_quantity=inventory.current_quantity,
+                actual_quantity=None,  # 等待盘点输入
+                variance_quantity=0,
+                variance_rate=0,
+                status='pending',
+                created_by=current_user_id
+            )
+            db.session.add(count_record)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': '盘点计划创建成功',
+            'data': plan.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'创建盘点计划失败: {str(e)}'}), 500
+
+@bp.route('/material-count-plans/<plan_id>/records', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_count_records(plan_id):
+    """获取盘点记录"""
+    try:
+        from app.models.business.inventory import MaterialCountRecord
+        
+        records = MaterialCountRecord.query.filter(
+            MaterialCountRecord.count_plan_id == plan_id
+        ).order_by(MaterialCountRecord.material_code).all()
+        
+        records_data = [record.to_dict() for record in records]
+        
+        return jsonify({
+            'success': True,
+            'data': records_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取盘点记录失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取盘点记录失败'}), 500
+
+@bp.route('/material-count-plans/<plan_id>/records/<record_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_material_count_record(plan_id, record_id):
+    """更新盘点记录"""
+    try:
+        from app.models.business.inventory import MaterialCountRecord
+        from decimal import Decimal
+        
+        data = request.get_json()
+        
+        record = MaterialCountRecord.query.filter(
+            MaterialCountRecord.id == record_id,
+            MaterialCountRecord.count_plan_id == plan_id
+        ).first()
+        
+        if not record:
+            return jsonify({'success': False, 'error': '盘点记录不存在'}), 404
+        
+        # 更新实盘数量
+        if 'actual_quantity' in data:
+            try:
+                actual_quantity = data['actual_quantity']
+                if actual_quantity is not None:
+                    # 确保转换为Decimal类型
+                    record.actual_quantity = Decimal(str(actual_quantity))
+                else:
+                    record.actual_quantity = None
+                    
+                record.calculate_variance()  # 重新计算差异
+                record.status = 'counted'
+            except (ValueError, TypeError, Decimal.InvalidOperation) as e:
+                return jsonify({'success': False, 'error': f'实盘数量格式错误: {str(e)}'}), 400
+            
+        # 更新其他字段
+        if 'variance_reason' in data:
+            record.variance_reason = data['variance_reason']
+        if 'notes' in data:
+            record.notes = data['notes']
+            
+        record.updated_by = get_jwt_identity()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': record.to_dict(),
+            'message': '盘点记录更新成功'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"更新盘点记录失败: {str(e)}")
+        return jsonify({'success': False, 'error': f'更新盘点记录失败: {str(e)}'}), 500
+
+@bp.route('/material-count-plans/<plan_id>/start', methods=['POST'])
+@jwt_required()
+@tenant_required
+def start_material_count_plan(plan_id):
+    """开始盘点"""
+    try:
+        from app.models.business.inventory import MaterialCountPlan
+        
+        plan = MaterialCountPlan.query.get(plan_id)
+        if not plan:
+            return jsonify({'success': False, 'error': '盘点计划不存在'}), 404
+            
+        if plan.status != 'draft':
+            return jsonify({'success': False, 'error': '只能开始草稿状态的盘点计划'}), 400
+        
+        plan.status = 'in_progress'
+        plan.updated_by = get_jwt_identity()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': plan.to_dict(),
+            'message': '盘点已开始'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"开始盘点失败: {str(e)}")
+        return jsonify({'success': False, 'error': '开始盘点失败'}), 500
+
+@bp.route('/material-count-plans/<plan_id>/complete', methods=['POST'])
+@jwt_required()
+@tenant_required
+def complete_material_count_plan(plan_id):
+    """完成盘点"""
+    try:
+        from app.models.business.inventory import MaterialCountPlan
+        
+        plan = MaterialCountPlan.query.get(plan_id)
+        if not plan:
+            return jsonify({'success': False, 'error': '盘点计划不存在'}), 404
+            
+        if plan.status != 'in_progress':
+            return jsonify({'success': False, 'error': '只能完成进行中的盘点计划'}), 400
+        
+        plan.status = 'completed'
+        plan.updated_by = get_jwt_identity()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'data': plan.to_dict(),
+            'message': '盘点已完成'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"完成盘点失败: {str(e)}")
+        return jsonify({'success': False, 'error': '完成盘点失败'}), 500
+
+@bp.route('/material-count-plans/<plan_id>/adjust', methods=['POST'])
+@jwt_required()
+@tenant_required
+def adjust_material_count_inventory(plan_id):
+    """调整库存"""
+    try:
+        from app.models.business.inventory import MaterialCountPlan, MaterialCountRecord, Inventory, InventoryTransaction
+        
+        plan = MaterialCountPlan.query.get(plan_id)
+        if not plan:
+            return jsonify({'success': False, 'error': '盘点计划不存在'}), 404
+            
+        if plan.status != 'completed':
+            return jsonify({'success': False, 'error': '只能调整已完成的盘点计划'}), 400
+        
+        # 获取有差异的盘点记录
+        records = MaterialCountRecord.query.filter(
+            MaterialCountRecord.count_plan_id == plan_id,
+            MaterialCountRecord.variance_quantity != 0,
+            MaterialCountRecord.is_adjusted == False
+        ).all()
+        
+        adjusted_count = 0
+        
+        for record in records:
+            if record.variance_quantity == 0:
+                continue
+                
+            # 更新库存
+            inventory = Inventory.query.get(record.inventory_id)
+            if inventory:
+                old_quantity = inventory.current_quantity
+                inventory.current_quantity = record.actual_quantity
+                inventory.available_quantity = record.actual_quantity
+                inventory.updated_by = get_jwt_identity()
+                
+                # 创建库存交易记录
+                transaction_type = 'adjustment_in' if record.variance_quantity > 0 else 'adjustment_out'
+                transaction = InventoryTransaction(
+                    inventory_id=inventory.id,
+                    warehouse_id=inventory.warehouse_id,
+                    material_id=inventory.material_id,
+                    transaction_type=transaction_type,
+                    quantity_change=record.variance_quantity,
+                    quantity_before=old_quantity,
+                    quantity_after=record.actual_quantity,
+                    unit=inventory.unit,
+                    source_document_type='count_order',
+                    source_document_number=plan.count_number,
+                    reason=f'盘点调整: {record.variance_reason or "盘点差异调整"}',
+                    created_by=get_jwt_identity()
+                )
+                db.session.add(transaction)
+                
+                # 标记记录为已调整
+                record.is_adjusted = True
+                record.status = 'adjusted'
+                record.updated_by = get_jwt_identity()
+                
+                adjusted_count += 1
+        
+        # 更新盘点计划状态为已调整
+        plan.status = 'adjusted'
+        plan.updated_by = get_jwt_identity()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功调整了{adjusted_count}条库存记录'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"调整库存失败: {str(e)}")
+        return jsonify({'success': False, 'error': '调整库存失败'}), 500
+
+@bp.route('/warehouses/<warehouse_id>/material-inventory', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_warehouse_material_inventory(warehouse_id):
+    """获取仓库材料库存"""
+    try:
+        from app.models.business.inventory import Inventory
+        
+        # 查询该仓库的所有材料库存
+        inventories = db.session.query(Inventory).filter(
+            Inventory.warehouse_id == warehouse_id,
+            Inventory.material_id.isnot(None)
+        ).all()
+        
+        inventory_data = []
+        for inventory in inventories:
+            # 从材料表获取材料信息
+            material = db.session.query(Material).filter(Material.id == inventory.material_id).first()
+            
+            inventory_dict = inventory.to_dict()
+            if material:
+                inventory_dict.update({
+                    'material_code': material.material_code,
+                    'material_name': material.material_name,
+                    'material_spec': material.specification_model or ''
+                })
+            
+            inventory_data.append(inventory_dict)
+        
+        return jsonify({
+            'success': True,
+            'data': inventory_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取仓库材料库存失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取仓库材料库存失败'}), 500
 

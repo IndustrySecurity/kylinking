@@ -80,7 +80,13 @@ class MaterialOutboundService:
     ) -> Dict[str, Any]:
         """获取材料出库单列表"""
         self._set_schema()
-        query = self.db.query(MaterialOutboundOrder)
+        from sqlalchemy.orm import joinedload
+        query = self.db.query(MaterialOutboundOrder).options(
+            joinedload(MaterialOutboundOrder.outbound_person),
+            joinedload(MaterialOutboundOrder.department),
+            joinedload(MaterialOutboundOrder.requisition_department),
+            joinedload(MaterialOutboundOrder.requisition_person)
+        )
         
         if warehouse_id:
             query = query.filter(MaterialOutboundOrder.warehouse_id == warehouse_id)
@@ -103,9 +109,7 @@ class MaterialOutboundService:
         if search:
             search_filter = or_(
                 MaterialOutboundOrder.order_number.ilike(f'%{search}%'),
-                MaterialOutboundOrder.requisition_department.ilike(f'%{search}%'),
-                MaterialOutboundOrder.requisition_person.ilike(f'%{search}%'),
-                MaterialOutboundOrder.outbound_person.ilike(f'%{search}%')
+                MaterialOutboundOrder.requisition_purpose.ilike(f'%{search}%')
             )
             query = query.filter(search_filter)
         
@@ -127,7 +131,13 @@ class MaterialOutboundService:
     def get_material_outbound_order_by_id(self, order_id: str) -> Optional[MaterialOutboundOrder]:
         """根据ID获取材料出库单详情"""
         self._set_schema()
-        order = self.db.query(MaterialOutboundOrder).filter(MaterialOutboundOrder.id == order_id).first()
+        from sqlalchemy.orm import joinedload
+        order = self.db.query(MaterialOutboundOrder).options(
+            joinedload(MaterialOutboundOrder.outbound_person),
+            joinedload(MaterialOutboundOrder.department),
+            joinedload(MaterialOutboundOrder.requisition_department),
+            joinedload(MaterialOutboundOrder.requisition_person)
+        ).filter(MaterialOutboundOrder.id == order_id).first()
         
         if order:
             # 填充仓库信息
@@ -170,7 +180,18 @@ class MaterialOutboundService:
         if 'order_type' not in order_data:
             order_data['order_type'] = 'material'
         
-        order = MaterialOutboundOrder(**order_data)
+        # 提取必需的位置参数
+        warehouse_id = order_data.pop('warehouse_id')
+        order_type = order_data.pop('order_type')
+        created_by = order_data.pop('created_by')
+        
+        # 使用正确的构造函数参数
+        order = MaterialOutboundOrder(
+            warehouse_id=warehouse_id,
+            order_type=order_type,
+            created_by=created_by,
+            **order_data
+        )
         
         self.db.add(order)
         self.db.flush()  # 获取order.id
@@ -178,12 +199,19 @@ class MaterialOutboundService:
         # 创建明细
         if details_data:
             for detail_data in details_data:
+                # 提取必需的位置参数
+                outbound_quantity = Decimal(detail_data.get('outbound_quantity', 0))
+                unit = detail_data.get('unit', 'kg')
+                
+                # 过滤其他参数
+                other_params = {k: v for k, v in detail_data.items() if k not in ['outbound_quantity', 'unit']}
+                
                 detail = MaterialOutboundOrderDetail(
                     material_outbound_order_id=order.id,
-                    outbound_quantity=Decimal(detail_data['outbound_quantity']),
-                    unit=detail_data['unit'],
+                    outbound_quantity=outbound_quantity,
+                    unit=unit,
                     created_by=created_by_uuid,
-                    **{k: v for k, v in detail_data.items() if k not in ['outbound_quantity', 'unit']}
+                    **other_params
                 )
                 self.db.add(detail)
         

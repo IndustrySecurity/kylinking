@@ -5,6 +5,12 @@ from app.models.base import TenantModel
 import uuid
 from decimal import Decimal
 
+# 延迟导入以避免循环导入问题
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.basic_data import Employee, Department
+
 
 class Inventory(TenantModel):
     """
@@ -698,9 +704,9 @@ class InboundOrder(TenantModel):
     warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
     warehouse_name = Column(String(200), comment='仓库名称')
     
-    # 入库人员信息
-    inbound_person = Column(String(100), comment='入库人')
-    department = Column(String(100), comment='部门')
+    # 入库人员信息 - 改为外键关联
+    inbound_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), comment='入库人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
     
     # 托盘信息
     pallet_barcode = Column(String(200), comment='托盘条码')
@@ -733,6 +739,8 @@ class InboundOrder(TenantModel):
     
     # 关联关系
     details = relationship("InboundOrderDetail", back_populates="inbound_order", cascade="all, delete-orphan")
+    inbound_person = relationship("Employee", foreign_keys=[inbound_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
     
     # 入库类型常量
     ORDER_TYPES = [
@@ -824,8 +832,10 @@ class InboundOrder(TenantModel):
             'order_type': self.order_type,
             'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
             'warehouse_name': self.warehouse_name,
-            'inbound_person': self.inbound_person,
-            'department': self.department,
+            'inbound_person_id': str(self.inbound_person_id) if self.inbound_person_id else None,
+            'inbound_person': self.inbound_person.employee_name if self.inbound_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department': self.department.dept_name if self.department else None,
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,
@@ -1013,9 +1023,9 @@ class OutboundOrder(TenantModel):
     warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
     warehouse_name = Column(String(200), comment='仓库名称')
     
-    # 出库人员信息
-    outbound_person = Column(String(100), comment='出库人')
-    department = Column(String(100), comment='部门')
+    # 出库人员信息 - 改为外键关联
+    outbound_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), comment='出库人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
     
     # 托盘信息
     pallet_barcode = Column(String(200), comment='托盘条码')
@@ -1055,6 +1065,8 @@ class OutboundOrder(TenantModel):
     
     # 关联关系
     details = relationship("OutboundOrderDetail", back_populates="outbound_order", cascade="all, delete-orphan")
+    outbound_person = relationship("Employee", foreign_keys=[outbound_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
     
     # 出库类型常量
     ORDER_TYPES = [
@@ -1147,8 +1159,10 @@ class OutboundOrder(TenantModel):
             'order_type': self.order_type,
             'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
             'warehouse_name': self.warehouse_name,
-            'outbound_person': self.outbound_person,
-            'department': self.department,
+            'outbound_person_id': str(self.outbound_person_id) if self.outbound_person_id else None,
+            'outbound_person': self.outbound_person.employee_name if self.outbound_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department': self.department.dept_name if self.department else None,
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,
@@ -1350,9 +1364,9 @@ class MaterialInboundOrder(TenantModel):
     warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
     warehouse_name = Column(String(200), comment='仓库名称')
     
-    # 入库人员信息
-    inbound_person = Column(String(100), comment='入库人')
-    department = Column(String(100), comment='部门')
+    # 入库人员信息 - 改为外键关联
+    inbound_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), comment='入库人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
     
     # 托盘信息
     pallet_barcode = Column(String(200), comment='托盘条码')
@@ -1385,6 +1399,8 @@ class MaterialInboundOrder(TenantModel):
     
     # 关联关系
     details = relationship("MaterialInboundOrderDetail", back_populates="material_inbound_order", cascade="all, delete-orphan")
+    inbound_person = relationship("Employee", foreign_keys=[inbound_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
     
     # 入库类型常量
     ORDER_TYPES = [
@@ -1475,8 +1491,10 @@ class MaterialInboundOrder(TenantModel):
             'order_type': self.order_type,
             'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
             'warehouse_name': self.warehouse_name,
-            'inbound_person': self.inbound_person,
-            'department': self.department,
+            'inbound_person_id': str(self.inbound_person_id) if self.inbound_person_id else None,
+            'inbound_person': self.inbound_person.employee_name if self.inbound_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department': self.department.dept_name if self.department else None,
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,
@@ -1660,9 +1678,9 @@ class MaterialOutboundOrder(TenantModel):
     warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
     warehouse_name = Column(String(200), comment='仓库名称')
     
-    # 出库人员信息
-    outbound_person = Column(String(100), comment='出库人')
-    department = Column(String(100), comment='部门')
+    # 出库人员信息 - 改为外键关联
+    outbound_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), comment='出库人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
     
     # 托盘信息
     pallet_barcode = Column(String(200), comment='托盘条码')
@@ -1681,9 +1699,9 @@ class MaterialOutboundOrder(TenantModel):
     source_document_id = Column(UUID(as_uuid=True), comment='来源单据ID')
     source_document_number = Column(String(100), comment='来源单据号')
     
-    # 领用部门信息
-    requisition_department = Column(String(100), comment='领用部门')
-    requisition_person = Column(String(100), comment='领用人')
+    # 领用部门信息 - 改为外键关联
+    requisition_department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='领用部门ID')
+    requisition_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), comment='领用人ID')
     requisition_purpose = Column(String(200), comment='领用用途')
     
     # 扩展字段
@@ -1696,6 +1714,10 @@ class MaterialOutboundOrder(TenantModel):
     
     # 关联关系
     details = relationship("MaterialOutboundOrderDetail", back_populates="material_outbound_order", cascade="all, delete-orphan")
+    outbound_person = relationship("Employee", foreign_keys=[outbound_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
+    requisition_department = relationship("Department", foreign_keys=[requisition_department_id], lazy='select')
+    requisition_person = relationship("Employee", foreign_keys=[requisition_person_id], lazy='select')
     
     # 出库类型常量
     ORDER_TYPES = [
@@ -1726,7 +1748,8 @@ class MaterialOutboundOrder(TenantModel):
         Index('ix_material_outbound_order_warehouse', 'warehouse_id'),
         Index('ix_material_outbound_order_status', 'status', 'approval_status'),
         Index('ix_material_outbound_order_source', 'source_document_type', 'source_document_id'),
-        Index('ix_material_outbound_order_department', 'requisition_department'),
+        Index('ix_material_outbound_order_requisition_dept', 'requisition_department_id'),
+        Index('ix_material_outbound_order_requisition_person', 'requisition_person_id'),
     )
     
     def __init__(self, warehouse_id, order_type, created_by, **kwargs):
@@ -1786,8 +1809,10 @@ class MaterialOutboundOrder(TenantModel):
             'order_type': self.order_type,
             'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
             'warehouse_name': self.warehouse_name,
-            'outbound_person': self.outbound_person,
-            'department': self.department,
+            'outbound_person_id': str(self.outbound_person_id) if self.outbound_person_id else None,
+            'outbound_person': self.outbound_person.employee_name if self.outbound_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department': self.department.dept_name if self.department else None,
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,
@@ -1797,8 +1822,10 @@ class MaterialOutboundOrder(TenantModel):
             'source_document_type': self.source_document_type,
             'source_document_id': str(self.source_document_id) if self.source_document_id else None,
             'source_document_number': self.source_document_number,
-            'requisition_department': self.requisition_department,
-            'requisition_person': self.requisition_person,
+            'requisition_department_id': str(self.requisition_department_id) if self.requisition_department_id else None,
+            'requisition_department': self.requisition_department.dept_name if self.requisition_department else None,
+            'requisition_person_id': str(self.requisition_person_id) if self.requisition_person_id else None,
+            'requisition_person': self.requisition_person.employee_name if self.requisition_person else None,
             'requisition_purpose': self.requisition_purpose,
             'remark': self.remark,
             'custom_fields': self.custom_fields,
@@ -1961,3 +1988,234 @@ class MaterialOutboundOrderDetail(TenantModel):
 
 
 # 注释：材料库存变动记录将使用统一的inventory_transactions表，不需要单独的MaterialInventoryTransaction表 
+
+
+class MaterialCountPlan(TenantModel):
+    """
+    材料盘点计划表（简化版）
+    """
+    
+    __tablename__ = 'material_count_plans'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 盘点基本信息
+    count_number = Column(String(100), unique=True, nullable=False, comment='盘点单号')
+    warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
+    warehouse_name = Column(String(200), nullable=False, comment='仓库名称')
+    warehouse_code = Column(String(100), comment='仓库编号')
+    
+    # 盘点人员信息 - 改为外键关联
+    count_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), nullable=False, comment='盘点人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
+    
+    # 盘点时间
+    count_date = Column(DateTime, nullable=False, comment='发生日期')
+    
+    # 盘点状态
+    status = Column(String(20), default='draft', comment='状态')  # draft/in_progress/completed
+    
+    # 备注
+    notes = Column(Text, comment='备注')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    count_records = relationship("MaterialCountRecord", back_populates="count_plan", cascade="all, delete-orphan")
+    count_person = relationship("Employee", foreign_keys=[count_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
+    
+    # 状态常量
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('in_progress', '进行中'),
+        ('completed', '已完成'),
+        ('adjusted', '已调整')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_material_count_plan_number', 'count_number'),
+        Index('ix_material_count_plan_warehouse', 'warehouse_id'),
+        Index('ix_material_count_plan_person', 'count_person_id'),
+        Index('ix_material_count_plan_department', 'department_id'),
+        Index('ix_material_count_plan_date', 'count_date'),
+        Index('ix_material_count_plan_status', 'status'),
+    )
+    
+    def __init__(self, warehouse_id, warehouse_name, count_person_id, count_date, created_by, **kwargs):
+        """
+        初始化材料盘点计划
+        """
+        self.warehouse_id = warehouse_id
+        self.warehouse_name = warehouse_name
+        self.count_person_id = count_person_id
+        self.count_date = count_date
+        self.created_by = created_by
+        
+        # 生成盘点单号
+        if not kwargs.get('count_number'):
+            self.count_number = self.generate_count_number()
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    @staticmethod
+    def generate_count_number():
+        """
+        生成盘点单号
+        """
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d')
+        import random
+        random_suffix = str(random.randint(1000, 9999))
+        return f"PD{timestamp}{random_suffix}"
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'count_number': self.count_number,
+            'warehouse_id': str(self.warehouse_id),
+            'warehouse_name': self.warehouse_name,
+            'warehouse_code': self.warehouse_code,
+            'count_person_id': str(self.count_person_id),
+            'count_person': self.count_person.employee_name if self.count_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department': self.department.dept_name if self.department else None,
+            'count_date': self.count_date.isoformat() if self.count_date else None,
+            'status': self.status,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<MaterialCountPlan {self.count_number}>'
+
+
+class MaterialCountRecord(TenantModel):
+    """
+    材料盘点记录表（简化版）
+    """
+    
+    __tablename__ = 'material_count_records'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联盘点计划
+    count_plan_id = Column(UUID(as_uuid=True), ForeignKey('material_count_plans.id'), nullable=False, comment='盘点计划ID')
+    
+    # 关联库存
+    inventory_id = Column(UUID(as_uuid=True), comment='库存ID')
+    material_id = Column(UUID(as_uuid=True), nullable=False, comment='材料ID')
+    
+    # 材料信息
+    material_code = Column(String(100), comment='材料编码')
+    material_name = Column(String(200), nullable=False, comment='材料名称')
+    material_spec = Column(String(200), comment='规格')
+    unit = Column(String(20), nullable=False, comment='单位')
+    
+    # 盘点数据
+    book_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='账面数量')
+    actual_quantity = Column(Numeric(15, 3), comment='实盘数量')
+    variance_quantity = Column(Numeric(15, 3), comment='差异数量')
+    variance_rate = Column(Numeric(8, 4), comment='差异率%')
+    
+    # 批次和位置信息
+    batch_number = Column(String(100), comment='批次号')
+    location_code = Column(String(100), comment='库位')
+    
+    # 差异处理
+    variance_reason = Column(String(500), comment='差异原因')
+    is_adjusted = Column(Boolean, default=False, comment='是否已调整')
+    
+    # 状态
+    status = Column(String(20), default='pending', comment='状态')  # pending/counted/adjusted
+    
+    # 备注
+    notes = Column(Text, comment='备注')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    count_plan = relationship("MaterialCountPlan", back_populates="count_records")
+    
+    # 状态常量
+    STATUS_CHOICES = [
+        ('pending', '待盘点'),
+        ('counted', '已盘点'),
+        ('adjusted', '已调整')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_material_count_records_plan', 'count_plan_id'),
+        Index('ix_material_count_records_material', 'material_id'),
+        Index('ix_material_count_records_status', 'status'),
+    )
+    
+    def __init__(self, count_plan_id, material_id, material_name, unit, book_quantity, created_by, **kwargs):
+        """
+        初始化材料盘点记录
+        """
+        self.count_plan_id = count_plan_id
+        self.material_id = material_id
+        self.material_name = material_name
+        self.unit = unit
+        self.book_quantity = book_quantity
+        self.created_by = created_by
+        
+        # 设置其他可选参数
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def calculate_variance(self):
+        """
+        计算差异
+        """
+        if self.actual_quantity is not None:
+            self.variance_quantity = self.actual_quantity - self.book_quantity
+            if self.book_quantity != 0:
+                self.variance_rate = (self.variance_quantity / self.book_quantity) * 100
+            else:
+                self.variance_rate = 100 if self.actual_quantity > 0 else 0
+    
+    def to_dict(self):
+        """
+        转换为字典
+        """
+        return {
+            'id': str(self.id),
+            'count_plan_id': str(self.count_plan_id),
+            'inventory_id': str(self.inventory_id) if self.inventory_id else None,
+            'material_id': str(self.material_id),
+            'material_code': self.material_code,
+            'material_name': self.material_name,
+            'material_spec': self.material_spec,
+            'unit': self.unit,
+            'book_quantity': float(self.book_quantity),
+            'actual_quantity': float(self.actual_quantity) if self.actual_quantity is not None else None,
+            'variance_quantity': float(self.variance_quantity) if self.variance_quantity is not None else None,
+            'variance_rate': float(self.variance_rate) if self.variance_rate is not None else None,
+            'batch_number': self.batch_number,
+            'location_code': self.location_code,
+            'variance_reason': self.variance_reason,
+            'is_adjusted': self.is_adjusted,
+            'status': self.status,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<MaterialCountRecord {self.material_name} Book:{self.book_quantity} Actual:{self.actual_quantity}>'

@@ -2008,6 +2008,9 @@ class EmployeeService:
     @staticmethod
     def get_employee_options():
         """获取员工选项列表"""
+        # 设置schema
+        EmployeeService._set_schema()
+        
         try:
             employees = Employee.get_enabled_list()
             return {
