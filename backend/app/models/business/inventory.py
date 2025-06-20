@@ -2562,3 +2562,257 @@ class MaterialTransferOrderDetail(TenantModel):
     
     def __repr__(self):
         return f'<MaterialTransferOrderDetail {self.material_name} {self.transfer_quantity}{self.unit}>'
+
+
+# 在文件末尾添加成品盘点功能
+
+class ProductCountPlan(TenantModel):
+    """
+    成品盘点计划表
+    """
+    
+    __tablename__ = 'product_count_plans'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 盘点基本信息
+    count_number = Column(String(100), unique=True, nullable=False, comment='盘点单号')
+    warehouse_id = Column(UUID(as_uuid=True), nullable=False, comment='仓库ID')
+    warehouse_name = Column(String(200), nullable=False, comment='仓库名称')
+    warehouse_code = Column(String(100), comment='仓库编号')
+    
+    # 盘点人员信息 - 改为外键关联
+    count_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), nullable=False, comment='盘点人ID')
+    department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
+    
+    # 盘点时间
+    count_date = Column(DateTime, nullable=False, comment='发生日期')
+    
+    # 盘点状态
+    status = Column(String(20), default='draft', comment='状态')  # draft/in_progress/completed
+    
+    # 备注
+    notes = Column(Text, comment='备注')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    count_records = relationship("ProductCountRecord", back_populates="count_plan", cascade="all, delete-orphan")
+    count_person = relationship("Employee", foreign_keys=[count_person_id], lazy='select')
+    department = relationship("Department", foreign_keys=[department_id], lazy='select')
+    
+    # 状态常量
+    STATUS_CHOICES = [
+        ('draft', '草稿'),
+        ('in_progress', '进行中'),
+        ('completed', '已完成'),
+        ('adjusted', '已调整')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_product_count_plans_warehouse', 'warehouse_id'),
+        Index('idx_product_count_plans_count_date', 'count_date'),
+        Index('idx_product_count_plans_status', 'status'),
+        {'schema': None}  # 使用租户模式
+    )
+    
+    def __init__(self, warehouse_id, warehouse_name, count_person_id, count_date, created_by, **kwargs):
+        self.warehouse_id = warehouse_id
+        self.warehouse_name = warehouse_name
+        self.count_person_id = count_person_id
+        self.count_date = count_date
+        self.created_by = created_by
+        
+        # 生成盘点单号
+        self.count_number = self.generate_count_number()
+        
+        # 设置其他属性
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    @staticmethod
+    def generate_count_number():
+        """生成盘点单号 格式：PD + YYYYMMDD + 3位序号"""
+        from datetime import datetime
+        from app.extensions import db
+        from sqlalchemy import func
+        
+        today = datetime.now()
+        date_str = today.strftime('%Y%m%d')
+        
+        # 查询当天已有的盘点单数量
+        count = db.session.query(func.count(ProductCountPlan.id)).filter(
+            func.date(ProductCountPlan.created_at) == today.date()
+        ).scalar() or 0
+        
+        sequence = str(count + 1).zfill(3)
+        return f'PD{date_str}{sequence}'
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'count_number': self.count_number,
+            'warehouse_id': str(self.warehouse_id),
+            'warehouse_name': self.warehouse_name,
+            'warehouse_code': self.warehouse_code,
+            'count_person_id': str(self.count_person_id) if self.count_person_id else None,
+            'count_person_name': self.count_person.employee_name if self.count_person else None,
+            'department_id': str(self.department_id) if self.department_id else None,
+            'department_name': self.department.dept_name if self.department else None,
+            'count_date': self.count_date.isoformat() if self.count_date else None,
+            'status': self.status,
+            'notes': self.notes,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ProductCountPlan {self.count_number}>'
+
+
+class ProductCountRecord(TenantModel):
+    """
+    成品盘点记录表
+    """
+    
+    __tablename__ = 'product_count_records'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # 关联盘点计划
+    count_plan_id = Column(UUID(as_uuid=True), ForeignKey('product_count_plans.id'), nullable=False, comment='盘点计划ID')
+    
+    # 关联库存
+    inventory_id = Column(UUID(as_uuid=True), comment='库存ID')
+    product_id = Column(UUID(as_uuid=True), nullable=False, comment='产品ID')
+    
+    # 产品信息
+    product_code = Column(String(100), comment='产品编码')
+    product_name = Column(String(200), nullable=False, comment='产品名称')
+    product_spec = Column(String(200), comment='产品规格')
+    base_unit = Column(String(20), nullable=False, comment='基本单位')
+    
+    # 盘点数据
+    book_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='账面数量')
+    actual_quantity = Column(Numeric(15, 3), comment='实盘数量')
+    variance_quantity = Column(Numeric(15, 3), comment='差异数量')
+    variance_rate = Column(Numeric(8, 4), comment='差异率%')
+    
+    # 批次和位置信息
+    batch_number = Column(String(100), comment='批次号')
+    production_date = Column(DateTime, comment='生产日期')
+    expiry_date = Column(DateTime, comment='到期日期')
+    location_code = Column(String(100), comment='库位')
+    
+    # 产品特有字段
+    customer_id = Column(UUID(as_uuid=True), comment='客户ID')
+    customer_name = Column(String(200), comment='客户名称')
+    bag_type_id = Column(UUID(as_uuid=True), comment='袋型ID')
+    bag_type_name = Column(String(100), comment='袋型名称')
+    
+    # 包装信息
+    package_unit = Column(String(20), comment='包装单位')
+    package_quantity = Column(Numeric(15, 3), comment='包装数量')
+    net_weight = Column(Numeric(10, 3), comment='净重(kg)')
+    gross_weight = Column(Numeric(10, 3), comment='毛重(kg)')
+    
+    # 差异处理
+    variance_reason = Column(String(500), comment='差异原因')
+    is_adjusted = Column(Boolean, default=False, comment='是否已调整')
+    
+    # 状态
+    status = Column(String(20), default='pending', comment='状态')  # pending/counted/adjusted
+    
+    # 备注
+    notes = Column(Text, comment='备注')
+    
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), nullable=False, comment='创建人')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人')
+    
+    # 关联关系
+    count_plan = relationship("ProductCountPlan", back_populates="count_records")
+    
+    # 状态常量
+    STATUS_CHOICES = [
+        ('pending', '待盘点'),
+        ('counted', '已盘点'),
+        ('adjusted', '已调整')
+    ]
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_product_count_records_count_plan', 'count_plan_id'),
+        Index('idx_product_count_records_product', 'product_id'),
+        Index('idx_product_count_records_status', 'status'),
+        {'schema': None}  # 使用租户模式
+    )
+    
+    def __init__(self, count_plan_id, product_id, product_name, base_unit, book_quantity, created_by, **kwargs):
+        self.count_plan_id = count_plan_id
+        self.product_id = product_id
+        self.product_name = product_name
+        self.base_unit = base_unit
+        self.book_quantity = book_quantity
+        self.created_by = created_by
+        
+        # 设置其他属性
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+    
+    def calculate_variance(self):
+        """计算差异数量和差异率"""
+        if self.actual_quantity is not None:
+            self.variance_quantity = self.actual_quantity - self.book_quantity
+            if self.book_quantity != 0:
+                self.variance_rate = (self.variance_quantity / self.book_quantity) * 100
+            else:
+                self.variance_rate = 100.0 if self.actual_quantity > 0 else 0.0
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': str(self.id),
+            'count_plan_id': str(self.count_plan_id),
+            'inventory_id': str(self.inventory_id) if self.inventory_id else None,
+            'product_id': str(self.product_id),
+            'product_code': self.product_code,
+            'product_name': self.product_name,
+            'product_spec': self.product_spec,
+            'base_unit': self.base_unit,
+            'book_quantity': float(self.book_quantity) if self.book_quantity else 0,
+            'actual_quantity': float(self.actual_quantity) if self.actual_quantity else None,
+            'variance_quantity': float(self.variance_quantity) if self.variance_quantity else None,
+            'variance_rate': float(self.variance_rate) if self.variance_rate else None,
+            'batch_number': self.batch_number,
+            'production_date': self.production_date.isoformat() if self.production_date else None,
+            'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
+            'location_code': self.location_code,
+            'customer_id': str(self.customer_id) if self.customer_id else None,
+            'customer_name': self.customer_name,
+            'bag_type_id': str(self.bag_type_id) if self.bag_type_id else None,
+            'bag_type_name': self.bag_type_name,
+            'package_unit': self.package_unit,
+            'package_quantity': float(self.package_quantity) if self.package_quantity else None,
+            'net_weight': float(self.net_weight) if self.net_weight else None,
+            'gross_weight': float(self.gross_weight) if self.gross_weight else None,
+            'variance_reason': self.variance_reason,
+            'is_adjusted': self.is_adjusted,
+            'status': self.status,
+            'notes': self.notes,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ProductCountRecord {self.product_name} Qty:{self.book_quantity}>'

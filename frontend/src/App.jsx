@@ -64,7 +64,7 @@ import InventoryOverview from './pages/business/InventoryOverview';
 // 成品仓库子页面导入
 import FinishedGoodsInbound from './pages/business/finished-goods/FinishedGoodsInbound';
 import FinishedGoodsOutbound from './pages/business/finished-goods/FinishedGoodsOutbound';
-import FinishedGoodsInventory from './pages/business/finished-goods/FinishedGoodsInventory';
+import FinishedGoodsCount from './pages/business/finished-goods/FinishedGoodsCount';
 import FinishedGoodsTransfer from './pages/business/finished-goods/FinishedGoodsTransfer';
 import FinishedGoodsWeighingSlip from './pages/business/finished-goods/FinishedGoodsWeighingSlip';
 import PackingWeighingSlip from './pages/business/finished-goods/PackingWeighingSlip';
@@ -89,9 +89,6 @@ import Debug from './pages/auth/Debug';
 
 import { useApi } from './hooks/useApi';
 import './index.css';
-
-// Note: React Router warnings can be safely ignored for now
-// They're related to future React Router v7 behavior
 
 // 配置全局Message
 message.config({
@@ -142,7 +139,10 @@ const AppRoot = () => {
       }}
     >
       <AntApp>
-        <Router>
+        <Router future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
@@ -547,7 +547,7 @@ const AppRoot = () => {
             <Route path="/business/finished-goods/inventory" element={
               <ProtectedRoute>
                 <MainLayout>
-                  <FinishedGoodsInventory />
+                  <FinishedGoodsCount />
                 </MainLayout>
               </ProtectedRoute>
             } />

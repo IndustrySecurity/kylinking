@@ -126,4 +126,12 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Suppress CSS warnings */
+@media (forced-colors: active) {
+  /* Override forced colors for better compatibility */
+  * {
+    forced-color-adjust: none;
+  }
 } 
