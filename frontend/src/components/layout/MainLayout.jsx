@@ -232,6 +232,12 @@ const MainLayout = ({ children }) => {
       path: '/settings',
     },
     {
+      key: 'salesManagement',
+      icon: <ShoppingOutlined />,
+      label: '销售管理',
+      path: '/business/sales-management',
+    },
+    {
       key: 'warehouseManagement',
       icon: <DatabaseOutlined />,
       label: '仓库管理',
@@ -250,7 +256,7 @@ const MainLayout = ({ children }) => {
         },
         {
           key: 'finishedGoodsWarehouse',
-          icon: <ShoppingOutlined />,
+          icon: <ContainerOutlined />,
           label: '成品仓库',
           path: '/business/finished-goods-warehouse',
         },

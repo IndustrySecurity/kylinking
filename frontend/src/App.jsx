@@ -61,6 +61,18 @@ import MaterialWarehouse from './pages/business/MaterialWarehouse';
 import FinishedGoodsWarehouse from './pages/business/FinishedGoodsWarehouse';
 import InventoryOverview from './pages/business/InventoryOverview';
 
+// 销售管理导入
+import SalesManagement from './pages/business/SalesManagement';
+
+// 销售功能页面导入
+import SalesOrder from './pages/business/sales/SalesOrder';
+import DeliveryNotice from './pages/business/sales/DeliveryNotice';
+import DeliveryOrder from './pages/business/sales/DeliveryOrder';
+import ReturnNotice from './pages/business/sales/ReturnNotice';
+import ReturnOrder from './pages/business/sales/ReturnOrder';
+import CustomerContract from './pages/business/sales/CustomerContract';
+import MonthlyPlan from './pages/business/sales/MonthlyPlan';
+
 // 成品仓库子页面导入
 import FinishedGoodsInbound from './pages/business/finished-goods/FinishedGoodsInbound';
 import FinishedGoodsOutbound from './pages/business/finished-goods/FinishedGoodsOutbound';
@@ -498,6 +510,72 @@ const AppRoot = () => {
               <ProtectedRoute>
                 <MainLayout>
                   <PaymentMethod />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* 销售管理路由 */}
+            <Route path="/business/sales-management" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SalesManagement />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+
+            {/* 销售功能页面路由 */}
+            <Route path="/business/sales/sales-order" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <SalesOrder />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/sales/delivery-notice" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <DeliveryNotice />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/sales/delivery-order" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <DeliveryOrder />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/sales/return-notice" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ReturnNotice />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/sales/return-order" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <ReturnOrder />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/sales/customer-contract" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <CustomerContract />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/business/sales/monthly-plan" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <MonthlyPlan />
                 </MainLayout>
               </ProtectedRoute>
             } />

@@ -260,6 +260,75 @@ const Dashboard = () => {
 
       <Divider style={{ margin: '24px 0' }} />
       
+      {/* Sales management section */}
+      <SectionTitle level={4}>销售管理</SectionTitle>
+      
+      <Row gutter={[24, 24]}>
+        <GridItem xs={24} sm={12} lg={6}>
+          <StyledCard>
+            <Statistic
+              title="今日订单"
+              value={28}
+              precision={0}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<ShoppingOutlined />}
+              suffix="单"
+            />
+            <TrendInfo $color="#3f8600">
+              <RiseOutlined /> 较昨日增长 12.5%
+            </TrendInfo>
+          </StyledCard>
+        </GridItem>
+        
+        <GridItem xs={24} sm={12} lg={6}>
+          <StyledCard>
+            <Statistic
+              title="今日销售额"
+              value={368500}
+              precision={2}
+              valueStyle={{ color: '#1890ff' }}
+              prefix={<RiseOutlined />}
+              suffix="元"
+            />
+            <TrendInfo $color="#1890ff">
+              <RiseOutlined /> 较昨日增长 8.3%
+            </TrendInfo>
+          </StyledCard>
+        </GridItem>
+        
+        <GridItem xs={24} sm={12} lg={6}>
+          <StyledCard>
+            <Statistic
+              title="活跃客户"
+              value={156}
+              valueStyle={{ color: '#722ed1' }}
+              prefix={<TeamOutlined />}
+              suffix="家"
+            />
+            <TrendInfo $color="#722ed1">
+              <BarChartOutlined /> 本月新增 15家
+            </TrendInfo>
+          </StyledCard>
+        </GridItem>
+        
+        <GridItem xs={24} sm={12} lg={6}>
+          <StyledCard>
+            <Statistic
+              title="待处理订单"
+              value={12}
+              valueStyle={{ color: '#fa8c16' }}
+              prefix={<SyncOutlined />}
+              suffix="单"
+            />
+            <TrendInfo $color="#fa8c16">
+              <BarChartOutlined /> 需及时处理
+            </TrendInfo>
+          </StyledCard>
+        </GridItem>
+      </Row>
+
+      <Divider style={{ margin: '24px 0' }} />
+      
       {/* Production status section */}
       <SectionTitle level={4}>生产状态</SectionTitle>
 
