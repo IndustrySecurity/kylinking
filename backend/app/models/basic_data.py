@@ -3310,6 +3310,9 @@ class CustomerManagement(TenantModel):
     payment_units = db.relationship('CustomerPaymentUnit', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
     affiliated_companies = db.relationship('CustomerAffiliatedCompany', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
     
+    # 销售订单关联
+    sales_orders = db.relationship('SalesOrder', back_populates='customer', lazy='dynamic')
+    
     # 选项常量
     CUSTOMER_LEVELS = [
         ('A', 'A'),

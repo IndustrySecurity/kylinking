@@ -735,6 +735,36 @@ class InventoryService:
             })
         
         return alerts
+
+    def get_product_inventory(self, product_id: str) -> Dict[str, Any]:
+        """获取产品库存信息"""
+        self._set_schema()
+        
+        # 查询产品的所有库存记录
+        inventories = self.db.query(Inventory).filter(
+            and_(
+                Inventory.product_id == product_id,
+                Inventory.is_active == True
+            )
+        ).all()
+        
+        if not inventories:
+            return {
+                'available_quantity': 0,
+                'total_quantity': 0,
+                'reserved_quantity': 0
+            }
+        
+        # 汇总库存数据
+        total_quantity = sum(inv.current_quantity for inv in inventories)
+        reserved_quantity = sum(inv.reserved_quantity for inv in inventories)
+        available_quantity = total_quantity - reserved_quantity
+        
+        return {
+            'available_quantity': float(available_quantity),
+            'total_quantity': float(total_quantity),
+            'reserved_quantity': float(reserved_quantity)
+        }
     
     # ================ 入库单管理方法 ================
     

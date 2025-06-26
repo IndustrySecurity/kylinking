@@ -43,6 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
+import { materialOutboundService, baseDataService as materialBaseDataService } from '../../../services/materialOutboundService';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -178,12 +179,10 @@ const MaterialOutbound = ({ onBack }) => {
   const fetchData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await request.get('/tenant/inventory/material-outbound-orders', {
-        params: {
-          page: pagination.current,
-          page_size: pagination.pageSize,
-          ...params
-        }
+      const response = await materialOutboundService.getOutboundOrderList({
+        page: pagination.current,
+        page_size: pagination.pageSize,
+        ...params
       });
       
       console.log('材料出库API响应:', response.data);
@@ -227,9 +226,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取仓库列表（只获取材料仓库）
   const fetchWarehouses = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/warehouses/options', {
-        params: { warehouse_type: 'material' }
-      });
+      const response = await materialBaseDataService.getWarehouses();
       console.log('仓库API响应:', response.data);
       if (response.data.success) {
         setWarehouses(response.data.data || []);
@@ -261,11 +258,9 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取材料列表
   const fetchMaterials = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/material-management', {
-        params: {
-          page_size: 1000, // 获取更多数据
-          is_enabled: true // 只获取启用的材料
-        }
+      const response = await materialBaseDataService.getMaterials({
+        page_size: 1000, // 获取更多数据
+        is_enabled: true // 只获取启用的材料
       });
       console.log('材料API响应:', response.data);
       if (response.data?.success) {
@@ -290,7 +285,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/employees/options');
+      const response = await materialBaseDataService.getEmployees();
       console.log('员工API响应:', response.data);
       if (response.data?.success) {
         setEmployees(response.data.data);
@@ -304,7 +299,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/departments/options');
+      const response = await materialBaseDataService.getDepartments();
       console.log('部门API响应:', response.data);
       if (response.data?.success) {
         setDepartments(response.data.data);
@@ -360,7 +355,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取出库单详情
   const fetchOrderDetails = async (orderId) => {
     try {
-      const response = await request.get(`/tenant/inventory/material-outbound-orders/${orderId}`);
+      const response = await materialOutboundService.getOutboundOrderById(orderId);
       if (response.data.success || response.data.code === 200) {
         setDetails(response.data.data.details || []);
       } else {
@@ -404,9 +399,9 @@ const MaterialOutbound = ({ onBack }) => {
 
       let response;
       if (currentRecord) {
-        response = await request.put(`/tenant/inventory/material-outbound-orders/${currentRecord.id}`, orderData);
+        response = await materialOutboundService.updateOutboundOrder(currentRecord.id, orderData);
       } else {
-        response = await request.post('/tenant/inventory/material-outbound-orders', orderData);
+        response = await materialOutboundService.createOutboundOrder(orderData);
       }
 
       if (response.data.code === 200 || response.data.success) {
@@ -694,8 +689,8 @@ const MaterialOutbound = ({ onBack }) => {
               onClick={() => handleModalOpen(record)}
               size="small"
             >
-              编辑
-            </Button>
+            编辑
+          </Button>
           )}
           {record.status === 'draft' && (
             <Button 
@@ -717,8 +712,8 @@ const MaterialOutbound = ({ onBack }) => {
               }}
               size="small"
             >
-              审核
-            </Button>
+                审核
+              </Button>
           )}
           {record.status === 'approved' && record.approval_status === 'approved' && (
             <Button 

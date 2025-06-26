@@ -43,6 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
+import { materialInboundService, baseDataService as materialBaseDataService } from '../../../services/materialInboundService';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -170,12 +171,10 @@ const MaterialInbound = ({ onBack }) => {
   const fetchData = async (params = {}) => {
     setLoading(true);
     try {
-      const response = await request.get('/tenant/inventory/material-inbound-orders', {
-        params: {
-          page: pagination.current,
-          page_size: pagination.pageSize,
-          ...params
-        }
+      const response = await materialInboundService.getInboundOrderList({
+        page: pagination.current,
+        page_size: pagination.pageSize,
+        ...params
       });
       
       if (response.data.success) {
@@ -225,7 +224,7 @@ const MaterialInbound = ({ onBack }) => {
   // 获取材料列表
   const fetchMaterials = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/material-management');
+      const response = await materialBaseDataService.getMaterials();
       if (response.data?.success) {
         const materialData = response.data.data;
         let materials = [];
@@ -246,7 +245,7 @@ const MaterialInbound = ({ onBack }) => {
   // 获取供应商列表
   const fetchSuppliers = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/supplier-management');
+      const response = await materialBaseDataService.getSuppliers();
       if (response.data?.success) {
         const supplierData = response.data.data;
         let suppliers = [];
@@ -267,7 +266,7 @@ const MaterialInbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/employees');
+      const response = await materialBaseDataService.getEmployees();
       if (response.data?.success) {
         const employeeData = response.data.data;
         let employees = [];
@@ -288,7 +287,7 @@ const MaterialInbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await request.get('/tenant/inventory/departments/options');
+      const response = await materialBaseDataService.getDepartments();
       if (response.data?.success) {
         setDepartments(response.data.data);
       }
@@ -351,7 +350,7 @@ const MaterialInbound = ({ onBack }) => {
   const fetchOrderDetails = async (orderId) => {
     try {
       // 获取明细数据
-      const detailResponse = await request.get(`/tenant/inventory/material-inbound-orders/${orderId}/details`);
+      const detailResponse = await materialInboundService.getInboundOrderDetails(orderId);
       if (detailResponse.data.success) {
         console.log('明细数据:', detailResponse.data.data);
         // 清理数据，移除SQLAlchemy内部属性
@@ -411,9 +410,9 @@ const MaterialInbound = ({ onBack }) => {
 
       let response;
       if (currentRecord) {
-        response = await request.put(`/tenant/inventory/material-inbound-orders/${currentRecord.id}`, orderData);
+        response = await materialInboundService.updateInboundOrder(currentRecord.id, orderData);
       } else {
-        response = await request.post('/tenant/inventory/material-inbound-orders', orderData);
+        response = await materialInboundService.createInboundOrder(orderData);
       }
 
       if (response.data.success) {

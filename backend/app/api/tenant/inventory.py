@@ -1777,10 +1777,10 @@ def delete_material_outbound_order(order_id):
         order = MaterialOutboundOrder.query.get(order_id)
         if not order:
             return jsonify({'code': 404, 'message': '出库单不存在'}), 404
-        
+
         if order.status != 'draft':
             return jsonify({'code': 400, 'message': '只能删除草稿状态的出库单'}), 400
-        
+
         # 删除明细
         MaterialOutboundOrderDetail.query.filter_by(material_outbound_order_id=order_id).delete()
         
@@ -1808,10 +1808,10 @@ def submit_material_outbound_order(order_id):
         order = MaterialOutboundOrder.query.get(order_id)
         if not order:
             return jsonify({'code': 404, 'message': '出库单不存在'}), 404
-        
+
         if order.status != 'draft':
             return jsonify({'code': 400, 'message': '只能提交草稿状态的出库单'}), 400
-        
+
         order.status = 'submitted'
         order.submitted_by = current_user
         order.submitted_at = datetime.now()
@@ -1843,7 +1843,7 @@ def approve_material_outbound_order(order_id):
         order = MaterialOutboundOrder.query.get(order_id)
         if not order:
             return jsonify({'code': 404, 'message': '出库单不存在'}), 404
-        
+
         if order.status != 'submitted':
             return jsonify({'code': 400, 'message': '只能审核已提交的出库单'}), 400
         
@@ -1856,7 +1856,7 @@ def approve_material_outbound_order(order_id):
             order.status = 'approved'
         elif approval_status == 'rejected':
             order.status = 'rejected'
-        
+
         db.session.commit()
 
         return jsonify({
@@ -1883,7 +1883,7 @@ def execute_material_outbound_order(order_id):
         order = MaterialOutboundOrder.query.get(order_id)
         if not order:
             return jsonify({'code': 404, 'message': '出库单不存在'}), 404
-        
+
         if order.status != 'approved':
             return jsonify({'code': 400, 'message': '只能执行已审核通过的出库单'}), 400
         
@@ -1907,7 +1907,7 @@ def execute_material_outbound_order(order_id):
                 batch_number=detail.batch_number,
                 is_active=True
             ).first()
-            
+
             if not inventory:
                 # 如果没有找到精确匹配的库存（包括批次），尝试找不指定批次的库存
                 inventory = Inventory.query.filter_by(
@@ -1972,12 +1972,12 @@ def execute_material_outbound_order(order_id):
             transaction.calculate_total_amount()
             
             db.session.add(transaction)
-        
+
         # 更新出库单状态
         order.status = 'executed'
         order.executed_by = current_user
         order.executed_at = datetime.now()
-        
+
         db.session.commit()
 
         return jsonify({
@@ -2003,15 +2003,15 @@ def cancel_material_outbound_order(order_id):
         order = MaterialOutboundOrder.query.get(order_id)
         if not order:
             return jsonify({'code': 404, 'message': '出库单不存在'}), 404
-        
+
         if order.status in ['executed', 'cancelled']:
             return jsonify({'code': 400, 'message': '该订单不能取消'}), 400
-        
+
         order.status = 'cancelled'
         order.cancelled_by = current_user
         order.cancelled_at = datetime.now()
         order.cancel_reason = cancel_reason
-        
+
         db.session.commit()
 
         return jsonify({
@@ -2022,7 +2022,7 @@ def cancel_material_outbound_order(order_id):
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'code': 500, 'message': f'取消失败: {str(e)}'}), 500 
+        return jsonify({'code': 500, 'message': f'取消失败: {str(e)}'}), 500
 
 # ==================== 材料盘点管理 ====================
 
@@ -2054,7 +2054,7 @@ def get_material_count_plans():
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         
         plans = [plan.to_dict() for plan in pagination.items]
-        
+
         return jsonify({
             'success': True,
             'data': {
@@ -2064,7 +2064,7 @@ def get_material_count_plans():
                 'current_page': page
             }
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"获取盘点计划失败: {str(e)}")
         return jsonify({'success': False, 'error': '获取盘点计划失败'}), 500
@@ -2574,7 +2574,7 @@ def update_material_transfer_order(order_id):
         order.updated_by = uuid.UUID(get_jwt_identity())
         
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'data': order.to_dict(),
@@ -2851,7 +2851,7 @@ def get_warehouse_transfer_materials(warehouse_id):
             'success': True,
             'data': materials
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"获取仓库可调拨材料失败: {str(e)}")
         return jsonify({'success': False, 'error': '获取可调拨材料失败'}), 500
@@ -3326,13 +3326,13 @@ def update_product_transfer_order(order_id):
         
         order.updated_by = current_user_id
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': '调拨单更新成功',
             'data': order.to_dict()
         })
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"更新成品调拨单失败: {str(e)}")
