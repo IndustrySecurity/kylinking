@@ -878,7 +878,7 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={6}>
-          <Form.Item name="unit_price" label="单价">
+          <Form.Item name="standard_price" label="单价">
             <InputNumber min={0} step={0.01} placeholder="0" style={{ width: '100%' }} />
           </Form.Item>
         </Col>

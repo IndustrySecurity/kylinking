@@ -102,7 +102,7 @@ class SalesOrderService {
    * 获取税收选项
    */
   getTaxOptions = async () => {
-    return request.get(`${this.baseURL}/tax-types/options`);
+    return request.get(`${this.baseURL}/taxes/options`);
   };
 
   /**
@@ -164,6 +164,27 @@ class SalesOrderService {
    */
   getProductInventory = async (productId) => {
     return request.get(`${this.baseURL}/products/${productId}/inventory`);
+  };
+
+  /**
+   * 获取客户详细信息用于自动填充表单
+   */
+  getCustomerDetails = async (customerId) => {
+    return request.get(`${this.baseURL}/customers/${customerId}/details`);
+  };
+
+  /**
+   * 获取客户联系人选项
+   */
+  getCustomerContacts = async (customerId) => {
+    return request.get(`${this.baseURL}/customers/${customerId}/contacts`);
+  };
+
+  /**
+   * 获取产品详细信息用于自动填充订单明细
+   */
+  getProductDetails = async (productId) => {
+    return request.get(`${this.baseURL}/products/${productId}/details`);
   };
 }
 

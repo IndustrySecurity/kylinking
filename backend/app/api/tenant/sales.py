@@ -77,9 +77,10 @@ def create_sales_order():
         if data.get('contract_date'):
             data['contract_date'] = datetime.fromisoformat(data['contract_date'].replace('Z', '+00:00'))
         
+        user_id = get_jwt_identity()
         result = sales_order_service.create_sales_order(
-            user_id=g.user_id,
-            order_data=data
+            order_data=data,
+            user_id=user_id
         )
         
         return jsonify({
@@ -129,10 +130,11 @@ def update_sales_order(order_id):
         if data.get('contract_date'):
             data['contract_date'] = datetime.fromisoformat(data['contract_date'].replace('Z', '+00:00'))
         
+        user_id = get_jwt_identity()
         result = sales_order_service.update_sales_order(
-            user_id=g.user_id,
             order_id=order_id,
-            order_data=data
+            order_data=data,
+            user_id=user_id
         )
         
         return jsonify({
@@ -153,9 +155,19 @@ def update_sales_order(order_id):
 def delete_sales_order(order_id):
     """删除销售订单"""
     try:
-        # 由于服务类没有 delete_by_id 方法，我们需要先获取订单然后删除
-        # 这里暂时返回未实现的错误
-        return jsonify({'error': '删除功能暂未实现'}), 501
+        user_id = get_jwt_identity()
+        success = sales_order_service.delete_sales_order(
+            order_id=order_id,
+            user_id=user_id
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '销售订单删除成功'
+            })
+        else:
+            return jsonify({'error': '删除失败'}), 500
         
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
@@ -169,9 +181,10 @@ def delete_sales_order(order_id):
 def approve_sales_order(order_id):
     """审批销售订单"""
     try:
+        user_id = get_jwt_identity()
         result = sales_order_service.approve_sales_order(
-            user_id=g.user_id,
-            order_id=order_id
+            order_id=order_id,
+            user_id=user_id
         )
         
         return jsonify({
@@ -195,9 +208,10 @@ def cancel_sales_order(order_id):
         data = request.get_json()
         reason = data.get('reason') if data else None
         
+        user_id = get_jwt_identity()
         result = sales_order_service.cancel_sales_order(
-            user_id=g.user_id,
             order_id=order_id,
+            user_id=user_id,
             reason=reason
         )
         
@@ -380,4 +394,206 @@ def get_product_inventory(product_id):
         return jsonify({
             'success': False,
             'message': f'获取产品库存失败: {str(e)}'
-        }), 500 
+        }), 500
+
+
+@sales_bp.route('/taxes/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_tax_options():
+    """获取税收选项"""
+    try:
+        # 使用税收服务获取启用的税收列表
+        from app.services.package_method_service import TaxRateService
+        
+        tax_rates = TaxRateService.get_enabled_tax_rates()
+        
+        # 转换为选项格式
+        options = []
+        for tax_rate in tax_rates:
+            options.append({
+                'value': tax_rate['id'],
+                'label': tax_rate['tax_name'],
+                'rate': tax_rate['tax_rate']
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'获取税收选项失败: {str(e)}'}), 500
+
+
+@sales_bp.route('/customers/<customer_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_details(customer_id):
+    """获取客户详细信息用于自动填充订单表单"""
+    try:
+        from app.models.basic_data import CustomerManagement, CustomerContact, CustomerAffiliatedCompany
+        from app.extensions import db
+        
+        # 获取客户基本信息
+        customer = db.session.query(CustomerManagement).filter_by(id=customer_id).first()
+        if not customer:
+            return jsonify({'error': '客户不存在'}), 404
+        
+        # 获取客户联系人信息（第一个联系人）
+        contact = db.session.query(CustomerContact).filter_by(
+            customer_id=customer_id
+        ).order_by(CustomerContact.sort_order.asc()).first()
+        
+        # 获取归属公司信息（第一个归属公司）
+        affiliated_company = db.session.query(CustomerAffiliatedCompany).filter_by(
+            customer_id=customer_id
+        ).order_by(CustomerAffiliatedCompany.sort_order.asc()).first()
+        
+        # 构建返回数据
+        result = {
+            'customer_code': customer.customer_code,
+            'customer_name': customer.customer_name,
+            'contact_person_id': str(contact.id) if contact else None,
+            'phone': contact.mobile if contact else '',
+            'mobile': contact.mobile if contact else '',
+            'payment_method_id': str(customer.payment_method_id) if customer.payment_method_id else None,
+            'delivery_method': str(customer.package_method_id) if customer.package_method_id else None,
+            'contact_method': contact.mobile if contact else '',
+            'salesperson_id': str(customer.salesperson_id) if customer.salesperson_id else None,
+            'company_id': affiliated_company.affiliated_company if affiliated_company else '',
+            'tax_rate_id': str(customer.tax_rate_id) if customer.tax_rate_id else None,
+            'tax_rate': float(customer.tax_rate) if customer.tax_rate else 0.0
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'获取客户详情失败: {str(e)}'}), 500
+
+
+@sales_bp.route('/customers/<customer_id>/contacts', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_contacts(customer_id):
+    """获取客户联系人列表"""
+    try:
+        from app.models.basic_data import CustomerContact
+        from app.extensions import db
+        
+        contacts = db.session.query(CustomerContact).filter_by(
+            customer_id=customer_id
+        ).order_by(CustomerContact.sort_order.asc()).all()
+        
+        contact_list = []
+        for c in contacts:
+            landline_value = getattr(c, 'landline', None) or getattr(c, 'mobile', None)
+            contact_list.append({
+                'id': c.id,
+                'contact_name': getattr(c, 'contact_name', None),
+                'mobile': getattr(c, 'mobile', None),
+                'landline': landline_value,
+                'fax': getattr(c, 'fax', None),
+                'email': getattr(c, 'email', None),
+                'position': getattr(c, 'position', None)
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': contact_list
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'获取客户联系人失败: {str(e)}'}), 500
+
+
+@sales_bp.route('/products/<product_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_details(product_id):
+    """获取产品详细信息用于自动填充订单明细表单"""
+    try:
+        from app.models.basic_data import Product, Unit, Currency, TaxRate, BagType
+        from app.extensions import db
+        
+        # 获取产品基本信息
+        product = db.session.query(Product).filter_by(id=product_id).first()
+        if not product:
+            return jsonify({'error': '产品不存在'}), 404
+        
+        # 获取相关的关联数据
+        currency = db.session.query(Currency).filter_by(currency_code=product.currency).first() if product.currency else None
+        bag_type = db.session.query(BagType).filter_by(id=product.bag_type_id).first() if product.bag_type_id else None
+        
+        # 组装返回数据
+        product_data = {
+            # 基本产品信息
+            'product_code': product.product_code,
+            'product_name': product.product_name,
+            'specification': product.specification,
+            
+            # 单位信息
+            'unit': product.base_unit,
+            'sales_unit_id': None,  # 销售单位ID，根据产品自动填入
+            
+            # 价格信息
+            'unit_price': float(product.standard_price) if product.standard_price else 0,  # 单价
+            'standard_cost': float(product.standard_cost) if product.standard_cost else 0,  # 标准成本
+            'currency_id': currency.id if currency else None,  # 币种ID
+            
+            # 库存信息
+            'usable_inventory': float(product.safety_stock) if product.safety_stock else 0,  # 可用库存
+            'min_order_qty': float(product.min_order_qty) if product.min_order_qty else 1,  # 最小订单量
+            'max_order_qty': float(product.max_order_qty) if product.max_order_qty else None,  # 最大订单量
+            
+            # 生产信息
+            'production_small_quantity': float(product.min_order_qty) if product.min_order_qty else 0,  # 生产最小数
+            'production_large_quantity': float(product.max_order_qty) if product.max_order_qty else 0,  # 生产最大数
+            'lead_time': product.lead_time if product.lead_time else 0,  # 生产周期
+            
+            # 技术参数
+            'thickness': float(product.thickness) if product.thickness else None,  # 厚度
+            'width': float(product.width) if product.width else None,  # 宽度
+            'length': float(product.length) if product.length else None,  # 长度
+            'material_type': product.material_type,  # 材料类型
+            
+            # 包装信息
+            'net_weight': float(product.net_weight) if product.net_weight else None,  # 净重
+            'gross_weight': float(product.gross_weight) if product.gross_weight else None,  # 毛重
+            'conversion_rate': float(product.conversion_rate) if product.conversion_rate else 1,  # 换算率
+            
+            # 质量信息
+            'quality_standard': product.quality_standard,  # 质量标准
+            'inspection_method': product.inspection_method,  # 检验方法
+            'storage_condition': product.storage_condition,  # 存储条件
+            'shelf_life': product.shelf_life,  # 保质期
+            
+            # 袋型信息
+            'bag_type_id': str(product.bag_type_id) if product.bag_type_id else None,  # 袋型ID
+            'bag_type_name': bag_type.bag_type_name if bag_type else None,  # 袋型名称
+            
+            # 客户信息
+            'customer_id': str(product.customer_id) if product.customer_id else None,  # 客户ID
+            'salesperson_id': str(product.salesperson_id) if product.salesperson_id else None,  # 业务员ID
+            
+            # 其他业务字段
+            'material_info': product.material_info,  # 材料信息
+            'compound_quantity': product.compound_quantity,  # 复合量
+            'is_compound_needed': product.is_compound_needed,  # 需要复合
+            'is_inspection_needed': product.is_inspection_needed,  # 检验手续
+            'is_packaging_needed': product.is_packaging_needed,  # 包装
+            
+            # 自定义字段
+            'custom_fields': product.custom_fields or {}
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': product_data
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'获取产品详情失败: {str(e)}'}), 500

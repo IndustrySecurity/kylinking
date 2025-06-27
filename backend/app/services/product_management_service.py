@@ -220,6 +220,18 @@ class ProductManagementService:
                 min_order_qty=data.get('min_order_qty', 1),
                 max_order_qty=data.get('max_order_qty'),
                 
+                # 生产信息
+                lead_time=data.get('lead_time', 0),
+                shelf_life=data.get('shelf_life'),
+                storage_condition=data.get('storage_condition'),
+                
+                # 质量标准
+                quality_standard=data.get('quality_standard'),
+                inspection_method=data.get('inspection_method'),
+                
+                # 自定义字段
+                custom_fields=data.get('custom_fields', {}),
+                
                 # 系统字段
                 status=data.get('status', 'active'),
                 is_sellable=data.get('is_sellable', True),
@@ -291,7 +303,8 @@ class ProductManagementService:
                 'thickness', 'width', 'length', 'material_type', 'transparency', 'tensile_strength',
                 'base_unit', 'package_unit', 'conversion_rate', 'net_weight', 'gross_weight',
                 'standard_cost', 'standard_price', 'currency', 'safety_stock', 'min_order_qty',
-                'max_order_qty', 'status', 'is_sellable', 'is_purchasable', 'is_producible'
+                'max_order_qty', 'lead_time', 'shelf_life', 'storage_condition', 'quality_standard', 
+                'inspection_method', 'custom_fields', 'status', 'is_sellable', 'is_purchasable', 'is_producible'
             ]
             
             for field in basic_fields:

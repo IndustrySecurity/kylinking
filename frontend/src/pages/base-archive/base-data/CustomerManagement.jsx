@@ -247,49 +247,54 @@ const CustomerManagement = () => {
         // 处理商标证期间
         if (customerData.trademark_start_date || customerData.trademark_end_date) {
           formData.trademark_period = [
-            customerData.trademark_start_date ? new Date(customerData.trademark_start_date) : null,
-            customerData.trademark_end_date ? new Date(customerData.trademark_end_date) : null
+            customerData.trademark_start_date ? dayjs(customerData.trademark_start_date) : null,
+            customerData.trademark_end_date ? dayjs(customerData.trademark_end_date) : null
           ]
         }
         
         // 处理条码证期间
         if (customerData.barcode_cert_start_date || customerData.barcode_cert_end_date) {
           formData.barcode_cert_period = [
-            customerData.barcode_cert_start_date ? new Date(customerData.barcode_cert_start_date) : null,
-            customerData.barcode_cert_end_date ? new Date(customerData.barcode_cert_end_date) : null
+            customerData.barcode_cert_start_date ? dayjs(customerData.barcode_cert_start_date) : null,
+            customerData.barcode_cert_end_date ? dayjs(customerData.barcode_cert_end_date) : null
           ]
         }
         
         // 处理合同期间
         if (customerData.contract_start_date || customerData.contract_end_date) {
           formData.contract_period = [
-            customerData.contract_start_date ? new Date(customerData.contract_start_date) : null,
-            customerData.contract_end_date ? new Date(customerData.contract_end_date) : null
+            customerData.contract_start_date ? dayjs(customerData.contract_start_date) : null,
+            customerData.contract_end_date ? dayjs(customerData.contract_end_date) : null
           ]
         }
         
         // 处理经营期间
         if (customerData.business_start_date || customerData.business_end_date) {
           formData.business_period = [
-            customerData.business_start_date ? new Date(customerData.business_start_date) : null,
-            customerData.business_end_date ? new Date(customerData.business_end_date) : null
+            customerData.business_start_date ? dayjs(customerData.business_start_date) : null,
+            customerData.business_end_date ? dayjs(customerData.business_end_date) : null
           ]
         }
         
         // 处理生产许可期间
         if (customerData.production_permit_start_date || customerData.production_permit_end_date) {
           formData.production_permit_period = [
-            customerData.production_permit_start_date ? new Date(customerData.production_permit_start_date) : null,
-            customerData.production_permit_end_date ? new Date(customerData.production_permit_end_date) : null
+            customerData.production_permit_start_date ? dayjs(customerData.production_permit_start_date) : null,
+            customerData.production_permit_end_date ? dayjs(customerData.production_permit_end_date) : null
           ]
         }
         
         // 处理检验报告期间
         if (customerData.inspection_report_start_date || customerData.inspection_report_end_date) {
           formData.inspection_report_period = [
-            customerData.inspection_report_start_date ? new Date(customerData.inspection_report_start_date) : null,
-            customerData.inspection_report_end_date ? new Date(customerData.inspection_report_end_date) : null
+            customerData.inspection_report_start_date ? dayjs(customerData.inspection_report_start_date) : null,
+            customerData.inspection_report_end_date ? dayjs(customerData.inspection_report_end_date) : null
           ]
+        }
+
+        // 处理单个日期
+        if (customerData.reconciliation_date) {
+          formData.reconciliation_date = dayjs(customerData.reconciliation_date);
         }
         
         form.setFieldsValue(formData)

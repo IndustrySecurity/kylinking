@@ -172,9 +172,9 @@ const MaterialInbound = ({ onBack }) => {
     setLoading(true);
     try {
       const response = await materialInboundService.getInboundOrderList({
-        page: pagination.current,
+          page: pagination.current,
         page_size: pagination.pageSize,
-        ...params
+          ...params
       });
       
       if (response.data.success) {
@@ -202,11 +202,11 @@ const MaterialInbound = ({ onBack }) => {
       }
           } catch (error) {
         // 使用备用API
-        try {
-          const response = await request.get('/tenant/basic-data/warehouses/options', {
+    try {
+      const response = await request.get('/tenant/basic-data/warehouses/options', {
             params: { warehouse_type: 'material' }
-          });
-          if (response.data?.success) {
+      });
+      if (response.data?.success) {
             setWarehouses(response.data.data);
           }
         } catch (backupError) {
@@ -218,7 +218,7 @@ const MaterialInbound = ({ onBack }) => {
             { value: '4', label: '材料仓', code: 'CL004' }
           ]);
         }
-      }
+    }
   };
 
   // 获取材料列表

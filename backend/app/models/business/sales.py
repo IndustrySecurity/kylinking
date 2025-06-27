@@ -51,11 +51,97 @@ class SalesOrder(TenantModel):
     status = Column(String(20), default='draft', comment='订单状态')  # draft/confirmed/production/shipped/completed/cancelled
     is_active = Column(Boolean, default=True, comment='是否有效')
     
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), comment='创建人ID')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人ID')
+
     # 关联关系
     customer = relationship("CustomerManagement", back_populates="sales_orders")
     order_details = relationship("SalesOrderDetail", back_populates="sales_order", cascade="all, delete-orphan")
     other_fees = relationship("SalesOrderOtherFee", back_populates="sales_order", cascade="all, delete-orphan")
     material_details = relationship("SalesOrderMaterial", back_populates="sales_order", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'order_number': self.order_number,
+            'order_type': self.order_type,
+            'customer_id': str(self.customer_id) if self.customer_id else None,
+            'customer_order_number': self.customer_order_number,
+            'contact_person_id': str(self.contact_person_id) if self.contact_person_id else None,
+            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'order_amount': float(self.order_amount) if self.order_amount else 0,
+            'deposit': float(self.deposit) if self.deposit else 0,
+            'plate_fee': float(self.plate_fee) if self.plate_fee else 0,
+            'plate_fee_percentage': float(self.plate_fee_percentage) if self.plate_fee_percentage else 0,
+            'order_date': self.order_date.isoformat() if self.order_date else None,
+            'internal_delivery_date': self.internal_delivery_date.isoformat() if self.internal_delivery_date else None,
+            'salesperson_id': str(self.salesperson_id) if self.salesperson_id else None,
+            'contract_date': self.contract_date.isoformat() if self.contract_date else None,
+            'delivery_address': self.delivery_address,
+            'logistics_info': self.logistics_info,
+            'tracking_number': self.tracking_number,
+            'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
+            'production_requirements': self.production_requirements,
+            'order_requirements': self.order_requirements,
+            'status': self.status,
+            'is_active': self.is_active,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加客户信息
+        if hasattr(self, 'customer') and self.customer:
+            result['customer'] = {
+                'id': str(self.customer.id),
+                'customer_name': self.customer.customer_name,
+                'customer_code': self.customer.customer_code
+            }
+        
+        # 添加联系人信息
+        if self.contact_person_id:
+            try:
+                from app.models.basic_data import CustomerContact
+                from app.extensions import db
+                contact = db.session.query(CustomerContact).filter_by(id=self.contact_person_id).first()
+                if contact:
+                    result['contact_person'] = {
+                        'id': str(contact.id),
+                        'contact_name': getattr(contact, 'contact_name', '') or getattr(contact, 'name', ''),
+                        'mobile': getattr(contact, 'mobile', '') or getattr(contact, 'landline', ''),
+                        'phone': getattr(contact, 'mobile', '') or getattr(contact, 'landline', '')
+                    }
+            except Exception:
+                pass
+        
+        # 添加税收信息
+        if self.tax_type_id:
+            try:
+                from app.models.basic_data import TaxRate
+                from app.extensions import db
+                tax_rate = db.session.query(TaxRate).filter_by(id=self.tax_type_id).first()
+                if tax_rate:
+                    result['tax_name'] = tax_rate.tax_name
+                    result['tax_rate'] = float(tax_rate.tax_rate) if tax_rate.tax_rate else 0
+            except Exception:
+                pass
+        
+        # 添加订单明细
+        if hasattr(self, 'order_details'):
+            result['order_details'] = [detail.to_dict() for detail in self.order_details]
+        
+        # 添加其他费用
+        if hasattr(self, 'other_fees'):
+            result['other_fees'] = [fee.to_dict() for fee in self.other_fees]
+        
+        # 添加材料明细
+        if hasattr(self, 'material_details'):
+            result['material_details'] = [material.to_dict() for material in self.material_details]
+        
+        return result
 
 
 class SalesOrderDetail(TenantModel):
@@ -174,9 +260,113 @@ class SalesOrderDetail(TenantModel):
     affiliate_company_id = Column(UUID(as_uuid=True), comment='所属公司ID')  # 选择
     component_name = Column(String(200), comment='部件名称')  # 手工输入
     
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), comment='创建人ID')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人ID')
+
     # 关联关系
     sales_order = relationship("SalesOrder", back_populates="order_details")
     product = relationship("Product")
+
+    def to_dict(self):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'sales_order_id': str(self.sales_order_id),
+            'product_id': str(self.product_id) if self.product_id else None,
+            'product_code': self.product_code,
+            'product_name': self.product_name,
+            'negative_deviation_percentage': float(self.negative_deviation_percentage) if self.negative_deviation_percentage else None,
+            'positive_deviation_percentage': float(self.positive_deviation_percentage) if self.positive_deviation_percentage else None,
+            'production_small_quantity': float(self.production_small_quantity) if self.production_small_quantity else None,
+            'production_large_quantity': float(self.production_large_quantity) if self.production_large_quantity else None,
+            'order_quantity': float(self.order_quantity) if self.order_quantity else None,
+            'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'unit_price': float(self.unit_price) if self.unit_price else None,
+            'amount': float(self.amount) if self.amount else None,
+            'unit': self.unit,
+            'estimated_thickness_m': float(self.estimated_thickness_m) if self.estimated_thickness_m else None,
+            'estimated_weight_kg': float(self.estimated_weight_kg) if self.estimated_weight_kg else None,
+            'estimated_volume': float(self.estimated_volume) if self.estimated_volume else None,
+            'shipping_quantity': float(self.shipping_quantity) if self.shipping_quantity else None,
+            'production_quantity': float(self.production_quantity) if self.production_quantity else None,
+            'usable_inventory': float(self.usable_inventory) if self.usable_inventory else None,
+            'insufficient_notice': self.insufficient_notice,
+            'storage_quantity': float(self.storage_quantity) if self.storage_quantity else None,
+            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'currency_id': str(self.currency_id) if self.currency_id else None,
+            'material_structure': self.material_structure,
+            'customer_requirements': self.customer_requirements,
+            'storage_requirements': self.storage_requirements,
+            'customization_requirements': self.customization_requirements,
+            'printing_requirements': self.printing_requirements,
+            'outer_box': self.outer_box,
+            'foreign_currency_unit_price': float(self.foreign_currency_unit_price) if self.foreign_currency_unit_price else None,
+            'foreign_currency_amount': float(self.foreign_currency_amount) if self.foreign_currency_amount else None,
+            'foreign_currency_id': str(self.foreign_currency_id) if self.foreign_currency_id else None,
+            'delivery_date': self.delivery_date.isoformat() if self.delivery_date else None,
+            'internal_delivery_date': self.internal_delivery_date.isoformat() if self.internal_delivery_date else None,
+            'customer_code': self.customer_code,
+            'product_condition': self.product_condition,
+            'color_count': self.color_count,
+            'bag_type_id': str(self.bag_type_id) if self.bag_type_id else None,
+            'material_structure_auto': self.material_structure_auto,
+            'storage_requirements_auto': self.storage_requirements_auto,
+            'storage_requirements_input': self.storage_requirements_input,
+            'printing_requirements_auto': self.printing_requirements_auto,
+            'estimated_thickness_count': float(self.estimated_thickness_count) if self.estimated_thickness_count else None,
+            'packaging_count': float(self.packaging_count) if self.packaging_count else None,
+            'square_meters_per_piece': float(self.square_meters_per_piece) if self.square_meters_per_piece else None,
+            'square_meters_count': float(self.square_meters_count) if self.square_meters_count else None,
+            'paper_tube_weight': float(self.paper_tube_weight) if self.paper_tube_weight else None,
+            'net_weight': float(self.net_weight) if self.net_weight else None,
+            'composite_area': self.composite_area,
+            'modified_condition': self.modified_condition,
+            'customer_specification': self.customer_specification,
+            'color_count_auto': self.color_count_auto,
+            'packaging_type': self.packaging_type,
+            'material_structure_final': self.material_structure_final,
+            'storage_method': self.storage_method,
+            'customization_requirements_final': self.customization_requirements_final,
+            'printing_requirements_final': self.printing_requirements_final,
+            'outer_box_final': self.outer_box_final,
+            'foreign_currency_unit_price_final': float(self.foreign_currency_unit_price_final) if self.foreign_currency_unit_price_final else None,
+            'foreign_currency_amount_final': float(self.foreign_currency_amount_final) if self.foreign_currency_amount_final else None,
+            'paper_weight': float(self.paper_weight) if self.paper_weight else None,
+            'other_info': self.other_info,
+            'customer_specification_final': self.customer_specification_final,
+            'modification_date': self.modification_date.isoformat() if self.modification_date else None,
+            'printing_requirements_input': self.printing_requirements_input,
+            'composite_requirements': self.composite_requirements,
+            'estimated_bags_count': float(self.estimated_bags_count) if self.estimated_bags_count else None,
+            'packaging_weight': float(self.packaging_weight) if self.packaging_weight else None,
+            'square_meter_unit_price': float(self.square_meter_unit_price) if self.square_meter_unit_price else None,
+            'bag_count': float(self.bag_count) if self.bag_count else None,
+            'grade': self.grade,
+            'company_price': float(self.company_price) if self.company_price else None,
+            'customer_discount': float(self.customer_discount) if self.customer_discount else None,
+            'customer_discount_amount': float(self.customer_discount_amount) if self.customer_discount_amount else None,
+            'internal_period': self.internal_period,
+            'printing_detail': self.printing_detail,
+            'sorting_number': self.sorting_number,
+            'assembly_coefficient': float(self.assembly_coefficient) if self.assembly_coefficient else None,
+            'affiliate_company_id': str(self.affiliate_company_id) if self.affiliate_company_id else None,
+            'component_name': self.component_name,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加产品信息
+        if hasattr(self, 'product') and self.product:
+            result['product'] = {
+                'id': str(self.product.id),
+                'product_code': self.product.product_code,
+                'product_name': self.product.product_name
+            }
+        
+        return result
 
 
 class SalesOrderOtherFee(TenantModel):
@@ -227,9 +417,63 @@ class SalesOrderOtherFee(TenantModel):
     affiliate_company_id = Column(UUID(as_uuid=True), comment='所属公司ID')  # 手工输入
     material_note = Column(Text, comment='材料档案备注')  # 手工输入
     
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), comment='创建人ID')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人ID')
+
     # 关联关系
     sales_order = relationship("SalesOrder", back_populates="other_fees")
     product = relationship("Product")
+
+    def to_dict(self):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'sales_order_id': str(self.sales_order_id),
+            'fee_type': self.fee_type,
+            'product_id': str(self.product_id) if self.product_id else None,
+            'product_name': self.product_name,
+            'length': float(self.length) if self.length else None,
+            'width': float(self.width) if self.width else None,
+            'customer_order_number': self.customer_order_number,
+            'customer_code': self.customer_code,
+            'price': float(self.price) if self.price else None,
+            'quantity': float(self.quantity) if self.quantity else None,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'amount': float(self.amount) if self.amount else None,
+            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'untaxed_price': float(self.untaxed_price) if self.untaxed_price else None,
+            'untaxed_amount': float(self.untaxed_amount) if self.untaxed_amount else None,
+            'tax_amount': float(self.tax_amount) if self.tax_amount else None,
+            'foreign_currency_unit_price': float(self.foreign_currency_unit_price) if self.foreign_currency_unit_price else None,
+            'foreign_currency_amount': float(self.foreign_currency_amount) if self.foreign_currency_amount else None,
+            'foreign_currency_id': str(self.foreign_currency_id) if self.foreign_currency_id else None,
+            'delivery_date': self.delivery_date.isoformat() if self.delivery_date else None,
+            'internal_delivery_date': self.internal_delivery_date.isoformat() if self.internal_delivery_date else None,
+            'customer_requirements': self.customer_requirements,
+            'notes': self.notes,
+            'sort_order': self.sort_order,
+            'income_quantity': float(self.income_quantity) if self.income_quantity else None,
+            'completion_status': self.completion_status,
+            'assembly_coefficient': float(self.assembly_coefficient) if self.assembly_coefficient else None,
+            'sales_material_batch_number': self.sales_material_batch_number,
+            'affiliate_company_id': str(self.affiliate_company_id) if self.affiliate_company_id else None,
+            'material_note': self.material_note,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加产品信息
+        if hasattr(self, 'product') and self.product:
+            result['product'] = {
+                'id': str(self.product.id),
+                'product_code': self.product.product_code,
+                'product_name': self.product.product_name
+            }
+        
+        return result
 
 
 class SalesOrderMaterial(TenantModel):
@@ -278,6 +522,60 @@ class SalesOrderMaterial(TenantModel):
     affiliate_company_id = Column(UUID(as_uuid=True), comment='所属公司ID')  # 手工输入
     material_archive_note = Column(Text, comment='材料档案备注')  # 手工输入
     
+    # 审计字段
+    created_by = Column(UUID(as_uuid=True), comment='创建人ID')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人ID')
+
     # 关联关系
     sales_order = relationship("SalesOrder", back_populates="material_details")
-    material = relationship("Material") 
+    material = relationship("Material")
+
+    def to_dict(self):
+        """转换为字典"""
+        result = {
+            'id': str(self.id),
+            'sales_order_id': str(self.sales_order_id),
+            'material_id': str(self.material_id) if self.material_id else None,
+            'negative_deviation_percentage': float(self.negative_deviation_percentage) if self.negative_deviation_percentage else None,
+            'positive_deviation_percentage': float(self.positive_deviation_percentage) if self.positive_deviation_percentage else None,
+            'gift_quantity': float(self.gift_quantity) if self.gift_quantity else None,
+            'quantity': float(self.quantity) if self.quantity else None,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'auxiliary_quantity': float(self.auxiliary_quantity) if self.auxiliary_quantity else None,
+            'auxiliary_unit_id': str(self.auxiliary_unit_id) if self.auxiliary_unit_id else None,
+            'changed_price_before': float(self.changed_price_before) if self.changed_price_before else None,
+            'price': float(self.price) if self.price else None,
+            'amount': float(self.amount) if self.amount else None,
+            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'untaxed_price': float(self.untaxed_price) if self.untaxed_price else None,
+            'untaxed_amount': float(self.untaxed_amount) if self.untaxed_amount else None,
+            'foreign_currency_unit_price': float(self.foreign_currency_unit_price) if self.foreign_currency_unit_price else None,
+            'foreign_currency_amount': float(self.foreign_currency_amount) if self.foreign_currency_amount else None,
+            'foreign_currency_id': str(self.foreign_currency_id) if self.foreign_currency_id else None,
+            'delivery_date': self.delivery_date.isoformat() if self.delivery_date else None,
+            'internal_delivery_date': self.internal_delivery_date.isoformat() if self.internal_delivery_date else None,
+            'customer_requirements': self.customer_requirements,
+            'notes': self.notes,
+            'sort_order': self.sort_order,
+            'income_quantity': float(self.income_quantity) if self.income_quantity else None,
+            'completion_status': self.completion_status,
+            'assembly_coefficient': float(self.assembly_coefficient) if self.assembly_coefficient else None,
+            'sales_material_batch_number': self.sales_material_batch_number,
+            'affiliate_company_id': str(self.affiliate_company_id) if self.affiliate_company_id else None,
+            'material_archive_note': self.material_archive_note,
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        
+        # 添加材料信息
+        if hasattr(self, 'material') and self.material:
+            result['material'] = {
+                'id': str(self.material.id),
+                'material_code': self.material.material_code,
+                'material_name': self.material.material_name
+            }
+        
+        return result 
