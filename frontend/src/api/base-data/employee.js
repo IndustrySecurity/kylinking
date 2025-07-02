@@ -1,6 +1,6 @@
-import request from '@/utils/request'
+import request from '../../utils/request'
 
-const API_BASE = '/tenant/basic-data'
+const API_BASE = '/tenant/base-archive/base-data'
 
 // 获取员工列表
 export const getEmployees = (params) => {
@@ -12,7 +12,7 @@ export const getEmployees = (params) => {
 }
 
 // 获取员工详情
-export const getEmployee = (id) => {
+export const getEmployeeById = (id) => {
   return request({
     url: `${API_BASE}/employees/${id}`,
     method: 'get'
@@ -48,8 +48,8 @@ export const deleteEmployee = (id) => {
 // 批量更新员工
 export const batchUpdateEmployees = (data) => {
   return request({
-    url: `${API_BASE}/employees/batch`,
-    method: 'put',
+    url: `${API_BASE}/employees/batch-update`,
+    method: 'post',
     data
   })
 }
@@ -100,4 +100,72 @@ export const getNextEmployeeId = () => {
     url: `${API_BASE}/employees/next-employee-id`,
     method: 'get'
   })
-} 
+}
+
+// 获取表单选项数据
+export const getFormOptions = () => {
+  return request({
+    url: `${API_BASE}/employees/form-options`,
+    method: 'get'
+  })
+}
+
+// 导入员工数据
+export const importEmployees = (formData) => {
+  return request({
+    url: `${API_BASE}/employees/import`,
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+// 导出员工数据
+export const exportEmployees = (params) => {
+  return request({
+    url: `${API_BASE}/employees/export`,
+    method: 'get',
+    params,
+    responseType: 'blob'
+  })
+}
+
+// 搜索员工
+export const searchEmployees = (keyword) => {
+  return request({
+    url: `${API_BASE}/employees/search`,
+    method: 'get',
+    params: { keyword }
+  })
+}
+
+// 切换员工状态
+export const toggleEmployeeStatus = (id) => {
+  return request({
+    url: `${API_BASE}/employees/${id}/toggle-status`,
+    method: 'put'
+  })
+}
+
+// 统一导出API对象
+export const employeeApi = {
+  getEmployees,
+  getEmployeeById,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  batchUpdateEmployees,
+  getEmployeeOptions,
+  getEmploymentStatusOptions,
+  getBusinessTypeOptions,
+  getGenderOptions,
+  getEvaluationLevelOptions,
+  getNextEmployeeId,
+  getFormOptions,
+  importEmployees,
+  exportEmployees,
+  searchEmployees,
+  toggleEmployeeStatus
+}; 

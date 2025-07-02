@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request from '../../utils/request'
 
 // 客户管理API
 
@@ -9,7 +9,7 @@ import request from '@/utils/request'
  */
 export function getCustomerManagementList(params) {
   return request({
-    url: '/tenant/basic-data/customer-management',
+    url: '/tenant/base-archive/base-data/customers',
     method: 'get',
     params
   })
@@ -22,7 +22,7 @@ export function getCustomerManagementList(params) {
  */
 export function getCustomerManagementDetail(id) {
   return request({
-    url: `/tenant/basic-data/customer-management/${id}`,
+    url: `/tenant/base-archive/base-data/customers/${id}`,
     method: 'get'
   })
 }
@@ -34,7 +34,7 @@ export function getCustomerManagementDetail(id) {
  */
 export function createCustomerManagement(data) {
   return request({
-    url: '/tenant/basic-data/customer-management',
+    url: '/tenant/base-archive/base-data/customers',
     method: 'post',
     data
   })
@@ -48,7 +48,7 @@ export function createCustomerManagement(data) {
  */
 export function updateCustomerManagement(id, data) {
   return request({
-    url: `/tenant/basic-data/customer-management/${id}`,
+    url: `/tenant/base-archive/base-data/customers/${id}`,
     method: 'put',
     data
   })
@@ -61,7 +61,7 @@ export function updateCustomerManagement(id, data) {
  */
 export function deleteCustomerManagement(id) {
   return request({
-    url: `/tenant/basic-data/customer-management/${id}`,
+    url: `/tenant/base-archive/base-data/customers/${id}`,
     method: 'delete'
   })
 }
@@ -73,7 +73,7 @@ export function deleteCustomerManagement(id) {
  */
 export function toggleCustomerStatus(id) {
   return request({
-    url: `/tenant/basic-data/customer-management/${id}/toggle-status`,
+    url: `/tenant/base-archive/base-data/customers/${id}/toggle-status`,
     method: 'put'
   })
 }
@@ -85,9 +85,10 @@ export function toggleCustomerStatus(id) {
  */
 export function exportCustomerManagement(params) {
   return request({
-    url: '/tenant/basic-data/customer-management/export',
+    url: '/tenant/base-archive/base-data/customers/export',
     method: 'get',
-    params
+    params,
+    responseType: 'blob'
   })
 }
 
@@ -97,7 +98,70 @@ export function exportCustomerManagement(params) {
  */
 export function getCustomerManagementFormOptions() {
   return request({
-    url: '/tenant/basic-data/customer-management/form-options',
+    url: '/tenant/base-archive/base-data/customers/form-options',
     method: 'get'
   })
-} 
+}
+
+// 获取启用的客户选项
+export function getEnabledCustomers() {
+  return request({
+    url: '/tenant/base-archive/base-data/customers/enabled',
+    method: 'get'
+  })
+}
+
+// 批量更新客户
+export function batchUpdateCustomers(data) {
+  return request({
+    url: '/tenant/base-archive/base-data/customers/batch-update',
+    method: 'post',
+    data
+  })
+}
+
+// 获取客户选项（用于下拉框）
+export function getCustomerOptions() {
+  return request({
+    url: '/tenant/base-archive/base-data/customers/form-options',
+    method: 'get'
+  })
+}
+
+// 导入客户数据
+export function importCustomers(formData) {
+  return request({
+    url: '/tenant/base-archive/base-data/customers/import',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+// 搜索客户
+export function searchCustomers(keyword) {
+  return request({
+    url: '/tenant/base-archive/base-data/customers/search',
+    method: 'get',
+    params: { keyword }
+  })
+}
+
+// 统一导出API对象
+export const customerManagementApi = {
+  getCustomerManagementList,
+  getCustomerManagementDetail,
+  createCustomerManagement,
+  updateCustomerManagement,
+  deleteCustomerManagement,
+  toggleCustomerStatus,
+  exportCustomerManagement,
+  getCustomerManagementFormOptions,
+  getEnabledCustomers,
+  batchUpdateCustomers,
+  getCustomerOptions,
+  importCustomers,
+  searchCustomers
+}; 

@@ -68,7 +68,8 @@ export const getMaterialQuoteCalculationSchemes = () => {
   });
 };
 
-export default {
+// 统一导出API对象
+const quoteAccessoryApi = {
   getQuoteAccessories,
   getQuoteAccessory,
   createQuoteAccessory,
@@ -77,4 +78,6 @@ export default {
   batchUpdateQuoteAccessories,
   getEnabledQuoteAccessories,
   getMaterialQuoteCalculationSchemes
-}; 
+};
+
+export default quoteAccessoryApi; 

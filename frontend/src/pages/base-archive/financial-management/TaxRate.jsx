@@ -28,7 +28,12 @@ import {
   StarOutlined,
   PercentageOutlined
 } from '@ant-design/icons';
-import { taxRateApi } from '../../../api/financial-management/taxRate';
+import { 
+  getTaxRates, 
+  createTaxRate, 
+  updateTaxRate, 
+  deleteTaxRate 
+} from '../../../api/financial-management/taxRate';
 
 const { Title } = Typography;
 
@@ -53,35 +58,35 @@ const TaxRate = () => {
   const isEditing = (record) => record.key === editingKey;
 
   // 加载数据
-  const loadData = async (params = {}) => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const response = await taxRateApi.getTaxRates({
+      const params = {
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
-        ...params
-      });
-
-      // 正确处理后端响应格式
-      if (response.data.success) {
-        const { tax_rates, total, current_page } = response.data.data;
-        
-        // 为每行数据添加key
-        const dataWithKeys = tax_rates.map((item, index) => ({
+      };
+      const response = await getTaxRates(params);
+      
+      if (response.data?.success) {
+        const { tax_rates, total } = response.data.data;
+        // 为每条记录添加key属性用于React表格
+        const dataWithKeys = (tax_rates || []).map(item => ({
           ...item,
-          key: item.id || `temp_${index}`
+          key: item.id || item.key
         }));
-        
         setData(dataWithKeys);
-        setPagination(prev => ({
-          ...prev,
-          total,
-          current: current_page
-        }));
+        setPagination({
+          ...pagination,
+          total: total || 0,
+        });
+      } else {
+        console.error('API响应失败:', response.data);
+        message.error('读取数据失败');
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      console.error('获取税率数据错误:', error);
+      message.error('网络连接失败');
     } finally {
       setLoading(false);
     }
@@ -95,23 +100,20 @@ const TaxRate = () => {
   // 搜索
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, current: 1 }));
-    loadData({ page: 1 });
+    loadData();
   };
 
   // 重置搜索
   const handleReset = () => {
     setSearchText('');
     setPagination(prev => ({ ...prev, current: 1 }));
-    loadData({ page: 1, search: '' });
+    loadData();
   };
 
   // 分页变化
   const handleTableChange = (newPagination) => {
     setPagination(newPagination);
-    loadData({
-      page: newPagination.current,
-      per_page: newPagination.pageSize
-    });
+    loadData();
   };
 
   // 开始编辑
@@ -143,80 +145,37 @@ const TaxRate = () => {
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为默认税率，需要先取消其他默认税率的设置
-        if (row.is_default) {
-          // 在本地数据中取消其他项的默认设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_default) {
-              dataItem.is_default = false;
-            }
-          });
-        }
-        
-        const updatedItem = { ...item, ...row };
-        
-        // 调用API保存
         let response;
-        if (item.id && !item.id.startsWith('temp_')) {
-          // 更新现有记录
-          response = await taxRateApi.updateTaxRate(item.id, row);
+        
+        if (item.id && !item.id.toString().startsWith('temp_')) {
+          response = await updateTaxRate(item.id, row);
         } else {
-          // 创建新记录
-          response = await taxRateApi.createTaxRate(row);
+          response = await createTaxRate(row);
         }
-
-        // 正确处理后端响应格式
-        if (response.data.success) {
-          // 更新本地数据
-          newData.splice(index, 1, {
-            ...updatedItem,
-            ...response.data.data,
-            key: response.data.data.id
-          });
-          setData(newData);
+        
+        if (response.data?.success) {
+          message.success(item.id ? '更新成功' : '创建成功');
           setEditingKey('');
-          message.success('保存成功');
-          
-          // 如果设置了默认税率，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_default) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
+          loadData();
         }
       }
     } catch (error) {
-      if (error.errorFields) {
-        message.error('请检查输入内容');
-      } else {
-        message.error('保存失败：' + (error.response?.data?.error || error.message));
-      }
+      message.error('保存失败');
     }
   };
 
   // 删除记录
-  const handleDelete = async (key) => {
+  const handleDelete = async (record) => {
     try {
-      const record = data.find(item => item.key === key);
-      
-      if (record.id && !record.id.startsWith('temp_')) {
-        // 删除服务器记录
-        const response = await taxRateApi.deleteTaxRate(record.id);
-        if (response.data.success) {
-          message.success('删除成功');
-        }
+      const response = await deleteTaxRate(record.id);
+      if (response.data?.success) {
+        message.success('删除成功');
+        loadData();
       }
-      
-      // 删除本地记录
-      const newData = data.filter(item => item.key !== key);
-      setData(newData);
     } catch (error) {
-      message.error('删除失败：' + (error.response?.data?.error || error.message));
+      message.error('删除失败');
     }
   };
-
-
 
   // 添加新行
   const handleAdd = () => {
@@ -444,7 +403,7 @@ const TaxRate = () => {
             </Button>
             <Popconfirm
               title="确定删除这条记录吗？"
-              onConfirm={() => handleDelete(record.key)}
+              onConfirm={() => handleDelete(record)}
               disabled={editingKey !== ''}
             >
               <Button

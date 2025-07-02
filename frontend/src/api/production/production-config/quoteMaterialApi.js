@@ -60,7 +60,8 @@ export const getEnabledQuoteMaterials = () => {
   });
 };
 
-export default {
+// 统一导出API对象
+const quoteMaterialApi = {
   getQuoteMaterials,
   getQuoteMaterial,
   createQuoteMaterial,
@@ -68,4 +69,6 @@ export default {
   deleteQuoteMaterial,
   batchUpdateQuoteMaterials,
   getEnabledQuoteMaterials
-}; 
+};
+
+export default quoteMaterialApi; 

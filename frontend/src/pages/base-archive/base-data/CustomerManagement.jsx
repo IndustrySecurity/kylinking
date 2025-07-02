@@ -161,7 +161,14 @@ const CustomerManagement = () => {
 
       if (response?.data?.success) {
         const data = response.data.data
-        setCustomers(data.customers || [])
+        
+        // 为数据添加唯一key
+        const customersWithKeys = (data.customers || []).map((item, index) => ({
+          ...item,
+          key: item.id || `customer-${index}-${Date.now()}`, // 使用id作为key，如果没有id则生成唯一key
+        }));
+        
+        setCustomers(customersWithKeys)
         setPagination(prev => ({
           ...prev,
           current: data.current_page || 1,
@@ -843,9 +850,9 @@ const CustomerManagement = () => {
                 allowClear
                 style={{ width: '100%' }}
               >
-                {options.customer_categories.map(item => (
+                {options.customer_categories?.map(item => (
                   <Option key={item.value} value={item.value}>{item.label}</Option>
-                ))}
+                )) || []}
               </Select>
             </Col>
             <Col span={4}>
@@ -882,7 +889,7 @@ const CustomerManagement = () => {
         <Table
           columns={columns}
           dataSource={customers}
-          rowKey="id"
+          rowKey="key"
           loading={loading}
           pagination={{
             ...pagination,
@@ -946,9 +953,9 @@ const CustomerManagement = () => {
                       disabled={modalType === 'detail'}
                       allowClear
                     >
-                      {options.customer_categories.map(item => (
+                      {options.customer_categories?.map(item => (
                         <Option key={item.value} value={item.value}>{item.label}</Option>
-                      ))}
+                      )) || []}
                     </Select>
                   </Form.Item>
                 </Col>

@@ -1,50 +1,86 @@
 import request from '../../../utils/request';
 
-// 工序相关API
+// 获取工序列表
+export const getProcesses = (params) => {
+  return request({
+    url: '/tenant/base-archive/production/production-archive/processes',
+    method: 'get',
+    params
+  });
+};
+
+// 创建工序
+export const createProcess = (data) => {
+  return request({
+    url: '/tenant/base-archive/production/production-archive/processes',
+    method: 'post',
+    data
+  });
+};
+
+// 更新工序
+export const updateProcess = (id, data) => {
+  return request({
+    url: `/tenant/base-archive/production/production-archive/processes/${id}`,
+    method: 'put',
+    data
+  });
+};
+
+// 删除工序
+export const deleteProcess = (id) => {
+  return request({
+    url: `/tenant/base-archive/production/production-archive/processes/${id}`,
+    method: 'delete'
+  });
+};
+
+// 获取工序详情
+export const getProcessById = (id) => {
+  return request({
+    url: `/tenant/base-archive/production/production-archive/processes/${id}`,
+    method: 'get'
+  });
+};
+
+// 获取启用的工序选项
+export const getEnabledProcesses = () => {
+  return request({
+    url: '/tenant/base-archive/production/production-archive/processes/enabled',
+    method: 'get'
+  });
+};
+
+// 获取工序选项（用于下拉框）
+export const getProcessOptions = () => {
+  return request({
+    url: '/tenant/base-archive/production/production-archive/processes/options',
+    method: 'get'
+  });
+};
+
+// 工序相关API（保持向后兼容）
 export const processApi = {
-  // 获取工序列表
-  getProcesses: (params) => {
-    return request.get('/tenant/basic-data/processes', { params });
-  },
-
-  // 获取单个工序
-  getProcess: (id) => {
-    return request.get(`/tenant/basic-data/processes/${id}`);
-  },
-
-  // 创建工序
-  createProcess: (data) => {
-    return request.post('/tenant/basic-data/processes', data);
-  },
-
-  // 更新工序
-  updateProcess: (id, data) => {
-    return request.put(`/tenant/basic-data/processes/${id}`, data);
-  },
-
-  // 删除工序
-  deleteProcess: (id) => {
-    return request.delete(`/tenant/basic-data/processes/${id}`);
-  },
-
+  getProcesses,
+  getProcess: getProcessById,
+  createProcess,
+  updateProcess,
+  deleteProcess,
+  getEnabledProcesses,
+  
   // 批量更新工序
   batchUpdateProcesses: (data) => {
-    return request.post('/tenant/basic-data/processes/batch', data);
-  },
-
-  // 获取启用的工序列表
-  getEnabledProcesses: () => {
-    return request.get('/tenant/basic-data/processes/enabled');
+    return request.post('/tenant/base-archive/production/production-archive/processes/batch', data);
   },
 
   // 获取排程方式选项
   getSchedulingMethodOptions: () => {
-    return request.get('/tenant/basic-data/processes/scheduling-method-options');
+    return request.get('/tenant/base-archive/production/production-archive/processes/scheduling-method-options');
   },
 
   // 获取计算方案选项
   getCalculationSchemeOptions: () => {
-    return request.get('/tenant/basic-data/processes/calculation-scheme-options');
+    return request.get('/tenant/base-archive/production/production-archive/processes/calculation-scheme-options');
   }
 };
 

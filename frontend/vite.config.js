@@ -29,19 +29,20 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
-      // 在开发环境中，直接代理到后端容器
       '/api': {
         target: 'http://backend:5000',
         changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api'),
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('proxy error', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request:', req.method, req.url);
+            console.log('Sending Request to backend:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from:', req.url, proxyRes.statusCode);
+            console.log('Received Response from backend:', req.url, proxyRes.statusCode);
           });
         }
       }
@@ -61,7 +62,30 @@ export default defineConfig({
   },
   // 允许在前端开发中模拟后端接口
   define: {
+    'process.env': {
+      NODE_ENV: JSON.stringify(process.env.NODE_ENV || 'development'),
+    },
+    'import.meta.env.VITE_APP_TITLE': JSON.stringify(
+      process.env.VITE_APP_TITLE || 'KylinKing云膜智能管理系统'
+    ),
+    'import.meta.env.VITE_APP_ENV': JSON.stringify(
+      process.env.VITE_APP_ENV || 'development'
+    ),
     'import.meta.env.VITE_API_URL': JSON.stringify('/api'),
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-  }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        // 分包策略
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          antd: ['antd'],
+          router: ['react-router-dom'],
+        },
+      },
+    },
+  },
 }) 

@@ -5,7 +5,7 @@ export const unitApi = {
   // 获取单位列表
   getUnits: (params = {}) => {
     return request({
-      url: '/tenant/basic-data/units',
+      url: '/tenant/base-archive/production/production-archive/units',
       method: 'get',
       params
     });
@@ -14,7 +14,7 @@ export const unitApi = {
   // 获取单位详情
   getUnit: (id) => {
     return request({
-      url: `/tenant/basic-data/units/${id}`,
+      url: `/tenant/base-archive/production/production-archive/units/${id}`,
       method: 'get'
     });
   },
@@ -22,7 +22,7 @@ export const unitApi = {
   // 创建单位
   createUnit: (data) => {
     return request({
-      url: '/tenant/basic-data/units',
+      url: '/tenant/base-archive/production/production-archive/units',
       method: 'post',
       data
     });
@@ -31,7 +31,7 @@ export const unitApi = {
   // 更新单位
   updateUnit: (id, data) => {
     return request({
-      url: `/tenant/basic-data/units/${id}`,
+      url: `/tenant/base-archive/production/production-archive/units/${id}`,
       method: 'put',
       data
     });
@@ -40,7 +40,7 @@ export const unitApi = {
   // 删除单位
   deleteUnit: (id) => {
     return request({
-      url: `/tenant/basic-data/units/${id}`,
+      url: `/tenant/base-archive/production/production-archive/units/${id}`,
       method: 'delete'
     });
   },
@@ -48,18 +48,22 @@ export const unitApi = {
   // 批量更新单位
   batchUpdateUnits: (data) => {
     return request({
-      url: '/tenant/basic-data/units/batch',
-      method: 'put',
+      url: '/tenant/base-archive/production/production-archive/units/batch',
+      method: 'post',
       data
     });
   },
 
   // 获取启用的单位列表（用于下拉选择）
-  getEnabledUnits: () => {
+  getEnabledUnits: (params = {}) => {
     return request({
-      url: '/tenant/basic-data/units',
+      url: '/tenant/base-archive/production/production-archive/units',
       method: 'get',
-      params: { enabled_only: true, per_page: 1000 }
+      params: {
+        enabled_only: true,
+        per_page: 1000,
+        ...params
+      }
     });
   }
 }; 

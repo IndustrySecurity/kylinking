@@ -539,6 +539,7 @@ const ProductCategoryManagement = () => {
             bordered
             dataSource={data}
             columns={mergedColumns}
+            rowKey="key"
             rowClassName="editable-row"
             pagination={{
               current: pagination.current,

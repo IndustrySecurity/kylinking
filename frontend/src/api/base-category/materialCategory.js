@@ -1,41 +1,71 @@
 import request from '../../utils/request';
 
-const API_BASE = '/tenant/basic-data';
+// 获取原料分类列表
+export const getMaterialCategories = (params) => {
+  return request({
+    url: '/tenant/base-archive/base-category/material-categories',
+    method: 'get',
+    params
+  });
+};
 
-// 材料分类API
+// 创建原料分类
+export const createMaterialCategory = (data) => {
+  return request({
+    url: '/tenant/base-archive/base-category/material-categories',
+    method: 'post',
+    data
+  });
+};
+
+// 更新原料分类
+export const updateMaterialCategory = (id, data) => {
+  return request({
+    url: `/tenant/base-archive/base-category/material-categories/${id}`,
+    method: 'put',
+    data
+  });
+};
+
+// 删除原料分类
+export const deleteMaterialCategory = (id) => {
+  return request({
+    url: `/tenant/base-archive/base-category/material-categories/${id}`,
+    method: 'delete'
+  });
+};
+
+// 获取原料分类详情
+export const getMaterialCategoryById = (id) => {
+  return request({
+    url: `/tenant/base-archive/base-category/material-categories/${id}`,
+    method: 'get'
+  });
+};
+
+// 获取启用的原料分类选项
+export const getEnabledMaterialCategories = () => {
+  return request({
+    url: '/tenant/base-archive/base-category/material-categories/enabled',
+    method: 'get'
+  });
+};
+
+// 获取原料分类选项（用于下拉框）
+export const getMaterialCategoryOptions = () => {
+  return request({
+    url: '/tenant/base-archive/base-category/material-categories/options',
+    method: 'get'
+  });
+};
+
+// 统一导出API对象
 export const materialCategoryApi = {
-  // 获取材料分类列表
-  getMaterialCategories: (params) => {
-    return request.get(`${API_BASE}/material-categories`, { params });
-  },
-
-  // 获取材料分类详情
-  getMaterialCategory: (id) => {
-    return request.get(`${API_BASE}/material-categories/${id}`);
-  },
-
-  // 创建材料分类
-  createMaterialCategory: (data) => {
-    return request.post(`${API_BASE}/material-categories`, data);
-  },
-
-  // 更新材料分类
-  updateMaterialCategory: (id, data) => {
-    return request.put(`${API_BASE}/material-categories/${id}`, data);
-  },
-
-  // 删除材料分类
-  deleteMaterialCategory: (id) => {
-    return request.delete(`${API_BASE}/material-categories/${id}`);
-  },
-
-  // 批量更新材料分类
-  batchUpdateMaterialCategories: (data) => {
-    return request.put(`${API_BASE}/material-categories/batch`, data);
-  },
-
-  // 获取材料分类选项
-  getMaterialCategoryOptions: () => {
-    return request.get(`${API_BASE}/material-categories/options`);
-  }
+  getMaterialCategories,
+  createMaterialCategory,
+  updateMaterialCategory,
+  deleteMaterialCategory,
+  getMaterialCategoryById,
+  getEnabledMaterialCategories,
+  getMaterialCategoryOptions
 }; 

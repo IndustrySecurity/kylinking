@@ -103,23 +103,34 @@ const DeliveryMethodManagement = () => {
   };
 
   // 分页变化
-  const handleTableChange = (newPagination) => {
+  const handleTableChange = (newPagination, filters, sorter) => {
     setPagination(newPagination);
+    
+    // 处理排序参数
+    let sortParams = {};
+    if (sorter && sorter.field && sorter.order) {
+      const order = sorter.order === 'ascend' ? 'asc' : 'desc';
+      sortParams.sort_by = sorter.field;
+      sortParams.sort_order = order;
+    }
+    
     loadData({
       page: newPagination.current,
-      per_page: newPagination.pageSize
+      per_page: newPagination.pageSize,
+      ...sortParams
     });
   };
 
   // 开始编辑
   const edit = (record) => {
+    console.log('编辑记录:', record); // 添加调试日志
+    
     form.setFieldsValue({
-      delivery_name: '',
-      delivery_code: '',
-      description: '',
-      sort_order: 0,
-      is_enabled: true,
-      ...record,
+      delivery_name: record.delivery_name || '',
+      delivery_code: record.delivery_code || '',
+      description: record.description || '',
+      sort_order: record.sort_order || 0,
+      is_enabled: record.is_enabled !== undefined ? record.is_enabled : true
     });
     setEditingKey(record.key);
   };
@@ -134,41 +145,47 @@ const DeliveryMethodManagement = () => {
   const save = async (key) => {
     try {
       const row = await form.validateFields();
+      console.log('保存数据:', row); // 添加调试日志
+      
       const newData = [...data];
       const index = newData.findIndex((item) => key === item.key);
 
       if (index > -1) {
         const item = newData[index];
-        const updatedItem = { ...item, ...row };
         
         // 调用API保存
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
+          console.log('更新记录ID:', item.id, '数据:', row);
           response = await deliveryMethodApi.updateDeliveryMethod(item.id, row);
         } else {
           // 创建新记录
+          console.log('创建新记录，数据:', row);
           response = await deliveryMethodApi.createDeliveryMethod(row);
         }
 
+        console.log('API响应:', response.data); // 添加调试日志
+
         // 正确处理后端响应格式
         if (response.data.success) {
-          // 更新本地数据
-          newData.splice(index, 1, {
-            ...updatedItem,
-            ...response.data.data,
-            key: response.data.data.id
-          });
-          setData(newData);
           setEditingKey('');
           message.success('保存成功');
+          // 总是重新加载数据以确保数据同步
+          loadData();
+        } else {
+          throw new Error(response.data.message || '保存失败');
         }
       }
     } catch (error) {
+      console.error('保存错误详情:', error); // 添加详细错误日志
+      
       if (error.errorFields) {
+        console.log('表单验证错误:', error.errorFields);
         message.error('请检查输入内容');
       } else {
-        message.error('保存失败：' + (error.response?.data?.error || error.message));
+        const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || '保存失败';
+        message.error('保存失败：' + errorMsg);
       }
     }
   };
@@ -227,7 +244,17 @@ const DeliveryMethodManagement = () => {
     
     switch (inputType) {
       case 'number':
-        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+        // 为排序字段使用整数限制的InputNumber
+        if (dataIndex === 'sort_order') {
+          inputNode = <InputNumber 
+            min={0} 
+            precision={0} 
+            style={{ width: '100%' }}
+            parser={(value) => value ? value.replace(/[^\d]/g, '') : ''}
+          />;
+        } else {
+          inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+        }
         break;
       case 'switch':
         inputNode = <Switch />;
@@ -302,7 +329,9 @@ const DeliveryMethodManagement = () => {
       width: 100,
       editable: true,
       inputType: 'number',
-      align: 'center'
+      align: 'center',
+      sorter: true,
+      defaultSortOrder: 'ascend'
     },
     {
       title: '是否启用',

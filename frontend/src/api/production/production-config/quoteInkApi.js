@@ -58,4 +58,15 @@ export const getEnabledQuoteInks = () => {
     url: '/tenant/basic-data/quote-inks/enabled',
     method: 'get'
   });
+};
+
+// 统一导出API对象
+export const quoteInkApi = {
+  getQuoteInks,
+  getQuoteInk,
+  createQuoteInk,
+  updateQuoteInk,
+  deleteQuoteInk,
+  batchUpdateQuoteInks,
+  getEnabledQuoteInks
 }; 

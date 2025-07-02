@@ -278,6 +278,16 @@ kylinking/
 
 ## 开发指南
 
+### 热更新机制
+系统采用Docker容器部署，支持代码热更新，**无需手动重启容器**：
+
+- **后端热更新**: Flask开发模式下，修改Python代码会自动重新加载
+- **前端热更新**: Vite开发服务器支持HMR（热模块替换），修改React代码立即生效
+- **配置更新**: 修改环境变量文件后，使用 `docker-compose restart` 重启对应服务
+- **数据库迁移**: 新增迁移文件后，进入容器执行 `flask db upgrade` 即可
+
+**注意**: 生产环境下需要手动重启服务来应用代码更改。
+
 ### 后端开发
 
 1. **创建新的业务模块**
@@ -389,7 +399,8 @@ docker-compose -f docker/docker-compose.dev.yml up -d
 docker-compose -f docker/docker-compose.dev.yml up --build
 
 # 查看日志
-docker-compose -f docker/docker-compose.dev.yml logs -f backend
+# docker-compose -f docker/docker-compose.dev.yml logs -f backend
+docker logs saas_backend_dev --tail=50
 
 # 停止服务
 docker-compose -f docker/docker-compose.dev.yml down

@@ -58,6 +58,15 @@ const BagRelatedFormulaManagement = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
+      console.log('加载袋型公式数据，参数:', {
+        page: pagination.current,
+        per_page: pagination.pageSize,
+        search: searchText,
+        bag_type_id: bagTypeFilter,
+        is_enabled: enabledFilter,
+        ...params
+      });
+
       const response = await bagRelatedFormulaApi.getBagRelatedFormulas({
         page: pagination.current,
         per_page: pagination.pageSize,
@@ -67,24 +76,61 @@ const BagRelatedFormulaManagement = () => {
         ...params
       });
 
+      console.log('袋型公式API响应:', response.data);
+
       if (response.data.success) {
-        const { formulas, total, current_page } = response.data.data;
+        // 添加详细的调试信息
+        console.log('=== 袋型公式数据解析调试 ===');
+        console.log('1. 完整响应:', response);
+        console.log('2. response.data:', response.data);
+        console.log('3. response.data.data:', response.data.data);
+        
+        // 修正数据路径：实际数据在 response.data.data.data 中
+        const responseWrapper = response.data.data || {};
+        const actualData = responseWrapper.data || {};
+        console.log('4. 实际数据层 (response.data.data.data):', actualData);
+        console.log('5. actualData.formulas:', actualData.formulas);
+        console.log('6. formulas是否为数组:', Array.isArray(actualData.formulas));
+        
+        // 从正确的层级提取字段
+        const formulasArray = Array.isArray(actualData.formulas) ? actualData.formulas : [];
+        const total = actualData.total || 0;
+        const currentPage = actualData.current_page || 1;
+        
+        console.log('7. 提取结果:', { 
+          formulasArray, 
+          formulasLength: formulasArray.length,
+          total, 
+          currentPage,
+          firstFormula: formulasArray[0]
+        });
         
         // 为每行数据添加key
-        const dataWithKeys = (formulas || []).map((item, index) => ({
+        const dataWithKeys = formulasArray.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
         
+        console.log('8. 最终处理的数据:', dataWithKeys);
+        
         setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
-          total,
-          current: current_page
+          total: total,
+          current: currentPage
         }));
+        
+        console.log('9. 数据设置完成，表格应该显示', dataWithKeys.length, '条记录');
+      } else {
+        console.error('袋型公式API返回失败:', response.data.message);
+        message.error('加载数据失败：' + (response.data.message || '未知错误'));
+        setData([]);
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.message || error.message));
+      console.error('袋型公式数据加载错误:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || '网络请求失败';
+      message.error('加载数据失败：' + errorMsg);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -93,12 +139,80 @@ const BagRelatedFormulaManagement = () => {
   // 加载选项数据
   const loadOptions = async () => {
     try {
+      console.log('=== 袋型公式选项数据加载调试 ===');
+      console.log('开始加载袋型公式选项数据...');
+      
       const response = await bagRelatedFormulaApi.getBagRelatedFormulaOptions();
+      console.log('1. 选项API完整响应:', response);
+      console.log('2. response.data:', response.data);
+      console.log('3. response.data.data:', response.data.data);
+      
       if (response.data.success) {
-        setFormOptions(response.data.data);
+        // 修正选项数据路径：根据日志，实际数据可能在 response.data.data.data 中
+        const responseWrapper = response.data.data || {};
+        const actualOptionsData = responseWrapper.data || responseWrapper; // 备用方案
+        console.log('4. 实际选项数据层:', actualOptionsData);
+        console.log('5. bag_types:', actualOptionsData.bag_types);
+        console.log('6. formulas:', actualOptionsData.formulas);
+        
+        // 处理袋型选项
+        let bagTypeOptions = [];
+        if (Array.isArray(actualOptionsData.bag_types)) {
+          bagTypeOptions = actualOptionsData.bag_types.map(item => ({
+            value: item.id || item.value,
+            label: item.name || item.label || item.bag_type_name,
+            ...item
+          }));
+        }
+        
+        // 处理公式选项
+        let formulaOptions = [];
+        if (Array.isArray(actualOptionsData.formulas)) {
+          formulaOptions = actualOptionsData.formulas.map(item => ({
+            value: item.id || item.value,
+            label: item.name || item.label || item.scheme_name,
+            ...item
+          }));
+        }
+        
+        const processedOptions = {
+          bag_types: bagTypeOptions,
+          formulas: formulaOptions
+        };
+        
+        console.log('7. 处理后的选项:', processedOptions);
+        
+        setFormOptions(processedOptions);
+        console.log('8. 选项数据设置完成');
+      } else {
+        console.warn('选项API返回失败，使用默认数据');
+        const defaultOptions = {
+          bag_types: [],
+          formulas: []
+        };
+        setFormOptions(defaultOptions);
       }
     } catch (error) {
-      message.error('加载选项数据失败：' + (error.response?.data?.message || error.message));
+      console.error('袋型公式选项数据加载错误:', error);
+      // 使用默认选项作为后备
+      const defaultOptions = {
+        bag_types: [
+          { id: 'flat_bag', value: 'flat_bag', label: '平口袋', name: '平口袋' },
+          { id: 'vest_bag', value: 'vest_bag', label: '背心袋', name: '背心袋' },
+          { id: 'shopping_bag', value: 'shopping_bag', label: '手提袋', name: '手提袋' },
+          { id: 'garbage_bag', value: 'garbage_bag', label: '垃圾袋', name: '垃圾袋' },
+          { id: 'food_bag', value: 'food_bag', label: '食品袋', name: '食品袋' }
+        ],
+        formulas: [
+          { id: 'area_formula', value: 'area_formula', label: '面积公式', name: '面积公式' },
+          { id: 'weight_formula', value: 'weight_formula', label: '重量公式', name: '重量公式' },
+          { id: 'material_formula', value: 'material_formula', label: '材料公式', name: '材料公式' },
+          { id: 'loss_formula', value: 'loss_formula', label: '损耗公式', name: '损耗公式' },
+          { id: 'cost_formula', value: 'cost_formula', label: '成本公式', name: '成本公式' }
+        ]
+      };
+      console.log('9. 使用默认选项:', defaultOptions);
+      setFormOptions(defaultOptions);
     }
   };
 
@@ -110,6 +224,27 @@ const BagRelatedFormulaManagement = () => {
     };
     initializeData();
   }, []);
+
+  // 监控数据状态变化
+  useEffect(() => {
+    console.log('=== 数据状态变化监控 ===');
+    console.log('表格数据更新:', {
+      dataLength: data.length,
+      hasData: data.length > 0,
+      firstItemId: data[0]?.id,
+      firstItemBagType: data[0]?.bag_type_name
+    });
+  }, [data]);
+
+  useEffect(() => {
+    console.log('=== 选项状态变化监控 ===');
+    console.log('选项数据更新:', {
+      bagTypesLength: formOptions.bag_types?.length || 0,
+      formulasLength: formOptions.formulas?.length || 0,
+      bagTypesPreview: formOptions.bag_types?.slice(0, 2),
+      formulasPreview: formOptions.formulas?.slice(0, 2)
+    });
+  }, [formOptions]);
 
   // 搜索
   const handleSearch = () => {
@@ -360,6 +495,30 @@ const BagRelatedFormulaManagement = () => {
 
   return (
     <div style={{ padding: '24px' }}>
+      {/* 调试信息 - 仅在开发环境显示 */}
+      {process.env.NODE_ENV === 'development' && (
+        <Card style={{ marginBottom: 16, backgroundColor: '#f0f2f5' }}>
+          <Title level={5}>调试信息</Title>
+          <p><strong>表格数据:</strong> {data.length} 条记录</p>
+          <p><strong>袋型选项:</strong> {formOptions.bag_types?.length || 0} 个</p>
+          <p><strong>公式选项:</strong> {formOptions.formulas?.length || 0} 个</p>
+          <p><strong>加载状态:</strong> {loading ? '加载中' : '已完成'}</p>
+          <p><strong>分页信息:</strong> 总共 {pagination.total} 条，当前第 {pagination.current} 页</p>
+          {data.length > 0 && (
+            <details>
+              <summary>第一条数据预览</summary>
+              <pre>{JSON.stringify(data[0], null, 2)}</pre>
+            </details>
+          )}
+          {formOptions.bag_types && formOptions.bag_types.length > 0 && (
+            <details>
+              <summary>袋型选项预览</summary>
+              <pre>{JSON.stringify(formOptions.bag_types, null, 2)}</pre>
+            </details>
+          )}
+        </Card>
+      )}
+      
       <Card>
         <div style={{ marginBottom: 16 }}>
           <Title level={4} style={{ margin: 0 }}>袋型相关公式管理</Title>
@@ -449,10 +608,12 @@ const BagRelatedFormulaManagement = () => {
           onCancel={() => setModalVisible(false)}
           width={800}
           destroyOnClose
+          key={modalVisible ? (editingFormula?.id || 'new') : 'closed'}
         >
           <Form
             form={form}
             layout="vertical"
+            preserve={false}
           >
             <Row gutter={16}>
               <Col span={12}>

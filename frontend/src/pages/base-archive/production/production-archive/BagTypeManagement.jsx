@@ -991,7 +991,7 @@ const BagTypeManagement = () => {
                     showSearch
                     optionFilterProp="children"
                   >
-                    {formOptions.spec_expressions.map(item => (
+                    {(formOptions.spec_expressions || []).map(item => (
                       <Option key={item.value} value={item.value} title={item.description}>
                         {item.label}
                       </Option>
@@ -1008,7 +1008,7 @@ const BagTypeManagement = () => {
                   name="production_unit_id"
                 >
                   <Select placeholder="请选择生产单位" allowClear>
-                    {formOptions.units.map(unit => (
+                    {(formOptions.units || []).map(unit => (
                       <Option key={unit.value} value={unit.value}>
                         {unit.label}
                       </Option>
@@ -1022,7 +1022,7 @@ const BagTypeManagement = () => {
                   name="sales_unit_id"
                 >
                   <Select placeholder="请选择销售单位" allowClear>
-                    {formOptions.units.map(unit => (
+                    {(formOptions.units || []).map(unit => (
                       <Option key={unit.value} value={unit.value}>
                         {unit.label}
                       </Option>

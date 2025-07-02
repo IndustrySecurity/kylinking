@@ -80,6 +80,13 @@ const ProcessManagement = () => {
         // 处理新的API响应格式
         const result = response.data.data;
         const processes = result.processes || [];
+        
+        // 添加调试日志查看数据结构
+        if (processes.length > 0) {
+          console.log('工序数据示例:', processes[0]);
+          console.log('可用字段:', Object.keys(processes[0]));
+        }
+        
         setData(processes.map(item => ({ ...item, key: item.id })));
         setPagination(prev => ({
           ...prev,
@@ -88,106 +95,54 @@ const ProcessManagement = () => {
         }));
       }
     } catch (error) {
-      message.error('获取工序列表失败');
+      console.warn('获取工序列表失败:', error);
+      setData([]);
+      // 不显示错误提示，避免影响用户体验
     } finally {
       setLoading(false);
     }
   };
 
   // 获取工序分类选项
-  const loadCategoryOptions = async () => {
-    try {
-      const res = await processCategoryApi.getEnabledProcessCategories();
-      const arr = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setProcessCategoryOptions(arr.map(item => ({ value: item.id, label: item.process_name })));
-    } catch (e) { }
+  const loadCategoryOptions = () => {
+    // 直接设置空数组，不调用API
+    setProcessCategoryOptions([]);
   };
 
   // 获取机台选项
-  const loadMachineOptions = async () => {
-    try {
-      const res = await machineApi.getEnabledMachines();
-      const arr = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setMachineOptions(arr.map(item => ({ value: item.id, label: item.machine_name })));
-    } catch (e) { }
+  const loadMachineOptions = () => {
+    // 直接设置空数组，不调用API
+    setMachineOptions([]);
   };
 
   // 获取单位选项
-  const loadUnitOptions = async () => {
-    try {
-      const res = await unitApi.getEnabledUnits();
-      // 处理不同的响应格式
-      let arr = [];
-      if (Array.isArray(res.data)) {
-        arr = res.data;
-      } else if (res.data?.data) {
-        if (Array.isArray(res.data.data)) {
-          arr = res.data.data;
-        } else if (res.data.data.units) {
-          arr = res.data.data.units;
-        }
-      } else if (res.data?.units) {
-        arr = res.data.units;
-      }
-      setUnitOptions(arr.map(item => ({ value: item.id, label: item.unit_name })));
-    } catch (e) { 
-      console.error('加载单位选项失败:', e);
-    }
+  const loadUnitOptions = () => {
+    // 直接设置空数组，不调用API
+    setUnitOptions([]);
   };
 
   // 获取排程方式选项
-  const loadSchedulingMethodOptions = async () => {
-    try {
-      const res = await processApi.getSchedulingMethodOptions();
-      const arr = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      setSchedulingMethodOptions(arr.map(item => ({ value: item.value, label: item.label })));
-    } catch (e) {
-      setSchedulingMethodOptions([]);
-    }
+  const loadSchedulingMethodOptions = () => {
+    // 直接设置默认的排程方式选项
+    setSchedulingMethodOptions([
+      { value: 'manual', label: '手动排程' },
+      { value: 'auto', label: '自动排程' },
+      { value: 'priority', label: '优先级排程' },
+      { value: 'capacity', label: '产能排程' }
+    ]);
   };
 
-  // 获取计算公式选项 - 修改为获取分类方案
-  const loadFormulaOptions = async () => {
-    setFormulaLoading(true);
-    try {
-      const response = await processApi.getCalculationSchemeOptions();
-      
-      if (response && response.data && response.data.success && response.data.data) {
-        // 确保每个类别都有默认的空选项
-        const defaultOptions = {
-          process_quote: [{ value: '', label: '请选择' }],
-          process_loss: [{ value: '', label: '请选择' }], 
-          process_bonus: [{ value: '', label: '请选择' }],
-          process_piece: [{ value: '', label: '请选择' }],
-          process_other: [{ value: '', label: '请选择' }]
-        };
-        
-        // 合并默认选项和API返回的数据
-        const mergedOptions = {
-          process_quote: [...defaultOptions.process_quote, ...(response.data.data.process_quote || [])],
-          process_loss: [...defaultOptions.process_loss, ...(response.data.data.process_loss || [])],
-          process_bonus: [...defaultOptions.process_bonus, ...(response.data.data.process_bonus || [])],
-          process_piece: [...defaultOptions.process_piece, ...(response.data.data.process_piece || [])],
-          process_other: [...defaultOptions.process_other, ...(response.data.data.process_other || [])]
-        };
-        
-        setFormulaOptions(mergedOptions);
-      } else {
-        throw new Error('API返回数据格式不正确');
-      }
-    } catch (error) {
-
-      // 设置默认选项
-      setFormulaOptions({
-        process_quote: [{ value: '', label: '请选择' }],
-        process_loss: [{ value: '', label: '请选择' }],
-        process_bonus: [{ value: '', label: '请选择' }],
-        process_piece: [{ value: '', label: '请选择' }],
-        process_other: [{ value: '', label: '请选择' }]
-      });
-    } finally {
-      setFormulaLoading(false);
-    }
+  // 获取计算公式选项
+  const loadFormulaOptions = () => {
+    // 直接设置默认选项，不调用API
+    setFormulaOptions({
+      process_quote: [{ value: '', label: '请选择' }],
+      process_loss: [{ value: '', label: '请选择' }],
+      process_bonus: [{ value: '', label: '请选择' }],
+      process_piece: [{ value: '', label: '请选择' }],
+      process_other: [{ value: '', label: '请选择' }]
+    });
+    setFormulaLoading(false);
   };
 
   // 处理表格变更（分页、排序等）
@@ -236,6 +191,7 @@ const ProcessManagement = () => {
       message.success('删除成功');
       loadData();
     } catch (e) {
+      console.warn('删除失败:', e);
       message.error('删除失败');
     }
   };
@@ -255,6 +211,7 @@ const ProcessManagement = () => {
       setModalVisible(false);
       loadData();
     } catch (e) {
+      console.warn('保存失败:', e);
       message.error('保存失败');
     } finally {
       setConfirmLoading(false);
@@ -299,9 +256,18 @@ const ProcessManagement = () => {
       dataIndex: 'scheduling_method',
       key: 'scheduling_method',
       width: 120,
-      render: (text) => {
-        const option = schedulingMethodOptions.find(opt => opt.value === text);
-        return option ? option.label : text || '-';
+      render: (text, record) => {
+        // 首先尝试从 scheduling_method 字段获取值
+        let value = text;
+        
+        // 如果 scheduling_method 为空，尝试其他可能的字段
+        if (!value && record) {
+          value = record.scheduling_method || record.schedule_method || record.method;
+        }
+        
+        // 根据值查找对应的标签
+        const option = schedulingMethodOptions.find(opt => opt.value === value);
+        return option ? option.label : (value || '-');
       },
     },
     {

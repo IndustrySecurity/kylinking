@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取报损类型列表
 export const getLossTypes = (params) => {
   return request({
-    url: '/tenant/basic-data/loss-types',
+    url: '/tenant/base-archive/production/production-archive/loss-types',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getLossTypes = (params) => {
 // 获取启用的报损类型列表
 export const getEnabledLossTypes = () => {
   return request({
-    url: '/tenant/basic-data/loss-types/enabled',
+    url: '/tenant/base-archive/production/production-archive/loss-types/enabled',
     method: 'get'
   });
 };
@@ -20,7 +20,7 @@ export const getEnabledLossTypes = () => {
 // 获取单个报损类型
 export const getLossType = (id) => {
   return request({
-    url: `/tenant/basic-data/loss-types/${id}`,
+    url: `/tenant/base-archive/production/production-archive/loss-types/${id}`,
     method: 'get'
   });
 };
@@ -28,7 +28,7 @@ export const getLossType = (id) => {
 // 创建报损类型
 export const createLossType = (data) => {
   return request({
-    url: '/tenant/basic-data/loss-types',
+    url: '/tenant/base-archive/production/production-archive/loss-types',
     method: 'post',
     data
   });
@@ -37,7 +37,7 @@ export const createLossType = (data) => {
 // 更新报损类型
 export const updateLossType = (id, data) => {
   return request({
-    url: `/tenant/basic-data/loss-types/${id}`,
+    url: `/tenant/base-archive/production/production-archive/loss-types/${id}`,
     method: 'put',
     data
   });
@@ -46,7 +46,7 @@ export const updateLossType = (id, data) => {
 // 删除报损类型
 export const deleteLossType = (id) => {
   return request({
-    url: `/tenant/basic-data/loss-types/${id}`,
+    url: `/tenant/base-archive/production/production-archive/loss-types/${id}`,
     method: 'delete'
   });
 };
@@ -54,8 +54,19 @@ export const deleteLossType = (id) => {
 // 批量更新报损类型
 export const batchUpdateLossTypes = (data) => {
   return request({
-    url: '/tenant/basic-data/loss-types/batch',
+    url: '/tenant/base-archive/production/production-archive/loss-types/batch',
     method: 'put',
     data
   });
+};
+
+// 统一导出API对象
+export const lossTypeApi = {
+  getLossTypes,
+  getEnabledLossTypes,
+  getLossType,
+  createLossType,
+  updateLossType,
+  deleteLossType,
+  batchUpdateLossTypes
 }; 

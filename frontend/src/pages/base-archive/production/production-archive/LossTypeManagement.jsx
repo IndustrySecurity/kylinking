@@ -62,11 +62,15 @@ const LossTypeManagement = () => {
       });
 
       // 正确处理后端响应格式
-      if (response.data.success) {
-        const { loss_types, total, current_page } = response.data.data;
+      if (response.data && response.data.success) {
+        const responseData = response.data.data || {};
+        const { loss_types, total, current_page } = responseData;
+        
+        // 安全检查，确保loss_types是数组
+        const lossTypesArray = Array.isArray(loss_types) ? loss_types : [];
         
         // 为每行数据添加key
-        const dataWithKeys = loss_types.map((item, index) => ({
+        const dataWithKeys = lossTypesArray.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -74,9 +78,23 @@ const LossTypeManagement = () => {
         setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
-          total,
-          current: current_page
+          total: total || 0,
+          current: current_page || 1
         }));
+      } else {
+        console.warn('报损类型 API 响应格式异常:', response.data);
+        // 尝试处理不同的响应格式
+        if (response.data && Array.isArray(response.data)) {
+          const dataWithKeys = response.data.map((item, index) => ({
+            ...item,
+            key: item.id || `temp_${index}`
+          }));
+          setData(dataWithKeys);
+        } else {
+          // 如果数据格式异常，设置空数据而不是报错
+          setData([]);
+          console.error('数据格式异常，已设置为空数据');
+        }
       }
     } catch (error) {
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
@@ -104,11 +122,21 @@ const LossTypeManagement = () => {
   };
 
   // 分页变化
-  const handleTableChange = (newPagination) => {
+  const handleTableChange = (newPagination, filters, sorter) => {
     setPagination(newPagination);
+    
+    // 处理排序参数
+    let sortParams = {};
+    if (sorter && sorter.field && sorter.order) {
+      const order = sorter.order === 'ascend' ? 'asc' : 'desc';
+      sortParams.sort_by = sorter.field;
+      sortParams.sort_order = order;
+    }
+    
     loadData({
       page: newPagination.current,
-      per_page: newPagination.pageSize
+      per_page: newPagination.pageSize,
+      ...sortParams
     });
   };
 
@@ -154,15 +182,12 @@ const LossTypeManagement = () => {
 
         // 正确处理后端响应格式
         if (response.data.success) {
-          // 更新本地数据
-          newData.splice(index, 1, {
-            ...updatedItem,
-            ...response.data.data,
-            key: response.data.data.id
-          });
-          setData(newData);
           setEditingKey('');
           message.success('保存成功');
+          // 总是重新加载数据以确保数据同步
+          loadData({ sort_by: 'sort_order', sort_order: 'asc' });
+        } else {
+          throw new Error(response.data.message || '保存失败');
         }
       }
     } catch (error) {
@@ -170,7 +195,8 @@ const LossTypeManagement = () => {
         message.error('请检查输入内容');
       } else {
         console.error('保存失败:', error);
-        message.error('保存失败');
+        const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || '保存失败';
+        message.error('保存失败：' + errorMsg);
       }
     }
   };
@@ -232,7 +258,17 @@ const LossTypeManagement = () => {
     
     switch (inputType) {
       case 'number':
-        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+        // 为排序字段使用整数限制的InputNumber
+        if (dataIndex === 'sort_order') {
+          inputNode = <InputNumber 
+            min={0} 
+            precision={0} 
+            style={{ width: '100%' }}
+            parser={(value) => value ? value.replace(/[^\d]/g, '') : ''}
+          />;
+        } else {
+          inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+        }
         break;
       case 'switch':
         inputNode = <Switch />;
@@ -336,7 +372,9 @@ const LossTypeManagement = () => {
       width: 100,
       editable: true,
       inputType: 'number',
-      align: 'center'
+      align: 'center',
+      sorter: true,
+      defaultSortOrder: 'ascend'
     },
     {
       title: '是否启用',

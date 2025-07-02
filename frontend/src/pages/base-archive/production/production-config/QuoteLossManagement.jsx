@@ -27,6 +27,7 @@ import {
   CloseOutlined
 } from '@ant-design/icons';
 import quoteLossApi from '../../../../api/production/production-config/quoteLossApi';
+import { bagTypeApi } from '../../../../api/production/production-archive/bagType';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -47,23 +48,75 @@ const QuoteLossManagement = () => {
     showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`
   });
   
+  // 添加袋型选项状态
+  const [bagTypeOptions, setBagTypeOptions] = useState([]);
+  
   const [form] = Form.useForm();
   const searchInputRef = useRef(null);
 
-  // 袋型选项
-  const bagTypeOptions = [
-    { value: '三边封', label: '三边封' },
-    { value: '中封', label: '中封' },
-    { value: '背封', label: '背封' },
-    { value: '四边封', label: '四边封' },
-    { value: '自立袋', label: '自立袋' },
-    { value: '拉链袋', label: '拉链袋' },
-    { value: '吸嘴袋', label: '吸嘴袋' },
-    { value: '异形袋', label: '异形袋' }
-  ];
-
   // 判断是否在编辑状态
   const isEditing = (record) => record.key === editingKey;
+
+  // 加载袋型选项
+  const loadBagTypeOptions = async () => {
+    try {
+      console.log('开始加载袋型选项...');
+      
+      // 首先尝试获取袋型选项
+      let response;
+      try {
+        response = await bagTypeApi.getBagTypeOptions();
+        console.log('袋型选项API响应:', response.data);
+      } catch (optionsError) {
+        console.warn('袋型选项API调用失败，尝试获取袋型列表:', optionsError);
+        // 如果选项API失败，尝试获取袋型列表
+        response = await bagTypeApi.getBagTypes({ is_enabled: true });
+        console.log('袋型列表API响应:', response.data);
+      }
+
+      if (response.data.success) {
+        let options = [];
+        
+        // 处理不同的响应数据结构
+        if (response.data.data.bag_types) {
+          // 如果是袋型列表响应
+          options = response.data.data.bag_types.map(bagType => ({
+            value: bagType.id,
+            label: bagType.bag_type_name || bagType.name,
+            name: bagType.bag_type_name || bagType.name
+          }));
+        } else if (Array.isArray(response.data.data)) {
+          // 如果是选项数组响应
+          options = response.data.data.map(option => ({
+            value: option.id || option.value,
+            label: option.name || option.label,
+            name: option.name || option.label
+          }));
+        }
+        
+        console.log('处理后的袋型选项:', options);
+        setBagTypeOptions(options);
+      } else {
+        console.warn('袋型API返回失败，使用默认选项');
+        throw new Error('API返回失败');
+      }
+    } catch (error) {
+      console.error('加载袋型选项失败:', error);
+      // 使用默认选项作为后备
+      const defaultOptions = [
+        { value: '三边封', label: '三边封', name: '三边封' },
+        { value: '中封', label: '中封', name: '中封' },
+        { value: '背封', label: '背封', name: '背封' },
+        { value: '四边封', label: '四边封', name: '四边封' },
+        { value: '自立袋', label: '自立袋', name: '自立袋' },
+        { value: '拉链袋', label: '拉链袋', name: '拉链袋' },
+        { value: '吸嘴袋', label: '吸嘴袋', name: '吸嘴袋' },
+        { value: '异形袋', label: '异形袋', name: '异形袋' }
+      ];
+      setBagTypeOptions(defaultOptions);
+      console.log('使用默认袋型选项:', defaultOptions);
+    }
+  };
 
   // 加载数据
   const loadData = async (params = {}) => {
@@ -104,6 +157,7 @@ const QuoteLossManagement = () => {
   // 初始加载
   useEffect(() => {
     loadData();
+    loadBagTypeOptions();
   }, []);
 
   // 搜索

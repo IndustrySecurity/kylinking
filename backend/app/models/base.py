@@ -16,9 +16,9 @@ class BaseModel(db.Model):
     # 默认使用UUID作为主键
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
-    # 创建和更新时间
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    # 创建和更新时间 - 使用数据库服务器时间
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     
     @classmethod
     def get_by_id(cls, id):

@@ -56,6 +56,13 @@ const MachineManagement = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
+      console.log('加载机台数据，参数:', {
+        page: pagination.current,
+        per_page: pagination.pageSize,
+        search: searchText,
+        ...params
+      });
+
       const response = await machineApi.getMachines({
         page: pagination.current,
         per_page: pagination.pageSize,
@@ -63,12 +70,17 @@ const MachineManagement = () => {
         ...params
       });
 
+      console.log('机台API响应:', response.data);
+
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { machines, total, current_page } = response.data.data;
+        const { machines, total, current_page } = response.data.data || {};
+        const machinesArray = Array.isArray(machines) ? machines : [];
+        
+        console.log('处理后的机台数据:', { machinesArray, total, current_page });
         
         // 为每行数据添加key
-        const dataWithKeys = machines.map((item, index) => ({
+        const dataWithKeys = machinesArray.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -76,12 +88,19 @@ const MachineManagement = () => {
         setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
-          total,
-          current: current_page
+          total: total || 0,
+          current: current_page || 1
         }));
+      } else {
+        console.error('API返回失败:', response.data.message);
+        message.error('加载数据失败：' + (response.data.message || '未知错误'));
+        setData([]);
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      console.error('机台数据加载错误:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || '网络请求失败';
+      message.error('加载数据失败：' + errorMsg);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -217,11 +236,24 @@ const MachineManagement = () => {
   };
 
   // 添加新行
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const newKey = `temp_${Date.now()}`;
+    
+    // 尝试获取下一个机台编号
+    let machineCode = '自动生成';
+    try {
+      const codeResponse = await machineApi.getNextMachineCode();
+      if (codeResponse.data.success) {
+        machineCode = codeResponse.data.data.next_code || machineCode;
+      }
+    } catch (error) {
+      // 如果获取失败，继续使用默认值
+      console.warn('获取下一个机台编号失败:', error);
+    }
+    
     const newData = {
       key: newKey,
-      machine_code: '自动生成',
+      machine_code: machineCode,
       machine_name: '',
       model: '',
       min_width: null,
@@ -269,7 +301,8 @@ const MachineManagement = () => {
     
     switch (inputType) {
       case 'number':
-        inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
+        inputNode = <InputNumber min={0} precision={0} style={{ width: '100%' }} />;
+        break;
       case 'decimal':
         inputNode = <InputNumber min={0} step={0.01} style={{ width: '100%' }} />;
         break;
@@ -326,11 +359,15 @@ const MachineManagement = () => {
       fixed: 'left',
       render: (text, record) => {
         const editable = isEditing(record);
-        return editable ? (
-          <span style={{ color: '#999' }}>自动生成</span>
-        ) : (
-          <span style={{ fontWeight: 500 }}>{text}</span>
-        );
+        if (editable) {
+          // 如果是新建记录且编号为"自动生成"，显示提示
+          if (record.key.startsWith('temp_') && text === '自动生成') {
+            return <span style={{ color: '#999' }}>自动生成</span>;
+          }
+          // 其他情况显示实际编号
+          return <span style={{ fontWeight: 500 }}>{text}</span>;
+        }
+        return <span style={{ fontWeight: 500 }}>{text}</span>;
       }
     },
     {

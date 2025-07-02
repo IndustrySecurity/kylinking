@@ -35,6 +35,7 @@ import {
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import salesOrderService from '../../../services/salesOrderService';
+import { getEmployeeOptions } from '@/api/base-data/employee';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -73,6 +74,7 @@ const SalesOrder = () => {
   const [productOptions, setProductOptions] = useState([]);
   const [materialOptions, setMaterialOptions] = useState([]);
   const [taxOptions, setTaxOptions] = useState([]);
+  const [employeeOptions, setEmployeeOptions] = useState([]);
   const [contactOptions, setContactOptions] = useState([]);
 
   // 子表数据
@@ -118,11 +120,12 @@ const SalesOrder = () => {
 
   const fetchOptions = async () => {
     try {
-      const [customerRes, productRes, materialRes, taxRes] = await Promise.all([
+      const [customerRes, productRes, materialRes, taxRes, employeeRes] = await Promise.all([
         salesOrderService.getCustomerOptions(),
         salesOrderService.getProductOptions(),
         salesOrderService.getMaterialOptions(),
-        salesOrderService.getTaxOptions()
+        salesOrderService.getTaxOptions(),
+        getEmployeeOptions()
       ]);
 
       if (customerRes.data.success) {
@@ -136,6 +139,9 @@ const SalesOrder = () => {
       }
       if (taxRes.data.success) {
         setTaxOptions(taxRes.data.data);
+      }
+      if (employeeRes?.data?.success) {
+        setEmployeeOptions(employeeRes.data.data);
       }
     } catch (error) {
       console.error('获取选项数据失败:', error);
@@ -1848,8 +1854,10 @@ const SalesOrder = () => {
                 </Col>
                 <Col span={4}>
                   <Form.Item name="salesperson_id" label="业务员">
-                    <Select placeholder="请选择业务员" allowClear>
-                      {/* TODO: 添加业务员选项 */}
+                    <Select placeholder="请选择业务员" allowClear showSearch optionFilterProp="children">
+                      {employeeOptions.map(emp => (
+                        <Option key={emp.id} value={emp.id}>{emp.employee_name || emp.name}</Option>
+                      ))}
                     </Select>
                   </Form.Item>
                 </Col>
@@ -1870,8 +1878,10 @@ const SalesOrder = () => {
                 </Col>
                 <Col span={4}>
                   <Form.Item name="tracking_person" label="跟单员">
-                    <Select placeholder="请选择跟单员" allowClear>
-                      {/* TODO: 添加跟单员选项 */}
+                    <Select placeholder="请选择跟单员" allowClear showSearch optionFilterProp="children">
+                      {employeeOptions.map(emp => (
+                        <Option key={emp.id} value={emp.id}>{emp.employee_name || emp.name}</Option>
+                      ))}
                     </Select>
                   </Form.Item>
                 </Col>

@@ -155,7 +155,13 @@ const EmployeeManagement = () => {
         const employeesData = responseData.data || []
         const paginationData = responseData.pagination || {}
         
-        setEmployees(employeesData)
+        // 确保employeesData是数组且每个元素都有唯一的key
+        const processedData = Array.isArray(employeesData) ? employeesData.map((item, index) => ({
+          ...item,
+          key: item.id || `temp_${index}_${Date.now()}`
+        })) : []
+        
+        setEmployees(processedData)
         setPagination(prev => ({
           ...prev,
           current: paginationData.page || 1,
@@ -688,7 +694,7 @@ const EmployeeManagement = () => {
             showTotal: (total) => `共 ${total} 条记录`
           }}
           onChange={handleTableChange}
-          rowKey="id"
+          rowKey="key"
           scroll={{ x: 3320 }}
         />
       </Card>
@@ -700,7 +706,7 @@ const EmployeeManagement = () => {
         onOk={handleSave}
         onCancel={() => setModalVisible(false)}
         width={1000}
-        destroyOnHidden
+        destroyOnClose
       >
         <Form
           form={form}

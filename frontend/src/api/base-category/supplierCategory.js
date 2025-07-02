@@ -5,7 +5,7 @@ export const supplierCategoryApi = {
   // 获取供应商分类列表
   getSupplierCategories: (params = {}) => {
     return request({
-      url: '/tenant/basic-data/supplier-category-management',
+      url: '/tenant/base-archive/base-category/supplier-categories',
       method: 'get',
       params
     });
@@ -14,7 +14,7 @@ export const supplierCategoryApi = {
   // 获取供应商分类详情
   getSupplierCategory: (id) => {
     return request({
-      url: `/tenant/basic-data/supplier-category-management/${id}`,
+      url: `/tenant/base-archive/base-category/supplier-categories/${id}`,
       method: 'get'
     });
   },
@@ -22,7 +22,7 @@ export const supplierCategoryApi = {
   // 创建供应商分类
   createSupplierCategory: (data) => {
     return request({
-      url: '/tenant/basic-data/supplier-category-management',
+      url: '/tenant/base-archive/base-category/supplier-categories',
       method: 'post',
       data
     });
@@ -31,7 +31,7 @@ export const supplierCategoryApi = {
   // 更新供应商分类
   updateSupplierCategory: (id, data) => {
     return request({
-      url: `/tenant/basic-data/supplier-category-management/${id}`,
+      url: `/tenant/base-archive/base-category/supplier-categories/${id}`,
       method: 'put',
       data
     });
@@ -40,7 +40,7 @@ export const supplierCategoryApi = {
   // 删除供应商分类
   deleteSupplierCategory: (id) => {
     return request({
-      url: `/tenant/basic-data/supplier-category-management/${id}`,
+      url: `/tenant/base-archive/base-category/supplier-categories/${id}`,
       method: 'delete'
     });
   },
@@ -48,8 +48,8 @@ export const supplierCategoryApi = {
   // 批量更新供应商分类
   batchUpdateSupplierCategories: (data) => {
     return request({
-      url: '/tenant/basic-data/supplier-category-management/batch',
-      method: 'put',
+      url: '/tenant/base-archive/base-category/supplier-categories/batch-update',
+      method: 'post',
       data
     });
   },
@@ -57,9 +57,16 @@ export const supplierCategoryApi = {
   // 获取启用的供应商分类列表（用于下拉选择）
   getEnabledSupplierCategories: () => {
     return request({
-      url: '/tenant/basic-data/supplier-category-management',
-      method: 'get',
-      params: { enabled_only: true, per_page: 1000 }
+      url: '/tenant/base-archive/base-category/supplier-categories/enabled',
+      method: 'get'
+    });
+  },
+
+  // 获取供应商分类选项（用于下拉框）
+  getSupplierCategoryOptions: () => {
+    return request({
+      url: '/tenant/base-archive/base-category/supplier-categories/options',
+      method: 'get'
     });
   }
 }; 

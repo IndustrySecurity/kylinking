@@ -3,7 +3,7 @@
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Text, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -32,7 +32,7 @@ class SalesOrder(TenantModel):
     plate_fee_percentage = Column(Numeric(5, 2), default=0, comment='版费订金%')  # 手工输入，默认0
     
     # 日期信息
-    order_date = Column(DateTime, default=datetime.utcnow, comment='交货日期')  # 选择
+    order_date = Column(DateTime, default=func.now(), comment='交货日期')  # 选择
     internal_delivery_date = Column(DateTime, comment='内部交期')  # 选择
     salesperson_id = Column(UUID(as_uuid=True), comment='业务员ID')  # 外键，根据选择的客户填入
     contract_date = Column(DateTime, comment='合同日期')  # 选择
@@ -578,4 +578,132 @@ class SalesOrderMaterial(TenantModel):
                 'material_name': self.material.material_name
             }
         
-        return result 
+        return result
+
+
+class DeliveryNotice(TenantModel):
+    """送货通知单主表"""
+    __tablename__ = 'delivery_notices'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    notice_number = Column(String(50), nullable=False, comment='通知单号 (自动生成)')
+    customer_id = Column(UUID(as_uuid=True), ForeignKey('customer_management.id'), nullable=False, comment='客户ID (外键)')
+    sales_order_id = Column(UUID(as_uuid=True), ForeignKey('sales_orders.id'), nullable=True, comment='销售订单ID (外键)')
+    delivery_address = Column(Text, comment='送货地址')
+    delivery_date = Column(DateTime, comment='送货日期')
+    delivery_method = Column(String(50), comment='送货方式')
+    logistics_info = Column(Text, comment='物流信息')
+    remark = Column(Text, comment='备注')
+    status = Column(String(20), default='draft', comment='状态(draft/confirmed/shipped/completed/cancelled)')
+    
+    created_by = Column(UUID(as_uuid=True), comment='创建人ID')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人ID')
+
+    # 关联关系
+    customer = relationship("CustomerManagement", backref="delivery_notices")
+    details = relationship("DeliveryNoticeDetail", back_populates="delivery_notice", cascade="all, delete-orphan")
+
+    def to_dict(self):
+        """将模型对象转换为字典"""
+        data = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        # 格式化特殊字段
+        data['id'] = str(self.id)
+        data['customer_id'] = str(self.customer_id) if self.customer_id else None
+        data['sales_order_id'] = str(self.sales_order_id) if self.sales_order_id else None
+        data['delivery_date'] = self.delivery_date.isoformat() if self.delivery_date else None
+        data['created_at'] = self.created_at.isoformat() if self.created_at else None
+        data['updated_at'] = self.updated_at.isoformat() if self.updated_at else None
+        data['created_by'] = str(self.created_by) if self.created_by else None
+        data['updated_by'] = str(self.updated_by) if self.updated_by else None
+
+        # 添加关联数据
+        if self.customer:
+            data['customer'] = {
+                'id': str(self.customer.id),
+                'customer_name': self.customer.customer_name,
+                'customer_code': self.customer.customer_code
+            }
+        if self.details:
+            data['details'] = [detail.to_dict() for detail in self.details]
+            
+        return data
+
+
+class DeliveryNoticeDetail(TenantModel):
+    """送货通知明细子表"""
+    __tablename__ = 'delivery_notice_details'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    delivery_notice_id = Column(UUID(as_uuid=True), ForeignKey('delivery_notices.id'), nullable=False, comment='送货通知单ID 外键')
+    
+    work_order_number = Column(String(50), comment='工单号')
+    product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), comment='产品ID 外键')
+    product_name = Column(String(200), comment='产品名称')
+    product_code = Column(String(50), comment='产品编号')
+    specification = Column(Text, comment='规格')
+    auxiliary_quantity = Column(Numeric(15, 4), comment='订单辅数')
+    sales_unit = Column(String(20), comment='销售单位')
+    order_quantity = Column(Numeric(15, 4), comment='订单数量')
+    notice_quantity = Column(Numeric(15, 4), comment='通知数量')
+    gift_quantity = Column(Numeric(15, 4), comment='赠送数')
+    inventory_quantity = Column(Numeric(15, 4), comment='库存数')
+    unit = Column(String(20), comment='单位')
+    price = Column(Numeric(15, 4), comment='价格')
+    amount = Column(Numeric(15, 4), comment='金额')
+    negative_deviation_percentage = Column(Numeric(5, 2), comment='负偏差%')
+    positive_deviation_percentage = Column(Numeric(5, 2), comment='正偏差%')
+    pcs = Column(Integer, comment='件数')
+    production_min_quantity = Column(Numeric(15, 4), comment='生产最小数')
+    production_max_quantity = Column(Numeric(15, 4), comment='生产最大数')
+    order_delivery_date = Column(DateTime, comment='订单交期')
+    internal_delivery_date = Column(DateTime, comment='内部交期')
+    plate_type = Column(String(50), comment='版辊类型')
+    sales_order_number = Column(String(50), comment='销售单号')
+    customer_order_number = Column(String(100), comment='客户订单号')
+    product_category = Column(String(100), comment='产品分类')
+    customer_code = Column(String(100), comment='客户代号')
+    material_structure = Column(Text, comment='材质结构')
+    tax_amount = Column(Numeric(15, 4), comment='税额')
+    outer_box = Column(String(100), comment='外箱')
+    foreign_currency_unit_price = Column(Numeric(15, 4), comment='外币单价')
+    foreign_currency_amount = Column(Numeric(15, 4), comment='外币金额')
+    sort_order = Column(Integer, comment='排序')
+    box_count = Column(Integer, comment='箱数')
+    total_area = Column(Numeric(15, 4), comment='总面积')
+    discount_amount = Column(Numeric(15, 4), comment='折扣金额')
+    notify_undiscount_amount = Column(Numeric(15, 4), comment='通知未折数')
+    grade = Column(String(20), comment='等级')
+    
+    created_by = Column(UUID(as_uuid=True), comment='创建人ID')
+    updated_by = Column(UUID(as_uuid=True), comment='更新人ID')
+
+    # 关联关系
+    delivery_notice = relationship("DeliveryNotice", back_populates="details")
+    product = relationship("Product", backref="delivery_notice_details")
+
+    def to_dict(self):
+        """将模型对象转换为字典"""
+        data = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        # 格式化特殊字段
+        data['id'] = str(self.id)
+        data['delivery_notice_id'] = str(self.delivery_notice_id)
+        data['product_id'] = str(self.product_id) if self.product_id else None
+        data['order_delivery_date'] = self.order_delivery_date.isoformat() if self.order_delivery_date else None
+        data['internal_delivery_date'] = self.internal_delivery_date.isoformat() if self.internal_delivery_date else None
+        data['created_at'] = self.created_at.isoformat() if self.created_at else None
+        data['updated_at'] = self.updated_at.isoformat() if self.updated_at else None
+        data['created_by'] = str(self.created_by) if self.created_by else None
+        data['updated_by'] = str(self.updated_by) if self.updated_by else None
+        
+        # 格式化数字字段
+        for key in ['auxiliary_quantity', 'order_quantity', 'notice_quantity', 'gift_quantity', 'inventory_quantity', 'price', 'amount', 'negative_deviation_percentage', 'positive_deviation_percentage', 'production_min_quantity', 'production_max_quantity', 'tax_amount', 'foreign_currency_unit_price', 'foreign_currency_amount', 'total_area', 'discount_amount', 'notify_undiscount_amount']:
+            if data.get(key) is not None:
+                data[key] = float(data[key])
+
+        if self.product:
+            data['product'] = {
+                'id': str(self.product.id),
+                'product_name': self.product.product_name,
+                'product_code': self.product.product_code
+            }
+        return data 

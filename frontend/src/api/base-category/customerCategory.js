@@ -1,65 +1,81 @@
 import request from '../../utils/request';
 
-// 客户分类管理API
+// 获取客户分类列表
+export const getCustomerCategories = (params) => {
+  return request({
+    url: '/tenant/base-archive/base-category/customer-categories',
+    method: 'get',
+    params
+  });
+};
+
+// 创建客户分类
+export const createCustomerCategory = (data) => {
+  return request({
+    url: '/tenant/base-archive/base-category/customer-categories',
+    method: 'post',
+    data
+  });
+};
+
+// 更新客户分类
+export const updateCustomerCategory = (id, data) => {
+  return request({
+    url: `/tenant/base-archive/base-category/customer-categories/${id}`,
+    method: 'put',
+    data
+  });
+};
+
+// 删除客户分类
+export const deleteCustomerCategory = (id) => {
+  return request({
+    url: `/tenant/base-archive/base-category/customer-categories/${id}`,
+    method: 'delete'
+  });
+};
+
+// 获取客户分类详情
+export const getCustomerCategoryById = (id) => {
+  return request({
+    url: `/tenant/base-archive/base-category/customer-categories/${id}`,
+    method: 'get'
+  });
+};
+
+// 获取启用的客户分类选项
+export const getEnabledCustomerCategories = () => {
+  return request({
+    url: '/tenant/base-archive/base-category/customer-categories/enabled',
+    method: 'get'
+  });
+};
+
+// 批量更新客户分类
+export const batchUpdateCustomerCategories = (data) => {
+  return request({
+    url: '/tenant/base-archive/base-category/customer-categories/batch-update',
+    method: 'post',
+    data
+  });
+};
+
+// 获取客户分类选项（用于下拉框）
+export const getCustomerCategoryOptions = () => {
+  return request({
+    url: '/tenant/base-archive/base-category/customer-categories/options',
+    method: 'get'
+  });
+};
+
+// 统一导出API对象
 export const customerCategoryApi = {
-  // 获取客户分类列表
-  getCustomerCategories: (params = {}) => {
-    return request({
-      url: '/tenant/basic-data/customer-category-management',
-      method: 'get',
-      params
-    });
-  },
-
-  // 获取客户分类详情
-  getCustomerCategory: (id) => {
-    return request({
-      url: `/tenant/basic-data/customer-category-management/${id}`,
-      method: 'get'
-    });
-  },
-
-  // 创建客户分类
-  createCustomerCategory: (data) => {
-    return request({
-      url: '/tenant/basic-data/customer-category-management',
-      method: 'post',
-      data
-    });
-  },
-
-  // 更新客户分类
-  updateCustomerCategory: (id, data) => {
-    return request({
-      url: `/tenant/basic-data/customer-category-management/${id}`,
-      method: 'put',
-      data
-    });
-  },
-
-  // 删除客户分类
-  deleteCustomerCategory: (id) => {
-    return request({
-      url: `/tenant/basic-data/customer-category-management/${id}`,
-      method: 'delete'
-    });
-  },
-
-  // 批量更新客户分类
-  batchUpdateCustomerCategories: (data) => {
-    return request({
-      url: '/tenant/basic-data/customer-category-management/batch',
-      method: 'put',
-      data
-    });
-  },
-
-  // 获取启用的客户分类列表（用于下拉选择）
-  getEnabledCustomerCategories: () => {
-    return request({
-      url: '/tenant/basic-data/customer-category-management',
-      method: 'get',
-      params: { enabled_only: true, per_page: 1000 }
-    });
-  }
+  getCustomerCategories,
+  createCustomerCategory,
+  updateCustomerCategory,
+  deleteCustomerCategory,
+  getCustomerCategoryById,
+  getEnabledCustomerCategories,
+  batchUpdateCustomerCategories,
+  getCustomerCategoryOptions
 }; 

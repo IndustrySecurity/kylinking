@@ -1,14 +1,15 @@
 import axios from 'axios';
 import { message } from 'antd';
 
-// 创建axios实例
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+console.log('Axios baseURL:', request.defaults.baseURL);
 
 // 请求拦截器
 request.interceptors.request.use(
@@ -30,6 +31,9 @@ request.interceptors.request.use(
       } catch (error) {
         console.error('Failed to parse tenant info:', error);
       }
+    } else {
+      // 如果没有租户信息，设置默认租户ID
+      config.headers['X-Tenant-ID'] = 'public';
     }
     
     return config;

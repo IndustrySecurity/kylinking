@@ -104,11 +104,21 @@ const SpecificationManagement = () => {
   };
 
   // 分页变化
-  const handleTableChange = (newPagination) => {
+  const handleTableChange = (newPagination, filters, sorter) => {
     setPagination(newPagination);
+    
+    // 处理排序参数
+    let sortParams = {};
+    if (sorter && sorter.field && sorter.order) {
+      const order = sorter.order === 'ascend' ? 'asc' : 'desc';
+      sortParams.sort_by = sorter.field;
+      sortParams.sort_order = order;
+    }
+    
     loadData({
       page: newPagination.current,
-      per_page: newPagination.pageSize
+      per_page: newPagination.pageSize,
+      ...sortParams
     });
   };
 
@@ -156,15 +166,20 @@ const SpecificationManagement = () => {
 
         // 正确处理后端响应格式
         if (response.data.success) {
-          // 更新本地数据
-          newData.splice(index, 1, {
-            ...updatedItem,
-            ...response.data.data,
-            key: response.data.data.id
-          });
-          setData(newData);
           setEditingKey('');
           message.success('保存成功');
+          // 如果修改了排序字段，重新加载数据以应用排序
+          if (row.sort_order !== undefined) {
+            loadData({ sort_by: 'sort_order', sort_order: 'asc' });
+          } else {
+            // 更新本地数据
+            newData.splice(index, 1, {
+              ...updatedItem,
+              ...response.data.data,
+              key: response.data.data.id
+            });
+            setData(newData);
+          }
         }
       }
     } catch (error) {
@@ -236,7 +251,17 @@ const SpecificationManagement = () => {
     
     switch (inputType) {
       case 'number':
-        inputNode = <InputNumber min={0} step={0.001} style={{ width: '100%' }} />;
+        // 为排序字段使用整数限制的InputNumber
+        if (dataIndex === 'sort_order') {
+          inputNode = <InputNumber 
+            min={0} 
+            precision={0} 
+            style={{ width: '100%' }}
+            parser={(value) => value ? value.replace(/[^\d]/g, '') : ''}
+          />;
+        } else {
+          inputNode = <InputNumber min={0} step={0.001} style={{ width: '100%' }} />;
+        }
         break;
       case 'switch':
         inputNode = <Switch />;
@@ -357,7 +382,9 @@ const SpecificationManagement = () => {
       width: 100,
       editable: true,
       inputType: 'number',
-      align: 'center'
+      align: 'center',
+      sorter: true,
+      defaultSortOrder: 'ascend'
     },
     {
       title: '是否启用',

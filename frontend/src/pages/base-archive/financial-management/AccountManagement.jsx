@@ -26,8 +26,15 @@ import {
   SearchOutlined,
   BankOutlined
 } from '@ant-design/icons';
-import accountManagementApi from '../../../api/financial-management/accountManagement';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { 
+  getAccounts, 
+  createAccount, 
+  updateAccount, 
+  deleteAccount, 
+  getAccountById,
+  batchUpdateAccounts
+} from '../../../api/financial-management/accountManagement';
+import { getEnabledCurrencies } from '../../../api/financial-management/currency';
 import dayjs from 'dayjs';
 
 const { Search } = Input;
@@ -59,7 +66,7 @@ const AccountManagement = () => {
   // 获取币别列表
   const fetchCurrencies = async () => {
     try {
-      const result = await currencyApi.getEnabledCurrencies();
+      const result = await getEnabledCurrencies();
       // 正确处理后端响应格式
       if (result.data && result.data.success) {
         const currencies = result.data.data.currencies || [];
@@ -86,7 +93,7 @@ const AccountManagement = () => {
         params.search = search;
       }
 
-      const result = await accountManagementApi.getAccounts(params);
+      const result = await getAccounts(params);
       // 正确处理后端响应格式
       if (result.data && result.data.success) {
         const { accounts, total, current_page } = result.data.data;
@@ -171,13 +178,13 @@ const AccountManagement = () => {
         
         // 如果是新增的临时记录
         if (id.startsWith('temp_')) {
-          await accountManagementApi.createAccount(submitData);
+          await createAccount(submitData);
           message.success('创建成功');
           setEditingKey('');
           fetchData(pagination.current, pagination.pageSize, searchText);
         } else {
           // 更新现有记录
-          await accountManagementApi.updateAccount(id, submitData);
+          await updateAccount(id, submitData);
           message.success('更新成功');
           setEditingKey('');
           fetchData(pagination.current, pagination.pageSize, searchText);
@@ -199,11 +206,10 @@ const AccountManagement = () => {
         return;
       }
 
-      await accountManagementApi.deleteAccount(id);
+      await deleteAccount(id);
       message.success('删除成功');
       fetchData(pagination.current, pagination.pageSize, searchText);
     } catch (error) {
-      console.error('删除失败:', error);
       message.error('删除失败');
     }
   };

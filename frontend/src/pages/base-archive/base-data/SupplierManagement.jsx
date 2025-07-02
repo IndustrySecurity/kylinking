@@ -107,7 +107,14 @@ const SupplierManagement = () => {
       
       if (response?.data?.success) {
         const data = response.data.data;
-        setSuppliers(data.suppliers || []);
+        
+        // 为数据添加唯一key
+        const suppliersWithKeys = (data.suppliers || []).map((item, index) => ({
+          ...item,
+          key: item.id || `supplier-${index}-${Date.now()}`, // 使用id作为key，如果没有id则生成唯一key
+        }));
+        
+        setSuppliers(suppliersWithKeys);
         setPagination(prev => ({
           ...prev,
           current: data.page || page,
@@ -778,7 +785,7 @@ const SupplierManagement = () => {
         <Table
           columns={columns}
           dataSource={suppliers}
-          rowKey="id"
+          rowKey="key"
           loading={loading}
           pagination={{
             ...pagination,

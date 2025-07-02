@@ -1,33 +1,20 @@
-from flask import jsonify, request, g
+from flask import Blueprint, jsonify, request, g
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from app.api.tenant import tenant_bp
 from app.models.business.production import ProductionPlan, ProductionRecord
 from app.extensions import db
 from app.utils.tenant_context import tenant_context_required
+from app.utils.decorators import tenant_required
 from datetime import datetime
 import uuid
 from functools import wraps
 
-
-def tenant_required(fn):
-    """
-    装饰器，确保用户有对应的租户
-    """
-    @jwt_required()
-    @wraps(fn)  # 添加functools.wraps保留原始函数名称
-    def tenant_wrapper(*args, **kwargs):
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
-        
-        if not tenant_id:
-            return jsonify({"message": "No tenant associated with user"}), 403
-        
-        return fn(*args, **kwargs)
-    
-    return tenant_wrapper
+# 创建独立的生产管理蓝图
+production_bp = Blueprint('production', __name__)
 
 
-@tenant_bp.route('/production/plans', methods=['GET'])
+
+
+@production_bp.route('/production/plans', methods=['GET'])
 @tenant_required
 @tenant_context_required
 def get_production_plans():
@@ -82,7 +69,7 @@ def get_production_plans():
     }), 200
 
 
-@tenant_bp.route('/production/plans/<uuid:plan_id>', methods=['GET'])
+@production_bp.route('/production/plans/<uuid:plan_id>', methods=['GET'])
 @tenant_required
 @tenant_context_required
 def get_production_plan(plan_id):
@@ -120,7 +107,7 @@ def get_production_plan(plan_id):
     return jsonify({"production_plan": plan_data}), 200
 
 
-@tenant_bp.route('/production/plans', methods=['POST'])
+@production_bp.route('/production/plans', methods=['POST'])
 @tenant_required
 @tenant_context_required
 def create_production_plan():
@@ -186,7 +173,7 @@ def create_production_plan():
     return jsonify({"message": "Production plan created successfully", "production_plan": plan_data}), 201
 
 
-@tenant_bp.route('/production/plans/<uuid:plan_id>', methods=['PUT'])
+@production_bp.route('/production/plans/<uuid:plan_id>', methods=['PUT'])
 @tenant_required
 @tenant_context_required
 def update_production_plan(plan_id):
@@ -243,7 +230,7 @@ def update_production_plan(plan_id):
     return jsonify({"message": "Production plan updated successfully", "production_plan": plan_data}), 200
 
 
-@tenant_bp.route('/production/plans/<uuid:plan_id>', methods=['DELETE'])
+@production_bp.route('/production/plans/<uuid:plan_id>', methods=['DELETE'])
 @tenant_required
 @tenant_context_required
 def delete_production_plan(plan_id):
@@ -263,7 +250,7 @@ def delete_production_plan(plan_id):
     return jsonify({"message": f"Production plan '{plan_name}' deleted successfully"}), 200
 
 
-@tenant_bp.route('/production/records', methods=['POST'])
+@production_bp.route('/production/records', methods=['POST'])
 @tenant_required
 @tenant_context_required
 def create_production_record():

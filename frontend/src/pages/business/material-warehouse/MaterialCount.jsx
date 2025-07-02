@@ -111,7 +111,6 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
       style={{
         cursor: 'pointer',
         padding: '4px 8px',
-        border: '1px dashed #d9d9d9',
         borderRadius: '4px',
         minHeight: '32px',
         display: 'flex',

@@ -97,7 +97,14 @@ const ProductManagement = () => {
 
       if (response.data.success) {
         const { products, total, page, per_page } = response.data.data;
-        setData(products || []);
+        
+        // 为数据添加唯一key
+        const dataWithKeys = (products || []).map((item, index) => ({
+          ...item,
+          key: item.id || `product-${index}`, // 使用id作为key，如果没有id则生成唯一key
+        }));
+        
+        setData(dataWithKeys);
         setPagination(prev => ({
           ...prev,
           current: page || 1,
@@ -679,37 +686,38 @@ const ProductManagement = () => {
     },
     {
       title: '操作',
+      dataIndex: 'action',
       key: 'action',
-      width: 150,
+      width: 120,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
           <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={() => handleView(record)}
-            title="查看"
-          />
-          <Button
-            type="text"
+            type="link"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
-            title="编辑"
-          />
+          >
+            编辑
+          </Button>
           <Popconfirm
             title="确定要删除这个产品吗？"
             onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
           >
             <Button
-              type="text"
+              type="link"
+              size="small"
               danger
               icon={<DeleteOutlined />}
-              title="删除"
-            />
+            >
+              删除
+            </Button>
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ];
 
   // 基础信息标签页 - 根据用户字段整理重新设计
@@ -741,8 +749,8 @@ const ProductManagement = () => {
               onChange={handleCustomerChange}
             >
               {(formOptions.customers || []).map(customer => (
-                <Option key={customer.id} value={customer.id}>
-                  {customer.customer_name}
+                <Option key={customer.value || customer.id} value={customer.value || customer.id}>
+                  {customer.label || customer.customer_name}
                 </Option>
               ))}
             </Select>
@@ -762,8 +770,8 @@ const ProductManagement = () => {
               onChange={handleBagTypeChange}
             >
               {(formOptions.bagTypes || []).map(bagType => (
-                <Option key={bagType.id} value={bagType.id}>
-                  {bagType.bag_type_name}
+                <Option key={bagType.value || bagType.id} value={bagType.value || bagType.id}>
+                  {bagType.label || bagType.bag_name}
                 </Option>
               ))}
             </Select>
@@ -776,8 +784,8 @@ const ProductManagement = () => {
               disabled={modalType !== 'create'}
             >
               {(formOptions.employees || []).map(employee => (
-                <Option key={employee.id} value={employee.id}>
-                  {employee.employee_name || employee.name}
+                <Option key={employee.value || employee.id} value={employee.value || employee.id}>
+                  {employee.label || employee.employee_name}
                 </Option>
               ))}
             </Select>
@@ -1355,11 +1363,11 @@ const ProductManagement = () => {
                         const selectedProcessIds = productProcesses
                           .filter((proc, idx) => idx !== index && proc.process_id)
                           .map(proc => proc.process_id);
-                        return !selectedProcessIds.includes(p.id);
+                        return !selectedProcessIds.includes(p.value);
                       })
                       .map(p => (
-                        <Option key={p.id} value={p.id}>
-                          {p.name}
+                        <Option key={p.value} value={p.value}>
+                          {p.label}
                         </Option>
                       ))}
                   </Select>
@@ -1478,11 +1486,11 @@ const ProductManagement = () => {
                         const selectedMaterialIds = productMaterials
                           .filter((mat, idx) => idx !== index && mat.material_id)
                           .map(mat => mat.material_id);
-                        return !selectedMaterialIds.includes(m.id);
+                        return !selectedMaterialIds.includes(m.value);
                       })
                       .map(m => (
-                        <Option key={m.id} value={m.id}>
-                          {m.name}
+                        <Option key={m.value} value={m.value}>
+                          {m.label}
                         </Option>
                       ))}
                   </Select>
@@ -1750,8 +1758,8 @@ const ProductManagement = () => {
                   allowClear
                 >
                   {(formOptions.customers || []).map(customer => (
-                    <Option key={customer.id} value={customer.id}>
-                      {customer.customer_name}
+                    <Option key={customer.value || customer.id} value={customer.value || customer.id}>
+                      {customer.label || customer.customer_name}
                     </Option>
                   ))}
                 </Select>
@@ -1763,8 +1771,8 @@ const ProductManagement = () => {
                   allowClear
                 >
                   {(formOptions.bagTypes || []).map(bagType => (
-                    <Option key={bagType.id} value={bagType.id}>
-                      {bagType.bag_type_name}
+                    <Option key={bagType.value || bagType.id} value={bagType.value || bagType.id}>
+                      {bagType.label || bagType.bag_name}
                     </Option>
                   ))}
                 </Select>

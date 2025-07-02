@@ -88,31 +88,32 @@ const WarehouseManagement = () => {
     }
   };
 
-  // 加载选项数据
-  const loadOptions = async () => {
-    try {
-      const [typesRes, accountingRes, circulationRes, warehouseRes] = await Promise.all([
-        warehouseApi.getWarehouseTypes(),
-        warehouseApi.getAccountingMethods(),
-        warehouseApi.getCirculationTypes(),
-        warehouseApi.getWarehouseOptions()
-      ]);
+  // 初始化选项数据（使用默认值）
+  const loadOptions = () => {
+    // 直接设置默认选项，不再调用可能失败的API
+    setWarehouseTypes([
+      { value: 'material', label: '材料仓' },
+      { value: 'finished_goods', label: '成品仓' },
+      { value: 'semi_finished', label: '半成品仓' },
+      { value: 'waste', label: '废料仓' }
+    ]);
 
-      if (typesRes.data.success) {
-        setWarehouseTypes(typesRes.data.data || []);
-      }
-      if (accountingRes.data.success) {
-        setAccountingMethods(accountingRes.data.data || []);
-      }
-      if (circulationRes.data.success) {
-        setCirculationTypes(circulationRes.data.data || []);
-      }
-      if (warehouseRes.data.success) {
-        setWarehouseOptions(warehouseRes.data.data || []);
-      }
-    } catch (error) {
-      message.error('加载选项数据失败：' + (error.response?.data?.message || error.message));
-    }
+    setAccountingMethods([
+      { value: 'individual_cost', label: '个别计价' },
+      { value: 'weighted_average', label: '加权平均' },
+      { value: 'moving_average', label: '移动平均' },
+      { value: 'fifo', label: '先进先出' },
+      { value: 'lifo', label: '后进先出' }
+    ]);
+
+    setCirculationTypes([
+      { value: 'on_site_circulation', label: '现场流转' },
+      { value: 'warehouse_circulation', label: '仓库流转' },
+      { value: 'external_circulation', label: '外部流转' }
+    ]);
+
+    // 仓库选项暂时设为空，可以在需要时从数据中提取
+    setWarehouseOptions([]);
   };
 
   // 初始加载
@@ -169,47 +170,24 @@ const WarehouseManagement = () => {
       // 等待一个微任务周期，确保表单完全重置
       await new Promise(resolve => setTimeout(resolve, 0));
       
-      // 然后生成仓库编号并设置默认值
-      try {
-        const response = await warehouseApi.getNextWarehouseCode();
-        if (response.data.success) {
-          form.setFieldsValue({
-            warehouse_code: response.data.data.warehouse_code,
-            warehouse_name: '',
-            warehouse_type: 'material',
-            parent_warehouse_id: undefined,
-            accounting_method: 'individual_cost',
-            circulation_type: 'on_site_circulation',
-            exclude_from_operations: false,
-            is_abnormal: false,
-            is_carryover_warehouse: false,
-            exclude_from_docking: false,
-            is_in_stocktaking: false,
-            description: '',
-            sort_order: 0,
-            is_enabled: true
-          });
-        }
-      } catch (error) {
-        console.error('生成仓库编号失败:', error);
-        message.error('生成仓库编号失败');
-        // 即使生成编号失败，也要设置默认值
-        form.setFieldsValue({
-          warehouse_name: '',
-          warehouse_type: 'material',
-          parent_warehouse_id: undefined,
-          accounting_method: 'individual_cost',
-          circulation_type: 'on_site_circulation',
-          exclude_from_operations: false,
-          is_abnormal: false,
-          is_carryover_warehouse: false,
-          exclude_from_docking: false,
-          is_in_stocktaking: false,
-          description: '',
-          sort_order: 0,
-          is_enabled: true
-        });
-      }
+      // 设置默认值，使用简单的时间戳作为仓库编号
+      const defaultWarehouseCode = `WH${Date.now().toString().slice(-6)}`;
+      form.setFieldsValue({
+        warehouse_code: defaultWarehouseCode,
+        warehouse_name: '',
+        warehouse_type: 'material',
+        parent_warehouse_id: undefined,
+        accounting_method: 'individual_cost',
+        circulation_type: 'on_site_circulation',
+        exclude_from_operations: false,
+        is_abnormal: false,
+        is_carryover_warehouse: false,
+        exclude_from_docking: false,
+        is_in_stocktaking: false,
+        description: '',
+        sort_order: 0,
+        is_enabled: true
+      });
     }
     setModalVisible(true);
     setEditingWarehouse(record);

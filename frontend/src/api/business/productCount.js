@@ -4,6 +4,76 @@ import request from '../../utils/request';
  * 成品盘点API
  */
 
+// 获取产品盘点列表
+export const getProductCounts = (params) => {
+  return request({
+    url: '/tenant/business/inventory/product-count',
+    method: 'get',
+    params
+  });
+};
+
+// 创建产品盘点
+export const createProductCount = (data) => {
+  return request({
+    url: '/tenant/business/inventory/product-count',
+    method: 'post',
+    data
+  });
+};
+
+// 更新产品盘点
+export const updateProductCount = (id, data) => {
+  return request({
+    url: `/tenant/business/inventory/product-count/${id}`,
+    method: 'put',
+    data
+  });
+};
+
+// 删除产品盘点
+export const deleteProductCount = (id) => {
+  return request({
+    url: `/tenant/business/inventory/product-count/${id}`,
+    method: 'delete'
+  });
+};
+
+// 获取产品盘点详情
+export const getProductCountById = (id) => {
+  return request({
+    url: `/tenant/business/inventory/product-count/${id}`,
+    method: 'get'
+  });
+};
+
+// 确认产品盘点
+export const confirmProductCount = (id) => {
+  return request({
+    url: `/tenant/business/inventory/product-count/${id}/confirm`,
+    method: 'post'
+  });
+};
+
+// 获取产品库存
+export const getProductInventory = (params) => {
+  return request({
+    url: '/tenant/business/inventory/product-inventory',
+    method: 'get',
+    params
+  });
+};
+
+// 导出产品盘点数据
+export const exportProductCount = (params) => {
+  return request({
+    url: '/tenant/business/inventory/product-count/export',
+    method: 'get',
+    params,
+    responseType: 'blob'
+  });
+};
+
 // 获取盘点计划列表
 export const getProductCountPlans = (params = {}) => {
   return request.get('/tenant/inventory/product-count-plans', { params });
@@ -74,7 +144,18 @@ export const getDepartments = () => {
   return request.get('/tenant/basic-data/departments/options');
 };
 
-export default {
+// 统一导出API对象
+export const productCountApi = {
+  // 基础盘点API
+  getProductCounts,
+  createProductCount,
+  updateProductCount,
+  deleteProductCount,
+  getProductCountById,
+  confirmProductCount,
+  getProductInventory,
+  exportProductCount,
+  // 盘点计划API
   getProductCountPlans,
   createProductCountPlan,
   getProductCountPlan,
@@ -89,4 +170,7 @@ export default {
   getWarehouses,
   getEmployees,
   getDepartments
-}; 
+};
+
+// 保持向后兼容的默认导出
+export default productCountApi; 

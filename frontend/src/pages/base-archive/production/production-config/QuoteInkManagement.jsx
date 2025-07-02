@@ -161,15 +161,21 @@ const QuoteInkManagement = () => {
 
         // 正确处理后端响应格式
         if (response.data.success) {
-          // 更新本地数据
-          newData.splice(index, 1, {
-            ...updatedItem,
-            ...response.data.data,
-            key: response.data.data.id
-          });
-          setData(newData);
           setEditingKey('');
           message.success('保存成功');
+          
+          // 如果更新了排序字段，重新加载数据以保证正确的排序
+          if ('sort_order' in row) {
+            await loadData();
+          } else {
+            // 更新本地数据
+            newData.splice(index, 1, {
+              ...updatedItem,
+              ...response.data.data,
+              key: response.data.data.id
+            });
+            setData(newData);
+          }
         }
       }
     } catch (error) {
@@ -555,6 +561,7 @@ const QuoteInkManagement = () => {
             bordered
             dataSource={data}
             columns={mergedColumns}
+            rowKey="key"
             rowClassName="editable-row"
             pagination={{
               ...pagination,

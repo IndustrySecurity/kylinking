@@ -28,7 +28,13 @@ import {
   StarOutlined,
   DollarOutlined
 } from '@ant-design/icons';
-import { currencyApi } from '../../../api/financial-management/currency';
+import { 
+  getCurrencies, 
+  createCurrency, 
+  updateCurrency, 
+  deleteCurrency, 
+  getCurrencyById 
+} from '../../../api/financial-management/currency';
 
 const { Title } = Typography;
 
@@ -53,35 +59,31 @@ const Currency = () => {
   const isEditing = (record) => record.key === editingKey;
 
   // 加载数据
-  const loadData = async (params = {}) => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const response = await currencyApi.getCurrencies({
+      const params = {
         page: pagination.current,
         per_page: pagination.pageSize,
         search: searchText,
-        ...params
-      });
-
-      // 正确处理后端响应格式
-      if (response.data.success) {
-        const { currencies, total, current_page } = response.data.data;
-        
-        // 为每行数据添加key
-        const dataWithKeys = currencies.map((item, index) => ({
+      };
+      const response = await getCurrencies(params);
+      
+      if (response.data?.success) {
+        const { currencies, total } = response.data.data;
+        // 为每个数据项添加key属性，解决React key警告
+        const dataWithKeys = (currencies || []).map(item => ({
           ...item,
-          key: item.id || `temp_${index}`
+          key: item.id || item.key || `temp_${Date.now()}_${Math.random()}`
         }));
-        
         setData(dataWithKeys);
-        setPagination(prev => ({
-          ...prev,
-          total,
-          current: current_page
-        }));
+        setPagination({
+          ...pagination,
+          total: total || 0,
+        });
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      message.error('获取数据失败');
     } finally {
       setLoading(false);
     }
@@ -95,23 +97,20 @@ const Currency = () => {
   // 搜索
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, current: 1 }));
-    loadData({ page: 1 });
+    loadData();
   };
 
   // 重置搜索
   const handleReset = () => {
     setSearchText('');
     setPagination(prev => ({ ...prev, current: 1 }));
-    loadData({ page: 1, search: '' });
+    loadData();
   };
 
   // 分页变化
   const handleTableChange = (newPagination) => {
     setPagination(newPagination);
-    loadData({
-      page: newPagination.current,
-      per_page: newPagination.pageSize
-    });
+    loadData();
   };
 
   // 开始编辑
@@ -144,76 +143,35 @@ const Currency = () => {
 
       if (index > -1) {
         const item = newData[index];
-        
-        // 如果设置为本位币，需要先取消其他本位币的设置
-        if (row.is_base_currency) {
-          // 在本地数据中取消其他项的本位币设置
-          newData.forEach((dataItem, dataIndex) => {
-            if (dataIndex !== index && dataItem.is_base_currency) {
-              dataItem.is_base_currency = false;
-            }
-          });
-        }
-        
-        const updatedItem = { ...item, ...row };
-        
-        // 调用API保存
         let response;
-        if (item.id && !item.id.startsWith('temp_')) {
-          // 更新现有记录
-          response = await currencyApi.updateCurrency(item.id, row);
+        
+        if (item.id && !item.id.toString().startsWith('temp_')) {
+          response = await updateCurrency(item.id, row);
         } else {
-          // 创建新记录
-          response = await currencyApi.createCurrency(row);
+          response = await createCurrency(row);
         }
-
-        // 正确处理后端响应格式
-        if (response.data.success) {
-          // 更新本地数据
-          newData.splice(index, 1, {
-            ...updatedItem,
-            ...response.data.data,
-            key: response.data.data.id
-          });
-          setData(newData);
+        
+        if (response.data?.success) {
+          message.success(item.id ? '更新成功' : '创建成功');
           setEditingKey('');
-          message.success('保存成功');
-          
-          // 如果设置了本位币，重新加载数据以确保服务器端的唯一性处理生效
-          if (row.is_base_currency) {
-            setTimeout(() => {
-              loadData();
-            }, 500);
-          }
+          loadData();
         }
       }
     } catch (error) {
-      if (error.errorFields) {
-        message.error('请检查输入内容');
-      } else {
-        message.error('保存失败：' + (error.response?.data?.error || error.message));
-      }
+      message.error('保存失败');
     }
   };
 
   // 删除记录
-  const handleDelete = async (key) => {
+  const handleDelete = async (record) => {
     try {
-      const record = data.find(item => item.key === key);
-      
-      if (record.id && !record.id.startsWith('temp_')) {
-        // 删除服务器记录
-        const response = await currencyApi.deleteCurrency(record.id);
-        if (response.data.success) {
-          message.success('删除成功');
-        }
+      const response = await deleteCurrency(record.id);
+      if (response.data?.success) {
+        message.success('删除成功');
+        loadData();
       }
-      
-      // 删除本地记录
-      const newData = data.filter(item => item.key !== key);
-      setData(newData);
     } catch (error) {
-      message.error('删除失败：' + (error.response?.data?.error || error.message));
+      message.error('删除失败');
     }
   };
 
@@ -458,7 +416,7 @@ const Currency = () => {
               type="link"
               size="small"
               icon={<CheckOutlined />}
-              onClick={() => save(record.key)}
+                              onClick={() => save(record.key)}
             >
               保存
             </Button>
@@ -484,7 +442,7 @@ const Currency = () => {
             </Button>
               <Popconfirm
                 title="确定删除这个币别吗？"
-                onConfirm={() => handleDelete(record.key)}
+                onConfirm={() => handleDelete(record)}
                 disabled={editingKey !== ''}
               >
                 <Button

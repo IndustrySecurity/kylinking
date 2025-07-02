@@ -30,7 +30,7 @@ import {
 } from '@ant-design/icons';
 import { 
   getDepartments, 
-  getDepartment, 
+  getDepartmentById, 
   createDepartment, 
   updateDepartment, 
   deleteDepartment, 

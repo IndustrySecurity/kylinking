@@ -69,9 +69,18 @@ def register_blueprints(app):
     from app.api.admin import admin_bp
     from app.api.tenant import tenant_bp
     
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(tenant_bp, url_prefix='/api/tenant')
+    # 简化注册，让各个蓝图内部自己处理子蓝图
+    try:
+        # 只注册主要蓝图
+        app.register_blueprint(auth_bp, url_prefix='/api/auth')
+        app.register_blueprint(admin_bp, url_prefix='/api/admin')
+        app.register_blueprint(tenant_bp, url_prefix='/api/tenant')
+        
+        print("✅ 主要蓝图注册成功")
+        
+    except Exception as e:
+        print(f"❌ 蓝图注册失败: {e}")
+        raise
 
 
 def register_error_handlers(app):

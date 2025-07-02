@@ -66,10 +66,10 @@ const QuoteMaterialManagement = () => {
       if (response.data.success) {
         const { quote_materials, total, current_page } = response.data.data;
         
-        // 为每行数据添加key
+        // 为每行数据添加唯一且稳定的key
         const dataWithKeys = quote_materials.map((item, index) => ({
           ...item,
-          key: item.id || `temp_${index}`
+          key: item.id || `temp_${index}_${Date.now()}`
         }));
         
         setData(dataWithKeys);
@@ -160,15 +160,22 @@ const QuoteMaterialManagement = () => {
           response = await quoteMaterialApi.createQuoteMaterial(row);
         }
 
-        // 更新本地数据
-        newData.splice(index, 1, {
-          ...updatedItem,
-          ...response,
-          key: response.id
-        });
-        setData(newData);
+        // 取消编辑状态
         setEditingKey('');
         message.success('保存成功');
+        
+        // 如果更新了排序字段，重新加载数据以保证正确的排序
+        if ('sort_order' in row) {
+          await loadData();
+        } else {
+          // 更新本地数据
+          newData.splice(index, 1, {
+            ...updatedItem,
+            ...response,
+            key: response.id
+          });
+          setData(newData);
+        }
       }
     } catch (error) {
       if (error.errorFields) {
@@ -518,6 +525,7 @@ const QuoteMaterialManagement = () => {
             bordered
             dataSource={data}
             columns={mergedColumns}
+            rowKey="key"
             rowClassName="editable-row"
             pagination={{
               ...pagination,
