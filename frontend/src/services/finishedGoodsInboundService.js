@@ -1,82 +1,82 @@
 import request from '../utils/request';
 
-const API_BASE = '/tenant/inventory';
+const API_BASE = '/tenant/business/inventory/product-inbound/product-inbound-orders';
 
 // 成品入库单相关API
 export const finishedGoodsInboundService = {
   // 获取入库单列表
   getInboundOrderList: (params = {}) => {
-    return request.get(`${API_BASE}/inbound-orders`, { params });
+    return request.get(`${API_BASE}`, { params });
   },
 
   // 获取入库单详情
   getInboundOrderById: (id) => {
-    return request.get(`${API_BASE}/inbound-orders/${id}`);
+    return request.get(`${API_BASE}/${id}`);
   },
 
   // 创建入库单
   createInboundOrder: (data) => {
-    return request.post(`${API_BASE}/inbound-orders`, data);
+    return request.post(`${API_BASE}`, data);
   },
 
   // 更新入库单
   updateInboundOrder: (id, data) => {
-    return request.put(`${API_BASE}/inbound-orders/${id}`, data);
+    return request.put(`${API_BASE}/${id}`, data);
   },
 
   // 删除入库单
   deleteInboundOrder: (id) => {
-    return request.delete(`${API_BASE}/inbound-orders/${id}`);
+    return request.delete(`${API_BASE}/${id}`);
   },
 
   // 审核入库单
   approveInboundOrder: (id, data) => {
-    return request.post(`${API_BASE}/inbound-orders/${id}/approve`, data);
+    return request.post(`${API_BASE}/${id}/approve`, data);
   },
 
   // 执行入库单
   executeInboundOrder: (id) => {
-    return request.post(`${API_BASE}/inbound-orders/${id}/execute`);
+    return request.post(`${API_BASE}/${id}/execute`);
   },
 
   // 取消入库单
   cancelInboundOrder: (id, data) => {
-    return request.post(`${API_BASE}/inbound-orders/${id}/cancel`, data);
+    return request.post(`${API_BASE}/${id}/cancel`, data);
   },
 
   // 获取入库单明细列表
   getInboundOrderDetails: (orderId) => {
-    return request.get(`${API_BASE}/inbound-orders/${orderId}/details`);
+    return request.get(`${API_BASE}/${orderId}/details`);
   },
 
   // 创建入库单明细
   createInboundOrderDetail: (orderId, data) => {
-    return request.post(`${API_BASE}/inbound-orders/${orderId}/details`, data);
+    return request.post(`${API_BASE}/${orderId}/details`, data);
   },
 
   // 更新入库单明细
   updateInboundOrderDetail: (orderId, detailId, data) => {
-    return request.put(`${API_BASE}/inbound-orders/${orderId}/details/${detailId}`, data);
+    return request.put(`${API_BASE}/${orderId}/details/${detailId}`, data);
   },
 
   // 删除入库单明细
   deleteInboundOrderDetail: (orderId, detailId) => {
-    return request.delete(`${API_BASE}/inbound-orders/${orderId}/details/${detailId}`);
+    return request.delete(`${API_BASE}/${orderId}/details/${detailId}`);
   },
 
   // 批量创建入库单明细
   batchCreateInboundOrderDetails: (orderId, data) => {
-    return request.post(`${API_BASE}/inbound-orders/${orderId}/details/batch`, data);
+    return request.post(`${API_BASE}/${orderId}/details/batch`, data);
   },
 
   // 批量更新入库单明细
   batchUpdateInboundOrderDetails: (orderId, data) => {
-    return request.put(`${API_BASE}/inbound-orders/${orderId}/details/batch`, data);
+    return request.put(`${API_BASE}/${orderId}/details/batch`, data);
   },
 
   // 批量删除入库单明细
   batchDeleteInboundOrderDetails: (orderId, detailIds) => {
-    return request.delete(`${API_BASE}/inbound-orders/${orderId}/details/batch`, {
+    return request.delete(`${API_BASE}/${orderId}/details/batch`, {
       data: { detail_ids: detailIds }
     });
   }
@@ -86,34 +86,34 @@ export const finishedGoodsInboundService = {
 export const baseDataService = {
   // 获取仓库选项（只获取成品仓）
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/basic-data/warehouses/options', { 
+    return request.get('/tenant/base-archive/base-data/warehouses/options', { 
       params: { ...params, warehouse_type: 'finished_goods' }
     });
   },
 
   // 获取产品选项
   getProducts: (params = {}) => {
-    return request.get('/tenant/basic-data/products', { params });
+    return request.get('/tenant/base-archive/base-data/product-management', { params });
   },
 
   // 获取部门选项
   getDepartments: (params = {}) => {
-    return request.get('/tenant/basic-data/departments/options', { params });
+    return request.get('/tenant/base-archive/base-data/departments/options', { params });
   },
 
   // 获取员工选项
   getEmployees: (params = {}) => {
-    return request.get('/tenant/basic-data/employees/options', { params });
+    return request.get('/tenant/base-archive/base-data/employees/options', { params });
   },
 
   // 获取供应商列表
   getSuppliers: (params = {}) => {
-    return request.get('/tenant/basic-data/supplier-management', { params });
+    return request.get('/tenant/base-archive/base-data/suppliers', { params });
   },
 
   // 获取客户列表
   getCustomers: (params = {}) => {
-    return request.get('/tenant/basic-data/customers', { params });
+    return request.get('/tenant/base-archive/base-data/customers', { params });
   }
 };
 
@@ -121,32 +121,32 @@ export const baseDataService = {
 export const inventoryService = {
   // 获取库存列表
   getInventoryList: (params = {}) => {
-    return request.get(`${API_BASE}/inventories`, { params });
+    return request.get('/tenant/business/inventory/inventories', { params });
   },
 
   // 获取库存详情
   getInventoryById: (id) => {
-    return request.get(`${API_BASE}/inventories/${id}`);
+    return request.get(`/tenant/business/inventory/inventories/${id}`);
   },
 
   // 获取库存事务记录
   getInventoryTransactions: (params = {}) => {
-    return request.get(`${API_BASE}/inventory-transactions`, { params });
+    return request.get('/tenant/business/inventory/inventory-transactions', { params });
   },
 
   // 预留库存
   reserveInventory: (data) => {
-    return request.post(`${API_BASE}/inventories/reserve`, data);
+    return request.post('/tenant/business/inventory/inventories/reserve', data);
   },
 
   // 释放预留库存
   releaseReservedInventory: (data) => {
-    return request.post(`${API_BASE}/inventories/release-reserved`, data);
+    return request.post('/tenant/business/inventory/inventories/release-reserved', data);
   },
 
   // 调整库存
   adjustInventory: (data) => {
-    return request.post(`${API_BASE}/inventories/adjust`, data);
+    return request.post('/tenant/business/inventory/inventories/adjust', data);
   }
 };
 
@@ -159,19 +159,19 @@ export const reportService = {
 
   // 获取库存统计报表
   getInventoryStatistics: (params = {}) => {
-    return request.get(`${API_BASE}/reports/inventory-statistics`, { params });
+    return request.get('/tenant/business/inventory/reports/inventory-statistics', { params });
   },
 
   // 导出入库单
   exportInboundOrder: (id) => {
-    return request.get(`${API_BASE}/inbound-orders/${id}/export`, {
+    return request.get(`${API_BASE}/${id}/export`, {
       responseType: 'blob'
     });
   },
 
   // 导出入库单列表
   exportInboundOrderList: (params = {}) => {
-    return request.get(`${API_BASE}/inbound-orders/export`, {
+    return request.get(`${API_BASE}/export`, {
       params,
       responseType: 'blob'
     });

@@ -14,25 +14,13 @@ import re
 class WarehouseService(TenantAwareService):
     """仓库管理服务"""
     
-    def _set_schema(self):
-        """设置当前租户的schema搜索路径"""
-        from flask import g, current_app
-        from sqlalchemy import text
-        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
-        if schema_name != 'public':
-            current_app.logger.info(f"Setting search_path to {schema_name} in WarehouseService")
-            self.get_session().execute(text(f'SET search_path TO {schema_name}, public'))
-    
     def get_warehouses(self, page=1, per_page=20, search=None, warehouse_type=None, parent_warehouse_id=None):
         """获取仓库列表"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
             
             # 构建查询
-            query = self.get_session().query(Warehouse)
+            query = self.session.query(Warehouse)
             
             # 搜索条件
             if search:
@@ -71,13 +59,10 @@ class WarehouseService(TenantAwareService):
     
     def get_warehouse(self, warehouse_id):
         """获取仓库详情"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
             
-            warehouse = self.get_session().query(Warehouse).get(uuid.UUID(warehouse_id))
+            warehouse = self.session.query(Warehouse).get(uuid.UUID(warehouse_id))
             if not warehouse:
                 raise ValueError("仓库不存在")
             
@@ -88,9 +73,6 @@ class WarehouseService(TenantAwareService):
     
     def create_warehouse(self, data, created_by):
         """创建仓库"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
             
@@ -104,7 +86,7 @@ class WarehouseService(TenantAwareService):
                     warehouse_code = Warehouse.generate_warehouse_code()
                     
                     # 验证编号是否已存在
-                    existing = self.get_session().query(Warehouse).filter(
+                    existing = self.session.query(Warehouse).filter(
                         Warehouse.warehouse_code == warehouse_code
                     ).first()
                     
@@ -128,14 +110,14 @@ class WarehouseService(TenantAwareService):
             parent_warehouse_id = None
             if data.get('parent_warehouse_id'):
                 parent_warehouse_id = uuid.UUID(data['parent_warehouse_id'])
-                parent_warehouse = self.get_session().query(Warehouse).get(parent_warehouse_id)
+                parent_warehouse = self.session.query(Warehouse).get(parent_warehouse_id)
                 if not parent_warehouse:
                     raise ValueError("上级仓库不存在")
                 if not parent_warehouse.is_enabled:
                     raise ValueError("上级仓库未启用")
             
             # 创建仓库对象
-            warehouse = Warehouse(
+            warehouse = self.create_with_tenant(Warehouse,
                 warehouse_code=warehouse_code,
                 warehouse_name=data['warehouse_name'],
                 warehouse_type=data.get('warehouse_type'),
@@ -153,24 +135,20 @@ class WarehouseService(TenantAwareService):
                 created_by=uuid.UUID(created_by)
             )
             
-            self.get_session().add(warehouse)
-            self.get_session().commit()
+            self.commit()
             
             return warehouse.to_dict(include_user_info=True)
                         
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"创建仓库失败: {str(e)}")
     
     def update_warehouse(self, warehouse_id, data, updated_by):
         """更新仓库"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
             
-            warehouse = self.get_session().query(Warehouse).get(uuid.UUID(warehouse_id))
+            warehouse = self.session.query(Warehouse).get(uuid.UUID(warehouse_id))
             if not warehouse:
                 raise ValueError("仓库不存在")
             
@@ -183,7 +161,7 @@ class WarehouseService(TenantAwareService):
                     if parent_warehouse_id == warehouse.id:
                         raise ValueError("不能将自己设置为上级仓库")
                     
-                    parent_warehouse = self.get_session().query(Warehouse).get(parent_warehouse_id)
+                    parent_warehouse = self.session.query(Warehouse).get(parent_warehouse_id)
                     if not parent_warehouse:
                         raise ValueError("上级仓库不存在")
                     if not parent_warehouse.is_enabled:
@@ -205,52 +183,46 @@ class WarehouseService(TenantAwareService):
             
             warehouse.updated_by = uuid.UUID(updated_by)
             
-            self.get_session().commit()
+            self.commit()
             
             return warehouse.to_dict(include_user_info=True)
             
         except IntegrityError as e:
-            self.get_session().rollback()
+            self.rollback()
             if 'warehouse_code' in str(e):
                 raise ValueError("仓库编号已存在")
             raise ValueError("数据完整性错误")
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"更新仓库失败: {str(e)}")
     
     def delete_warehouse(self, warehouse_id):
         """删除仓库"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
             
-            warehouse = self.get_session().query(Warehouse).get(uuid.UUID(warehouse_id))
+            warehouse = self.session.query(Warehouse).get(uuid.UUID(warehouse_id))
             if not warehouse:
                 raise ValueError("仓库不存在")
             
             # 检查是否有子仓库
-            children_count = self.get_session().query(Warehouse).filter(Warehouse.parent_warehouse_id == warehouse.id).count()
+            children_count = self.session.query(Warehouse).filter(Warehouse.parent_warehouse_id == warehouse.id).count()
             if children_count > 0:
                 raise ValueError("存在子仓库，无法删除")
             
             # 这里可以添加其他业务检查，比如检查是否有库存记录等
             
-            self.get_session().delete(warehouse)
-            self.get_session().commit()
+            self.session.delete(warehouse)
+            self.commit()
             
             return True
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"删除仓库失败: {str(e)}")
     
     def batch_update_warehouses(self, updates, updated_by):
         """批量更新仓库"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
             
@@ -261,7 +233,7 @@ class WarehouseService(TenantAwareService):
                 if not warehouse_id:
                     continue
                 
-                warehouse = self.get_session().query(Warehouse).get(uuid.UUID(warehouse_id))
+                warehouse = self.session.query(Warehouse).get(uuid.UUID(warehouse_id))
                 if not warehouse:
                     continue
                 
@@ -274,24 +246,20 @@ class WarehouseService(TenantAwareService):
                 warehouse.updated_by = uuid.UUID(updated_by)
                 updated_warehouses.append(warehouse)
             
-            self.get_session().commit()
+            self.commit()
             
             return [warehouse.to_dict(include_user_info=True) for warehouse in updated_warehouses]
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"批量更新仓库失败: {str(e)}")
     
     def get_warehouse_options(self, warehouse_type=None):
         """获取仓库选项数据"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
-            from app.extensions import db
             
-            query = self.get_session().query(Warehouse).filter(Warehouse.is_enabled == True)
+            query = self.session.query(Warehouse).filter(Warehouse.is_enabled == True)
             
             # 按类型筛选
             if warehouse_type:
@@ -310,47 +278,91 @@ class WarehouseService(TenantAwareService):
         except Exception as e:
             raise ValueError(f"获取仓库选项失败: {str(e)}")
     
-    def get_warehouse_tree(self, ):
+    def get_warehouse_tree(self):
         """获取仓库树形结构"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import Warehouse
-            return Warehouse.get_warehouse_tree()
+            
+            # 获取所有启用的仓库
+            warehouses = self.session.query(Warehouse).filter(
+                Warehouse.is_enabled == True
+            ).order_by(Warehouse.sort_order, Warehouse.warehouse_name).all()
+            
+            # 构建树形结构
+            warehouse_dict = {str(warehouse.id): warehouse for warehouse in warehouses}
+            tree = []
+            
+            for warehouse in warehouses:
+                warehouse_data = warehouse.to_dict()
+                warehouse_data['children'] = []
+                
+                if warehouse.parent_warehouse_id is None:
+                    # 根仓库
+                    tree.append(warehouse_data)
+                else:
+                    # 子仓库
+                    parent_id = str(warehouse.parent_warehouse_id)
+                    if parent_id in warehouse_dict:
+                        parent_data = next((d for d in tree if d['id'] == parent_id), None)
+                        if parent_data:
+                            parent_data['children'].append(warehouse_data)
+                        else:
+                            # 如果父级不在根级别，需要递归查找
+                            def find_and_add_child(nodes, parent_id, child_data):
+                                for node in nodes:
+                                    if node['id'] == parent_id:
+                                        node['children'].append(child_data)
+                                        return True
+                                    elif node['children'] and find_and_add_child(node['children'], parent_id, child_data):
+                                        return True
+                                return False
+                            
+                            find_and_add_child(tree, parent_id, warehouse_data)
+            
+            return tree
         except Exception as e:
             raise ValueError(f"获取仓库树形结构失败: {str(e)}")
     
     def get_warehouse_types(self):
         """获取仓库类型选项"""
-        # 设置schema
-        self._set_schema()
-        
         try:
-            from app.models.basic_data import Warehouse
-            return Warehouse.get_warehouse_types()
+            # 返回静态的仓库类型选项
+            return [
+                {'value': 'raw_material', 'label': '原材料仓库'},
+                {'value': 'semi_finished', 'label': '半成品仓库'},
+                {'value': 'finished_product', 'label': '成品仓库'},
+                {'value': 'packaging', 'label': '包材仓库'},
+                {'value': 'tool', 'label': '工具仓库'},
+                {'value': 'office', 'label': '办公用品仓库'},
+                {'value': 'other', 'label': '其他'}
+            ]
         except Exception as e:
             raise ValueError(f"获取仓库类型失败: {str(e)}")
     
-    def get_accounting_methods(self, ):
+    def get_accounting_methods(self):
         """获取核算方式选项"""
-        # 设置schema
-        self._set_schema()
-        
         try:
-            from app.models.basic_data import Warehouse
-            return Warehouse.get_accounting_methods()
+            # 返回静态的核算方式选项
+            return [
+                {'value': 'fifo', 'label': '先进先出'},
+                {'value': 'lifo', 'label': '后进先出'},
+                {'value': 'weighted_average', 'label': '加权平均'},
+                {'value': 'moving_average', 'label': '移动平均'},
+                {'value': 'standard_cost', 'label': '标准成本'}
+            ]
         except Exception as e:
             raise ValueError(f"获取核算方式失败: {str(e)}")
     
     def get_circulation_types(self):
         """获取流转类型选项"""
-        # 设置schema
-        self._set_schema()
-        
         try:
-            from app.models.basic_data import Warehouse
-            return Warehouse.get_circulation_types()
+            # 返回静态的流转类型选项
+            return [
+                {'value': 'on_site_circulation', 'label': '现场流转'},
+                {'value': 'warehouse_circulation', 'label': '仓库流转'},
+                {'value': 'direct_delivery', 'label': '直接发货'},
+                {'value': 'transit', 'label': '在途'}
+            ]
         except Exception as e:
             raise ValueError(f"获取流转类型失败: {str(e)}")
 

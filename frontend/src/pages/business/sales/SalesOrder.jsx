@@ -256,7 +256,7 @@ const SalesOrder = () => {
 
   const handleApprove = async (record) => {
     try {
-      const response = await request.post(`/tenant/sales/sales-orders/${record.id}/approve`);
+      const response = await request.post(`/tenant/business/sales/sales-orders/${record.id}/approve`);
       if (response.data.success) {
         message.success('审批成功');
         fetchData();
@@ -268,7 +268,7 @@ const SalesOrder = () => {
 
   const handleCancel = async (record) => {
     try {
-      const response = await request.post(`/tenant/sales/sales-orders/${record.id}/cancel`);
+      const response = await request.post(`/tenant/business/sales/sales-orders/${record.id}/cancel`);
       if (response.data.success) {
         message.success('取消成功');
         fetchData();

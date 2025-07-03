@@ -1,3 +1,7 @@
+# type: ignore
+# pyright: reportGeneralTypeIssues=false
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
 # -*- coding: utf-8 -*-
 """
 库存查询API路由

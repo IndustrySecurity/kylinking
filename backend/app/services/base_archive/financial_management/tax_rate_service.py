@@ -329,6 +329,21 @@ class TaxRateService(TenantAwareService):
         
         return [tax_rate.to_dict() for tax_rate in tax_rates]
 
+    def get_tax_rate_options(self):
+        """获取税率选项（用于下拉框）"""
+        tax_rates = self.session.query(TaxRate).filter_by(
+            is_enabled=True
+        ).order_by(TaxRate.sort_order, TaxRate.tax_name).all()
+        
+        return [
+            {
+                'value': str(tax.id),
+                'label': f'{tax.tax_name} ({tax.tax_rate}%)',
+                'rate': float(tax.tax_rate) if tax.tax_rate else 0
+            }
+            for tax in tax_rates
+        ]
+
 
 def get_tax_rate_service(tenant_id: str = None, schema_name: str = None) -> TaxRateService:
     """获取税率服务实例"""

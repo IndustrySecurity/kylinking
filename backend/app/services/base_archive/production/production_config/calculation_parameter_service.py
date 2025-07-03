@@ -14,23 +14,11 @@ import re
 class CalculationParameterService(TenantAwareService):
     """计算参数服务"""
     
-    def _set_schema(self):
-        """设置当前租户的schema搜索路径"""
-        from flask import g, current_app
-        from sqlalchemy import text
-        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
-        if schema_name != 'public':
-            current_app.logger.info(f"Setting search_path to {schema_name} in CalculationParameterService")
-            self.get_session().execute(text(f'SET search_path TO {schema_name}, public'))
-    
     def get_calculation_parameters(self, page=1, per_page=20, search=None):
         """获取计算参数列表"""
         from app.models.basic_data import CalculationParameter
         
-        # 设置schema
-        self._set_schema()
-        
-        query = CalculationParameter.query
+        query = self.session.query(CalculationParameter)
         
         # 搜索条件
         if search:
@@ -61,10 +49,7 @@ class CalculationParameterService(TenantAwareService):
         """获取计算参数详情"""
         from app.models.basic_data import CalculationParameter
         
-        # 设置schema
-        self._set_schema()
-        
-        param = CalculationParameter.query.get(uuid.UUID(param_id))
+        param = self.session.query(CalculationParameter).get(uuid.UUID(param_id))
         if not param:
             raise ValueError("计算参数不存在")
         return param.to_dict(include_user_info=True)
@@ -73,23 +58,20 @@ class CalculationParameterService(TenantAwareService):
         """创建计算参数"""
         from app.models.basic_data import CalculationParameter
         
-        # 设置schema
-        self._set_schema()
-        
         try:
             # 验证必填字段
             if not data.get('parameter_name'):
                 raise ValueError("计算参数名称不能为空")
             
             # 检查名称是否重复
-            existing = CalculationParameter.query.filter_by(
+            existing = self.session.query(CalculationParameter).filter_by(
                 parameter_name=data['parameter_name']
             ).first()
             if existing:
                 raise ValueError("计算参数名称已存在")
             
             # 创建计算参数对象
-            param = CalculationParameter(
+            param = self.create_with_tenant(CalculationParameter,
                 parameter_name=data['parameter_name'],
                 description=data.get('description'),
                 sort_order=data.get('sort_order', 0),
@@ -97,27 +79,22 @@ class CalculationParameterService(TenantAwareService):
                 created_by=uuid.UUID(created_by)
             )
             
-            self.get_session().add(param)
-            self.get_session().commit()
-            
+            self.commit()
             return param.to_dict(include_user_info=True)
             
         except IntegrityError as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError("数据完整性错误")
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"创建计算参数失败: {str(e)}")
     
     def update_calculation_parameter(self, param_id, data, updated_by):
         """更新计算参数"""
         from app.models.basic_data import CalculationParameter
         
-        # 设置schema
-        self._set_schema()
-        
         try:
-            param = CalculationParameter.query.get(uuid.UUID(param_id))
+            param = self.session.query(CalculationParameter).get(uuid.UUID(param_id))
             if not param:
                 raise ValueError("计算参数不存在")
             
@@ -127,7 +104,7 @@ class CalculationParameterService(TenantAwareService):
             
             # 检查名称是否重复（排除自己）
             if 'parameter_name' in data:
-                existing = CalculationParameter.query.filter(
+                existing = self.session.query(CalculationParameter).filter(
                     CalculationParameter.parameter_name == data['parameter_name'],
                     CalculationParameter.id != param.id
                 ).first()
@@ -141,44 +118,37 @@ class CalculationParameterService(TenantAwareService):
             
             param.updated_by = uuid.UUID(updated_by)
             
-            self.get_session().commit()
-            
+            self.commit()
             return param.to_dict(include_user_info=True)
             
         except IntegrityError as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError("数据完整性错误")
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"更新计算参数失败: {str(e)}")
     
     def delete_calculation_parameter(self, param_id):
         """删除计算参数"""
         from app.models.basic_data import CalculationParameter
         
-        # 设置schema
-        self._set_schema()
-        
         try:
-            param = CalculationParameter.query.get(uuid.UUID(param_id))
+            param = self.session.query(CalculationParameter).get(uuid.UUID(param_id))
             if not param:
                 raise ValueError("计算参数不存在")
             
-            self.get_session().delete(param)
-            self.get_session().commit()
+            self.session.delete(param)
+            self.commit()
             
             return True
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"删除计算参数失败: {str(e)}")
     
     def batch_update_calculation_parameters(self, updates, updated_by):
         """批量更新计算参数"""
         from app.models.basic_data import CalculationParameter
-        
-        # 设置schema
-        self._set_schema()
         
         try:
             results = []
@@ -188,7 +158,7 @@ class CalculationParameterService(TenantAwareService):
                 if not param_id:
                     continue
                     
-                param = CalculationParameter.query.get(uuid.UUID(param_id))
+                param = self.session.query(CalculationParameter).get(uuid.UUID(param_id))
                 if not param:
                     continue
                 
@@ -204,24 +174,23 @@ class CalculationParameterService(TenantAwareService):
                 
                 results.append(param.to_dict())
             
-            self.get_session().commit()
+            self.commit()
             
             return results
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"批量更新计算参数失败: {str(e)}")
     
     def get_calculation_parameter_options(self):
         """获取计算参数选项数据"""
         from app.models.basic_data import CalculationParameter
         
-        # 设置schema
-        self._set_schema()
-        
         try:
             # 获取启用的计算参数
-            enabled_params = CalculationParameter.get_enabled_list()
+            enabled_params = self.session.query(CalculationParameter).filter(
+                CalculationParameter.is_enabled == True
+            ).order_by(CalculationParameter.sort_order, CalculationParameter.parameter_name).all()
             
             return {
                 'calculation_parameters': [

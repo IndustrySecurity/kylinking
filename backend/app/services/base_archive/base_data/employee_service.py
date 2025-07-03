@@ -101,7 +101,7 @@ class EmployeeService(TenantAwareService):
     def get_employee_options(self):
         """获取员工选项列表"""
         try:
-            employees = Employee.get_enabled_list()
+            employees = self.session.query(Employee).filter(Employee.is_enabled == True).order_by(Employee.sort_order, Employee.employee_name).all()
             return {
                 'success': True,
                 'data': [

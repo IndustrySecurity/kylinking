@@ -14,89 +14,43 @@ from app.models.user import User
 class CurrencyService(TenantAwareService):
     """币别管理服务"""
 
+    def __init__(self, tenant_id: Optional[str] = None, schema_name: Optional[str] = None):
+        """初始化Currency服务"""
+        super().__init__(tenant_id, schema_name)
+
     def get_currencies(self, page=1, per_page=20, search=None, enabled_only=False):
         """获取币别列表"""
-        from flask import g, current_app
-        from sqlalchemy import text
-        
-        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
-        
-        # 基础查询
-        base_query = f"""
-        SELECT 
-            c.id, c.currency_code, c.currency_name, c.exchange_rate, 
-            c.is_base_currency, c.description, c.sort_order, c.is_enabled, 
-            c.created_by, c.updated_by, c.created_at, c.updated_at
-        FROM {schema_name}.currencies c
-        """
-        
-        # 构建查询条件
-        where_conditions = []
-        params = {}
-        
-        if search:
-            where_conditions.append("""
-                (c.currency_code ILIKE :search OR 
-                 c.currency_name ILIKE :search OR
-                 c.description ILIKE :search)
-            """)
-            params['search'] = f'%{search}%'
-        
-        if enabled_only:
-            where_conditions.append("c.is_enabled = true")
-        
-        # 构建完整查询
-        if where_conditions:
-            base_query += " WHERE " + " AND ".join(where_conditions)
-        
-        base_query += " ORDER BY c.sort_order, c.created_at"
-        
-        # 计算总数
-        count_query = f"""
-        SELECT COUNT(*) as total
-        FROM {schema_name}.currencies c
-        """
-        if where_conditions:
-            count_query += " WHERE " + " AND ".join(where_conditions)
-        
-        # 执行查询
         try:
-            # 获取总数
-            count_result = self.get_session().execute(text(count_query), params)
-            total = count_result.scalar()
+            # 构建基础查询
+            query = self.session.query(Currency)
             
-            # 计算分页
+            # 添加搜索条件
+            if search:
+                search_pattern = f'%{search}%'
+                query = query.filter(
+                    Currency.currency_code.ilike(search_pattern) |
+                    Currency.currency_name.ilike(search_pattern) |
+                    Currency.description.ilike(search_pattern)
+                )
+            
+            if enabled_only:
+                query = query.filter(Currency.is_enabled == True)
+            
+            # 排序
+            query = query.order_by(Currency.sort_order, Currency.created_at)
+            
+            # 分页
+            total = query.count()
             offset = (page - 1) * per_page
-            params['limit'] = per_page
-            params['offset'] = offset
-            
-            # 添加分页
-            paginated_query = base_query + " LIMIT :limit OFFSET :offset"
-            
-            # 执行分页查询
-            result = self.get_session().execute(text(paginated_query), params)
-            rows = result.fetchall()
+            currencies_list = query.offset(offset).limit(per_page).all()
             
             currencies = []
-            for row in rows:
-                currency_data = {
-                    'id': str(row.id),
-                    'currency_code': row.currency_code,
-                    'currency_name': row.currency_name,
-                    'exchange_rate': float(row.exchange_rate) if row.exchange_rate else 0,
-                    'is_base_currency': row.is_base_currency,
-                    'description': row.description,
-                    'sort_order': row.sort_order,
-                    'is_enabled': row.is_enabled,
-                    'created_by': str(row.created_by) if row.created_by else None,
-                    'updated_by': str(row.updated_by) if row.updated_by else None,
-                    'created_at': row.created_at.isoformat() if row.created_at else None,
-                    'updated_at': row.updated_at.isoformat() if row.updated_at else None,
-                }
+            for currency in currencies_list:
+                currency_data = currency.to_dict()
                 
                 # 获取创建人和修改人用户名
-                if row.created_by:
-                    created_user = User.query.get(row.created_by)
+                if currency.created_by:
+                    created_user = self.session.query(User).get(currency.created_by)
                     if created_user:
                         currency_data['created_by_name'] = created_user.get_full_name()
                     else:
@@ -104,8 +58,8 @@ class CurrencyService(TenantAwareService):
                 else:
                     currency_data['created_by_name'] = '系统'
                     
-                if row.updated_by:
-                    updated_user = User.query.get(row.updated_by)
+                if currency.updated_by:
+                    updated_user = self.session.query(User).get(currency.updated_by)
                     if updated_user:
                         currency_data['updated_by_name'] = updated_user.get_full_name()
                     else:
@@ -131,7 +85,6 @@ class CurrencyService(TenantAwareService):
             }
             
         except Exception as e:
-            current_app.logger.error(f"Error querying currencies: {str(e)}")
             raise ValueError(f'查询币别失败: {str(e)}')
 
     def get_currency(self, currency_id):
@@ -333,14 +286,17 @@ class CurrencyService(TenantAwareService):
 
     def get_enabled_currencies(self):
         """获取启用的币别列表（用于下拉选择）"""
-        currencies = self.session.query(Currency).filter_by(
-            is_enabled=True
-        ).order_by(Currency.sort_order, Currency.currency_name).all()
-        
-        return [currency.to_dict() for currency in currencies]
+        try:
+            currencies = self.session.query(Currency).filter_by(
+                is_enabled=True
+            ).order_by(Currency.sort_order, Currency.currency_name).all()
+            
+            return [currency.to_dict() for currency in currencies]
+        except Exception as e:
+            raise ValueError(f'获取启用币别失败: {str(e)}')
 
 
-def get_currency_service(tenant_id: str = None, schema_name: str = None) -> CurrencyService:
+def get_currency_service(tenant_id: Optional[str] = None, schema_name: Optional[str] = None) -> CurrencyService:
     """获取币别服务实例"""
     return CurrencyService(tenant_id=tenant_id, schema_name=schema_name)
 

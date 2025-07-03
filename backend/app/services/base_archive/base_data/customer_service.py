@@ -372,7 +372,11 @@ class CustomerService(TenantAwareService):
                     for cat in customer_categories
                 ],
                 'tax_rates': [
-                    {'value': str(tax.id), 'label': f'{tax.tax_name} ({tax.tax_rate}%)'}
+                    {
+                        'value': str(tax.id), 
+                        'label': f'{tax.tax_name}',
+                        'rate': float(tax.tax_rate) if tax.tax_rate else 0
+                    }
                     for tax in tax_rates
                 ],
                 'payment_methods': [
@@ -581,10 +585,8 @@ class CustomerService(TenantAwareService):
             for unit_data in payment_units_data:
                 unit = CustomerPaymentUnit(
                     customer_id=uuid.UUID(customer_id),
-                    payment_unit=unit_data.get('payment_unit'),
-                    contact_person=unit_data.get('contact_person'),
-                    contact_phone=unit_data.get('contact_phone'),
-                    payment_address=unit_data.get('payment_address'),
+                    payment_unit=unit_data.get('payment_unit') or '',
+                    unit_code=unit_data.get('unit_code') or '',
                     sort_order=unit_data.get('sort_order', 0)
                 )
                 self.session.add(unit)

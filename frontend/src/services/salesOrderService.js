@@ -5,7 +5,7 @@ import request from '../utils/request';
 
 class SalesOrderService {
   // 基础API路径
-  baseURL = '/tenant/sales';
+  baseURL = '/tenant/business/sales';
 
   /**
    * 获取销售订单列表
@@ -186,9 +186,86 @@ class SalesOrderService {
   getProductDetails = async (productId) => {
     return request.get(`${this.baseURL}/products/${productId}/details`);
   };
+
+  /**
+   * 获取客户税率信息
+   */
+  getCustomerTaxRate = async (customerId) => {
+    return request.get(`${this.baseURL}/customers/${customerId}/tax-rate`);
+  };
+
+  /**
+   * 获取销售订单状态选项
+   */
+  getOrderStatusOptions = async () => {
+    return request.get(`${this.baseURL}/sales-orders/status-options`);
+  };
+
+  /**
+   * 获取付款方式选项
+   */
+  getPaymentMethodOptions = async () => {
+    return request.get(`${this.baseURL}/payment-methods/options`);
+  };
+
+  /**
+   * 获取配送方式选项
+   */
+  getDeliveryMethodOptions = async () => {
+    return request.get(`${this.baseURL}/delivery-methods/options`);
+  };
+}
+
+// 发货通知服务
+export class DeliveryNoticeService {
+  baseURL = '/tenant/business/sales/delivery';
+
+  /**
+   * 获取发货通知列表
+   */
+  getDeliveryNotices = async (params = {}) => {
+    return request.get(`${this.baseURL}/delivery-notices`, { params });
+  };
+
+  /**
+   * 获取发货通知详情
+   */
+  getDeliveryNoticeById = async (id) => {
+    return request.get(`${this.baseURL}/delivery-notices/${id}`);
+  };
+
+  /**
+   * 创建发货通知
+   */
+  createDeliveryNotice = async (data) => {
+    return request.post(`${this.baseURL}/delivery-notices`, data);
+  };
+
+  /**
+   * 更新发货通知
+   */
+  updateDeliveryNotice = async (id, data) => {
+    return request.put(`${this.baseURL}/delivery-notices/${id}`, data);
+  };
+
+  /**
+   * 删除发货通知
+   */
+  deleteDeliveryNotice = async (id) => {
+    return request.delete(`${this.baseURL}/delivery-notices/${id}`);
+  };
+
+  /**
+   * 确认发货
+   */
+  confirmDelivery = async (id) => {
+    return request.post(`${this.baseURL}/delivery-notices/${id}/confirm`);
+  };
 }
 
 // 创建单例实例
 const salesOrderService = new SalesOrderService();
+const deliveryNoticeService = new DeliveryNoticeService();
 
+export { deliveryNoticeService };
 export default salesOrderService; 

@@ -965,6 +965,16 @@ const CustomerManagement = () => {
                       placeholder="选择税收"
                       disabled={modalType === 'detail'}
                       allowClear
+                      onChange={(value) => {
+                        if (value) {
+                          const selectedTax = options.tax_rates?.find(item => item.value === value);
+                          if (selectedTax && selectedTax.rate !== undefined) {
+                            form.setFieldsValue({ tax_rate: selectedTax.rate });
+                          }
+                        } else {
+                          form.setFieldsValue({ tax_rate: 0 });
+                        }
+                      }}
                     >
                       {options.tax_rates && options.tax_rates.map(item => (
                         <Option key={item.value} value={item.value}>{item.label}</Option>

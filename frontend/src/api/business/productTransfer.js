@@ -1,13 +1,13 @@
 import request from '../../utils/request';
 
 /**
- * 产品调拨API
+ * 成品调拨API
  */
 
 // 获取产品调拨列表
 export const getProductTransfers = (params) => {
   return request({
-    url: '/tenant/business/inventory/product-transfer',
+    url: '/tenant/business/inventory/product-transfer/product-transfer-orders',
     method: 'get',
     params
   });
@@ -16,16 +16,24 @@ export const getProductTransfers = (params) => {
 // 创建产品调拨
 export const createProductTransfer = (data) => {
   return request({
-    url: '/tenant/business/inventory/product-transfer',
+    url: '/tenant/business/inventory/product-transfer/product-transfer-orders',
     method: 'post',
     data
+  });
+};
+
+// 获取产品调拨详情
+export const getProductTransferById = (id) => {
+  return request({
+    url: `/tenant/business/inventory/product-transfer/product-transfer-orders/${id}`,
+    method: 'get'
   });
 };
 
 // 更新产品调拨
 export const updateProductTransfer = (id, data) => {
   return request({
-    url: `/tenant/business/inventory/product-transfer/${id}`,
+    url: `/tenant/business/inventory/product-transfer/product-transfer-orders/${id}`,
     method: 'put',
     data
   });
@@ -34,23 +42,15 @@ export const updateProductTransfer = (id, data) => {
 // 删除产品调拨
 export const deleteProductTransfer = (id) => {
   return request({
-    url: `/tenant/business/inventory/product-transfer/${id}`,
+    url: `/tenant/business/inventory/product-transfer/product-transfer-orders/${id}`,
     method: 'delete'
-  });
-};
-
-// 获取产品调拨详情
-export const getProductTransferById = (id) => {
-  return request({
-    url: `/tenant/business/inventory/product-transfer/${id}`,
-    method: 'get'
   });
 };
 
 // 确认产品调拨
 export const confirmProductTransfer = (id) => {
   return request({
-    url: `/tenant/business/inventory/product-transfer/${id}/confirm`,
+    url: `/tenant/business/inventory/product-transfer/product-transfer-orders/${id}/approve`,
     method: 'post'
   });
 };
@@ -63,79 +63,81 @@ export const getProductStock = (productId, warehouseId) => {
   });
 };
 
-// 导出产品调拨数据
+// 导出产品调拨
 export const exportProductTransfer = (params) => {
   return request({
-    url: '/tenant/business/inventory/product-transfer/export',
+    url: '/tenant/business/inventory/product-transfer/product-transfer-orders/export',
     method: 'get',
     params,
     responseType: 'blob'
   });
 };
 
-// 获取调拨单列表
-export const getProductTransferOrders = (params) => {
-  return request.get('/tenant/inventory/product-transfer-orders', { params });
+// ==================== 调拨单API ====================
+
+// 获取产品调拨单列表
+export const getProductTransferOrders = (params = {}) => {
+  return request.get('/tenant/business/inventory/product-transfer/product-transfer-orders', { params });
 };
 
-// 创建调拨单
+// 创建产品调拨单
 export const createProductTransferOrder = (data) => {
-  return request.post('/tenant/inventory/product-transfer-orders', data);
+  return request.post('/tenant/business/inventory/product-transfer/product-transfer-orders', data);
 };
 
-// 获取调拨单详情
+// 获取产品调拨单详情
 export const getProductTransferOrder = (orderId) => {
-  return request.get(`/tenant/inventory/product-transfer-orders/${orderId}`);
+  return request.get(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}`);
 };
 
-// 更新调拨单
+// 更新产品调拨单
 export const updateProductTransferOrder = (orderId, data) => {
-  return request.put(`/tenant/inventory/product-transfer-orders/${orderId}`, data);
+  return request.put(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}`, data);
 };
 
 // 获取调拨单明细
 export const getProductTransferOrderDetails = (orderId) => {
-  return request.get(`/tenant/inventory/product-transfer-orders/${orderId}/details`);
+  return request.get(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/details`);
 };
 
-// 添加调拨明细
+// 添加调拨单明细
 export const addProductTransferOrderDetail = (orderId, data) => {
-  return request.post(`/tenant/inventory/product-transfer-orders/${orderId}/details`, data);
+  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/details`, data);
 };
 
-// 更新调拨明细
+// 更新调拨单明细
 export const updateProductTransferOrderDetail = (orderId, detailId, data) => {
-  return request.put(`/tenant/inventory/product-transfer-orders/${orderId}/details/${detailId}`, data);
+  return request.put(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/details/${detailId}`, data);
 };
 
-// 删除调拨明细
+// 删除调拨单明细
 export const deleteProductTransferOrderDetail = (orderId, detailId) => {
-  return request.delete(`/tenant/inventory/product-transfer-orders/${orderId}/details/${detailId}`);
+  return request.delete(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/details/${detailId}`);
 };
 
 // 确认调拨单
 export const confirmProductTransferOrder = (orderId) => {
-  return request.post(`/tenant/inventory/product-transfer-orders/${orderId}/confirm`);
+  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/approve`);
 };
 
 // 执行调拨单（出库）
 export const executeProductTransferOrder = (orderId) => {
-  return request.post(`/tenant/inventory/product-transfer-orders/${orderId}/execute`);
+  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/execute`);
 };
 
 // 接收调拨单（入库）
 export const receiveProductTransferOrder = (orderId) => {
-  return request.post(`/tenant/inventory/product-transfer-orders/${orderId}/receive`);
+  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/receive`);
 };
 
 // 取消调拨单
-export const cancelProductTransferOrder = (orderId, data = {}) => {
-  return request.post(`/tenant/inventory/product-transfer-orders/${orderId}/cancel`, data);
+export const cancelProductTransferOrder = (orderId, data) => {
+  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/cancel`, data);
 };
 
 // 获取仓库产品库存
 export const getWarehouseProductInventory = (warehouseId) => {
-  return request.get(`/tenant/inventory/warehouses/${warehouseId}/product-inventory`);
+  return request.get(`/tenant/business/inventory/inventories?warehouse_id=${warehouseId}`);
 };
 
 // 统一导出API对象

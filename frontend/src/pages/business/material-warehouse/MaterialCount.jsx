@@ -695,7 +695,7 @@ const MaterialCount = () => {
               }}
             >
               {warehouses.map(warehouse => (
-                <Option key={warehouse.id} value={warehouse.id}>
+                <Option key={`count-warehouse-${warehouse.id}`} value={warehouse.id}>
                   {warehouse.name} {warehouse.code ? `(${warehouse.code})` : ''}
                 </Option>
               ))}
@@ -717,7 +717,7 @@ const MaterialCount = () => {
           >
             <Select placeholder="请选择盘点人">
               {Array.isArray(employees) && employees.map((employee) => (
-                <Option key={employee.id} value={employee.id}>
+                <Option key={`count-employee-${employee.id}`} value={employee.id}>
                   {employee.employee_name || employee.name}
                 </Option>
               ))}
@@ -730,7 +730,7 @@ const MaterialCount = () => {
           >
             <Select placeholder="请选择部门" allowClear>
               {Array.isArray(departments) && departments.map((dept) => (
-                <Option key={dept.id} value={dept.id}>
+                <Option key={`count-department-${dept.id}`} value={dept.id}>
                   {dept.dept_name || dept.department_name || dept.name}
                 </Option>
               ))}

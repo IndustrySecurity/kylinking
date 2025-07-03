@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# type: ignore
+# pyright: reportGeneralTypeIssues=false
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
 """
 成品调拨服务
 """

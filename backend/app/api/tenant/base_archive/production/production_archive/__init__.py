@@ -18,6 +18,7 @@ from .delivery_method import bp as delivery_method_bp
 from .unit import bp as unit_bp
 from .specification import bp as specification_bp
 from .loss_type import bp as loss_type_bp
+from .machine import bp as machine_bp
 
 # 注册各个API蓝图
 production_archive_bp.register_blueprint(bag_type_bp, url_prefix='/bag-types')
@@ -29,3 +30,4 @@ production_archive_bp.register_blueprint(delivery_method_bp, url_prefix='/delive
 production_archive_bp.register_blueprint(unit_bp, url_prefix='/units')
 production_archive_bp.register_blueprint(specification_bp, url_prefix='/specifications')
 production_archive_bp.register_blueprint(loss_type_bp, url_prefix='/loss-types') 
+production_archive_bp.register_blueprint(machine_bp, url_prefix='/machines') 

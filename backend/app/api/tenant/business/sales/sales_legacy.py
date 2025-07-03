@@ -1,3 +1,7 @@
+# type: ignore
+# pyright: reportGeneralTypeIssues=false
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
 """
 销售订单相关API (Legacy版本 - 待移除)
 """

@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# type: ignore
+# pyright: reportGeneralTypeIssues=false
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
 """
 成品盘点服务
 提供成品盘点的业务逻辑处理

@@ -251,8 +251,17 @@ kylinking/
 ├── backend/                 # Flask后端应用
 │   ├── app/
 │   │   ├── api/            # API路由层
+│   │   │   ├── tenant/     # 租户业务API
+│   │   │   │   ├── business/     # 业务操作API
+│   │   │   │   ├── base_archive/ # 基础档案API
+│   │   │   │   └── ...
+│   │   │   └── ...
 │   │   ├── models/         # 数据模型层
 │   │   ├── services/       # 业务逻辑层
+│   │   │   ├── base_service.py        # 基础服务类
+│   │   │   ├── business/              # 业务服务
+│   │   │   ├── base_archive/          # 基础档案服务
+│   │   │   └── ...
 │   │   ├── schemas/        # 数据验证层
 │   │   ├── utils/          # 工具函数
 │   │   └── middleware/     # 中间件
@@ -278,6 +287,41 @@ kylinking/
 
 ## 开发指南
 
+### 服务层开发规范
+```python
+# 标准模式 - 继承TenantAwareService
+class NewService(TenantAwareService):
+    def create_item(self, data, created_by):
+        item = self.create_with_tenant(Model, **data)
+        self.commit()
+        return item.to_dict()
+    
+    def get_items(self, page=1, per_page=20):
+        query = self.session.query(Model)
+        # ... 业务逻辑
+        return result
+```
+
+#### API层开发规范
+```python
+# 标准模式 - 使用服务层
+@bp.route('/items', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_items():
+    service = get_item_service()  # 使用工厂函数
+    result = service.get_items(page=page)
+    return jsonify({'success': True, 'data': result})
+```
+
+#### 工厂函数规范
+为每个服务添加工厂函数：
+```python
+def get_item_service(tenant_id: str = None, schema_name: str = None) -> ItemService:
+    """获取项目服务实例"""
+    return ItemService(tenant_id=tenant_id, schema_name=schema_name)
+```
+
 ### 热更新机制
 系统采用Docker容器部署，支持代码热更新，**无需手动重启容器**：
 
@@ -299,16 +343,24 @@ class Example(BaseModel):
     description = db.Column(db.Text)
 
 # 2. 创建服务层 (app/services/example_service.py)
-class ExampleService:
-    def create_example(self, data):
-        # 业务逻辑实现
-        pass
+class ExampleService(TenantAwareService):  # 继承TenantAwareService
+    def create_example(self, data, created_by):
+        example = self.create_with_tenant(Example, **data)
+        self.commit()
+        return example.to_dict()
 
-# 3. 添加API路由 (app/api/tenant/example.py)
+# 3. 添加工厂函数
+def get_example_service(tenant_id=None, schema_name=None):
+    return ExampleService(tenant_id=tenant_id, schema_name=schema_name)
+
+# 4. 添加API路由 (app/api/tenant/example.py)
 @bp.route('/examples', methods=['POST'])
+@jwt_required()
+@tenant_required
 def create_example():
-    # API接口实现
-    pass
+    service = get_example_service()
+    result = service.create_example(data, current_user_id)
+    return jsonify({'success': True, 'data': result})
 ```
 
 2. **数据库迁移**
@@ -399,7 +451,6 @@ docker-compose -f docker/docker-compose.dev.yml up -d
 docker-compose -f docker/docker-compose.dev.yml up --build
 
 # 查看日志
-# docker-compose -f docker/docker-compose.dev.yml logs -f backend
 docker logs saas_backend_dev --tail=50
 
 # 停止服务
@@ -472,20 +523,24 @@ chmod -R 755 backend/
 
 1. Fork 项目仓库
 2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交代码更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
+3. 遵循开发规范 - 新代码必须使用TenantAwareService模式
+4. 提交代码更改 (`git commit -m 'Add amazing feature'`)
+5. 推送到分支 (`git push origin feature/amazing-feature`)
+6. 创建 Pull Request
 
 ### 代码规范
 - Python代码遵循PEP 8规范
 - JavaScript代码使用ESLint检查
+- 服务层必须继承TenantAwareService
+- API层必须使用@tenant_required装饰器
 - 提交信息使用约定式提交格式
 
 ### 开发流程
 1. 功能设计和技术方案评审
-2. 编码实现和单元测试
-3. 代码审查和集成测试
-4. 部署验证和用户验收
+2. 确认遵循架构规范和模式
+3. 编码实现和单元测试
+4. 代码审查和集成测试
+5. 部署验证和用户验收
 
 ## 版本管理
 

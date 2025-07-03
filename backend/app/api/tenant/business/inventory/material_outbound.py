@@ -1,3 +1,7 @@
+# type: ignore
+# pyright: reportGeneralTypeIssues=false
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
 """
 材料出库管理 API
 
@@ -26,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # ==================== 材料出库单管理 ====================
 
-@bp.route('/material-outbound-orders', methods=['GET'])
+@bp.route('/outbound-orders', methods=['GET'])
 @jwt_required()
 @tenant_required
 def get_material_outbound_orders():
@@ -74,7 +78,7 @@ def get_material_outbound_orders():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-outbound-orders', methods=['POST'])
+@bp.route('/outbound-orders', methods=['POST'])
 @jwt_required()
 @tenant_required
 def create_material_outbound_order():
@@ -140,7 +144,7 @@ def create_material_outbound_order():
         return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>', methods=['GET'])
+@bp.route('/outbound-orders/<order_id>', methods=['GET'])
 @jwt_required()
 @tenant_required
 def get_material_outbound_order(order_id):
@@ -170,7 +174,7 @@ def get_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>', methods=['PUT'])
+@bp.route('/outbound-orders/<order_id>', methods=['PUT'])
 @jwt_required()
 @tenant_required
 def update_material_outbound_order(order_id):
@@ -255,7 +259,7 @@ def update_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>', methods=['DELETE'])
+@bp.route('/outbound-orders/<order_id>', methods=['DELETE'])
 @jwt_required()
 @tenant_required
 def delete_material_outbound_order(order_id):
@@ -286,7 +290,7 @@ def delete_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>/submit', methods=['POST'])
+@bp.route('/outbound-orders/<order_id>/submit', methods=['POST'])
 @jwt_required()
 @tenant_required
 def submit_material_outbound_order(order_id):
@@ -320,7 +324,7 @@ def submit_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'提交失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>/approve', methods=['POST'])
+@bp.route('/outbound-orders/<order_id>/approve', methods=['POST'])
 @jwt_required()
 @tenant_required
 def approve_material_outbound_order(order_id):
@@ -362,7 +366,7 @@ def approve_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'审核失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>/execute', methods=['POST'])
+@bp.route('/outbound-orders/<order_id>/execute', methods=['POST'])
 @jwt_required()
 @tenant_required
 def execute_material_outbound_order(order_id):
@@ -482,7 +486,7 @@ def execute_material_outbound_order(order_id):
         return jsonify({'code': 500, 'message': f'执行失败: {str(e)}'}), 500
 
 
-@bp.route('/material-outbound-orders/<order_id>/cancel', methods=['POST'])
+@bp.route('/outbound-orders/<order_id>/cancel', methods=['POST'])
 @jwt_required()
 @tenant_required
 def cancel_material_outbound_order(order_id):

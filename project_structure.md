@@ -21,10 +21,75 @@ backend/
 │   │   │   └── routes.py
 │   │   └── tenant/              # 租户业务 API
 │   │       ├── __init__.py
-│   │       ├── basic_data.py    # 基础数据管理
-│   │       ├── inventory.py     # 库存管理
+│   │       ├── routes.py        # 主路由文件
 │   │       ├── modules.py       # 租户模块管理
-│   │       └── routes.py
+│   │       ├── business/        # 业务操作 API
+│   │       │   ├── __init__.py
+│   │       │   ├── inventory/   # 库存管理 API
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── inventory.py         # 库存查询API
+│   │       │   │   ├── material_inbound.py  # 材料入库API
+│   │       │   │   ├── material_outbound.py # 材料出库API
+│   │       │   │   ├── material_transfer.py # 材料调拨API
+│   │       │   │   ├── outbound_order.py    # 出库订单API
+│   │       │   │   ├── product_count.py     # 产品盘点API
+│   │       │   │   └── inventory_legacy.py  # Legacy API备份
+│   │       │   └── sales/       # 销售管理 API
+│   │       │       ├── __init__.py
+│   │       │       ├── sales_order.py       # 销售订单API
+│   │       │       ├── delivery_notice.py   # 送货通知API
+│   │       │       └── sales_legacy.py      # Legacy API备份
+│   │       └── base_archive/    # 基础档案 API
+│   │           ├── __init__.py
+│   │           ├── base_data/   # 基础数据 API
+│   │           │   ├── __init__.py
+│   │           │   ├── customer.py          # 客户管理API
+│   │           │   ├── supplier.py          # 供应商管理API
+│   │           │   ├── department.py        # 部门管理API
+│   │           │   ├── position.py          # 职位管理API
+│   │           │   ├── employee.py          # 员工管理API
+│   │           │   ├── material_management.py # 材料管理API
+│   │           │   └── product_management.py  # 产品管理API
+│   │           ├── base_category/ # 基础分类 API
+│   │           │   ├── __init__.py
+│   │           │   ├── customer_category.py # 客户分类API
+│   │           │   ├── supplier_category.py # 供应商分类API
+│   │           │   ├── material_category.py # 材料分类API
+│   │           │   ├── product_category.py  # 产品分类API
+│   │           │   └── process_category.py  # 工艺分类API
+│   │           ├── production/  # 生产档案 API
+│   │           │   ├── __init__.py
+│   │           │   ├── production_archive/ # 生产档案子模块
+│   │           │   │   ├── __init__.py
+│   │           │   │   ├── machine.py       # 机台管理API
+│   │           │   │   ├── warehouse.py     # 仓库管理API
+│   │           │   │   ├── bag_type.py      # 袋型管理API
+│   │           │   │   ├── color_card.py    # 色卡管理API
+│   │           │   │   ├── delivery_method.py # 送货方式API
+│   │           │   │   ├── loss_type.py     # 损耗类型API
+│   │           │   │   ├── package_method.py # 包装方式API
+│   │           │   │   ├── process.py       # 工艺管理API
+│   │           │   │   ├── specification.py # 规格管理API
+│   │           │   │   ├── team_group.py    # 班组管理API
+│   │           │   │   └── unit.py          # 单位管理API
+│   │           │   └── production_config/ # 生产配置子模块
+│   │           │       ├── __init__.py
+│   │           │       ├── calculation_parameter.py # 计算参数API
+│   │           │       ├── calculation_scheme.py    # 计算方案API
+│   │           │       ├── ink_option.py            # 油墨选项API
+│   │           │       ├── bag_related_formula.py   # 袋相关公式API
+│   │           │       ├── quote_accessory.py       # 报价配件API
+│   │           │       ├── quote_freight.py         # 报价运费API
+│   │           │       ├── quote_ink.py             # 报价油墨API
+│   │           │       ├── quote_loss.py            # 报价损耗API
+│   │           │       └── quote_material.py        # 报价材料API
+│   │           └── financial_management/ # 财务管理 API
+│   │               ├── __init__.py
+│   │               ├── tax_rate.py          # 税率管理API
+│   │               ├── currency.py          # 币种管理API
+│   │               ├── payment_method.py    # 付款方式API
+│   │               ├── settlement_method.py # 结算方式API
+│   │               └── account_management.py # 账户管理API
 │   │
 │   ├── models/                  # 数据库模型
 │   │   ├── __init__.py
@@ -48,21 +113,74 @@ backend/
 │   │
 │   ├── services/                # 业务服务层
 │   │   ├── __init__.py
-│   │   ├── basic_data_service.py        # 基础数据服务
-│   │   ├── customer_service.py          # 客户管理服务
-│   │   ├── inventory_service.py         # 库存服务
-│   │   ├── material_category_service.py # 材料分类服务
-│   │   ├── material_inbound_service.py  # 材料入库服务
-│   │   ├── material_management_service.py # 材料管理服务
-│   │   ├── material_outbound_service.py # 材料出库服务
-│   │   ├── material_transfer_service.py # 材料调拨服务
-│   │   ├── module_service.py            # 模块管理服务
-│   │   ├── outbound_order_service.py    # 出库订单服务
-│   │   ├── package_method_service.py    # 包装方式服务
-│   │   ├── product_count_service.py     # 产品盘点服务
-│   │   ├── product_management_service.py # 产品管理服务
-│   │   ├── product_transfer_service.py  # 产品调拨服务
-│   │   └── supplier_service.py          # 供应商服务
+│   │   ├── base_service.py      # 基础服务类
+│   │   ├── module_service.py    # 模块管理服务
+│   │   ├── business/            # 业务服务
+│   │   │   ├── __init__.py
+│   │   │   ├── inventory/       # 库存业务服务
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── inventory_service.py         # 库存服务
+│   │   │   │   ├── material_inbound_service.py  # 材料入库服务
+│   │   │   │   ├── material_outbound_service.py # 材料出库服务
+│   │   │   │   ├── material_transfer_service.py # 材料调拨服务
+│   │   │   │   ├── outbound_order_service.py    # 出库订单服务
+│   │   │   │   ├── product_count_service.py     # 产品盘点服务
+│   │   │   │   └── product_transfer_service.py  # 产品调拨服务
+│   │   │   └── sales/           # 销售业务服务
+│   │   │       ├── __init__.py
+│   │   │       ├── sales_order_service.py       # 销售订单服务
+│   │   │       └── delivery_notice_service.py   # 送货通知服务
+│   │   └── base_archive/        # 基础档案服务
+│   │       ├── __init__.py
+│   │       ├── base_data/       # 基础数据服务
+│   │       │   ├── __init__.py
+│   │       │   ├── customer_service.py          # 客户管理服务
+│   │       │   ├── supplier_service.py          # 供应商管理服务
+│   │       │   ├── department_service.py        # 部门管理服务
+│   │       │   ├── position_service.py          # 职位管理服务
+│   │       │   ├── employee_service.py          # 员工管理服务
+│   │       │   ├── material_management_service.py # 材料管理服务
+│   │       │   └── product_management_service.py  # 产品管理服务
+│   │       ├── base_category/   # 基础分类服务
+│   │       │   ├── __init__.py
+│   │       │   ├── customer_category_service.py # 客户分类服务
+│   │       │   ├── supplier_category_service.py # 供应商分类服务
+│   │       │   ├── material_category_service.py # 材料分类服务
+│   │       │   ├── product_category_service.py  # 产品分类服务
+│   │       │   └── process_category_service.py  # 工艺分类服务
+│   │       ├── production/      # 生产档案服务
+│   │       │   ├── __init__.py
+│   │       │   ├── production_archive/ # 生产档案子服务
+│   │       │   │   ├── __init__.py
+│   │       │   │   ├── machine_service.py       # 机台管理服务
+│   │       │   │   ├── warehouse_service.py     # 仓库管理服务
+│   │       │   │   ├── bag_type_service.py      # 袋型管理服务
+│   │       │   │   ├── color_card_service.py    # 色卡管理服务
+│   │       │   │   ├── delivery_method_service.py # 送货方式服务
+│   │       │   │   ├── loss_type_service.py     # 损耗类型服务
+│   │       │   │   ├── package_method_service.py # 包装方式服务
+│   │       │   │   ├── process_service.py       # 工艺管理服务
+│   │       │   │   ├── specification_service.py # 规格管理服务
+│   │       │   │   ├── team_group_service.py    # 班组管理服务
+│   │       │   │   └── unit_service.py          # 单位管理服务
+│   │       │   └── production_config/ # 生产配置子服务
+│   │       │       ├── __init__.py
+│   │       │       ├── calculation_parameter_service.py # 计算参数服务
+│   │       │       ├── calculation_scheme_service.py    # 计算方案服务
+│   │       │       ├── ink_option_service.py            # 油墨选项服务
+│   │       │       ├── bag_related_formula_service.py   # 袋相关公式服务
+│   │       │       ├── quote_accessory_service.py       # 报价配件服务
+│   │       │       ├── quote_freight_service.py         # 报价运费服务
+│   │       │       ├── quote_ink_service.py             # 报价油墨服务
+│   │       │       ├── quote_loss_service.py            # 报价损耗服务
+│   │       │       └── quote_material_service.py        # 报价材料服务
+│   │       └── financial_management/ # 财务管理服务
+│   │           ├── __init__.py
+│   │           ├── tax_rate_service.py          # 税率管理服务
+│   │           ├── currency_service.py          # 币种管理服务
+│   │           ├── payment_method_service.py    # 付款方式服务
+│   │           ├── settlement_method_service.py # 结算方式服务
+│   │           └── account_service.py           # 账户管理服务
 │   │
 │   ├── utils/                   # 工具函数
 │   │   ├── __init__.py
@@ -88,7 +206,8 @@ backend/
 ├── requirements.txt             # 依赖列表
 ├── Dockerfile                   # Docker 构建文件
 ├── Dockerfile.dev              # 开发环境 Docker 文件
-└── wsgi.py                      # WSGI 入口点
+├── wsgi.py                      # WSGI 入口点
+└── REFACTOR_SUMMARY.md          # 重构总结
 ```
 
 ## 前端结构 (React)

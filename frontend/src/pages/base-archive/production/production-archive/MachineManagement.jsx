@@ -56,12 +56,6 @@ const MachineManagement = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      console.log('加载机台数据，参数:', {
-        page: pagination.current,
-        per_page: pagination.pageSize,
-        search: searchText,
-        ...params
-      });
 
       const response = await machineApi.getMachines({
         page: pagination.current,
@@ -70,14 +64,12 @@ const MachineManagement = () => {
         ...params
       });
 
-      console.log('机台API响应:', response.data);
 
       // 正确处理后端响应格式
       if (response.data.success) {
         const { machines, total, current_page } = response.data.data || {};
         const machinesArray = Array.isArray(machines) ? machines : [];
         
-        console.log('处理后的机台数据:', { machinesArray, total, current_page });
         
         // 为每行数据添加key
         const dataWithKeys = machinesArray.map((item, index) => ({

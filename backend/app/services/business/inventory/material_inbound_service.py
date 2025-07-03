@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# type: ignore
+# pyright: reportGeneralTypeIssues=false
+# pyright: reportAttributeAccessIssue=false
+# pyright: reportOptionalMemberAccess=false
 """
 材料入库服务
 """

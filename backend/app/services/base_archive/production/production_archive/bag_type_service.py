@@ -20,7 +20,7 @@ class BagTypeService(TenantAwareService):
             from app.models.basic_data import BagType, BagTypeStructure, CalculationScheme
             
             # 构建查询
-            query = self.get_session().query(BagType)
+            query = self.session.query(BagType)
             
             # 搜索条件
             if search:
@@ -48,14 +48,14 @@ class BagTypeService(TenantAwareService):
                 bag_type_dict = bag_type.to_dict(include_user_info=True)
                 
                 # 获取该袋型的结构列表
-                structures = self.get_session().query(BagTypeStructure).filter(
+                structures = self.session.query(BagTypeStructure).filter(
                     BagTypeStructure.bag_type_id == bag_type.id
                 ).order_by(BagTypeStructure.sort_order, BagTypeStructure.created_at).all()
                 
                 # 获取计算方案信息的辅助函数
                 def get_scheme_info(scheme_id):
                     if scheme_id:
-                        scheme = self.get_session().query(CalculationScheme).get(scheme_id)
+                        scheme = self.session.query(CalculationScheme).get(scheme_id)
                         if scheme:
                             return {
                                 'id': str(scheme.id),
@@ -70,7 +70,7 @@ class BagTypeService(TenantAwareService):
                     created_by_name = None
                     if structure.created_by:
                         from app.models.user import User
-                        creator = self.get_session().query(User).get(structure.created_by)
+                        creator = self.session.query(User).get(structure.created_by)
                         created_by_name = creator.get_full_name() if creator else '未知用户'
                     
                     structure_info = {
@@ -107,7 +107,7 @@ class BagTypeService(TenantAwareService):
         try:
             from app.models.basic_data import BagType
             
-            bag_type = self.get_session().query(BagType).get(uuid.UUID(bag_type_id))
+            bag_type = self.session.query(BagType).get(uuid.UUID(bag_type_id))
             if not bag_type:
                 raise ValueError("袋型不存在")
             
@@ -122,7 +122,7 @@ class BagTypeService(TenantAwareService):
             from app.models.basic_data import BagType
             
             # 验证袋型名称唯一性
-            existing = self.get_session().query(BagType).filter(
+            existing = self.session.query(BagType).filter(
                 BagType.bag_type_name == data['bag_type_name']
             ).first()
             if existing:
@@ -135,7 +135,7 @@ class BagTypeService(TenantAwareService):
             if data.get('production_unit_id'):
                 from app.models.basic_data import Unit
                 production_unit_id = uuid.UUID(data['production_unit_id'])
-                production_unit = self.get_session().query(Unit).get(production_unit_id)
+                production_unit = self.session.query(Unit).get(production_unit_id)
                 if not production_unit:
                     raise ValueError("生产单位不存在")
                 if not production_unit.is_enabled:
@@ -144,14 +144,14 @@ class BagTypeService(TenantAwareService):
             if data.get('sales_unit_id'):
                 from app.models.basic_data import Unit
                 sales_unit_id = uuid.UUID(data['sales_unit_id'])
-                sales_unit = self.get_session().query(Unit).get(sales_unit_id)
+                sales_unit = self.session.query(Unit).get(sales_unit_id)
                 if not sales_unit:
                     raise ValueError("销售单位不存在")
                 if not sales_unit.is_enabled:
                     raise ValueError("销售单位未启用")
             
             # 创建袋型对象
-            bag_type = BagType(
+            bag_type = self.create_with_tenant(BagType,
                 bag_type_name=data['bag_type_name'],
                 spec_expression=data.get('spec_expression'),
                 production_unit_id=production_unit_id,
@@ -173,13 +173,12 @@ class BagTypeService(TenantAwareService):
                 created_by=uuid.UUID(created_by)
             )
             
-            self.get_session().add(bag_type)
-            self.get_session().commit()
+            self.commit()
             
             return bag_type.to_dict(include_user_info=True)
                         
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"创建袋型失败: {str(e)}")
     
     def update_bag_type(self, bag_type_id, data, updated_by):

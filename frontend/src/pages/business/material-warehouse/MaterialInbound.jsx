@@ -43,7 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
-import { materialInboundService, baseDataService as materialBaseDataService } from '../../../services/materialInboundService';
+import { materialInboundService, baseDataService } from '../../../services/materialInboundService';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -178,10 +178,22 @@ const MaterialInbound = ({ onBack }) => {
       });
       
       if (response.data.success) {
-        setData(response.data.data.items || []);
+        const responseData = response.data.data;
+        let items = [];
+        let total = 0;
+        
+        if (Array.isArray(responseData)) {
+          items = responseData;
+          total = responseData.length;
+        } else if (responseData && typeof responseData === 'object') {
+          items = responseData.items || responseData.orders || responseData.data || [];
+          total = responseData.total || responseData.count || items.length;
+        }
+        
+        setData(items);
         setPagination(prev => ({
           ...prev,
-          total: response.data.data.total || 0
+          total: total
         }));
       }
     } catch (error) {
@@ -194,37 +206,36 @@ const MaterialInbound = ({ onBack }) => {
   // 获取仓库列表（只获取材料仓库）
   const fetchWarehouses = async () => {
     try {
-      const response = await request.get('/tenant/inventory/warehouses', {
-        params: { warehouse_type: 'material' } // 只获取材料仓库
-      });
-      if (response.data.code === 200) {
-        setWarehouses(response.data.data);
-      }
-          } catch (error) {
-        // 使用备用API
-    try {
-      const response = await request.get('/tenant/basic-data/warehouses/options', {
-            params: { warehouse_type: 'material' }
+      const response = await baseDataService.getWarehouses({
+        warehouse_type: 'material' // 只获取材料仓库
       });
       if (response.data?.success) {
-            setWarehouses(response.data.data);
-          }
-        } catch (backupError) {
-          // 使用模拟数据
-          setWarehouses([
-            { value: '1', label: '原材料一库', code: 'CL001' },
-            { value: '2', label: '原材料二库', code: 'CL002' },
-            { value: '3', label: '原材料三库', code: 'CL003' },
-            { value: '4', label: '材料仓', code: 'CL004' }
-          ]);
-        }
+        setWarehouses(response.data.data);
+      } else {
+        // 使用模拟数据
+        setWarehouses([
+          { value: '1', label: '原材料一库', code: 'CL001' },
+          { value: '2', label: '原材料二库', code: 'CL002' },
+          { value: '3', label: '原材料三库', code: 'CL003' },
+          { value: '4', label: '材料仓', code: 'CL004' }
+        ]);
+      }
+    } catch (error) {
+      console.error('获取仓库列表失败', error);
+      // 使用模拟数据
+      setWarehouses([
+        { value: '1', label: '原材料一库', code: 'CL001' },
+        { value: '2', label: '原材料二库', code: 'CL002' },
+        { value: '3', label: '原材料三库', code: 'CL003' },
+        { value: '4', label: '材料仓', code: 'CL004' }
+      ]);
     }
   };
 
   // 获取材料列表
   const fetchMaterials = async () => {
     try {
-      const response = await materialBaseDataService.getMaterials();
+      const response = await baseDataService.getMaterials();
       if (response.data?.success) {
         const materialData = response.data.data;
         let materials = [];
@@ -245,7 +256,7 @@ const MaterialInbound = ({ onBack }) => {
   // 获取供应商列表
   const fetchSuppliers = async () => {
     try {
-      const response = await materialBaseDataService.getSuppliers();
+      const response = await baseDataService.getSuppliers();
       if (response.data?.success) {
         const supplierData = response.data.data;
         let suppliers = [];
@@ -266,7 +277,7 @@ const MaterialInbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await materialBaseDataService.getEmployees();
+      const response = await baseDataService.getEmployees();
       if (response.data?.success) {
         const employeeData = response.data.data;
         let employees = [];
@@ -287,21 +298,27 @@ const MaterialInbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await materialBaseDataService.getDepartments();
+      const response = await baseDataService.getDepartments();
       if (response.data?.success) {
         setDepartments(response.data.data);
+      } else {
+        // 使用模拟数据
+        setDepartments([
+          { value: '1', label: '生产部', code: 'PROD' },
+          { value: '2', label: '质量部', code: 'QA' },
+          { value: '3', label: '仓储部', code: 'WH' },
+          { value: '4', label: '采购部', code: 'PUR' }
+        ]);
       }
     } catch (error) {
       console.error('获取部门列表失败', error);
-      // 如果获取失败，尝试使用备用API
-      try {
-        const response = await request.get('/tenant/basic-data/departments/options');
-        if (response.data?.success) {
-          setDepartments(response.data.data);
-        }
-      } catch (backupError) {
-        console.error('备用部门API也失败', backupError);
-      }
+      // 使用模拟数据
+      setDepartments([
+        { value: '1', label: '生产部', code: 'PROD' },
+        { value: '2', label: '质量部', code: 'QA' },
+        { value: '3', label: '仓储部', code: 'WH' },
+        { value: '4', label: '采购部', code: 'PUR' }
+      ]);
     }
   };
 
@@ -430,7 +447,7 @@ const MaterialInbound = ({ onBack }) => {
   // 删除
   const handleDelete = async (record) => {
     try {
-      const response = await request.delete(`/tenant/inventory/material-inbound-orders/${record.id}`);
+      const response = await request.delete(`/tenant/business/inventory/material-inbound/inbound-orders/${record.id}`);
       if (response.data.success) {
         message.success('删除成功');
         fetchData();
@@ -443,7 +460,7 @@ const MaterialInbound = ({ onBack }) => {
   // 提交
   const handleSubmit = async (record) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-inbound-orders/${record.id}/submit`);
+      const response = await request.post(`/tenant/business/inventory/material-inbound/inbound-orders/${record.id}/submit`);
       if (response.data.success) {
         message.success('提交成功');
         fetchData();
@@ -456,7 +473,7 @@ const MaterialInbound = ({ onBack }) => {
   // 审核
   const handleAudit = async (values) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-inbound-orders/${currentRecord.id}/approve`, values);
+      const response = await request.post(`/tenant/business/inventory/material-inbound/inbound-orders/${currentRecord.id}/approve`, values);
       if (response.data.success) {
         message.success('审核成功');
         setAuditModalVisible(false);
@@ -470,7 +487,7 @@ const MaterialInbound = ({ onBack }) => {
   // 执行
   const handleExecute = async (record) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-inbound-orders/${record.id}/execute`);
+      const response = await request.post(`/tenant/business/inventory/material-inbound/inbound-orders/${record.id}/execute`);
       if (response.data.success) {
         message.success('执行成功');
         setExecuteModalVisible(false);
@@ -890,7 +907,7 @@ const MaterialInbound = ({ onBack }) => {
                   <Form.Item name="warehouse_id" label="仓库">
                     <Select placeholder="选择仓库" allowClear>
                       {warehouses.map(warehouse => (
-                        <Option key={warehouse.value || warehouse.id} value={warehouse.value || warehouse.id}>
+                        <Option key={`search-warehouse-${warehouse.value || warehouse.id}`} value={warehouse.value || warehouse.id}>
                           {warehouse.label || warehouse.name || warehouse.warehouse_name}
                         </Option>
                       ))}
@@ -901,7 +918,7 @@ const MaterialInbound = ({ onBack }) => {
                   <Form.Item name="status" label="单据状态">
                     <Select placeholder="选择状态" allowClear>
                       {Object.entries(statusConfig).map(([value, config]) => (
-                        <Option key={value} value={value}>
+                        <Option key={`search-status-${value}`} value={value}>
                           {config.text}
                         </Option>
                       ))}
@@ -911,10 +928,10 @@ const MaterialInbound = ({ onBack }) => {
                 <Col span={6}>
                   <Form.Item name="order_type" label="入库类型">
                     <Select placeholder="选择入库类型" allowClear>
-                      <Option value="material">材料入库</Option>
-                      <Option value="auxiliary">辅料入库</Option>
-                      <Option value="packaging">包装入库</Option>
-                      <Option value="other">其他入库</Option>
+                      <Option key="search-order-type-material" value="material">材料入库</Option>
+                      <Option key="search-order-type-auxiliary" value="auxiliary">辅料入库</Option>
+                      <Option key="search-order-type-packaging" value="packaging">包装入库</Option>
+                      <Option key="search-order-type-other" value="other">其他入库</Option>
                     </Select>
                   </Form.Item>
                 </Col>
@@ -1020,7 +1037,7 @@ const MaterialInbound = ({ onBack }) => {
                       }}
                     >
                       {warehouses.map(warehouse => (
-                        <Option key={warehouse.value || warehouse.id} value={warehouse.value || warehouse.id}>
+                        <Option key={`form-warehouse-${warehouse.value || warehouse.id}`} value={warehouse.value || warehouse.id}>
                           {warehouse.label || warehouse.name || warehouse.warehouse_name}
                         </Option>
                       ))}
@@ -1053,10 +1070,10 @@ const MaterialInbound = ({ onBack }) => {
                     rules={[{ required: true, message: '请选择入库类型' }]}
                   >
                     <Select placeholder="请选择入库类型">
-                      <Option value="material">材料入库</Option>
-                      <Option value="auxiliary">辅料入库</Option>
-                      <Option value="packaging">包装入库</Option>
-                      <Option value="other">其他入库</Option>
+                      <Option key="form-order-type-material" value="material">材料入库</Option>
+                      <Option key="form-order-type-auxiliary" value="auxiliary">辅料入库</Option>
+                      <Option key="form-order-type-packaging" value="packaging">包装入库</Option>
+                      <Option key="form-order-type-other" value="other">其他入库</Option>
                     </Select>
                   </Form.Item>
                 </Col>
@@ -1075,7 +1092,7 @@ const MaterialInbound = ({ onBack }) => {
                       }}
                     >
                       {suppliers.map(supplier => (
-                        <Option key={supplier.id} value={supplier.id}>
+                        <Option key={`form-supplier-${supplier.id}`} value={supplier.id}>
                           {supplier.supplier_name || supplier.company_name || supplier.name}
                         </Option>
                       ))}
@@ -1103,7 +1120,7 @@ const MaterialInbound = ({ onBack }) => {
                       }}
                     >
                       {employees.map(emp => (
-                        <Option key={emp.id} value={emp.id}>
+                        <Option key={`form-employee-${emp.id}`} value={emp.id}>
                           {emp.employee_name || emp.name}
                         </Option>
                       ))}
@@ -1125,7 +1142,7 @@ const MaterialInbound = ({ onBack }) => {
                       }}
                     >
                       {departments.map(dept => (
-                        <Option key={dept.id || dept.value} value={dept.id}>
+                        <Option key={`form-department-${dept.id || dept.value}`} value={dept.id}>
                           {dept.department_name || dept.dept_name || dept.name || dept.label}
                         </Option>
                       ))}
@@ -1347,7 +1364,7 @@ const MaterialInbound = ({ onBack }) => {
                   }}
                 >
                   {materials.map(material => (
-                    <Option key={material.id} value={material.id}>
+                    <Option key={`detail-material-${material.id}`} value={material.id}>
                       {(material.material_code || material.code)} - {(material.material_name || material.name)}
                     </Option>
                   ))}
@@ -1518,8 +1535,8 @@ const MaterialInbound = ({ onBack }) => {
             rules={[{ required: true, message: '请选择审核结果' }]}
           >
             <Select>
-              <Option value="approved">审核通过</Option>
-              <Option value="rejected">审核拒绝</Option>
+              <Option key="audit-approved" value="approved">审核通过</Option>
+              <Option key="audit-rejected" value="rejected">审核拒绝</Option>
             </Select>
           </Form.Item>
           <Form.Item label="审核意见" name="audit_comments">

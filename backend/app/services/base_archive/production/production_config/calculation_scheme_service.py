@@ -20,54 +20,37 @@ class CalculationSchemeService(TenantAwareService):
     _cache_timestamp = None
     _cache_timeout = 300  # 5分钟缓存时间
 
-    def _set_schema(self):
-        """设置当前租户的schema搜索路径"""
-        from flask import g, current_app
-        from sqlalchemy import text
-        schema_name = getattr(g, 'schema_name', current_app.config.get('DEFAULT_SCHEMA', 'public'))
-        if schema_name != 'public':
-            current_app.logger.info(f"Setting search_path to {schema_name} in CalculationSchemeService")
-            self.get_session().execute(text(f'SET search_path TO {schema_name}, public'))
-
-    @classmethod
-    def _get_cached_parameters(self, cls):
+    def _get_cached_parameters(self):
         """获取缓存的参数列表"""
         import time
         current_time = time.time()
         
         # 检查缓存是否过期
-        if (cls._parameter_cache is None or 
-            cls._cache_timestamp is None or 
-            current_time - cls._cache_timestamp > cls._cache_timeout):
+        if (self._parameter_cache is None or 
+            self._cache_timestamp is None or 
+            current_time - self._cache_timestamp > self._cache_timeout):
             
             try:
-                # 设置schema
-                cls._set_schema()
-                
                 from app.models.basic_data import CalculationParameter
-                existing_params = self.get_session().query(CalculationParameter.parameter_name).filter(
+                existing_params = self.session.query(CalculationParameter.parameter_name).filter(
                     CalculationParameter.is_enabled == True
                 ).all()
-                cls._parameter_cache = [p[0] for p in existing_params]
-                cls._cache_timestamp = current_time
+                self._parameter_cache = [p[0] for p in existing_params]
+                self._cache_timestamp = current_time
             except Exception:
                 # 如果查询失败，返回空列表，但不更新缓存时间，下次会重试
                 return []
         
-        return cls._parameter_cache or []
+        return self._parameter_cache or []
     
-    @classmethod
-    def _clear_parameter_cache(self, cls):
+    def _clear_parameter_cache(self):
         """清除参数缓存（在参数更新时调用）"""
-        cls._parameter_cache = None
-        cls._cache_timestamp = None
+        self._parameter_cache = None
+        self._cache_timestamp = None
 
     def get_calculation_schemes(self, page=1, per_page=20, search=None, category=None):
         """获取计算方案列表"""
-        # 设置schema
-        self._set_schema()
-        
-        query = self.get_session().query(CalculationScheme)
+        query = self.session.query(CalculationScheme)
         
         # 搜索条件
         if search:
@@ -101,19 +84,13 @@ class CalculationSchemeService(TenantAwareService):
     
     def get_calculation_scheme(self, scheme_id):
         """获取计算方案详情"""
-        # 设置schema
-        self._set_schema()
-        
-        scheme = self.get_session().query(CalculationScheme).get(uuid.UUID(scheme_id))
+        scheme = self.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
         if not scheme:
             raise ValueError("计算方案不存在")
         return scheme.to_dict()
     
     def create_calculation_scheme(self, data, created_by):
         """创建计算方案"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             # 验证公式
             if data.get('scheme_formula'):
@@ -122,7 +99,7 @@ class CalculationSchemeService(TenantAwareService):
                     raise ValueError(f"公式验证失败: {validation_result['error']}")
             
             # 创建计算方案对象
-            scheme = CalculationScheme(
+            scheme = self.create_with_tenant(CalculationScheme,
                 scheme_name=data['scheme_name'],
                 scheme_category=data['scheme_category'],
                 scheme_formula=data.get('scheme_formula', ''),
@@ -132,27 +109,22 @@ class CalculationSchemeService(TenantAwareService):
                 created_by=uuid.UUID(created_by)
             )
             
-            self.get_session().add(scheme)
-            self.get_session().commit()
-            
+            self.commit()
             return scheme.to_dict()
             
         except IntegrityError as e:
-            self.get_session().rollback()
+            self.rollback()
             if 'scheme_name' in str(e):
                 raise ValueError("方案名称已存在")
             raise ValueError("数据完整性错误")
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"创建计算方案失败: {str(e)}")
     
     def update_calculation_scheme(self, scheme_id, data, updated_by):
         """更新计算方案"""
-        # 设置schema
-        self._set_schema()
-        
         try:
-            scheme = self.get_session().query(CalculationScheme).get(uuid.UUID(scheme_id))
+            scheme = self.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
             if not scheme:
                 raise ValueError("计算方案不存在")
             
@@ -177,38 +149,32 @@ class CalculationSchemeService(TenantAwareService):
                 raise ValueError(f'更新计算方案失败: {str(e)}')
             
         except IntegrityError as e:
-            self.get_session().rollback()
+            self.rollback()
             if 'scheme_name' in str(e):
                 raise ValueError("方案名称已存在")
             raise ValueError("数据完整性错误")
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"更新计算方案失败: {str(e)}")
     
     def delete_calculation_scheme(self, scheme_id):
         """删除计算方案"""
-        # 设置schema
-        self._set_schema()
-        
         try:
-            scheme = self.get_session().query(CalculationScheme).get(uuid.UUID(scheme_id))
+            scheme = self.session.query(CalculationScheme).get(uuid.UUID(scheme_id))
             if not scheme:
                 raise ValueError("计算方案不存在")
             
-            self.get_session().delete(scheme)
-            self.get_session().commit()
+            self.session.delete(scheme)
+            self.commit()
             
             return True
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             raise ValueError(f"删除计算方案失败: {str(e)}")
     
-    def get_scheme_categories(self, ):
+    def get_scheme_categories(self):
         """获取方案分类选项"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             return CalculationScheme.get_scheme_categories()
         except Exception as e:
@@ -216,9 +182,6 @@ class CalculationSchemeService(TenantAwareService):
     
     def validate_formula(self, formula):
         """验证公式语法"""
-        # 设置schema（用于参数验证）
-        self._set_schema()
-        
         try:
             if not formula or not formula.strip():
                 return {'is_valid': True, 'error': None, 'warnings': []}
@@ -362,14 +325,11 @@ class CalculationSchemeService(TenantAwareService):
     
     def get_calculation_scheme_options(self):
         """获取计算方案选项"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import CalculationScheme
             
             # 使用ORM查询，自动应用租户上下文
-            schemes = CalculationScheme.query.filter_by(is_enabled=True).order_by(
+            schemes = self.session.query(CalculationScheme).filter_by(is_enabled=True).order_by(
                 CalculationScheme.sort_order, 
                 CalculationScheme.scheme_name
             ).all()
@@ -389,14 +349,11 @@ class CalculationSchemeService(TenantAwareService):
 
     def get_calculation_schemes_by_category(self, category):
         """根据分类获取计算方案列表"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import CalculationScheme
             
             # 使用ORM查询，自动应用租户上下文
-            schemes = CalculationScheme.query.filter_by(
+            schemes = self.session.query(CalculationScheme).filter_by(
                 scheme_category=category,
                 is_enabled=True
             ).order_by(
@@ -417,16 +374,13 @@ class CalculationSchemeService(TenantAwareService):
         except Exception as e:
             raise ValueError(f"获取{category}分类计算方案失败: {str(e)}")
 
-    def get_calculation_scheme_options_by_category(self, ):
+    def get_calculation_scheme_options_by_category(self):
         """获取按类别分组的计算方案选项"""
-        # 设置schema
-        self._set_schema()
-        
         try:
             from app.models.basic_data import CalculationScheme
             
             # 使用ORM查询，自动应用租户上下文
-            schemes = CalculationScheme.query.filter_by(is_enabled=True).order_by(
+            schemes = self.session.query(CalculationScheme).filter_by(is_enabled=True).order_by(
                 CalculationScheme.sort_order, 
                 CalculationScheme.scheme_name
             ).all()
@@ -499,8 +453,10 @@ class CalculationSchemeService(TenantAwareService):
                     categories['process_other'].append(option)
             
             return categories
+            
         except Exception as e:
-            raise ValueError(f"按类别获取计算方案选项失败: {str(e)}")
+            raise ValueError(f"获取分类计算方案选项失败: {str(e)}")
+
 
 # ==================== 工厂函数 ====================
 

@@ -775,11 +775,11 @@ const MaterialTransfer = () => {
                   }}
                 >
                   {Array.isArray(warehouses) && warehouses.length > 0 ? warehouses.map(warehouse => (
-                    <Option key={warehouse.id} value={warehouse.id}>
+                    <Option key={`from-warehouse-${warehouse.id}`} value={warehouse.id}>
                       {warehouse.warehouse_name}（{warehouse.warehouse_code}）
                     </Option>
                   )) : (
-                    <Option disabled value="">暂无材料仓库数据</Option>
+                    <Option key="no-from-warehouses" disabled value="">暂无材料仓库数据</Option>
                   )}
                 </Select>
               </Form.Item>
@@ -808,11 +808,11 @@ const MaterialTransfer = () => {
                   }}
                 >
                   {Array.isArray(warehouses) && warehouses.length > 0 ? warehouses.map(warehouse => (
-                    <Option key={warehouse.id} value={warehouse.id}>
+                    <Option key={`to-warehouse-${warehouse.id}`} value={warehouse.id}>
                       {warehouse.warehouse_name}（{warehouse.warehouse_code}）
                     </Option>
                   )) : (
-                    <Option disabled value="">暂无材料仓库数据</Option>
+                    <Option key="no-to-warehouses" disabled value="">暂无材料仓库数据</Option>
                   )}
                 </Select>
               </Form.Item>
@@ -824,7 +824,7 @@ const MaterialTransfer = () => {
               <Form.Item name="transfer_person_id" label="调拨人">
                 <Select placeholder="请选择调拨人" allowClear>
                   {Array.isArray(employees) && employees.map(emp => (
-                    <Option key={emp.id} value={emp.id}>
+                    <Option key={`transfer-employee-${emp.id}`} value={emp.id}>
                       {emp.employee_name || emp.name}
                     </Option>
                   ))}
@@ -835,7 +835,7 @@ const MaterialTransfer = () => {
               <Form.Item name="department_id" label="部门">
                 <Select placeholder="请选择部门" allowClear>
                   {Array.isArray(departments) && departments.map(dept => (
-                    <Option key={dept.id} value={dept.id}>
+                    <Option key={`transfer-department-${dept.id}`} value={dept.id}>
                       {dept.department_name || dept.name}
                     </Option>
                   ))}
@@ -933,7 +933,7 @@ const MaterialTransfer = () => {
               <Form.Item name="transfer_person_id" label="调拨人">
                 <Select placeholder="请选择调拨人" allowClear>
                   {Array.isArray(employees) && employees.map(emp => (
-                    <Option key={emp.id} value={emp.id}>
+                    <Option key={`edit-employee-${emp.id}`} value={emp.id}>
                       {emp.employee_name || emp.name}
                     </Option>
                   ))}
@@ -944,7 +944,7 @@ const MaterialTransfer = () => {
               <Form.Item name="department_id" label="部门">
                 <Select placeholder="请选择部门" allowClear>
                   {Array.isArray(departments) && departments.map(dept => (
-                    <Option key={dept.id} value={dept.id}>
+                    <Option key={`edit-department-${dept.id}`} value={dept.id}>
                       {dept.department_name || dept.name}
                     </Option>
                   ))}
@@ -962,10 +962,10 @@ const MaterialTransfer = () => {
             <Col span={12}>
               <Form.Item name="transport_method" label="运输方式">
                 <Select placeholder="请选择运输方式" allowClear>
-                  <Option value="manual">人工搬运</Option>
-                  <Option value="vehicle">车辆运输</Option>
-                  <Option value="logistics">物流配送</Option>
-                  <Option value="pipeline">管道输送</Option>
+                  <Option key="edit-transport-manual" value="manual">人工搬运</Option>
+                  <Option key="edit-transport-vehicle" value="vehicle">车辆运输</Option>
+                  <Option key="edit-transport-logistics" value="logistics">物流配送</Option>
+                  <Option key="edit-transport-pipeline" value="pipeline">管道输送</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -1107,7 +1107,7 @@ const MaterialTransfer = () => {
               }}
             >
               {Array.isArray(availableMaterials) && availableMaterials.map(material => (
-                <Option key={material.material_id} value={material.material_id}>
+                <Option key={`material-${material.material_id}`} value={material.material_id}>
                   {material.material_code} - {material.material_name}
                   {material.material_spec && ` (${material.material_spec})`}
                   - 库存: {Number(material.current_quantity).toFixed(3)}

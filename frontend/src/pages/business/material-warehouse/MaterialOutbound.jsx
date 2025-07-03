@@ -43,7 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
-import { materialOutboundService, baseDataService as materialBaseDataService } from '../../../services/materialOutboundService';
+import { materialOutboundService, baseDataService } from '../../../services/materialOutboundService';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -226,7 +226,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取仓库列表（只获取材料仓库）
   const fetchWarehouses = async () => {
     try {
-      const response = await materialBaseDataService.getWarehouses();
+      const response = await baseDataService.getWarehouses();
       console.log('仓库API响应:', response.data);
       if (response.data.success) {
         setWarehouses(response.data.data || []);
@@ -258,7 +258,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取材料列表
   const fetchMaterials = async () => {
     try {
-      const response = await materialBaseDataService.getMaterials({
+      const response = await baseDataService.getMaterials({
         page_size: 1000, // 获取更多数据
         is_enabled: true // 只获取启用的材料
       });
@@ -285,7 +285,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await materialBaseDataService.getEmployees();
+      const response = await baseDataService.getEmployees();
       console.log('员工API响应:', response.data);
       if (response.data?.success) {
         setEmployees(response.data.data);
@@ -299,7 +299,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await materialBaseDataService.getDepartments();
+      const response = await baseDataService.getDepartments();
       console.log('部门API响应:', response.data);
       if (response.data?.success) {
         setDepartments(response.data.data);
@@ -851,7 +851,7 @@ const MaterialOutbound = ({ onBack }) => {
                   <Form.Item name="warehouse_id" label="仓库">
                     <Select placeholder="选择仓库" allowClear>
                       {warehouses.map(warehouse => (
-                        <Option key={warehouse.value || warehouse.id} value={warehouse.value || warehouse.id}>
+                        <Option key={`search-outbound-warehouse-${warehouse.value || warehouse.id}`} value={warehouse.value || warehouse.id}>
                           {warehouse.label || warehouse.name || warehouse.warehouse_name}
                         </Option>
                       ))}
@@ -862,7 +862,7 @@ const MaterialOutbound = ({ onBack }) => {
                   <Form.Item name="status" label="单据状态">
                     <Select placeholder="选择状态" allowClear>
                       {Object.entries(statusConfig).map(([value, config]) => (
-                        <Option key={value} value={value}>
+                        <Option key={`search-outbound-status-${value}`} value={value}>
                           {config.text}
                         </Option>
                       ))}
@@ -872,10 +872,10 @@ const MaterialOutbound = ({ onBack }) => {
                 <Col span={6}>
                   <Form.Item name="order_type" label="出库类型">
                     <Select placeholder="选择出库类型" allowClear>
-                      <Option value="production">生产出库</Option>
-                      <Option value="sale">销售出库</Option>
-                      <Option value="transfer">调拨出库</Option>
-                      <Option value="other">其他出库</Option>
+                      <Option key="search-outbound-production" value="production">生产出库</Option>
+                      <Option key="search-outbound-sale" value="sale">销售出库</Option>
+                      <Option key="search-outbound-transfer" value="transfer">调拨出库</Option>
+                      <Option key="search-outbound-other" value="other">其他出库</Option>
                     </Select>
                   </Form.Item>
           </Col>
@@ -981,7 +981,7 @@ const MaterialOutbound = ({ onBack }) => {
                       }}
                     >
                       {warehouses.map(warehouse => (
-                        <Option key={warehouse.value || warehouse.id} value={warehouse.value || warehouse.id}>
+                        <Option key={`form-outbound-warehouse-${warehouse.value || warehouse.id}`} value={warehouse.value || warehouse.id}>
                           {warehouse.label || warehouse.name || warehouse.warehouse_name}
                         </Option>
                       ))}
@@ -1014,10 +1014,10 @@ const MaterialOutbound = ({ onBack }) => {
                     rules={[{ required: true, message: '请选择出库类型' }]}
                   >
                     <Select placeholder="请选择出库类型">
-                      <Option value="production">生产出库</Option>
-                      <Option value="sale">销售出库</Option>
-                      <Option value="transfer">调拨出库</Option>
-                      <Option value="other">其他出库</Option>
+                      <Option key="form-outbound-production" value="production">生产出库</Option>
+                      <Option key="form-outbound-sale" value="sale">销售出库</Option>
+                      <Option key="form-outbound-transfer" value="transfer">调拨出库</Option>
+                      <Option key="form-outbound-other" value="other">其他出库</Option>
                     </Select>
               </Form.Item>
             </Col>
@@ -1036,7 +1036,7 @@ const MaterialOutbound = ({ onBack }) => {
                       }}
                     >
                       {employees.map(emp => (
-                    <Option key={emp.id} value={emp.id}>
+                        <Option key={`form-outbound-employee-${emp.id}`} value={emp.id}>
                           {emp.employee_name || emp.name}
                         </Option>
                       ))}
@@ -1061,7 +1061,7 @@ const MaterialOutbound = ({ onBack }) => {
                       }}
                     >
                       {departments.map(dept => (
-                        <Option key={dept.value || dept.id} value={dept.id}>
+                        <Option key={`form-outbound-department-${dept.value || dept.id}`} value={dept.id}>
                           {dept.label || dept.dept_name || dept.department_name || dept.name}
                         </Option>
                       ))}
@@ -1251,7 +1251,7 @@ const MaterialOutbound = ({ onBack }) => {
                   }}
                 >
                   {materials.map(material => (
-                    <Option key={material.id} value={material.id}>
+                    <Option key={`detail-outbound-material-${material.id}`} value={material.id}>
                       {material.material_code || material.code} - {material.material_name || material.name}
                     </Option>
                   ))}
@@ -1340,8 +1340,8 @@ const MaterialOutbound = ({ onBack }) => {
             rules={[{ required: true, message: '请选择审核结果' }]}
           >
             <Select placeholder="请选择审核结果">
-              <Option value="approved">通过</Option>
-              <Option value="rejected">拒绝</Option>
+              <Option key="audit-outbound-approved" value="approved">通过</Option>
+              <Option key="audit-outbound-rejected" value="rejected">拒绝</Option>
             </Select>
           </Form.Item>
 

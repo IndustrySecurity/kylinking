@@ -26,14 +26,15 @@ class MachineService(TenantAwareService):
         """获取机台列表"""
         try:
             from app.models.basic_data import Machine
+            from sqlalchemy import or_
             
-            query = Machine.query
+            query = self.session.query(Machine)
             
             # 搜索过滤
             if search:
                 search_pattern = f"%{search}%"
                 query = query.filter(
-                    db.or_(
+                    or_(
                         Machine.machine_name.ilike(search_pattern),
                         Machine.machine_code.ilike(search_pattern),
                         Machine.model.ilike(search_pattern)
@@ -47,34 +48,35 @@ class MachineService(TenantAwareService):
             # 排序
             query = query.order_by(Machine.sort_order, Machine.machine_name)
             
-            # 分页
-            pagination = query.paginate(
-                page=page,
-                per_page=per_page,
-                error_out=False
-            )
+            # 总数
+            total = query.count()
             
-            machines = [machine.to_dict() for machine in pagination.items]
+            # 分页
+            machines = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            # 转换为字典
+            machine_list = [machine.to_dict() for machine in machines]
             
             return {
-                'items': machines,
-                'total': pagination.total,
-                'pages': pagination.pages,
-                'current_page': pagination.page,
-                'per_page': pagination.per_page,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev
+                'items': machine_list,
+                'total': total,
+                'pages': (total + per_page - 1) // per_page,
+                'current_page': page,
+                'per_page': per_page,
+                'has_next': page * per_page < total,
+                'has_prev': page > 1
             }
             
         except Exception as e:
-            current_app.logger.error(f"获取机台列表失败: {str(e)}")
+            print(f"获取机台列表失败: {str(e)}")
             raise e
     def get_machine(self, machine_id):
         """获取单个机台"""
         try:
             from app.models.basic_data import Machine
+            import uuid
             
-            machine = Machine.query.get(machine_id)
+            machine = self.session.query(Machine).get(uuid.UUID(machine_id))
             if not machine:
                 return None
             
@@ -88,7 +90,7 @@ class MachineService(TenantAwareService):
             
             users = {}
             if user_ids:
-                user_list = User.query.filter(User.id.in_(user_ids)).all()
+                user_list = self.session.query(User).filter(User.id.in_(user_ids)).all()
                 users = {str(user.id): user.get_full_name() for user in user_list}
             
             machine_dict = machine.to_dict()
@@ -104,6 +106,7 @@ class MachineService(TenantAwareService):
         """创建机台"""
         try:
             from app.models.basic_data import Machine
+            import uuid
             
             # 生成机台编号
             machine_code = Machine.generate_machine_code()
@@ -133,24 +136,25 @@ class MachineService(TenantAwareService):
                 remarks=data.get('remarks'),
                 sort_order=data.get('sort_order', 0),
                 is_enabled=data.get('is_enabled', True),
-                created_by=created_by
+                created_by=uuid.UUID(created_by)
             )
             
-            self.get_session().add(machine)
-            self.get_session().commit()
+            self.session.add(machine)
+            self.commit()
             
             return machine.to_dict()
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             print(f"创建机台失败: {str(e)}")
             raise e
     def update_machine(self, machine_id, data, updated_by):
         """更新机台"""
         try:
             from app.models.basic_data import Machine
+            import uuid
             
-            machine = Machine.query.get(machine_id)
+            machine = self.session.query(Machine).get(uuid.UUID(machine_id))
             if not machine:
                 raise ValueError("机台不存在")
             
@@ -200,38 +204,40 @@ class MachineService(TenantAwareService):
             if 'is_enabled' in data:
                 machine.is_enabled = data['is_enabled']
             
-            machine.updated_by = updated_by
+            machine.updated_by = uuid.UUID(updated_by)
             
-            self.get_session().commit()
+            self.commit()
             
             return machine.to_dict()
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             print(f"更新机台失败: {str(e)}")
             raise e
     def delete_machine(self, machine_id):
         """删除机台"""
         try:
             from app.models.basic_data import Machine
+            import uuid
             
-            machine = Machine.query.get(machine_id)
+            machine = self.session.query(Machine).get(uuid.UUID(machine_id))
             if not machine:
                 raise ValueError("机台不存在")
             
-            self.get_session().delete(machine)
-            self.get_session().commit()
+            self.session.delete(machine)
+            self.commit()
             
             return True
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             print(f"删除机台失败: {str(e)}")
             raise e
     def batch_update_machines(self, data_list, updated_by):
         """批量更新机台"""
         try:
             from app.models.basic_data import Machine
+            import uuid
             
             updated_machines = []
             
@@ -240,7 +246,7 @@ class MachineService(TenantAwareService):
                 if not machine_id:
                     continue
                 
-                machine = Machine.query.get(machine_id)
+                machine = self.session.query(Machine).get(uuid.UUID(machine_id))
                 if not machine:
                     continue
                 
@@ -254,15 +260,15 @@ class MachineService(TenantAwareService):
                     if field in item:
                         setattr(machine, field, item[field])
                 
-                machine.updated_by = updated_by
+                machine.updated_by = uuid.UUID(updated_by)
                 updated_machines.append(machine.to_dict())
             
-            self.get_session().commit()
+            self.commit()
             
             return updated_machines
             
         except Exception as e:
-            self.get_session().rollback()
+            self.rollback()
             print(f"批量更新机台失败: {str(e)}")
             raise e
     def get_enabled_machines(self):
@@ -270,7 +276,7 @@ class MachineService(TenantAwareService):
         try:
             from app.models.basic_data import Machine
             
-            machines = Machine.get_enabled_list()
+            machines = self.session.query(Machine).filter_by(is_enabled=True).order_by(Machine.sort_order, Machine.machine_name).all()
             return [machine.to_dict() for machine in machines]
             
         except Exception as e:
