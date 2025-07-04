@@ -123,6 +123,12 @@ except Exception as e:
     SalesOrderService = None
 
 try:
+    from .business.sales.delivery_notice_service import DeliveryNoticeService
+except Exception as e:
+    print(f"❌ DeliveryNoticeService导入失败: {e}")
+    DeliveryNoticeService = None
+
+try:
     from .business.inventory.inventory_service import InventoryService
 except Exception as e:
     print(f"❌ InventoryService导入失败: {e}")
@@ -179,7 +185,7 @@ services_to_check = [
     'SupplierService', 'DepartmentService', 'PositionService', 'EmployeeService',
     'ProductManagementService', 'MaterialService', 'ColorCardService',
     'DeliveryMethodService', 'UnitService', 'SpecificationService',
-    'CurrencyService', 'SalesOrderService', 'InventoryService',
+    'CurrencyService', 'SalesOrderService', 'DeliveryNoticeService', 'InventoryService',
     'MaterialInboundService', 'MaterialOutboundService', 'ProductOutboundService',
     'ProductInboundService', 'MaterialCountService', 'ModuleService'
 ]

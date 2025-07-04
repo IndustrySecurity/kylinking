@@ -6,11 +6,14 @@ Employee 服务
 from app.services.base_service import TenantAwareService
 from app.models.basic_data import Employee
 from sqlalchemy import func, and_, or_
+
 from sqlalchemy.exc import IntegrityError
 import uuid
 from datetime import datetime
 import re
 import logging
+from typing import Optional
+from app.models.user import User
 
 class EmployeeService(TenantAwareService):
     """员工管理服务"""
@@ -54,16 +57,31 @@ class EmployeeService(TenantAwareService):
             total = query.count()
             employees = query.offset((page - 1) * per_page).limit(per_page).all()
             
-            # 添加用户信息
+            # 批量获取用户信息，避免N+1查询
+            user_ids = set()
             for employee in employees:
                 if employee.created_by:
-                    from app.models.user import User
-                    creator = self.session.query(User).get(employee.created_by)
-                    employee.created_by_name = creator.get_full_name() if creator else '未知用户'
+                    user_ids.add(employee.created_by)
                 if employee.updated_by:
-                    from app.models.user import User
-                    updater = self.session.query(User).get(employee.updated_by)
-                    employee.updated_by_name = updater.get_full_name() if updater else '未知用户'
+                    user_ids.add(employee.updated_by)
+            
+            # 一次性查询所有需要的用户信息
+            users = {}
+            if user_ids:
+                user_list = self.session.query(User).filter(User.id.in_(user_ids)).all()
+                users = {str(user.id): user for user in user_list}
+            
+            # 为员工添加用户信息
+            for employee in employees:
+                if employee.created_by and str(employee.created_by) in users:
+                    employee.created_by_name = users[str(employee.created_by)].get_full_name()
+                else:
+                    employee.created_by_name = '未知用户'
+                    
+                if employee.updated_by and str(employee.updated_by) in users:
+                    employee.updated_by_name = users[str(employee.updated_by)].get_full_name()
+                else:
+                    employee.updated_by_name = '未知用户'
             
             return {
                 'employees': [emp.to_dict(include_user_info=True) for emp in employees],
@@ -80,16 +98,15 @@ class EmployeeService(TenantAwareService):
         """获取员工详情"""
         try:
             employee = self.session.query(Employee).get(uuid.UUID(employee_id))
+            
             if not employee:
                 raise ValueError("员工不存在")
             
             # 添加用户信息
             if employee.created_by:
-                from app.models.user import User
                 creator = self.session.query(User).get(employee.created_by)
                 employee.created_by_name = creator.get_full_name() if creator else '未知用户'
             if employee.updated_by:
-                from app.models.user import User
                 updater = self.session.query(User).get(employee.updated_by)
                 employee.updated_by_name = updater.get_full_name() if updater else '未知用户'
             
@@ -98,10 +115,16 @@ class EmployeeService(TenantAwareService):
         except Exception as e:
             raise ValueError(f"获取员工详情失败: {str(e)}")
     
-    def get_employee_options(self):
+    def get_employee_options(self, department_id: Optional[str] = None, position_id: Optional[str] = None):
         """获取员工选项列表"""
         try:
-            employees = self.session.query(Employee).filter(Employee.is_enabled == True).order_by(Employee.sort_order, Employee.employee_name).all()
+            query = self.session.query(Employee)
+            if department_id:
+                query = query.filter(Employee.department_id == uuid.UUID(department_id))
+            if position_id:
+                query = query.filter(Employee.position_id == uuid.UUID(position_id))
+            employees = query.filter(Employee.is_enabled).order_by(Employee.sort_order, Employee.employee_name).all()
+
             return {
                 'success': True,
                 'data': [
@@ -127,7 +150,8 @@ class EmployeeService(TenantAwareService):
         return [
             {'value': 'trial', 'label': '试用'},
             {'value': 'active', 'label': '在职'},
-            {'value': 'leave', 'label': '离职'}
+            {'value': 'leave', 'label': '离职'},
+            {'value': 'suspended', 'label': '停职'}
         ]
 
     def get_business_type_options(self):
@@ -367,7 +391,7 @@ class EmployeeService(TenantAwareService):
             raise ValueError(f"获取表单选项失败: {str(e)}")
 
 
-def get_employee_service(tenant_id: str = None, schema_name: str = None) -> EmployeeService:
+def get_employee_service(tenant_id: Optional[str] = None, schema_name: Optional[str] = None) -> EmployeeService:
     """获取员工服务实例"""
     return EmployeeService(tenant_id=tenant_id, schema_name=schema_name)
 

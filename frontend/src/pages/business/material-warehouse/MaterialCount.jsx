@@ -216,34 +216,38 @@ const MaterialCount = () => {
     }
   };
 
-  // 加载员工列表
-  const loadEmployees = async () => {
+  // 获取员工列表
+  const fetchEmployees = async () => {
     try {
-      const response = await request('/tenant/basic-data/employees/options');
-      if (response?.data?.success && response.data.data) {
-        const employeeData = Array.isArray(response.data.data) ? response.data.data : [];
-        setEmployees(employeeData);
+      const response = await request.get('/tenant/base-archive/base-data/employees/options');
+      console.log('员工API响应:', response.data);
+      
+      if (response.data?.success) {
+        setEmployees(response.data.data || []);
       } else {
+        console.warn('员工API返回失败:', response.data);
         setEmployees([]);
       }
     } catch (error) {
-      console.error('加载员工列表失败:', error);
+      console.error('获取员工列表失败:', error);
       setEmployees([]);
     }
   };
 
-  // 加载部门列表
-  const loadDepartments = async () => {
+  // 获取部门列表
+  const fetchDepartments = async () => {
     try {
-      const response = await request('/tenant/basic-data/departments/options');
-      if (response?.data?.success && response.data.data) {
-        const departmentData = Array.isArray(response.data.data) ? response.data.data : [];
-        setDepartments(departmentData);
+      const response = await request.get('/tenant/base-archive/base-data/departments/options');
+      console.log('部门API响应:', response.data);
+      
+      if (response.data?.success) {
+        setDepartments(response.data.data || []);
       } else {
+        console.warn('部门API返回失败:', response.data);
         setDepartments([]);
       }
     } catch (error) {
-      console.error('加载部门列表失败:', error);
+      console.error('获取部门列表失败:', error);
       setDepartments([]);
     }
   };
@@ -251,8 +255,8 @@ const MaterialCount = () => {
   useEffect(() => {
     fetchPlans();
     fetchWarehouses();
-    loadEmployees();
-    loadDepartments();
+    fetchEmployees();
+    fetchDepartments();
   }, []);
 
   // 创建盘点计划
@@ -332,7 +336,7 @@ const MaterialCount = () => {
   // 调整库存
   const handleAdjust = async (planId) => {
     try {
-      const response = await adjustMaterialCountInventory(planId);
+      const response = await adjustMaterialCountInventory(planId, {});
       if (response.data.success) {
         message.success(response.data.message || '库存调整完成');
         fetchPlans(); // 刷新计划列表，更新状态
@@ -344,7 +348,7 @@ const MaterialCount = () => {
         message.error(response.data.error || '库存调整失败');
       }
     } catch (error) {
-      message.error('库存调整失败');
+      message.error(error.response?.data?.error || '库存调整失败');
     }
   };
 

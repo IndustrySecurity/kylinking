@@ -214,6 +214,13 @@ class SalesOrderService {
   getDeliveryMethodOptions = async () => {
     return request.get(`${this.baseURL}/delivery-methods/options`);
   };
+
+  /**
+   * 获取指定客户未全部安排发货的销售订单选项
+   */
+  getUnscheduledSalesOrders = async (customerId) => {
+    return request.get(`${this.baseURL}/sales-orders/unscheduled-options`, { params: { customer_id: customerId } });
+  };
 }
 
 // 发货通知服务

@@ -53,7 +53,6 @@ def get_material_count_orders():
         result = service.get_material_count_list(
             warehouse_id=warehouse_id,
             status=status,
-            approval_status=approval_status,
             start_date=start_date,
             end_date=end_date,
             search=count_number,
@@ -131,4 +130,129 @@ def create_material_count_order():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         logger.error(f"创建材料盘点失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-count-orders/<count_id>/start', methods=['POST'])
+@jwt_required()
+@tenant_required
+def start_material_count_order(count_id):
+    """开始材料盘点"""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        from app.services.business.inventory.material_count_service import MaterialCountService
+        service = MaterialCountService()
+        result = service.start_material_count(count_id, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '盘点已开始'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"开始材料盘点失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-count-orders/<count_id>/complete', methods=['POST'])
+@jwt_required()
+@tenant_required
+def complete_material_count_order(count_id):
+    """完成材料盘点"""
+    try:
+        current_user_id = get_jwt_identity()
+        
+        from app.services.business.inventory.material_count_service import MaterialCountService
+        service = MaterialCountService()
+        result = service.complete_material_count(count_id, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '盘点已完成'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"完成材料盘点失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-count-orders/plans/<plan_id>/adjust', methods=['POST'])
+@jwt_required()
+@tenant_required
+def adjust_material_count_inventory(plan_id):
+    """调整材料盘点库存"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        from app.services.business.inventory.material_count_service import MaterialCountService
+        service = MaterialCountService()
+        result = service.adjust_material_count_inventory(plan_id, current_user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '库存调整成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"调整材料盘点库存失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-count-orders/<count_id>/records', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_count_records(count_id):
+    """获取材料盘点记录"""
+    try:
+        from app.services.business.inventory.material_count_service import MaterialCountService
+        service = MaterialCountService()
+        records = service.get_material_count_records(count_id)
+        
+        return jsonify({
+            'success': True,
+            'data': records
+        })
+        
+    except Exception as e:
+        logger.error(f"获取材料盘点记录失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/material-count-orders/<count_id>/records/<record_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_material_count_record(count_id, record_id):
+    """更新材料盘点记录"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': '请求数据不能为空'}), 400
+        
+        from app.services.business.inventory.material_count_service import MaterialCountService
+        service = MaterialCountService()
+        record = service.update_material_count_record(record_id, current_user_id, data)
+        
+        return jsonify({
+            'success': True,
+            'data': record,
+            'message': '盘点记录更新成功'
+        })
+        
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"更新材料盘点记录失败: {str(e)}")
         return jsonify({'error': str(e)}), 500

@@ -39,6 +39,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { finishedGoodsInboundService, baseDataService } from '../../../services/finishedGoodsInboundService';
+import request from '../../../utils/request';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -1044,6 +1045,52 @@ const FinishedGoodsInbound = () => {
       message.error('保存失败');
     }
   };
+
+  // 获取员工列表
+  const fetchEmployees = async () => {
+    try {
+      const response = await request.get('/tenant/base-archive/base-data/employees/options');
+      console.log('员工API响应:', response.data);
+      
+      if (response.data?.success) {
+        setEmployees(response.data.data || []);
+      } else {
+        console.warn('员工API返回失败:', response.data);
+        setEmployees([]);
+      }
+    } catch (error) {
+      console.error('获取员工列表失败:', error);
+      setEmployees([]);
+    }
+  };
+
+  // 获取部门列表
+  const fetchDepartments = async () => {
+    try {
+      const response = await request.get('/tenant/base-archive/base-data/departments/options');
+      console.log('部门API响应:', response.data);
+      
+      if (response.data?.success) {
+        setDepartments(response.data.data || []);
+      } else {
+        console.warn('部门API返回失败:', response.data);
+        setDepartments([]);
+      }
+    } catch (error) {
+      console.error('获取部门列表失败:', error);
+      setDepartments([]);
+    }
+  };
+
+  // 初始化数据
+  useEffect(() => {
+    fetchData();
+    fetchWarehouses();
+    fetchProducts();
+    fetchCustomers();
+    fetchEmployees();
+    fetchDepartments();
+  }, []);
 
   return (
     <PageContainer>

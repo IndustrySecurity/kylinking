@@ -123,11 +123,12 @@ const FinishedGoodsTransfer = () => {
       // 优先使用成品仓库专用API，确保只获取成品仓库
       let response;
       try {
-        response = await request.get('/tenant/inventory/warehouses', { params: { warehouse_type: 'finished_goods' } });
-        console.log('成品仓库API响应:', response.data);
-      } catch (productApiError) {
-        console.warn('成品仓库API失败，尝试通用仓库API并过滤:', productApiError);
-        // 备用方案：使用通用仓库API并过滤成品仓库
+        // 直接使用正确的仓库基础档案API
+        response = await request.get('/tenant/base-archive/base-data/warehouses/options');
+        console.log('仓库基础档案API响应:', response.data);
+      } catch (warehouseApiError) {
+        console.warn('仓库基础档案API失败，尝试通用仓库API:', warehouseApiError);
+        // 备用方案：使用通用仓库API
         const generalResponse = await warehouseApi.getWarehouseOptions();
         response = generalResponse;
         console.log('通用仓库API响应:', response.data);
@@ -776,10 +777,10 @@ const FinishedGoodsTransfer = () => {
                 rules={[{ required: true, message: '请选择调拨类型' }]}
               >
                 <Select>
-                  <Option value="warehouse">仓库调拨</Option>
-                  <Option value="department">部门调拨</Option>
-                  <Option value="project">项目调拨</Option>
-                  <Option value="emergency">紧急调拨</Option>
+                  <Option key="warehouse" value="warehouse">仓库调拨</Option>
+                  <Option key="department" value="department">部门调拨</Option>
+                  <Option key="project" value="project">项目调拨</Option>
+                  <Option key="emergency" value="emergency">紧急调拨</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -811,10 +812,10 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transport_method" label="运输方式">
                 <Select placeholder="请选择运输方式" allowClear>
-                  <Option value="manual">人工搬运</Option>
-                  <Option value="vehicle">车辆运输</Option>
-                  <Option value="logistics">物流配送</Option>
-                  <Option value="forklift">叉车运输</Option>
+                  <Option key="manual" value="manual">人工搬运</Option>
+                  <Option key="vehicle" value="vehicle">车辆运输</Option>
+                  <Option key="logistics" value="logistics">物流配送</Option>
+                  <Option key="forklift" value="forklift">叉车运输</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -886,10 +887,10 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transfer_type" label="调拨类型">
                 <Select>
-                  <Option value="warehouse">仓库调拨</Option>
-                  <Option value="department">部门调拨</Option>
-                  <Option value="project">项目调拨</Option>
-                  <Option value="emergency">紧急调拨</Option>
+                  <Option key="warehouse" value="warehouse">仓库调拨</Option>
+                  <Option key="department" value="department">部门调拨</Option>
+                  <Option key="project" value="project">项目调拨</Option>
+                  <Option key="emergency" value="emergency">紧急调拨</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -921,10 +922,10 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transport_method" label="运输方式">
                 <Select placeholder="请选择运输方式" allowClear>
-                  <Option value="manual">人工搬运</Option>
-                  <Option value="vehicle">车辆运输</Option>
-                  <Option value="logistics">物流配送</Option>
-                  <Option value="forklift">叉车运输</Option>
+                  <Option key="manual-edit" value="manual">人工搬运</Option>
+                  <Option key="vehicle-edit" value="vehicle">车辆运输</Option>
+                  <Option key="logistics-edit" value="logistics">物流配送</Option>
+                  <Option key="forklift-edit" value="forklift">叉车运输</Option>
                 </Select>
               </Form.Item>
             </Col>

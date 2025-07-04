@@ -103,13 +103,13 @@ class MaterialInboundService(TenantAwareService):
 
     def get_material_inbound_order_list(
         self,
-        warehouse_id: str = None,
-        order_type: str = None,
-        status: str = None,
-        approval_status: str = None,
-        start_date: datetime = None,
-        end_date: datetime = None,
-        search: str = None,
+        warehouse_id: Optional[str] = None,
+        order_type: Optional[str] = None,
+        status: Optional[str] = None,
+        approval_status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> Dict[str, Any]:

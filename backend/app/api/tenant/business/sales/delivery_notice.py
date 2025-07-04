@@ -27,7 +27,7 @@ def get_delivery_notices():
         
         # 获取查询参数
         page = int(request.args.get('page', 1))
-        page_size = int(request.args.get('page_size', 20))
+        per_page = int(request.args.get('per_page', request.args.get('page_size', 20)))
         
         # 构建过滤条件
         filters = {}
@@ -44,7 +44,7 @@ def get_delivery_notices():
         
         result = delivery_notice_service.get_delivery_notice_list(
             page=page,
-            page_size=page_size,
+            per_page=per_page,
             filters=filters
         )
         
@@ -68,9 +68,7 @@ def create_delivery_notice():
         
         data = request.get_json()
         
-        # 验证必填字段
-        if not data.get('sales_order_id'):
-            return jsonify({'error': '销售订单ID不能为空'}), 400
+        # sales_order_id 可以为空，允许手工录入产品
         
         # 处理日期字段
         if data.get('delivery_date'):
@@ -134,7 +132,7 @@ def update_delivery_notice(notice_id):
         user_id = get_jwt_identity()
         result = delivery_notice_service.update_delivery_notice(
             notice_id=notice_id,
-            notice_data=data,
+            data=data,
             user_id=user_id
         )
         
@@ -159,10 +157,8 @@ def delete_delivery_notice(notice_id):
         # 创建服务实例
         delivery_notice_service = DeliveryNoticeService()
         
-        user_id = get_jwt_identity()
         success = delivery_notice_service.delete_delivery_notice(
-            notice_id=notice_id,
-            user_id=user_id
+            notice_id=notice_id
         )
         
         if success:
@@ -215,14 +211,10 @@ def ship_delivery_notice(notice_id):
         # 创建服务实例
         delivery_notice_service = DeliveryNoticeService()
         
-        data = request.get_json()
-        tracking_number = data.get('tracking_number') if data else None
-        
         user_id = get_jwt_identity()
         result = delivery_notice_service.ship_delivery_notice(
             notice_id=notice_id,
-            user_id=user_id,
-            tracking_number=tracking_number
+            user_id=user_id
         )
         
         return jsonify({
@@ -261,4 +253,22 @@ def complete_delivery_notice(notice_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
-        return jsonify({'error': f'完成失败: {str(e)}'}), 500 
+        return jsonify({'error': f'完成失败: {str(e)}'}), 500
+
+
+# ------------------------------------------------------------------
+# 根据销售订单快速生成送货通知明细
+# ------------------------------------------------------------------
+
+
+@bp.route('/delivery-notices/sales-order/<sales_order_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_delivery_details_from_sales_order(sales_order_id):
+    """根据销售订单生成送货通知明细（前端快捷导入使用）"""
+    try:
+        delivery_notice_service = DeliveryNoticeService()
+        details = delivery_notice_service._generate_details_from_sales_order(sales_order_id)
+        return jsonify({'success': True, 'data': details})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 

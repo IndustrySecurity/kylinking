@@ -8,6 +8,7 @@ from sqlalchemy import and_, or_, desc, asc, func, text
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 from flask import g, current_app
+from uuid import UUID
 
 from app.models.business.sales import SalesOrder, SalesOrderDetail, SalesOrderOtherFee, SalesOrderMaterial
 from app.models.basic_data import CustomerManagement, Product, Material, Unit, CustomerContact, Employee, TaxRate
@@ -21,25 +22,6 @@ class SalesOrderService(TenantAwareService):
     def __init__(self, tenant_id: Optional[str] = None, schema_name: Optional[str] = None):
         super().__init__(tenant_id, schema_name, strict_tenant_check=True)
     
-    def generate_order_number(self) -> str:
-        """生成销售订单号"""
-        
-        today = datetime.now()
-        date_str = today.strftime('%Y%m%d')
-        
-        # 查询当天最大订单号
-        max_order = self.get_session().query(SalesOrder).filter(
-            SalesOrder.order_number.like(f'SO{date_str}%')
-        ).order_by(desc(SalesOrder.order_number)).first()
-        
-        if max_order:
-            # 提取序号并加1
-            last_seq = int(max_order.order_number[-4:])
-            new_seq = last_seq + 1
-        else:
-            new_seq = 1
-            
-        return f'SO{date_str}{new_seq:04d}'
     
     def create_sales_order(self, order_data: Dict[str, Any], user_id: str) -> Dict[str, Any]:
         """创建销售订单"""
@@ -48,7 +30,7 @@ class SalesOrderService(TenantAwareService):
 
             # 创建主订单对象并逐一赋值
             sales_order = self.create_with_tenant(SalesOrder)
-            sales_order.order_number = self.generate_order_number()
+            sales_order.order_number = order_data.get('order_number')
             sales_order.order_type = order_data.get('order_type', 'normal')
             sales_order.customer_id = order_data.get('customer_id')
             sales_order.customer_order_number = order_data.get('customer_order_number')
@@ -196,6 +178,89 @@ class SalesOrderService(TenantAwareService):
             
             sales_order.updated_by = user_id
             
+            # ---------------- 处理订单明细 ----------------
+            if 'order_details' in order_data:
+                incoming = order_data['order_details'] or []
+                incoming_ids = {d.get('id') for d in incoming if d.get('id')}
+
+                # 删除
+                for detail in list(sales_order.order_details):
+                    if str(detail.id) not in incoming_ids:
+                        self.get_session().delete(detail)
+
+                # 新增或更新
+                for detail_data in incoming:
+                    detail_id = detail_data.get('id')
+                    if detail_id and self._is_valid_uuid(detail_id):  # 更新
+                        detail = self.get_session().query(SalesOrderDetail).get(detail_id)
+                        if not detail:
+                            continue
+                        for k, v in detail_data.items():
+                            if (hasattr(detail, k)
+                                and k not in ['id', 'sales_order_id', 'created_by', 'tenant_id']
+                                and not isinstance(v, (dict, list))):
+                                setattr(detail, k, v)
+                        detail.updated_by = user_id
+                    else:  # 新增
+                        detail_data_filtered = {k: v for k, v in detail_data.items() if k != 'id'}
+                        detail_data_filtered['sales_order_id'] = sales_order.id
+                        detail_data_filtered['created_by'] = user_id
+                        self.create_with_tenant(SalesOrderDetail, **detail_data_filtered)
+            
+            # ---------------- 处理其他费用 ----------------
+            if 'other_fees' in order_data:
+                fees_in = order_data['other_fees'] or []
+                fees_in_ids = {f.get('id') for f in fees_in if f.get('id')}
+
+                for fee in list(sales_order.other_fees):
+                    if str(fee.id) not in fees_in_ids:
+                        self.get_session().delete(fee)
+
+                for fee_data in fees_in:
+                    fee_id = fee_data.get('id')
+                    if fee_id and self._is_valid_uuid(fee_id):
+                        fee_obj = self.get_session().query(SalesOrderOtherFee).get(fee_id)
+                        if not fee_obj:
+                            continue
+                        for k, v in fee_data.items():
+                            if (hasattr(fee_obj, k)
+                                and k not in ['id', 'sales_order_id', 'created_by', 'tenant_id']
+                                and not isinstance(v, (dict, list))):
+                                setattr(fee_obj, k, v)
+                        fee_obj.updated_by = user_id
+                    else:
+                        new_fee = {k: v for k, v in fee_data.items() if k != 'id'}
+                        new_fee['sales_order_id'] = sales_order.id
+                        new_fee['created_by'] = user_id
+                        self.create_with_tenant(SalesOrderOtherFee, **new_fee)
+
+            # ---------------- 处理材料明细 ----------------
+            if 'material_details' in order_data:
+                mats_in = order_data['material_details'] or []
+                mats_in_ids = {m.get('id') for m in mats_in if m.get('id')}
+
+                for mat in list(sales_order.material_details):
+                    if str(mat.id) not in mats_in_ids:
+                        self.get_session().delete(mat)
+
+                for mat_data in mats_in:
+                    mat_id = mat_data.get('id')
+                    if mat_id and self._is_valid_uuid(mat_id):
+                        mat_obj = self.get_session().query(SalesOrderMaterial).get(mat_id)
+                        if not mat_obj:
+                            continue
+                        for k, v in mat_data.items():
+                            if (hasattr(mat_obj, k)
+                                and k not in ['id', 'sales_order_id', 'created_by', 'tenant_id']
+                                and not isinstance(v, (dict, list))):
+                                setattr(mat_obj, k, v)
+                        mat_obj.updated_by = user_id
+                    else:
+                        new_mat = {k: v for k, v in mat_data.items() if k != 'id'}
+                        new_mat['sales_order_id'] = sales_order.id
+                        new_mat['created_by'] = user_id
+                        self.create_with_tenant(SalesOrderMaterial, **new_mat)
+            
             self.commit()
             
             result = self.get_sales_order_detail(order_id)
@@ -211,9 +276,6 @@ class SalesOrderService(TenantAwareService):
         
         sales_order = self.get_session().query(SalesOrder).options(
             joinedload(SalesOrder.customer),
-            joinedload(SalesOrder.contact_person),
-            joinedload(SalesOrder.salesperson),
-            joinedload(SalesOrder.tax_type),
             joinedload(SalesOrder.order_details),
             joinedload(SalesOrder.other_fees),
             joinedload(SalesOrder.material_details)
@@ -489,4 +551,11 @@ class SalesOrderService(TenantAwareService):
         except Exception as e:
             self.get_session().rollback()
             current_app.logger.error(f"删除销售订单失败: {str(e)}", exc_info=True)
-            raise Exception(f"删除销售订单失败: {str(e)}") 
+            raise Exception(f"删除销售订单失败: {str(e)}")
+
+    def _is_valid_uuid(self, val):
+        try:
+            UUID(str(val))
+            return True
+        except Exception:
+            return False 

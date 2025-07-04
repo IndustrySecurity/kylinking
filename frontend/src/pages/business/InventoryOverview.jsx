@@ -167,8 +167,8 @@ const InventoryOverview = () => {
 
   const fetchWarehouses = async () => {
     try {
-      // 使用request直接获取仓库数据
-      const response = await request.get('/tenant/basic-data/warehouses/options');
+      // 使用仓库基础档案API获取仓库数据
+      const response = await request.get('/tenant/base-archive/base-data/warehouses/options');
       
       if (response.data?.success) {
         const warehouseData = response.data.data;

@@ -94,13 +94,6 @@ export const getEvaluationLevelOptions = () => {
   })
 }
 
-// 获取下一个员工工号
-export const getNextEmployeeId = () => {
-  return request({
-    url: `${API_BASE}/employees/next-employee-id`,
-    method: 'get'
-  })
-}
 
 // 获取表单选项数据
 export const getFormOptions = () => {
@@ -162,7 +155,6 @@ export const employeeApi = {
   getBusinessTypeOptions,
   getGenderOptions,
   getEvaluationLevelOptions,
-  getNextEmployeeId,
   getFormOptions,
   importEmployees,
   exportEmployees,

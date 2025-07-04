@@ -9,6 +9,7 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy import text, func
 import time
+from datetime import datetime
 
 
 # CustomerCategory 已移至下方的 CustomerCategoryManagement 模型
@@ -1745,7 +1746,7 @@ class Employee(TenantModel):
     department_id = db.Column(UUID(as_uuid=True), db.ForeignKey('departments.id'), comment='部门ID(根据职位自动填入)')
     
     # 在职状态和基本信息
-    employment_status = db.Column(db.String(20), default='trial', comment='在职状态(trial试用/active在职/leave离职)')
+    employment_status = db.Column(db.String(20), default='trial', comment='在职状态(trial试用/active在职/leave离职/suspended停职)')
     business_type = db.Column(db.String(20), comment='业务类型(salesperson业务员/purchaser采购员/comprehensive综合/delivery_person送货员)')
     gender = db.Column(db.String(20), comment='性别(male男/female女/confidential保密)')
     mobile_phone = db.Column(db.String(20), comment='手机')
@@ -1809,7 +1810,7 @@ class Employee(TenantModel):
         db.CheckConstraint("evaluation_level IN ('finance', 'technology', 'supply', 'marketing')", name='employees_evaluation_level_check'),
     )
     
-    def to_dict(self, include_user_info=False):
+    def to_dict(self, include_user_info=False, include_relations=True):
         """转换为字典"""
         result = {
             'id': str(self.id),
@@ -1858,23 +1859,24 @@ class Employee(TenantModel):
         }
         
         # 添加关联对象信息（带错误处理）
-        try:
-            if self.position:
-                result['position'] = {
-                    'id': str(self.position.id),
-                    'position_name': self.position.position_name
-                }
-        except Exception as e:
-            result['position'] = None
-            
-        try:
-            if self.department:
-                result['department'] = {
-                    'id': str(self.department.id),
-                    'dept_name': self.department.dept_name
-                }
-        except Exception as e:
-            result['department'] = None
+        if include_relations:
+            try:
+                if self.position:
+                    result['position'] = {
+                        'id': str(self.position.id),
+                        'position_name': self.position.position_name
+                    }
+            except Exception as e:
+                result['position'] = None
+                
+            try:
+                if self.department:
+                    result['department'] = {
+                        'id': str(self.department.id),
+                        'dept_name': self.department.dept_name
+                    }
+            except Exception as e:
+                result['department'] = None
         
         # 如果需要用户信息
         if include_user_info:
@@ -1893,10 +1895,9 @@ class Employee(TenantModel):
     @classmethod 
     def generate_employee_id(cls):
         """生成员工工号"""
-        import datetime
         
         # 使用当前年份后两位 + 4位序号
-        year_suffix = str(datetime.datetime.now().year)[-2:]
+        year_suffix = str(datetime.now().year)[-2:]
         
         # 查询当前年份的最大序号
         prefix = year_suffix

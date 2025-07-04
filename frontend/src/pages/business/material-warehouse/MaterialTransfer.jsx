@@ -123,11 +123,12 @@ const MaterialTransfer = () => {
       // 优先使用材料仓库专用API，确保只获取材料仓库
       let response;
       try {
-        response = await request.get('/tenant/inventory/warehouses', { params: { warehouse_type: 'material' } });
-        console.log('材料仓库API响应:', response.data);
-      } catch (materialApiError) {
-        console.warn('材料仓库API失败，尝试通用仓库API并过滤:', materialApiError);
-        // 备用方案：使用通用仓库API并过滤材料仓库
+        // 直接使用正确的仓库基础档案API
+        response = await request.get('/tenant/base-archive/base-data/warehouses/options');
+        console.log('仓库基础档案API响应:', response.data);
+      } catch (warehouseApiError) {
+        console.warn('仓库基础档案API失败，尝试通用仓库API:', warehouseApiError);
+        // 备用方案：使用通用仓库API
         const generalResponse = await warehouseApi.getWarehouseOptions();
         response = generalResponse;
         console.log('通用仓库API响应:', response.data);

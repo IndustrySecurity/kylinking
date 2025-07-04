@@ -64,9 +64,13 @@ try:
         delivery_notice_bp
     )
     
-    # 注册销售相关蓝图
+    # 注册销售相关蓝图 - 修复路径匹配问题
+    # 前端请求: /tenant/business/sales/sales-orders
+    # 后端注册: /tenant/business + /sales + /sales-orders
     business_bp.register_blueprint(sales_order_bp, url_prefix='/sales')
-    business_bp.register_blueprint(delivery_notice_bp, url_prefix='/sales/delivery')
+    business_bp.register_blueprint(delivery_notice_bp, url_prefix='/sales')
+    
+    print("✅ Sales API registered successfully")
     
 except ImportError as e:
     print(f"Warning: Could not import sales modules: {e}")

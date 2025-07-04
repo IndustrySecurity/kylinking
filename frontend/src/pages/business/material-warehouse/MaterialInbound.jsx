@@ -195,6 +195,8 @@ const MaterialInbound = ({ onBack }) => {
           ...prev,
           total: total
         }));
+      } else {
+        message.error(response.data.error || '获取数据失败');
       }
     } catch (error) {
       message.error('获取数据失败: ' + (error.response?.data?.error || error.message));
@@ -277,48 +279,36 @@ const MaterialInbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await baseDataService.getEmployees();
+      const response = await request.get('/tenant/base-archive/base-data/employees/options');
+      console.log('员工API响应:', response.data);
+      
       if (response.data?.success) {
-        const employeeData = response.data.data;
-        let employees = [];
-        if (Array.isArray(employeeData)) {
-          employees = employeeData;
-        } else if (employeeData?.employees && Array.isArray(employeeData.employees)) {
-          employees = employeeData.employees;
-        } else if (employeeData?.items && Array.isArray(employeeData.items)) {
-          employees = employeeData.items;
-        }
-        setEmployees(employees);
+        setEmployees(response.data.data || []);
+      } else {
+        console.warn('员工API返回失败:', response.data);
+        setEmployees([]);
       }
     } catch (error) {
-      // 不显示错误信息，因为员工可能没有单独的API
+      console.error('获取员工列表失败:', error);
+      setEmployees([]);
     }
   };
 
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await baseDataService.getDepartments();
+      const response = await request.get('/tenant/base-archive/base-data/departments/options');
+      console.log('部门API响应:', response.data);
+      
       if (response.data?.success) {
-        setDepartments(response.data.data);
+        setDepartments(response.data.data || []);
       } else {
-        // 使用模拟数据
-        setDepartments([
-          { value: '1', label: '生产部', code: 'PROD' },
-          { value: '2', label: '质量部', code: 'QA' },
-          { value: '3', label: '仓储部', code: 'WH' },
-          { value: '4', label: '采购部', code: 'PUR' }
-        ]);
+        console.warn('部门API返回失败:', response.data);
+        setDepartments([]);
       }
     } catch (error) {
-      console.error('获取部门列表失败', error);
-      // 使用模拟数据
-      setDepartments([
-        { value: '1', label: '生产部', code: 'PROD' },
-        { value: '2', label: '质量部', code: 'QA' },
-        { value: '3', label: '仓储部', code: 'WH' },
-        { value: '4', label: '采购部', code: 'PUR' }
-      ]);
+      console.error('获取部门列表失败:', error);
+      setDepartments([]);
     }
   };
 

@@ -65,27 +65,34 @@ base_data_bp.register_blueprint(bag_related_formula_bp, url_prefix='/bag-related
 # 创建warehouses API
 @base_data_bp.route('/warehouses/options', methods=['GET'])
 def get_warehouse_options():
-    """获取仓库选项 - 模拟数据"""
+    """获取仓库选项"""
     try:
+        from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+        from flask import g
+        
+        # 设置默认租户信息
+        tenant_id = 'default'
+        schema_name = 'tenant_default'
+        
+        # 创建服务实例
+        warehouse_service = WarehouseService(tenant_id=tenant_id, schema_name=schema_name)
+        
+        # 获取查询参数
         warehouse_type = request.args.get('warehouse_type')
         
-        # 模拟仓库数据
-        warehouses = [
-            {'value': '1', 'label': '原材料仓库A', 'code': 'WH001', 'warehouse_type': 'material'},
-            {'value': '2', 'label': '成品仓库B', 'code': 'WH002', 'warehouse_type': 'finished_goods'},
-            {'value': '3', 'label': '半成品仓库C', 'code': 'WH003', 'warehouse_type': 'semi_finished'}
-        ]
-        
-        # 按类型过滤
-        if warehouse_type:
-            warehouses = [w for w in warehouses if w['warehouse_type'] == warehouse_type]
+        # 获取仓库选项
+        options = warehouse_service.get_warehouse_options(warehouse_type=warehouse_type)
         
         return jsonify({
             'success': True,
-            'data': warehouses
+            'data': options
         })
         
     except Exception as e:
+        import traceback
+        print(f"获取仓库选项失败: {str(e)}")
+        print(traceback.format_exc())
+        
         return jsonify({
             'success': False,
             'message': f'获取仓库选项失败: {str(e)}'
@@ -94,20 +101,44 @@ def get_warehouse_options():
 # 添加其他基础数据API
 @base_data_bp.route('/employees/options', methods=['GET'])
 def get_employee_options():
-    """获取员工选项 - 模拟数据"""
+    """获取员工选项"""
     try:
-        employees = [
-            {'value': '1', 'label': '张三', 'code': 'EMP001', 'department_name': '生产部'},
-            {'value': '2', 'label': '李四', 'code': 'EMP002', 'department_name': '质检部'},
-            {'value': '3', 'label': '王五', 'code': 'EMP003', 'department_name': '仓储部'}
-        ]
+        from app.services.base_archive.base_data.employee_service import EmployeeService
+        from flask import g
         
-        return jsonify({
-            'success': True,
-            'data': employees
-        })
+        # 设置默认租户信息
+        tenant_id = 'default'
+        schema_name = 'tenant_default'
+        
+        # 创建服务实例
+        employee_service = EmployeeService(tenant_id=tenant_id, schema_name=schema_name)
+        
+        # 获取查询参数
+        department_id = request.args.get('department_id')
+        position_id = request.args.get('position_id')
+        
+        # 获取员工选项
+        result = employee_service.get_employee_options(
+            department_id=department_id,
+            position_id=position_id
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'data': result['data']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 500
         
     except Exception as e:
+        import traceback
+        print(f"获取员工选项失败: {str(e)}")
+        print(traceback.format_exc())
+        
         return jsonify({
             'success': False,
             'message': f'获取员工选项失败: {str(e)}'
@@ -115,20 +146,37 @@ def get_employee_options():
 
 @base_data_bp.route('/departments/options', methods=['GET'])
 def get_department_options():
-    """获取部门选项 - 模拟数据"""
+    """获取部门选项"""
     try:
-        departments = [
-            {'value': '1', 'label': '生产部', 'code': 'DEPT001'},
-            {'value': '2', 'label': '质检部', 'code': 'DEPT002'},
-            {'value': '3', 'label': '仓储部', 'code': 'DEPT003'}
-        ]
+        from app.services.base_archive.base_data.department_service import DepartmentService
+        from flask import g
         
-        return jsonify({
-            'success': True,
-            'data': departments
-        })
+        # 设置默认租户信息
+        tenant_id = 'default'
+        schema_name = 'tenant_default'
+        
+        # 创建服务实例
+        department_service = DepartmentService(tenant_id=tenant_id, schema_name=schema_name)
+        
+        # 获取部门选项
+        result = department_service.get_department_options()
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': result
+            }), 500
         
     except Exception as e:
+        import traceback
+        print(f"获取部门选项失败: {str(e)}")
+        print(traceback.format_exc())
+        
         return jsonify({
             'success': False,
             'message': f'获取部门选项失败: {str(e)}'

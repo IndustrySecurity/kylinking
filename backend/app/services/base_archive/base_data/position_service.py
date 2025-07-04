@@ -34,6 +34,9 @@ class PositionService(TenantAwareService):
             if department_id:
                 query = query.filter(Position.department_id == uuid.UUID(department_id))
             
+            # 只查询启用的记录
+            query = query.filter(Position.is_enabled == True)
+            
             # 排序
             query = query.order_by(Position.sort_order, Position.position_name)
             
@@ -41,17 +44,40 @@ class PositionService(TenantAwareService):
             total = query.count()
             positions = query.offset((page - 1) * per_page).limit(per_page).all()
             
+            # 批量获取用户信息，避免N+1查询
+            user_ids = set()
+            for pos in positions:
+                if pos.created_by:
+                    user_ids.add(pos.created_by)
+                if pos.updated_by:
+                    user_ids.add(pos.updated_by)
+            
+            # 一次性查询所有需要的用户信息
+            users = {}
+            if user_ids:
+                user_list = self.session.query(User).filter(User.id.in_(user_ids)).all()
+                users = {str(user.id): user for user in user_list}
+            
+            # 构建返回数据，手动添加用户信息
+            position_list = []
+            for pos in positions:
+                pos_dict = pos.to_dict(include_user_info=False)
+            
             # 添加用户信息
-            for position in positions:
-                if position.created_by:
-                    creator = self.session.query(User).get(position.created_by)
-                    position.created_by_name = creator.get_full_name() if creator else '未知用户'
-                if position.updated_by:
-                    updater = self.session.query(User).get(position.updated_by)
-                    position.updated_by_name = updater.get_full_name() if updater else '未知用户'
+                if pos.created_by and str(pos.created_by) in users:
+                    pos_dict['created_by_name'] = users[str(pos.created_by)].get_full_name()
+                else:
+                    pos_dict['created_by_name'] = '未知用户'
+                    
+                if pos.updated_by and str(pos.updated_by) in users:
+                    pos_dict['updated_by_name'] = users[str(pos.updated_by)].get_full_name()
+                else:
+                    pos_dict['updated_by_name'] = '未知用户'
+                
+                position_list.append(pos_dict)
             
             return {
-                'positions': [pos.to_dict(include_user_info=True) for pos in positions],
+                'positions': position_list,
                 'total': total,
                 'current_page': page,
                 'per_page': per_page,
@@ -68,15 +94,18 @@ class PositionService(TenantAwareService):
             if not position:
                 raise ValueError("职位不存在")
             
+            # 构建返回数据
+            pos_dict = position.to_dict(include_user_info=False)
+            
             # 添加用户信息
             if position.created_by:
                 creator = self.session.query(User).get(position.created_by)
-                position.created_by_name = creator.get_full_name() if creator else '未知用户'
+                pos_dict['created_by_name'] = creator.get_full_name() if creator else '未知用户'
             if position.updated_by:
                 updater = self.session.query(User).get(position.updated_by)
-                position.updated_by_name = updater.get_full_name() if updater else '未知用户'
+                pos_dict['updated_by_name'] = updater.get_full_name() if updater else '未知用户'
             
-            return position.to_dict(include_user_info=True)
+            return pos_dict
             
         except Exception as e:
             raise ValueError(f"获取职位详情失败: {str(e)}")

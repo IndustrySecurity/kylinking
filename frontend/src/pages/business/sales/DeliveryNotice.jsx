@@ -95,10 +95,14 @@ const DeliveryNotice = () => {
         salesOrderService.getProductOptions(),
         salesOrderService.getSalesOrders({ page: 1, per_page: 100 })
       ]);
+      console.log("customerRes",customerRes)
+      console.log("productRes",productRes)
+      console.log("salesOrderRes",salesOrderRes)
       if (customerRes.data.success) setCustomerOptions(customerRes.data.data);
       if (productRes.data.success) setProductOptions(productRes.data.data);
       if (salesOrderRes.data.success) {
-        const orderOptions = salesOrderRes.data.data.items.map(order => ({
+        const list = salesOrderRes.data.data.items || salesOrderRes.data.data.orders || [];
+        const orderOptions = list.map(order => ({
           value: order.id,
           label: `${order.order_number} - ${order.customer?.customer_name || ''}`,
           data: order
@@ -545,9 +549,11 @@ const DeliveryNotice = () => {
       dataIndex: 'amount',
       key: 'amount',
       width: 100,
-      render: (text) => (
-        <span>{text?.toFixed(2) || '0.00'}</span>
-      ),
+      render: (text) => {
+        const num = typeof text === 'number' ? text : parseFloat(text);
+        const display = isNaN(num) ? 0 : num;
+        return <span>{display.toFixed(2)}</span>;
+      },
     },
     {
       title: '销售单号',
@@ -592,6 +598,49 @@ const DeliveryNotice = () => {
     },
   ];
 
+  const fetchSalesOrdersForCustomer = async (custId) => {
+    if (!custId) {
+      setSalesOrderOptions([]);
+      return;
+    }
+    try {
+      const res = await salesOrderService.getUnscheduledSalesOrders(custId);
+      if (res.data.success) {
+        const list = res.data.data || [];
+        const opts = list.map(order => ({
+          value: order.value || order.id,
+          label: order.label || order.order_number,
+          data: order
+        }));
+        setSalesOrderOptions(opts);
+      }
+    } catch (e) {
+      console.error('加载销售订单失败', e);
+    }
+  };
+
+  // 监听客户选择
+  const onCustomerChange = (value) => {
+    form.setFieldsValue({ sales_order_id: undefined });
+    fetchSalesOrdersForCustomer(value);
+  };
+
+  // 监听销售订单选择，自动导入明细
+  const onSalesOrderChange = async (orderId) => {
+    if (!orderId) {
+      setDetails([]);
+      return;
+    }
+    try {
+      const res = await deliveryNoticeService.getDetailsFromSalesOrder(orderId);
+      if (res.data.success) {
+        setDetails(res.data.data);
+      }
+    } catch (e) {
+      console.error('获取销售订单明细失败', e);
+    }
+  };
+
   return (
     <PageContainer>
       <StyledCard>
@@ -615,6 +664,7 @@ const DeliveryNotice = () => {
               showSearch
               optionFilterProp="children"
               allowClear
+              onChange={onCustomerChange}
             >
               {customerOptions.map(option => (
                 <Option key={option.value} value={option.value}>
@@ -710,6 +760,7 @@ const DeliveryNotice = () => {
                   showSearch
                   optionFilterProp="children"
                   placeholder="选择客户"
+                  onChange={onCustomerChange}
                 >
                   {customerOptions.map(option => (
                     <Option key={option.value} value={option.value}>
@@ -726,6 +777,8 @@ const DeliveryNotice = () => {
                   optionFilterProp="children"
                   placeholder="选择销售订单"
                   allowClear
+                  disabled={!form.getFieldValue('customer_id')}
+                  onChange={onSalesOrderChange}
                 >
                   {salesOrderOptions.map(option => (
                     <Option key={option.value} value={option.value}>

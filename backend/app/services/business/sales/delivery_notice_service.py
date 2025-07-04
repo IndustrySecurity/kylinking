@@ -8,9 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from typing import Dict, Any, Optional
 from flask import current_app
+from decimal import Decimal
 
 from app.services.base_service import TenantAwareService
-from app.models.business.sales import DeliveryNotice, DeliveryNoticeDetail
+from app.models.business.sales import DeliveryNotice, DeliveryNoticeDetail, SalesOrder, SalesOrderDetail
 from app.models.basic_data import CustomerManagement
 
 
@@ -75,13 +76,46 @@ class DeliveryNoticeService(TenantAwareService):
                 created_by=user_id
             )
 
-            # 处理明细
-            if 'details' in notice_data and notice_data['details']:
-                for detail_data in notice_data['details']:
-                    detail_data['created_by'] = user_id
-                    detail_data['delivery_notice_id'] = notice.id
-                    new_detail = self.create_with_tenant(DeliveryNoticeDetail, **detail_data)
-                    
+            # 立即 flush，确保 notice.id 可用
+            self.get_session().flush()
+
+            # 处理明细：如果前端直接传入，则以传入为准；否则尝试根据销售订单自动生成
+            details_from_frontend = notice_data.get('details') or []
+
+            if not details_from_frontend and notice.sales_order_id:
+                # 自动根据销售订单导入明细
+                details_from_frontend = self._generate_details_from_sales_order(notice.sales_order_id)
+
+            for detail_data in details_from_frontend:
+                detail_data['created_by'] = user_id
+                detail_data['delivery_notice_id'] = notice.id
+                valid_fields = {c.name for c in DeliveryNoticeDetail.__table__.columns}
+                clean_data = {k: v for k, v in detail_data.items() if k in valid_fields}
+                clean_data['delivery_notice_id'] = notice.id
+                self.create_with_tenant(DeliveryNoticeDetail, **clean_data)
+
+                # 如果送货通知关联了销售订单，更新销售订单明细的已安排送货数
+                if notice.sales_order_id and detail_data.get('product_id'):
+                    sod = self.get_session().query(SalesOrderDetail).filter(
+                        SalesOrderDetail.sales_order_id == notice.sales_order_id,
+                        SalesOrderDetail.product_id == detail_data['product_id']
+                    ).first()
+                    if sod is not None and hasattr(sod, 'scheduled_delivery_quantity'):
+                        from decimal import Decimal
+                        qty_raw = detail_data.get('notice_quantity') or 0
+                        try:
+                            qty_decimal = Decimal(str(qty_raw))
+                        except Exception:
+                            qty_decimal = Decimal(0)
+
+                        current_qty = sod.scheduled_delivery_quantity or Decimal(0)
+                        try:
+                            current_qty = Decimal(str(current_qty))
+                        except Exception:
+                            current_qty = Decimal(0)
+
+                        sod.scheduled_delivery_quantity = current_qty + qty_decimal
+            
             self.commit()
             
             # 重新查询以获取完整数据
@@ -205,7 +239,32 @@ class DeliveryNoticeService(TenantAwareService):
                         del detail_data['id']
                     detail_data['created_by'] = user_id
                     detail_data['delivery_notice_id'] = notice.id
-                    new_detail = self.create_with_tenant(DeliveryNoticeDetail, **detail_data)
+                    valid_fields = {c.name for c in DeliveryNoticeDetail.__table__.columns}
+                    clean_data = {k: v for k, v in detail_data.items() if k in valid_fields}
+                    clean_data['delivery_notice_id'] = notice.id
+                    self.create_with_tenant(DeliveryNoticeDetail, **clean_data)
+
+                    # 如果送货通知关联了销售订单，更新销售订单明细的已安排送货数
+                    if notice.sales_order_id and detail_data.get('product_id'):
+                        sod = session.query(SalesOrderDetail).filter(
+                            SalesOrderDetail.sales_order_id == notice.sales_order_id,
+                            SalesOrderDetail.product_id == detail_data['product_id']
+                        ).first()
+                        if sod is not None and hasattr(sod, 'scheduled_delivery_quantity'):
+                            from decimal import Decimal
+                            qty_raw = detail_data.get('notice_quantity') or 0
+                            try:
+                                qty_decimal = Decimal(str(qty_raw))
+                            except Exception:
+                                qty_decimal = Decimal(0)
+
+                            current_qty = sod.scheduled_delivery_quantity or Decimal(0)
+                            try:
+                                current_qty = Decimal(str(current_qty))
+                            except Exception:
+                                current_qty = Decimal(0)
+
+                            sod.scheduled_delivery_quantity = current_qty + qty_decimal
 
         self.commit()
         return self.get_delivery_notice_by_id(notice_id)
@@ -271,3 +330,116 @@ class DeliveryNoticeService(TenantAwareService):
         
         self.commit()
         return self.get_delivery_notice_by_id(notice_id) 
+
+    def get_delivery_notice_list(self, page: int, per_page: int, filters: Optional[Dict] = None) -> Dict[str, Any]:
+        """
+        获取送货通知单列表（别名方法，兼容前端调用）
+        
+        Args:
+            page: 页码
+            per_page: 每页数量
+            filters: 搜索参数
+            
+        Returns:
+            分页的送货通知单列表
+        """
+        return self.get_delivery_notices(page, per_page, filters)
+
+    def get_delivery_notice_detail(self, notice_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取送货通知单详情（别名方法，兼容前端调用）
+        
+        Args:
+            notice_id: 送货通知单ID
+            
+        Returns:
+            送货通知单数据或None
+        """
+        return self.get_delivery_notice_by_id(notice_id)
+
+    def confirm_delivery_notice(self, notice_id: str, user_id: str) -> Dict[str, Any]:
+        """
+        确认送货通知单
+        
+        Args:
+            notice_id: 送货通知单ID
+            user_id: 用户ID
+            
+        Returns:
+            更新后的送货通知单数据
+        """
+        return self.update_notice_status(notice_id, 'confirmed', user_id)
+
+    def ship_delivery_notice(self, notice_id: str, user_id: str) -> Dict[str, Any]:
+        """
+        发货送货通知单
+        
+        Args:
+            notice_id: 送货通知单ID
+            user_id: 用户ID
+            
+        Returns:
+            更新后的送货通知单数据
+        """
+        return self.update_notice_status(notice_id, 'shipped', user_id)
+
+    def complete_delivery_notice(self, notice_id: str, user_id: str) -> Dict[str, Any]:
+        """
+        完成送货通知单
+        
+        Args:
+            notice_id: 送货通知单ID
+            user_id: 用户ID
+            
+        Returns:
+            更新后的送货通知单数据
+        """
+        return self.update_notice_status(notice_id, 'completed', user_id)
+
+    # ---------------------------------------------------------------------
+    # 辅助方法
+    # ---------------------------------------------------------------------
+
+    def _generate_details_from_sales_order(self, sales_order_id: str):
+        """根据销售订单明细生成送货通知明细列表"""
+        session = self.get_session()
+        order: SalesOrder = session.query(SalesOrder).options(
+            joinedload(SalesOrder.order_details)
+        ).get(sales_order_id)
+
+        if not order:
+            return []
+
+        details = []
+        for od in order.order_details:
+            # 计算剩余未安排数量
+            remaining_qty = (od.order_quantity or 0) - (od.scheduled_delivery_quantity or 0)
+            if remaining_qty <= 0:
+                continue  # 已全部安排跳过
+
+            details.append({
+                'work_order_number': None,
+                'product_id': od.product_id,
+                'product_name': od.product_name,
+                'product_code': od.product_code,
+                'specification': od.material_structure,
+                'order_quantity': od.order_quantity,
+                'notice_quantity': remaining_qty,  # 默认剩余全部安排，可前端修改
+                'unit': od.unit,
+                'sales_unit': od.unit,
+                'negative_deviation_percentage': od.negative_deviation_percentage,
+                'positive_deviation_percentage': od.positive_deviation_percentage,
+                'production_min_quantity': od.production_small_quantity,
+                'production_max_quantity': od.production_large_quantity,
+                'order_delivery_date': od.delivery_date,
+                'internal_delivery_date': od.internal_delivery_date,
+                'sales_order_number': order.order_number,
+                'customer_order_number': order.customer_order_number,
+                'product_category': None,
+                'customer_code': None,
+                'material_structure': od.material_structure,
+                'price': od.unit_price,
+                'amount': od.amount
+            })
+
+        return details 

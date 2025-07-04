@@ -89,39 +89,39 @@ export const getWarehouses = (params = {}) => {
   });
 };
 
-// 获取盘点计划列表
+// 获取盘点计划列表（实际就是盘点列表）
 export const getMaterialCountPlans = (params = {}) => {
-  return request.get('/tenant/business/inventory/material-count/material-count-orders/plans', { params });
+  return request.get('/tenant/business/inventory/material-count/material-count-orders', { params });
 };
 
-// 创建盘点计划
+// 创建盘点计划（实际就是创建盘点）
 export const createMaterialCountPlan = (data) => {
-  return request.post('/tenant/business/inventory/material-count/material-count-orders/plans', data);
+  return request.post('/tenant/business/inventory/material-count/material-count-orders', data);
 };
 
-// 获取盘点计划详情
+// 获取盘点计划详情（实际就是盘点详情）
 export const getMaterialCountPlan = (planId) => {
-  return request.get(`/tenant/business/inventory/material-count/material-count-orders/plans/${planId}`);
+  return request.get(`/tenant/business/inventory/material-count/material-count-orders/${planId}`);
 };
 
 // 获取盘点记录
 export const getMaterialCountRecords = (planId, params = {}) => {
-  return request.get(`/tenant/business/inventory/material-count/material-count-orders/plans/${planId}/records`, { params });
+  return request.get(`/tenant/business/inventory/material-count/material-count-orders/${planId}/records`, { params });
 };
 
 // 更新盘点记录
 export const updateMaterialCountRecord = (planId, recordId, data) => {
-  return request.put(`/tenant/business/inventory/material-count/material-count-orders/plans/${planId}/records/${recordId}`, data);
+  return request.put(`/tenant/business/inventory/material-count/material-count-orders/${planId}/records/${recordId}`, data);
 };
 
 // 开始盘点
 export const startMaterialCountPlan = (planId) => {
-  return request.post(`/tenant/business/inventory/material-count/material-count-orders/plans/${planId}/start`);
+  return request.post(`/tenant/business/inventory/material-count/material-count-orders/${planId}/start`);
 };
 
 // 完成盘点
 export const completeMaterialCountPlan = (planId) => {
-  return request.post(`/tenant/business/inventory/material-count/material-count-orders/plans/${planId}/complete`);
+  return request.post(`/tenant/business/inventory/material-count/material-count-orders/${planId}/complete`);
 };
 
 // 调整库存

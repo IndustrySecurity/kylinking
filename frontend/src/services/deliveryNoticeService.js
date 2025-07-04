@@ -4,7 +4,7 @@
 import request from '../utils/request';
 
 class DeliveryNoticeService {
-  baseURL = '/tenant/sales';
+  baseURL = '/tenant/business/sales';
 
   /**
    * 获取送货通知单列表
@@ -39,6 +39,20 @@ class DeliveryNoticeService {
    */
   deleteDeliveryNotice = async (id) => {
     return request.delete(`${this.baseURL}/delivery-notices/${id}`);
+  };
+
+  /**
+   * 确认送货通知
+   */
+  confirmDelivery = async (id) => {
+    return request.post(`${this.baseURL}/delivery-notices/${id}/confirm`);
+  };
+
+  /**
+   * 根据销售订单获取待安排发货明细
+   */
+  getDetailsFromSalesOrder = async (salesOrderId) => {
+    return request.get(`${this.baseURL}/delivery-notices/sales-order/${salesOrderId}/details`);
   };
 }
 

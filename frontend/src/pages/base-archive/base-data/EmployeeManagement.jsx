@@ -37,7 +37,6 @@ import {
   getBusinessTypeOptions,
   getGenderOptions,
   getEvaluationLevelOptions,
-  getNextEmployeeId
 } from '@/api/base-data/employee'
 import { getDepartmentOptions } from '@/api/base-data/department'
 import { getPositionOptions } from '@/api/base-data/position'
@@ -140,40 +139,40 @@ const EmployeeManagement = () => {
   // 加载员工列表
   const loadEmployees = async (params = {}) => {
     try {
-      setLoading(true)
+      setLoading(true);
       const response = await getEmployees({
         page: pagination.current,
         per_page: pagination.pageSize,
         ...searchParams,
         ...params
-      })
-
-      // 处理响应数据结构
-      const responseData = response.data || response
-      
-      if (responseData.success) {
-        const employeesData = responseData.data || []
-        const paginationData = responseData.pagination || {}
-        
-        // 确保employeesData是数组且每个元素都有唯一的key
-        const processedData = Array.isArray(employeesData) ? employeesData.map((item, index) => ({
+      });
+  
+      // 标准化响应数据结构处理
+      const data = response.data || response;
+      if (data.success) {
+        // 解构数据并设置默认值防止空指针
+        const { employees = [], pagination = {} } = data.data;
+        const { total = 0, current_page = 1 } = pagination;
+        // 生成唯一key（优先使用id，避免Date.now()重复）
+        const processedData = employees.map((item, index) => ({
           ...item,
-          key: item.id || `temp_${index}_${Date.now()}`
-        })) : []
-        
-        setEmployees(processedData)
+          key: item.id || `emp_temp_${index}_${Date.now()}`
+        }));
+  
+        setEmployees(processedData);
         setPagination(prev => ({
           ...prev,
-          current: paginationData.page || 1,
-          total: paginationData.total || 0
-        }))
+          total,
+          current: current_page
+        }));
       } else {
-        message.error(responseData.message || '加载员工列表失败')
+        message.error(data.message || '加载员工列表失败');
       }
     } catch (error) {
-      message.error('加载员工列表失败')
+      console.error('员工数据加载异常', error);
+      message.error('加载员工列表失败，请稍后重试');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -209,27 +208,6 @@ const EmployeeManagement = () => {
     setModalType('create')
     setCurrentRecord(null)
     form.resetFields()
-    
-    try {
-      // 获取下一个员工工号
-      const response = await getNextEmployeeId()
-      
-      if (response.data && response.data.success) {
-        form.setFieldsValue({
-          employee_id: response.data.data.employee_id,
-          employment_status: 'trial',
-          is_enabled: true,
-          kingdee_push: false
-        })
-      } else {
-        console.error('API返回失败:', response)
-        message.warning('获取员工工号失败，请手动输入')
-      }
-    } catch (error) {
-      console.error('获取员工工号失败:', error)
-      message.warning('获取员工工号失败，请手动输入')
-    }
-    
     setModalVisible(true)
   }
 
@@ -330,7 +308,8 @@ const EmployeeManagement = () => {
     const statusMap = {
       trial: { color: 'orange', text: '试用' },
       active: { color: 'green', text: '在职' },
-      leave: { color: 'red', text: '离职' }
+      leave: { color: 'red', text: '离职' },
+      suspended: { color: 'red', text: '停职' }
     }
     const config = statusMap[status] || { color: 'default', text: status }
     return <Tag color={config.color}>{config.text}</Tag>
@@ -722,7 +701,7 @@ const EmployeeManagement = () => {
               <Form.Item
                 label="员工工号"
                 name="employee_id"
-                rules={[{ required: true, message: '请输入员工工号' }]}
+                rules={[{ required: false, message: '请输入员工工号' }]}
               >
                 <Input placeholder="系统自动生成" disabled />
               </Form.Item>

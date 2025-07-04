@@ -36,7 +36,6 @@ def get_employees():
             position_id=position_id,
             employment_status=employment_status
         )
-        
         return jsonify({
             'success': True,
             'data': result
@@ -63,6 +62,7 @@ def get_employee(employee_id):
         return jsonify({'error': str(e)}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 
 @employee_bp.route('/', methods=['POST'])
@@ -152,9 +152,9 @@ def get_employment_status_options():
     """获取在职状态选项"""
     try:
         options = [
+            {'value': 'trial', 'label': '试用'},
             {'value': 'active', 'label': '在职'},
-            {'value': 'probation', 'label': '试用期'},
-            {'value': 'resigned', 'label': '离职'},
+            {'value': 'leave', 'label': '离职'},
             {'value': 'suspended', 'label': '停职'}
         ]
         
@@ -268,30 +268,6 @@ def get_employee_form_options():
         return jsonify({'error': str(e)}), 500
 
 
-@employee_bp.route('/init-data', methods=['POST'])
-@jwt_required()
-@tenant_required
-def init_employee_data():
-    """初始化员工测试数据"""
-    try:
-        service = EmployeeService()
-        current_user_id = get_jwt_identity()
-        
-        # 检查是否已有员工数据
-        existing_result = service.get_employees(page=1, per_page=5)
-        if existing_result['total'] > 0:
-            return jsonify({
-                'success': True,
-                'message': f'已存在 {existing_result["total"]} 个员工记录，无需初始化',
-                'data': existing_result
-            })
-        
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'初始化员工数据失败: {str(e)}'
-        }), 500
 
 # 为统一导入方式提供别名
 bp = employee_bp 

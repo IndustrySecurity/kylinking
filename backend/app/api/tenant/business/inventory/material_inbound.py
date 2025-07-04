@@ -43,13 +43,13 @@ def get_material_inbound_orders():
         # 使用MaterialInboundService
         service = MaterialInboundService()
         result = service.get_material_inbound_order_list(
-            warehouse_id=warehouse_id or "",
-            order_type=order_type or "",
-            status=status or "",
-            approval_status=approval_status or "",
-            start_date=start_date or datetime.now(),
-            end_date=end_date or datetime.now(),
-            search=search or "",  # type: ignore
+            warehouse_id=warehouse_id,
+            order_type=order_type,
+            status=status,
+            approval_status=approval_status,
+            start_date=start_date,
+            end_date=end_date,
+            search=search,
             page=page,
             page_size=page_size
         )

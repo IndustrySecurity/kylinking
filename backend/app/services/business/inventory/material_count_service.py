@@ -488,6 +488,203 @@ class MaterialCountService(TenantAwareService):
             current_app.logger.error(f"取消材料盘点失败: {str(e)}")
             raise ValueError(f"取消材料盘点失败: {str(e)}")
 
+    def start_material_count(self, count_id: str, started_by: str) -> Dict[str, Any]:
+        """开始材料盘点"""
+        try:
+            count = self.session.query(MaterialCountPlan).filter(MaterialCountPlan.id == count_id).first()
+            
+            if not count:
+                raise ValueError("材料盘点不存在")
+            
+            if count.status != 'draft':
+                raise ValueError("只能开始草稿状态的盘点")
+            
+            # 转换started_by为UUID
+            try:
+                started_by_uuid = uuid.UUID(started_by)
+            except (TypeError):
+                started_by_uuid = started_by
+            
+            # 更新状态
+            count.status = 'in_progress'
+            count.updated_by = started_by_uuid
+            
+            self.session.commit()
+            
+            # 填充仓库信息
+            self._fill_warehouse_info([count])
+            
+            return count.to_dict()
+            
+        except Exception as e:
+            self.session.rollback()
+            current_app.logger.error(f"开始材料盘点失败: {str(e)}")
+            raise ValueError(f"开始材料盘点失败: {str(e)}")
+
+    def complete_material_count(self, count_id: str, completed_by: str) -> Dict[str, Any]:
+        """完成材料盘点"""
+        try:
+            count = self.session.query(MaterialCountPlan).filter(MaterialCountPlan.id == count_id).first()
+            
+            if not count:
+                raise ValueError("材料盘点不存在")
+            
+            if count.status != 'in_progress':
+                raise ValueError("只能完成进行中的盘点")
+            
+            # 转换completed_by为UUID
+            try:
+                completed_by_uuid = uuid.UUID(completed_by)
+            except (TypeError):
+                completed_by_uuid = completed_by
+            
+            # 更新状态
+            count.status = 'completed'
+            count.updated_by = completed_by_uuid
+            
+            self.session.commit()
+            
+            # 填充仓库信息
+            self._fill_warehouse_info([count])
+            
+            return count.to_dict()
+            
+        except Exception as e:
+            self.session.rollback()
+            current_app.logger.error(f"完成材料盘点失败: {str(e)}")
+            raise ValueError(f"完成材料盘点失败: {str(e)}")
+
+    def adjust_material_count_inventory(self, plan_id: str, adjusted_by: str) -> Dict[str, Any]:
+        """调整材料盘点库存"""
+        try:
+            count = self.session.query(MaterialCountPlan).filter(MaterialCountPlan.id == plan_id).first()
+            
+            if not count:
+                raise ValueError("材料盘点不存在")
+            
+            if count.status != 'completed':
+                raise ValueError("只能调整已完成的材料盘点")
+            
+            # 转换adjusted_by为UUID
+            try:
+                adjusted_by_uuid = uuid.UUID(adjusted_by)
+            except (TypeError):
+                adjusted_by_uuid = adjusted_by
+            
+            # 获取盘点记录
+            records = self.session.query(MaterialCountRecord).filter(MaterialCountRecord.count_plan_id == plan_id).all()
+            
+            transactions = []
+            
+            for record in records:
+                if record.variance_quantity != 0 and record.material_id:
+                    # 查找库存记录
+                    inventory = self.session.query(Inventory).filter(
+                        and_(
+                            Inventory.warehouse_id == count.warehouse_id,
+                            Inventory.material_id == record.material_id,
+                            Inventory.batch_number == record.batch_number,
+                            Inventory.is_active == True
+                        )
+                    ).first()
+                    
+                    if inventory:
+                        # 记录变动前数量
+                        quantity_before = inventory.current_quantity
+                        
+                        # 调整库存
+                        inventory.current_quantity += record.variance_quantity
+                        inventory.available_quantity += record.variance_quantity
+                        
+                        # 确保库存不为负数
+                        if inventory.current_quantity < 0:
+                            inventory.current_quantity = 0
+                        if inventory.available_quantity < 0:
+                            inventory.available_quantity = 0
+                        
+                        inventory.updated_by = adjusted_by_uuid
+                        
+                        # 创建库存流水记录
+                        transaction_data = {
+                            'inventory_id': inventory.id,
+                            'warehouse_id': count.warehouse_id,
+                            'material_id': record.material_id,
+                            'transaction_type': 'adjustment',
+                            'quantity_change': record.variance_quantity,
+                            'quantity_before': quantity_before,
+                            'quantity_after': inventory.current_quantity,
+                            'unit': record.unit,
+                            'source_document_type': 'material_count_plan',
+                            'source_document_id': count.id,
+                            'source_document_number': count.count_number,
+                            'batch_number': record.batch_number,
+                            'reason': f'材料盘点调整 - {count.count_number}',
+                            'created_by': adjusted_by_uuid
+                        }
+                        
+                        transaction = self.create_with_tenant(InventoryTransaction, **transaction_data)
+                        transactions.append(transaction)
+            
+            # 更新盘点状态
+            count.status = 'adjusted'
+            count.updated_by = adjusted_by_uuid
+            
+            self.session.commit()
+            
+            return {
+                'count': count.to_dict(),
+                'transactions': [t.to_dict() for t in transactions],
+                'transaction_count': len(transactions)
+            }
+            
+        except Exception as e:
+            self.session.rollback()
+            current_app.logger.error(f"调整材料盘点库存失败: {str(e)}")
+            raise ValueError(f"调整材料盘点库存失败: {str(e)}")
+
+    def get_material_count_records(self, count_id: str) -> List[Dict[str, Any]]:
+        """获取材料盘点记录"""
+        records = self.session.query(MaterialCountRecord).filter(
+            MaterialCountRecord.count_plan_id == count_id
+        ).all()
+        
+        return [record.to_dict() for record in records]
+
+    def update_material_count_record(self, record_id: str, updated_by: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """更新材料盘点记录"""
+        try:
+            record = self.session.query(MaterialCountRecord).filter(MaterialCountRecord.id == record_id).first()
+            
+            if not record:
+                raise ValueError("盘点记录不存在")
+            
+            # 转换updated_by为UUID
+            try:
+                updated_by_uuid = uuid.UUID(updated_by)
+            except (TypeError):
+                updated_by_uuid = updated_by
+            
+            # 更新实盘数量
+            if 'actual_quantity' in data:
+                record.actual_quantity = Decimal(str(data['actual_quantity']))
+                # 重新计算差异数量
+                record.variance_quantity = record.actual_quantity - record.book_quantity
+            
+            # 更新其他字段
+            if 'notes' in data:
+                record.notes = data['notes']
+            
+            record.updated_by = updated_by_uuid
+            
+            self.session.commit()
+            
+            return record.to_dict()
+            
+        except Exception as e:
+            self.session.rollback()
+            current_app.logger.error(f"更新材料盘点记录失败: {str(e)}")
+            raise ValueError(f"更新材料盘点记录失败: {str(e)}")
+
 
 def get_material_count_service(tenant_id: str = None, schema_name: str = None) -> MaterialCountService:
     """获取材料盘点服务实例"""

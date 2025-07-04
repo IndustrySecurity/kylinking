@@ -60,6 +60,7 @@ class SalesOrder(TenantModel):
     order_details = relationship("SalesOrderDetail", back_populates="sales_order", cascade="all, delete-orphan")
     other_fees = relationship("SalesOrderOtherFee", back_populates="sales_order", cascade="all, delete-orphan")
     material_details = relationship("SalesOrderMaterial", back_populates="sales_order", cascade="all, delete-orphan")
+    delivery_notices = relationship("DeliveryNotice", back_populates="sales_order")
 
     def to_dict(self):
         """转换为字典"""
@@ -114,8 +115,11 @@ class SalesOrder(TenantModel):
                         'mobile': getattr(contact, 'mobile', '') or getattr(contact, 'landline', ''),
                         'phone': getattr(contact, 'mobile', '') or getattr(contact, 'landline', '')
                     }
-            except Exception:
-                pass
+                else:
+                    result['contact_person'] = None
+            except Exception as e:
+                # 如果查询失败，设置为空
+                result['contact_person'] = None
         
         # 添加税收信息
         if self.tax_type_id:
@@ -143,6 +147,34 @@ class SalesOrder(TenantModel):
         
         return result
 
+    @classmethod
+    def generate_order_number(cls):
+        """生成唯一销售单号（格式：SOYYMMDDXXXX，如SO2507030001表示2025年7月3日第1个订单）"""
+        # 获取当前日期
+        now = datetime.now()
+        date_part = now.strftime('%y%m%d')  # 如250703表示2025年7月3日
+        
+        # 查询当天最大单号
+        max_order = db.session.query(cls.order_number).filter(
+            cls.order_number.like(f'SO{date_part}%')
+        ).order_by(cls.order_number.desc()).first()
+        
+        # 计算新单号
+        if max_order and max_order[0]:
+            try:
+                # 提取序号部分并加1
+                current_sequence = int(max_order[0][8:])  # 从第9位开始的数字部分
+                new_sequence = current_sequence + 1
+            except (ValueError, IndexError):
+                # 处理异常情况，默认从1开始
+                new_sequence = 1
+        else:
+            # 当天无记录，从0001开始
+            new_sequence = 1
+        
+        # 格式化新单号（如SO2507030001）
+        return f"SO{date_part}{new_sequence:04d}"
+
 
 class SalesOrderDetail(TenantModel):
     """销售明细子表"""
@@ -162,6 +194,7 @@ class SalesOrderDetail(TenantModel):
     production_small_quantity = Column(Numeric(15, 4), comment='生产最小数')  # 手工输入
     production_large_quantity = Column(Numeric(15, 4), comment='生产最大数')  # 手工输入
     order_quantity = Column(Numeric(15, 4), nullable=False, comment='订单数量')  # 手工输入
+    scheduled_delivery_quantity = Column(Numeric(15, 4), default=0, comment='已安排送货数')  # 新增字段
     sales_unit_id = Column(UUID(as_uuid=True), comment='销售单位ID')  # 自动，根据选择的产品自动填入
     
     # 价格信息（自动计算）
@@ -281,6 +314,7 @@ class SalesOrderDetail(TenantModel):
             'production_small_quantity': float(self.production_small_quantity) if self.production_small_quantity else None,
             'production_large_quantity': float(self.production_large_quantity) if self.production_large_quantity else None,
             'order_quantity': float(self.order_quantity) if self.order_quantity else None,
+            'scheduled_delivery_quantity': float(self.scheduled_delivery_quantity) if self.scheduled_delivery_quantity else 0,
             'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
             'unit_price': float(self.unit_price) if self.unit_price else None,
             'amount': float(self.amount) if self.amount else None,
@@ -602,6 +636,7 @@ class DeliveryNotice(TenantModel):
     # 关联关系
     customer = relationship("CustomerManagement", backref="delivery_notices")
     details = relationship("DeliveryNoticeDetail", back_populates="delivery_notice", cascade="all, delete-orphan")
+    sales_order = relationship("SalesOrder", back_populates="delivery_notices")
 
     def to_dict(self):
         """将模型对象转换为字典"""

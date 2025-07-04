@@ -5,6 +5,7 @@ Department 服务
 
 from app.services.base_service import TenantAwareService
 from app.models.basic_data import Department
+from app.models.user import User
 from app.extensions import db
 from sqlalchemy import func, text, and_, or_
 from sqlalchemy.exc import IntegrityError
@@ -38,8 +39,40 @@ class DepartmentService(TenantAwareService):
         total = query.count()
         departments = query.offset((page - 1) * per_page).limit(per_page).all()
         
+        # 批量获取用户信息，避免N+1查询
+        user_ids = set()
+        for dept in departments:
+            if dept.created_by:
+                user_ids.add(dept.created_by)
+            if dept.updated_by:
+                user_ids.add(dept.updated_by)
+        
+        # 一次性查询所有需要的用户信息
+        users = {}
+        if user_ids:
+            user_list = self.session.query(User).filter(User.id.in_(user_ids)).all()
+            users = {str(user.id): user for user in user_list}
+        
+        # 构建返回数据，手动添加用户信息
+        department_list = []
+        for dept in departments:
+            dept_dict = dept.to_dict(include_user_info=False)
+            
+            # 添加用户信息
+            if dept.created_by and str(dept.created_by) in users:
+                dept_dict['created_by_name'] = users[str(dept.created_by)].get_full_name()
+            else:
+                dept_dict['created_by_name'] = '未知用户'
+                
+            if dept.updated_by and str(dept.updated_by) in users:
+                dept_dict['updated_by_name'] = users[str(dept.updated_by)].get_full_name()
+            else:
+                dept_dict['updated_by_name'] = '未知用户'
+            
+            department_list.append(dept_dict)
+        
         return {
-            'departments': [dept.to_dict(include_user_info=True) for dept in departments],
+            'departments': department_list,
             'total': total,
             'current_page': page,
             'per_page': per_page,
@@ -51,7 +84,19 @@ class DepartmentService(TenantAwareService):
         department = self.session.query(Department).get(uuid.UUID(dept_id))
         if not department:
             raise ValueError("部门不存在")
-        return department.to_dict(include_user_info=True)
+        
+        # 构建返回数据
+        dept_dict = department.to_dict(include_user_info=False)
+        
+        # 添加用户信息
+        if department.created_by:
+            creator = self.session.query(User).get(department.created_by)
+            dept_dict['created_by_name'] = creator.get_full_name() if creator else '未知用户'
+        if department.updated_by:
+            updater = self.session.query(User).get(department.updated_by)
+            dept_dict['updated_by_name'] = updater.get_full_name() if updater else '未知用户'
+        
+        return dept_dict
     
     def create_department(self, data, created_by):
         """创建部门"""

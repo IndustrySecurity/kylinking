@@ -285,29 +285,36 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await baseDataService.getEmployees();
+      const response = await request.get('/tenant/base-archive/base-data/employees/options');
       console.log('员工API响应:', response.data);
+      
       if (response.data?.success) {
-        setEmployees(response.data.data);
-        console.log('员工数据设置完成:', response.data.data);
+        setEmployees(response.data.data || []);
+      } else {
+        console.warn('员工API返回失败:', response.data);
+        setEmployees([]);
       }
     } catch (error) {
-      console.error('获取员工列表失败', error);
+      console.error('获取员工列表失败:', error);
+      setEmployees([]);
     }
   };
 
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await baseDataService.getDepartments();
+      const response = await request.get('/tenant/base-archive/base-data/departments/options');
       console.log('部门API响应:', response.data);
+      
       if (response.data?.success) {
-        setDepartments(response.data.data);
-        console.log('部门数据设置完成:', response.data.data);
+        setDepartments(response.data.data || []);
+      } else {
+        console.warn('部门API返回失败:', response.data);
+        setDepartments([]);
       }
     } catch (error) {
-      console.error('获取部门列表失败', error);
-      message.error('获取部门列表失败: ' + (error.response?.data?.error || error.message));
+      console.error('获取部门列表失败:', error);
+      setDepartments([]);
     }
   };
 
