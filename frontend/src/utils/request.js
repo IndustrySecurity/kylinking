@@ -9,7 +9,6 @@ const request = axios.create({
   },
 });
 
-console.log('Axios baseURL:', request.defaults.baseURL);
 
 // 请求拦截器
 request.interceptors.request.use(

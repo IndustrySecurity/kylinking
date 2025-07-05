@@ -105,16 +105,39 @@ class ProcessService(TenantAwareService):
         except ValueError:
             raise ValueError('无效的创建用户ID')
         
-        # 准备工序数据
+        # 基础字段
         process_data = {
             'process_name': data['process_name'],
             'description': data.get('description'),
             'is_enabled': data.get('is_enabled', True),
         }
-        
+
         try:
-            # 使用继承的create_with_tenant方法
             process = self.create_with_tenant(Process, **process_data)
+
+            # 其余字段（包含 *_formula_id、排程方式等）
+            machines_data = data.pop('machines', None)
+            for key, value in data.items():
+                if hasattr(process, key):
+                    setattr(process, key, value)
+
+            # 处理关联机台
+            if machines_data:
+                for idx, item in enumerate(machines_data):
+                    machine_id_val = None
+                    if isinstance(item, dict):
+                        machine_id_val = item.get('machine_id') or item.get('value') or item.get('id')
+                    else:
+                        machine_id_val = item
+                    if not machine_id_val:
+                        continue
+                    try:
+                        machine_uuid = uuid.UUID(str(machine_id_val))
+                    except ValueError:
+                        continue
+                    pm = ProcessMachine(process_id=process.id, machine_id=machine_uuid, sort_order=idx)
+                    self.session.add(pm)
+
             self.commit()
             return process.to_dict()
         except Exception as e:
@@ -142,10 +165,46 @@ class ProcessService(TenantAwareService):
             if existing:
                 raise ValueError('工序名称已存在')
         
-        # 更新字段
+        # 特殊处理 machines 列表
+        machines_data = data.pop('machines', None)
+
+        # 普通字段直接赋值
         for key, value in data.items():
             if hasattr(process, key):
                 setattr(process, key, value)
+
+        # 如果传入 machines，则更新关联
+        if machines_data is not None:
+            try:
+                # 先清空现有关联
+                process.machines.clear()
+
+                # 遍历新的机台列表并创建关联
+                for idx, item in enumerate(machines_data):
+                    if not item:
+                        continue
+
+                    # 前端可能只传字符串或对象
+                    machine_id_val = None
+                    if isinstance(item, dict):
+                        machine_id_val = item.get('machine_id') or item.get('value') or item.get('id')
+                    else:
+                        machine_id_val = item  # 字符串 UUID
+
+                    if not machine_id_val:
+                        continue
+
+                    try:
+                        machine_uuid = uuid.UUID(str(machine_id_val))
+                    except ValueError:
+                        # 非法UUID，跳过
+                        continue
+
+                    pm = ProcessMachine(process_id=process.id, machine_id=machine_uuid, sort_order=idx)
+                    self.session.add(pm)
+            except Exception as m_err:
+                self.rollback()
+                raise ValueError(f'更新关联机台失败: {m_err}')
         
         process.updated_by = updated_by_uuid
         

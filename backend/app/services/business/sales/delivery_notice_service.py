@@ -138,7 +138,7 @@ class DeliveryNoticeService(TenantAwareService):
             分页的送货通知单列表
         """
         session = self.get_session()
-        query = session.query(DeliveryNotice).options(joinedload(DeliveryNotice.customer))
+        query = session.query(DeliveryNotice).options(joinedload(DeliveryNotice.customer), joinedload(DeliveryNotice.sales_order))
         
         # 确保租户隔离
         query = self.ensure_tenant_isolation(query)
@@ -156,7 +156,7 @@ class DeliveryNoticeService(TenantAwareService):
         )
         
         return {
-            'items': [item.to_dict() for item in pagination.items],
+            'items': [self._notice_to_dict(item) for item in pagination.items],
             'total': pagination.total,
             'page': page,
             'per_page': per_page
@@ -174,11 +174,13 @@ class DeliveryNoticeService(TenantAwareService):
         """
         session = self.get_session()
         notice = session.query(DeliveryNotice).options(
-            joinedload(DeliveryNotice.details).joinedload(DeliveryNoticeDetail.product)
+            joinedload(DeliveryNotice.details).joinedload(DeliveryNoticeDetail.product),
+            joinedload(DeliveryNotice.customer),
+            joinedload(DeliveryNotice.sales_order)
         ).get(notice_id)
         
         if notice and self.validate_tenant_access(getattr(notice, 'tenant_id', self.tenant_id)):
-            return notice.to_dict()
+            return self._notice_to_dict(notice)
         
         return None
 
@@ -202,6 +204,10 @@ class DeliveryNoticeService(TenantAwareService):
         
         if not self.validate_tenant_access(getattr(notice, 'tenant_id', self.tenant_id)):
             raise ValueError("无权限访问该送货通知单")
+
+        # 当状态已确认或之后，不允许再编辑
+        if notice.status in ['confirmed', 'shipped', 'completed', 'cancelled']:
+            raise ValueError("送货通知单已进入不可编辑状态，无法修改")
 
         self.log_operation('update_delivery_notice', {
             'notice_id': notice_id, 
@@ -443,3 +449,19 @@ class DeliveryNoticeService(TenantAwareService):
             })
 
         return details 
+
+    def _notice_to_dict(self, notice: DeliveryNotice) -> Dict[str, Any]:
+        """将DeliveryNotice对象转换为字典并附加销售订单信息"""
+        data = notice.to_dict() if hasattr(notice, 'to_dict') else {c.name: getattr(notice, c.name) for c in notice.__table__.columns}
+        # 客户信息已在 joinedload(customer) 中，可通过notice.customer
+        if notice.customer:
+            data['customer'] = {
+                'id': str(notice.customer.id),
+                'customer_name': notice.customer.customer_name
+            }
+        if notice.sales_order:
+            data['sales_order'] = {
+                'id': str(notice.sales_order.id),
+                'order_number': notice.sales_order.order_number
+            }
+        return data 

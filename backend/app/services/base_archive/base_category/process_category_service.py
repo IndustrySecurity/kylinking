@@ -3,9 +3,11 @@
 ProcessCategory管理服务
 """
 from typing import Dict, List, Optional, Any
-from sqlalchemy import text, or_, and_
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text, or_, and_, String, Text
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 import uuid
+import logging, traceback
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
 from app.services.base_service import TenantAwareService
 from app.models.basic_data import ProcessCategory
@@ -81,10 +83,14 @@ class ProcessCategoryService(TenantAwareService):
 
     def get_process_category(self, process_category_id):
         """获取单个工序分类"""
-        try:
-            pc_uuid = uuid.UUID(process_category_id)
-        except ValueError:
-            raise ValueError('无效的工序分类ID')
+        # 允许直接传入 uuid.UUID 或 字符串
+        if isinstance(process_category_id, uuid.UUID):
+            pc_uuid = process_category_id
+        else:
+            try:
+                pc_uuid = uuid.UUID(str(process_category_id))
+            except ValueError:
+                raise ValueError('无效的工序分类ID')
         
         process_category = self.session.query(ProcessCategory).get(pc_uuid)
         if not process_category:
@@ -238,16 +244,50 @@ class ProcessCategoryService(TenantAwareService):
                     raise ValueError('工序分类名称已存在')
             
             # 更新字段
+            import logging, traceback
+            logger = logging.getLogger(__name__)
+
             for field, value in data.items():
-                if hasattr(process_category, field) and field not in ['id', 'created_by', 'created_at']:
+                # 跳过不可修改字段
+                if not hasattr(process_category, field) or field in ['id', 'created_by', 'created_at']:
+                    continue
+
+                # 如果是 UUID 对象且目标列非 UUID 类型，转字符串
+                if isinstance(value, uuid.UUID):
+                    column = getattr(ProcessCategory, field).property.columns[0]
+                    if not isinstance(column.type, PGUUID):
+                        value = str(value)
+
+                # 如果是列表/字典，递归将内部 UUID 转 str（JSONB 等字段会用到）
+                def convert_uuid(obj):
+                    if isinstance(obj, uuid.UUID):
+                        return str(obj)
+                    if isinstance(obj, list):
+                        return [convert_uuid(i) for i in obj]
+                    if isinstance(obj, dict):
+                        return {k: convert_uuid(v) for k, v in obj.items()}
+                    return obj
+
+                value = convert_uuid(value)
+
+                try:
                     setattr(process_category, field, value)
+                except Exception as set_err:
+                    logger.error(
+                        "Error setting field '%s' with value %s (%s) on ProcessCategory %s: %s",
+                        field, value, type(value), process_category_id, set_err
+                    )
+                    logger.error("Traceback:\n%s", traceback.format_exc())
+                    raise
             
             process_category.updated_by = updated_by_uuid
             self.commit()
             
             return self.get_process_category(process_category.id)
         except Exception as e:
+            # 已记录详细信息，再回滚
             self.rollback()
+            logger.error("update_process_category failed: %s", e, exc_info=True)
             raise e
 
     def delete_process_category(self, process_category_id):
@@ -265,7 +305,13 @@ class ProcessCategoryService(TenantAwareService):
             # 这里可以添加删除前的检查，如是否被其他数据引用
             
             self.session.delete(process_category)
-            self.commit()
+
+            try:
+                self.commit()
+            except IntegrityError:
+                # 处理外键约束失败
+                self.rollback()
+                raise ValueError('该工序分类已被工序引用，无法删除')
             
             return True
         except Exception as e:

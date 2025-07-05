@@ -54,6 +54,20 @@ class DeliveryNoticeService {
   getDetailsFromSalesOrder = async (salesOrderId) => {
     return request.get(`${this.baseURL}/delivery-notices/sales-order/${salesOrderId}/details`);
   };
+
+  /**
+   * 发货
+   */
+  shipDelivery = async (id) => {
+    return request.post(`${this.baseURL}/delivery-notices/${id}/ship`);
+  };
+
+  /**
+   * 完成送货
+   */
+  completeDelivery = async (id) => {
+    return request.post(`${this.baseURL}/delivery-notices/${id}/complete`);
+  };
 }
 
 const deliveryNoticeService = new DeliveryNoticeService();

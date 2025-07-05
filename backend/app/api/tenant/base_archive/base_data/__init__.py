@@ -70,11 +70,11 @@ def get_warehouse_options():
         from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
         from flask import g
         
-        # 设置默认租户信息
-        tenant_id = 'default'
-        schema_name = 'tenant_default'
+        # 从 g 中获取租户信息，回退到默认
+        tenant_id = getattr(g, 'tenant_id', None)
+        schema_name = getattr(g, 'schema_name', None)
         
-        # 创建服务实例
+        # 创建服务实例（WarehouseService 会自行处理租户隔离）
         warehouse_service = WarehouseService(tenant_id=tenant_id, schema_name=schema_name)
         
         # 获取查询参数
@@ -89,9 +89,9 @@ def get_warehouse_options():
         })
         
     except Exception as e:
-        import traceback
-        print(f"获取仓库选项失败: {str(e)}")
-        print(traceback.format_exc())
+        # 使用 logging 而不是 print，避免控制台杂讯
+        import logging
+        logging.exception(f"获取仓库选项失败: {str(e)}")
         
         return jsonify({
             'success': False,

@@ -406,12 +406,7 @@ def get_tax_options():
         
         # 如果没有数据，返回默认税率
         if not options:
-            options = [
-                {'value': '1', 'label': '增值税13%', 'rate': 0.13},
-                {'value': '2', 'label': '增值税9%', 'rate': 0.09},
-                {'value': '3', 'label': '增值税6%', 'rate': 0.06},
-                {'value': '4', 'label': '增值税3%', 'rate': 0.03}
-            ]
+            options = []
         
         return jsonify({
             'success': True,

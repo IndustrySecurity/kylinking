@@ -87,7 +87,7 @@ const ProcessCategoryManagement = () => {
       ]);
       
       // 处理类型选项
-      if (typeRes && typeRes.data && typeRes.data.code === 200) {
+      if (isSuccessResp(typeRes)) {
         const options = typeRes.data.data || [];
         // 过滤掉value为空字符串的选项
         setCategoryTypeOptions(options.filter(option => option.value !== ''));
@@ -96,7 +96,7 @@ const ProcessCategoryManagement = () => {
       }
       
       // 处理数据采集模式选项
-      if (modeRes && modeRes.data && modeRes.data.code === 200) {
+      if (isSuccessResp(modeRes)) {
         const options = modeRes.data.data || [];
         // 过滤掉value为空字符串的选项
         setDataCollectionModeOptions(options.filter(option => option.value !== ''));
@@ -107,6 +107,11 @@ const ProcessCategoryManagement = () => {
       console.error('加载选项失败:', error);
       // 保持静态选项作为后备
     }
+  };
+
+  // 新增: 通用成功判断函数
+  const isSuccessResp = (resp) => {
+    return resp && resp.data && (resp.data.success === true || resp.data.code === 200);
   };
 
   // 加载数据
@@ -120,11 +125,12 @@ const ProcessCategoryManagement = () => {
         ...params
       });
 
-      if (response.data.code === 200) {
-        const { items, total, current_page } = response.data.data;
+      if (isSuccessResp(response)) {
+        const { process_categories, items, total, current_page } = response.data.data;
+        const list = process_categories || items || [];
         
         // 为每行数据添加key
-        const dataWithKeys = items.map((item, index) => ({
+        const dataWithKeys = list.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -192,7 +198,7 @@ const ProcessCategoryManagement = () => {
         // 调用API保存
         const response = await processCategoryApi.updateProcessCategory(item.id, row);
         
-        if (response.data.code === 200) {
+        if (isSuccessResp(response)) {
           newData.splice(index, 1, { ...updatedItem, ...response.data.data });
           setData(newData);
           setEditingKey('');
@@ -252,7 +258,7 @@ const ProcessCategoryManagement = () => {
         console.log('更新记录:', editingRecord.id);
         const response = await processCategoryApi.updateProcessCategory(editingRecord.id, values);
         console.log('更新响应:', response);
-        if (response && response.data && response.data.code === 200) {
+        if (isSuccessResp(response)) {
           message.success('更新成功');
           loadData();
           handleModalCancel();
@@ -264,7 +270,7 @@ const ProcessCategoryManagement = () => {
         console.log('创建新记录');
         const response = await processCategoryApi.createProcessCategory(values);
         console.log('创建响应:', response);
-        if (response && response.data && response.data.code === 200) {
+        if (isSuccessResp(response)) {
           message.success('创建成功');
           loadData();
           handleModalCancel();

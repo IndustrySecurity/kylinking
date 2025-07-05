@@ -1093,15 +1093,6 @@ const BagTypeManagement = () => {
               </Col>
               <Col span={6}>
                 <Form.Item
-                  label="停用"
-                  name="is_disabled"
-                  valuePropName="checked"
-                >
-                  <Switch />
-                </Form.Item>
-              </Col>
-              <Col span={6}>
-                <Form.Item
                   label="自定规格"
                   name="is_custom_spec"
                   valuePropName="checked"

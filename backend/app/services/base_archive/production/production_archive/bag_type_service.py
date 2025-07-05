@@ -160,7 +160,6 @@ class BagTypeService(TenantAwareService):
                 bag_making_unit_price=data.get('bag_making_unit_price', 0),
                 sort_order=data.get('sort_order', 0),
                 is_roll_film=data.get('is_roll_film', False),
-                is_disabled=data.get('is_disabled', False),
                 is_custom_spec=data.get('is_custom_spec', False),
                 is_strict_bag_type=data.get('is_strict_bag_type', True),
                 is_process_judgment=data.get('is_process_judgment', False),

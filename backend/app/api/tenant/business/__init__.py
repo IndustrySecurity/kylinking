@@ -59,16 +59,10 @@ except ImportError as e:
 
 # 导入销售模块的所有蓝图
 try:
-    from .sales import (
-        sales_order_bp,
-        delivery_notice_bp
-    )
+    from .sales import sales_bp
     
-    # 注册销售相关蓝图 - 修复路径匹配问题
-    # 前端请求: /tenant/business/sales/sales-orders
-    # 后端注册: /tenant/business + /sales + /sales-orders
-    business_bp.register_blueprint(sales_order_bp, url_prefix='/sales')
-    business_bp.register_blueprint(delivery_notice_bp, url_prefix='/sales')
+    # 注册销售相关蓝图
+    business_bp.register_blueprint(sales_bp, url_prefix='/sales')
     
     print("✅ Sales API registered successfully")
     

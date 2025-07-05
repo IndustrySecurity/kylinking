@@ -5,12 +5,15 @@ Customer 服务
 
 from app.services.base_service import TenantAwareService
 from app.models.basic_data import CustomerManagement
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, inspect
+from sqlalchemy.sql import true
 from sqlalchemy.exc import IntegrityError
 import uuid
 from datetime import datetime
 import re
 import logging
+from decimal import Decimal
+from typing import Optional
 
 class CustomerService(TenantAwareService):
     """客户档案服务"""
@@ -175,21 +178,51 @@ class CustomerService(TenantAwareService):
             if not data.get('customer_code'):
                 data['customer_code'] = self.generate_code('customer')
             
-            # 准备客户数据
-            customer_data = {
-                'customer_code': data['customer_code'],
-                'customer_name': data['customer_name'],
-                'customer_category_id': uuid.UUID(data['customer_category_id']) if data.get('customer_category_id') else None,
-                
-                # 基本信息
-                'company_legal_person': data.get('company_legal_person'),
-                'organization_code': data.get('organization_code'),
-                
-                # 业务信息
-                'credit_amount': data.get('credit_amount', 0),
-                'currency_id': uuid.UUID(data['currency_id']) if data.get('currency_id') else None,
-                'salesperson_id': uuid.UUID(data['salesperson_id']) if data.get('salesperson_id') else None,
-            }
+            from app.models.basic_data import Currency, PackageMethod, CustomerManagement
+
+            # -------- UUID 字段统一处理 -------- #
+            uuid_fields = [
+                'customer_category_id', 'tax_rate_id', 'parent_customer_id',
+                'package_method_id', 'payment_method_id', 'currency_id',
+                'salesperson_id'
+            ]
+
+            for field in uuid_fields:
+                if field in data:
+                    if data[field]:
+                        try:
+                            data[field] = uuid.UUID(data[field])
+                        except (ValueError, TypeError):
+                            data[field] = None
+                    else:
+                        data[field] = None
+
+            # -------- 数值字段处理 -------- #
+            numeric_fields = ['credit_amount', 'registered_capital', 'sales_commission']
+            for nf in numeric_fields:
+                if nf in data and data[nf] == '':
+                    data[nf] = None
+
+            # 校验/回退币别
+            if data.get('currency_id'):
+                exists = self.session.query(Currency.id).filter(Currency.id == data['currency_id']).first()
+                if not exists:
+                    base_curr = self.session.query(Currency).filter(Currency.is_base_currency == true()).first() # type: ignore
+                    data['currency_id'] = base_curr.id if base_curr else None
+
+            # 校验包装方式
+            if data.get('package_method_id'):
+                exists = self.session.query(PackageMethod.id).filter(PackageMethod.id == data['package_method_id']).first()
+                if not exists:
+                    data['package_method_id'] = None
+
+            # -------- 过滤模型字段并准备数据 -------- #
+            customer_data = {}
+            for key, value in data.items():
+                if hasattr(CustomerManagement, key):
+                    customer_data[key] = value
+            customer_data['customer_code'] = data['customer_code']
+            customer_data['customer_name'] = data['customer_name']
             
             # 使用继承的create_with_tenant方法
             customer = self.create_with_tenant(CustomerManagement, **customer_data)
@@ -213,39 +246,51 @@ class CustomerService(TenantAwareService):
             if not customer:
                 raise ValueError("客户不存在")
             
-            # 更新字段 - 使用CustomerManagement模型的字段
-            update_fields = [
-                'customer_name', 'company_legal_person', 'organization_code',
-                'customer_abbreviation', 'customer_level', 'business_type',
-                'enterprise_type', 'company_address'
+            # -------- 字段安全转换 -------- #
+            uuid_fields = [
+                'customer_category_id', 'tax_rate_id', 'parent_customer_id',
+                'package_method_id', 'payment_method_id', 'currency_id',
+                'salesperson_id'
             ]
-            
-            for field in update_fields:
+            for field in uuid_fields:
                 if field in data:
-                    setattr(customer, field, data[field])
+                    if data[field]:
+                        try:
+                            # 确保输入是字符串再转UUID
+                            data[field] = uuid.UUID(str(data[field]))
+                        except (ValueError, TypeError):
+                            data[field] = None
+                    else:
+                        data[field] = None
+
+            numeric_fields = ['credit_amount', 'registered_capital', 'sales_commission', 'sort_order']
+            for nf in numeric_fields:
+                if nf in data and data[nf] in [None, '']:
+                    data[nf] = None # 空值处理
+                elif nf in data and data[nf] is not None:
+                    try:
+                        # 统一转为Decimal进行处理，以匹配NUMERIC/DECIMAL类型
+                        if not isinstance(data[nf], Decimal):
+                             data[nf] = Decimal(str(data[nf]))
+                    except (ValueError, TypeError):
+                        data[nf] = None # 转换失败则置空
+
+            # -------- 过滤模型字段并赋值 -------- #
+            model_columns = {c.name for c in inspect(CustomerManagement).c} # type: ignore
             
-            # 处理外键字段
-            if 'customer_category_id' in data:
-                customer.customer_category_id = uuid.UUID(data['customer_category_id']) if data['customer_category_id'] else None
-            
-            if 'salesperson_id' in data:
-                customer.salesperson_id = uuid.UUID(data['salesperson_id']) if data['salesperson_id'] else None
-            
-            if 'currency_id' in data:
-                customer.currency_id = uuid.UUID(data['currency_id']) if data['currency_id'] else None
-            
-            # 数值字段
-            if 'credit_amount' in data:
-                customer.credit_amount = data['credit_amount']
-            
+            for key, value in data.items():
+                if key in model_columns and key not in ['id', 'created_at', 'created_by', 'tenant_id']:
+                    setattr(customer, key, value)
+
             # 审计字段
             customer.updated_by = uuid.UUID(updated_by)
-            
+            customer.updated_at = datetime.utcnow()
             self.commit()
             return customer.to_dict()
             
         except Exception as e:
             self.rollback()
+            self.logger.error(f"更新客户失败: {e}", exc_info=True)
             raise ValueError(f"更新客户失败: {str(e)}")
     
     def delete_customer(self, customer_id):
@@ -333,7 +378,7 @@ class CustomerService(TenantAwareService):
         try:
             from app.models.basic_data import (
                 CustomerCategoryManagement, TaxRate, 
-                PaymentMethod, Currency, Employee
+                PaymentMethod, Currency, Employee, PackageMethod
             )
             
             # 获取客户分类
@@ -366,6 +411,11 @@ class CustomerService(TenantAwareService):
                 CustomerManagement.is_enabled == True
             ).order_by(CustomerManagement.customer_name).all()
             
+            # 获取包装方式
+            package_methods = self.session.query(PackageMethod).filter(
+                PackageMethod.is_enabled == True
+            ).order_by(PackageMethod.package_name).all()
+            
             return {
                 'customer_categories': [
                     {'value': str(cat.id), 'label': cat.category_name}
@@ -383,10 +433,19 @@ class CustomerService(TenantAwareService):
                     {'value': str(pm.id), 'label': pm.payment_name}
                     for pm in payment_methods
                 ],
+                'package_methods': [
+                    {'value': str(pkg.id), 'label': pkg.package_name}
+                    for pkg in package_methods
+                ],
                 'currencies': [
-                    {'value': str(curr.id), 'label': f'{curr.currency_name} ({curr.currency_code})'}
+                    {
+                        'value': str(curr.id),
+                        'label': f'{curr.currency_name} ({curr.currency_code})',
+                        'is_base': curr.is_base_currency
+                    }
                     for curr in currencies
                 ],
+                'base_currency_id': str(next((c.id for c in currencies if c.is_base_currency), currencies[0].id)) if currencies else None,
                 'employees': [
                     {'value': str(emp.id), 'label': emp.employee_name}
                     for emp in employees
@@ -402,18 +461,9 @@ class CustomerService(TenantAwareService):
                     {'value': 'other', 'label': '其他'}
                 ],
                 'enterprise_types': [
-                    {'value': 'state_owned', 'label': '国有企业'},
-                    {'value': 'private', 'label': '民营企业'},
-                    {'value': 'foreign', 'label': '外资企业'},
-                    {'value': 'joint_venture', 'label': '合资企业'},
-                    {'value': 'individual', 'label': '个体工商户'}
+                    {'value': code, 'label': name}
+                    for code, name in CustomerManagement.ENTERPRISE_TYPES
                 ],
-                'package_methods': [
-                    {'value': 'box', 'label': '纸箱包装'},
-                    {'value': 'bag', 'label': '袋装'},
-                    {'value': 'bulk', 'label': '散装'},
-                    {'value': 'custom', 'label': '定制包装'}
-                ]
             }
             
         except Exception as e:
@@ -627,8 +677,12 @@ class CustomerService(TenantAwareService):
     def update_customer_with_subtables(self, customer_id, data, updated_by):
         """更新客户及其子表数据"""
         try:
+            # 拆分主表与子表数据，避免将列表/字典直接赋给关系属性
+            subtable_keys = ['contacts', 'delivery_addresses', 'invoice_units', 'payment_units', 'affiliated_companies']
+            main_data = {k: v for k, v in data.items() if k not in subtable_keys}
+
             # 更新主表
-            customer = self.update_customer(customer_id, data, updated_by)
+            customer = self.update_customer(customer_id, main_data, updated_by)
             
             # 更新子表数据
             if 'contacts' in data:
@@ -686,7 +740,7 @@ class CustomerService(TenantAwareService):
             raise ValueError(f"创建客户及子表失败: {str(e)}")
 
 
-def get_customer_service(tenant_id: str = None, schema_name: str = None) -> CustomerService:
+def get_customer_service(tenant_id: Optional[str] = None, schema_name: Optional[str] = None) -> CustomerService:
     """获取客户服务实例"""
     return CustomerService(tenant_id=tenant_id, schema_name=schema_name)
 

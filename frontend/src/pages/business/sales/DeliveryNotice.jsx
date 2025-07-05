@@ -29,7 +29,8 @@ import {
   ReloadOutlined,
   CheckOutlined,
   SendOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
@@ -95,9 +96,6 @@ const DeliveryNotice = () => {
         salesOrderService.getProductOptions(),
         salesOrderService.getSalesOrders({ page: 1, per_page: 100 })
       ]);
-      console.log("customerRes",customerRes)
-      console.log("productRes",productRes)
-      console.log("salesOrderRes",salesOrderRes)
       if (customerRes.data.success) setCustomerOptions(customerRes.data.data);
       if (productRes.data.success) setProductOptions(productRes.data.data);
       if (salesOrderRes.data.success) {
@@ -189,35 +187,20 @@ const DeliveryNotice = () => {
 
   const handleStatusChange = async (record, action) => {
     try {
-      let endpoint;
-      switch (action) {
-        case 'confirm':
-          endpoint = `${deliveryNoticeService.baseURL}/delivery-notices/${record.id}/confirm`;
-          break;
-        case 'ship':
-          endpoint = `${deliveryNoticeService.baseURL}/delivery-notices/${record.id}/ship`;
-          break;
-        case 'complete':
-          endpoint = `${deliveryNoticeService.baseURL}/delivery-notices/${record.id}/complete`;
-          break;
-        default:
-          return;
-      }
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        message.success('状态更新成功');
-        fetchData();
+      if (action === 'confirm') {
+        await deliveryNoticeService.confirmDelivery(record.id);
+      } else if (action === 'ship') {
+        // 调用发货接口
+        await deliveryNoticeService.shipDelivery?.(record.id);
+      } else if (action === 'complete') {
+        // 调用完成接口
+        await deliveryNoticeService.completeDelivery?.(record.id);
       } else {
-        message.error('状态更新失败');
+        return;
       }
+
+      message.success('状态更新成功');
+      fetchData();
     } catch (error) {
       message.error('状态更新失败');
     }
@@ -304,6 +287,12 @@ const DeliveryNotice = () => {
       width: 200,
     },
     {
+      title: '销售订单号',
+      dataIndex: ['sales_order', 'order_number'],
+      key: 'order_number',
+      width: 150,
+    },
+    {
       title: '送货地址',
       dataIndex: 'delivery_address',
       key: 'delivery_address',
@@ -348,13 +337,15 @@ const DeliveryNotice = () => {
           >
             查看
           </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            编辑
-          </Button>
+          {record.status === 'draft' && (
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            >
+              编辑
+            </Button>
+          )}
           {record.status === 'draft' && (
             <Button
               type="link"
@@ -363,6 +354,22 @@ const DeliveryNotice = () => {
             >
               确认
             </Button>
+          )}
+          {record.status === 'draft' && (
+            <Popconfirm
+              title="确定要删除这条记录吗？"
+              onConfirm={() => handleDelete(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button
+                type="link"
+                danger
+                icon={<DeleteOutlined />}
+              >
+                删除
+              </Button>
+            </Popconfirm>
           )}
           {record.status === 'confirmed' && (
             <Button
@@ -382,20 +389,13 @@ const DeliveryNotice = () => {
               完成
             </Button>
           )}
-          <Popconfirm
-            title="确定要删除这条记录吗？"
-            onConfirm={() => handleDelete(record)}
-            okText="确定"
-            cancelText="取消"
+          <Button
+            type="link"
+            icon={<PrinterOutlined />}
+            onClick={() => handlePrint(record)}
           >
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-            >
-              删除
-            </Button>
-          </Popconfirm>
+            打印
+          </Button>
         </Space>
       ),
     },
@@ -638,6 +638,47 @@ const DeliveryNotice = () => {
       }
     } catch (e) {
       console.error('获取销售订单明细失败', e);
+    }
+  };
+
+  const handlePrint = async (record) => {
+    try {
+      const res = await deliveryNoticeService.getDeliveryNoticeById(record.id);
+      if (!res.data.success) {
+        message.error('获取打印数据失败');
+        return;
+      }
+      const notice = res.data.data;
+      // 构建打印HTML
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>送货通知单打印</title>
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;padding:20px}
+        h2{text-align:center;margin-bottom:24px}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th,td{border:1px solid #000;padding:4px;text-align:left;font-size:12px}
+        th{background:#f5f5f5}
+      </style></head><body onload="window.print();setTimeout(()=>window.close(),100);">
+      <h2>送货通知单</h2>
+      <div>通知单号：${notice.notice_number || ''}</div>
+      <div>客户名称：${notice.customer?.customer_name || ''}</div>
+      <div>销售订单号：${notice.sales_order?.order_number || ''}</div>
+      <div>送货日期：${notice.delivery_date ? dayjs(notice.delivery_date).format('YYYY-MM-DD') : ''}</div>
+      <table><thead><tr><th>产品编号</th><th>产品名称</th><th>规格</th><th>通知数量</th><th>单位</th></tr></thead><tbody>
+      ${notice.details.map(d=>{
+        const pname = d.product_name || (d.product?.product_name ?? '');
+        const pcode = d.product_code || (d.product?.product_code ?? '');
+        return `<tr><td>${pcode}</td><td>${pname}</td><td>${d.specification||''}</td><td>${d.notice_quantity||0}</td><td>${d.unit||''}</td></tr>`;
+      }).join('')}
+      </tbody></table>
+      </body></html>`;
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+      }
+    } catch (e) {
+      message.error('打印失败');
     }
   };
 

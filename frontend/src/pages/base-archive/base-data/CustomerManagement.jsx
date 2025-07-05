@@ -438,7 +438,7 @@ const CustomerManagement = () => {
 
       if (response?.data?.success) {
         message.success(modalType === 'create' ? '创建成功' : '更新成功')
-        setModalVisible(false)
+        closeModal()
         loadCustomers()
       } else {
         message.error(response?.data?.error || `${modalType === 'create' ? '创建' : '更新'}失败`)
@@ -549,6 +549,7 @@ const CustomerManagement = () => {
       dataIndex: 'enterprise_type',
       key: 'enterprise_type',
       width: 100,
+      render: (text, record) => record.enterprise_type_name,
     },
     {
       title: '区域',
@@ -828,6 +829,14 @@ const CustomerManagement = () => {
     )
   }
 
+  // 统一关闭模态框
+  const closeModal = () => {
+    setModalVisible(false)
+    form.resetFields()
+    resetSubTableData()
+    setCurrentRecord(null)
+  }
+
   return (
     <div style={{ padding: '20px' }}>
       <Card>
@@ -906,13 +915,13 @@ const CustomerManagement = () => {
       <Modal
         title={modalType === 'create' ? '新建客户' : modalType === 'edit' ? '编辑客户' : '查看客户'}
         open={modalVisible}
-        onCancel={() => setModalVisible(false)}
+        onCancel={closeModal}
         footer={modalType === 'detail' ? [
-          <Button key="close" onClick={() => setModalVisible(false)}>
+          <Button key="close" onClick={closeModal}>
             关闭
           </Button>
         ] : [
-          <Button key="cancel" onClick={() => setModalVisible(false)}>
+          <Button key="cancel" onClick={closeModal}>
             取消
           </Button>,
           <Button key="submit" type="primary" loading={loading} onClick={handleSave}>
@@ -1316,7 +1325,7 @@ const CustomerManagement = () => {
                   </Form.Item>
                 </Col>
                 <Col span={8}>
-                  <Form.Item label="账期(天)" name="accounts_period">
+                  <Form.Item label="账款期限" name="accounts_period">
                     <InputNumber
                       style={{ width: '100%' }}
                       disabled={modalType === 'detail'}

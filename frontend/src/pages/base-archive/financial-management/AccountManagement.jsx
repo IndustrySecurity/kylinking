@@ -359,7 +359,7 @@ const AccountManagement = () => {
       title: '开户银行',
       dataIndex: 'bank_name',
       key: 'bank_name',
-      width: 180,
+      width: 240,
       editable: true,
       ellipsis: {
         showTitle: false,
@@ -374,7 +374,7 @@ const AccountManagement = () => {
       title: '银行账户',
       dataIndex: 'bank_account',
       key: 'bank_account',
-      width: 180,
+      width: 240,
       editable: true,
     },
     {
@@ -391,6 +391,7 @@ const AccountManagement = () => {
       title: '开户地址',
       dataIndex: 'opening_address',
       key: 'opening_address',
+      width: 220,
       editable: true,
       inputType: 'textarea',
       ellipsis: {
@@ -406,6 +407,7 @@ const AccountManagement = () => {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
+      width: 220,
       editable: true,
       inputType: 'textarea',
       ellipsis: {
@@ -617,7 +619,7 @@ const AccountManagement = () => {
                 `第 ${range[0]}-${range[1]} 条/共 ${total} 条`,
             }}
             onChange={handleTableChange}
-            scroll={{ x: 1800 }}
+            scroll={{ x: 2200 }}
             size="small"
           />
         </Form>

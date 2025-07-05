@@ -15,7 +15,8 @@ import {
   Typography,
   Tooltip,
   Badge,
-  Collapse
+  Collapse,
+  message
 } from 'antd';
 import { 
   SearchOutlined,
@@ -197,11 +198,11 @@ const InventoryOverview = () => {
         setWarehouses(warehouses);
         
       } else {
-        console.warn('仓库API返回失败:', response.data);
+        message.warning('仓库数据加载失败');
         setWarehouses([]);
       }
     } catch (error) {
-      console.error('获取仓库数据失败:', error);
+      message.error('获取仓库数据失败');
       setWarehouses([]);
     }
   };
@@ -225,7 +226,7 @@ const InventoryOverview = () => {
         setProducts(products);
       }
     } catch (error) {
-      console.error('获取产品数据失败:', error);
+      message.error('获取产品数据失败');
       setProducts([]);
     }
   };
@@ -248,7 +249,7 @@ const InventoryOverview = () => {
         setMaterials(materials);
       }
     } catch (error) {
-      console.error('获取材料数据失败:', error);
+      message.error('获取材料数据失败');
       setMaterials([]);
     }
   };
@@ -304,7 +305,7 @@ const InventoryOverview = () => {
         });
       }
     } catch (error) {
-      console.error('获取库存数据失败:', error);
+      message.error('获取库存数据失败');
       setData([]);
       setStatistics({
         totalItems: 0,

@@ -87,6 +87,13 @@ const ProcessManagement = () => {
           console.log('可用字段:', Object.keys(processes[0]));
         }
         
+        // 按 sort_order 升序排序，保证排序字段生效
+        processes.sort((a, b) => {
+          const aOrder = a.sort_order === null || a.sort_order === undefined ? 0 : Number(a.sort_order);
+          const bOrder = b.sort_order === null || b.sort_order === undefined ? 0 : Number(b.sort_order);
+          return aOrder - bOrder;
+        });
+        
         setData(processes.map(item => ({ ...item, key: item.id })));
         setPagination(prev => ({
           ...prev,
@@ -104,45 +111,105 @@ const ProcessManagement = () => {
   };
 
   // 获取工序分类选项
-  const loadCategoryOptions = () => {
-    // 直接设置空数组，不调用API
-    setProcessCategoryOptions([]);
+  const loadCategoryOptions = async () => {
+    try {
+      const res = await processCategoryApi.getProcessCategoryOptions();
+      if (res.data && res.data.success) {
+        const list = Array.isArray(res.data.data) ? res.data.data : (res.data.data.items || []);
+        const opts = list.map(item => ({ value: item.value || item.id, label: item.label || item.process_name || item.category_name }));
+        setProcessCategoryOptions(opts);
+      } else {
+        setProcessCategoryOptions([]);
+      }
+    } catch (e) {
+      console.warn('加载工序分类失败:', e);
+      setProcessCategoryOptions([]);
+    }
   };
 
   // 获取机台选项
-  const loadMachineOptions = () => {
-    // 直接设置空数组，不调用API
-    setMachineOptions([]);
+  const loadMachineOptions = async () => {
+    try {
+      const res = await machineApi.getEnabledMachines();
+      if (res.data && res.data.success) {
+        const list = Array.isArray(res.data.data) ? res.data.data : (res.data.data.items || []);
+        const opts = list.map(m => ({ value: m.id, label: m.machine_name || m.name || m.label }));
+        setMachineOptions(opts);
+      } else {
+        setMachineOptions([]);
+      }
+    } catch (e) {
+      console.warn('加载机台失败:', e);
+      setMachineOptions([]);
+    }
   };
 
   // 获取单位选项
-  const loadUnitOptions = () => {
-    // 直接设置空数组，不调用API
-    setUnitOptions([]);
+  const loadUnitOptions = async () => {
+    try {
+      const response = await unitApi.getEnabledUnits();
+      if (response.data && response.data.success && response.data.data) {
+        const result = response.data.data;
+        // 后端返回格式可能为 { units: [...] } 或直接数组，做兼容处理
+        const unitsList = Array.isArray(result)
+          ? result
+          : (result.units || result.items || []);
+
+        const options = unitsList.map(unit => ({
+          value: unit.id,
+          label: unit.unit_name || unit.name || unit.label || '-',
+        }));
+        setUnitOptions(options);
+      } else {
+        setUnitOptions([]);
+      }
+    } catch (error) {
+      console.warn('加载单位选项失败:', error);
+      setUnitOptions([]);
+    }
   };
 
   // 获取排程方式选项
   const loadSchedulingMethodOptions = () => {
-    // 直接设置默认的排程方式选项
+    // 直接使用本地常量，避免404接口请求
     setSchedulingMethodOptions([
-      { value: 'manual', label: '手动排程' },
-      { value: 'auto', label: '自动排程' },
-      { value: 'priority', label: '优先级排程' },
-      { value: 'capacity', label: '产能排程' }
+      { value: 'investment_m', label: '投产m' },
+      { value: 'investment_kg', label: '投产kg' },
+      { value: 'production_piece', label: '投产(个)' },
+      { value: 'production_output', label: '产出m' },
+      { value: 'production_kg', label: '产出kg' },
+      { value: 'production_piece_out', label: '产出(个)' },
+      { value: 'production_set', label: '产出(套)' },
+      { value: 'production_sheet', label: '产出(张)' }
     ]);
   };
 
   // 获取计算公式选项
-  const loadFormulaOptions = () => {
-    // 直接设置默认选项，不调用API
-    setFormulaOptions({
-      process_quote: [{ value: '', label: '请选择' }],
-      process_loss: [{ value: '', label: '请选择' }],
-      process_bonus: [{ value: '', label: '请选择' }],
-      process_piece: [{ value: '', label: '请选择' }],
-      process_other: [{ value: '', label: '请选择' }]
-    });
-    setFormulaLoading(false);
+  const loadFormulaOptions = async () => {
+    setFormulaLoading(true);
+    try {
+      const res = await processApi.getCalculationSchemeOptions();
+      if (res.data && res.data.success) {
+        const list = Array.isArray(res.data.data) ? res.data.data : (res.data.data.items || []);
+        const grouped = {
+          process_quote: [],
+          process_loss: [],
+          process_bonus: [],
+          process_piece: [],
+          process_other: []
+        };
+        list.forEach(item => {
+          const option = { value: item.value || item.id, label: item.label || item.scheme_name };
+          const cat = item.category || item.scheme_category;
+          if (grouped[cat]) grouped[cat].push(option);
+        });
+        setFormulaOptions(grouped);
+      }
+    } catch (e) {
+      console.warn('加载计算方案失败', e);
+    } finally {
+      setFormulaLoading(false);
+    }
   };
 
   // 处理表格变更（分页、排序等）
@@ -250,6 +317,7 @@ const ProcessManagement = () => {
       dataIndex: 'process_category_name',
       key: 'process_category_name',
       width: 120,
+      render: (text, record) => record.process_category_name,
     },
     {
       title: '排程方式',
@@ -267,7 +335,16 @@ const ProcessManagement = () => {
         
         // 根据值查找对应的标签
         const option = schedulingMethodOptions.find(opt => opt.value === value);
-        return option ? option.label : (value || '-');
+        if (option) return option.label;
+
+        // 兼容旧代码/别名
+        const aliasMap = {
+          production_m: '产出m',
+          investment_m: '投产m',
+          production_piece: '产出(个)',
+          production_piece_out: '产出(个)',
+        };
+        return aliasMap[value] || value || '-';
       },
     },
     {
@@ -428,6 +505,7 @@ const ProcessManagement = () => {
                   <Form.Item
                     name="process_category_id"
                     label="工序分类"
+                    rules={[{ required: true, message: '请选择工序分类' }]}
                   >
                     <Select placeholder="请选择工序分类" allowClear>
                       {processCategoryOptions.map(option => (
@@ -667,157 +745,85 @@ const ProcessManagement = () => {
               </Row>
             </TabPane>
 
-            <TabPane tab="计算公式" key="formulas">
+            <TabPane tab="计算公式" key="formula">
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="pricing_formula" label="报价公式">
-                    <Select 
-                      placeholder="请选择报价公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_quote.map(option => (
-                        <Option key={`pricing_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="pricing_formula_id" label="报价损耗公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_loss.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="worker_formula" label="工单公式">
-                    <Select 
-                      placeholder="请选择工单公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_other.map(option => (
-                        <Option key={`worker_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="worker_formula_id" label="工单损耗%公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_loss.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="material_formula" label="材料公式">
-                    <Select 
-                      placeholder="请选择材料公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_other.map(option => (
-                        <Option key={`material_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="material_formula_id" label="工单损耗m公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_loss.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="output_formula" label="产量上报公式">
-                    <Select 
-                      placeholder="请选择产量上报公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_other.map(option => (
-                        <Option key={`output_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="output_formula_id" label="产量上报损耗%">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_loss.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="time_formula" label="计件工时公式">
-                    <Select 
-                      placeholder="请选择计件工时公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_piece.map(option => (
-                        <Option key={`time_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="time_formula_id" label="计件工时公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_piece.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="energy_formula" label="计件产能公式">
-                    <Select 
-                      placeholder="请选择计件产能公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_piece.map(option => (
-                        <Option key={`energy_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="energy_formula_id" label="计件产能公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_piece.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="saving_formula" label="节约奖公式">
-                    <Select 
-                      placeholder="请选择节约奖公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_bonus.map(option => (
-                        <Option key={`saving_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="saving_formula_id" label="节约奖公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_bonus.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="labor_cost_formula" label="计件工资公式">
-                    <Select 
-                      placeholder="请选择计件工资公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_piece.map(option => (
-                        <Option key={`labor_cost_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="labor_cost_formula_id" label="计件工资公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_piece.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="pricing_order_formula" label="报价工序公式">
-                    <Select 
-                      placeholder="请选择报价工序公式"
-                      loading={formulaLoading}
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                    >
-                      {formulaOptions.process_quote.map(option => (
-                        <Option key={`pricing_order_formula_${option.value}`} value={option.value}>
-                          {option.label}
-                        </Option>
+                  <Form.Item name="pricing_order_formula_id" label="报价工序公式">
+                    <Select placeholder="选择公式" loading={formulaLoading} allowClear>
+                      {formulaOptions.process_quote.map(opt => (
+                        <Option key={opt.value} value={opt.value}>{opt.label}</Option>
                       ))}
                     </Select>
                   </Form.Item>

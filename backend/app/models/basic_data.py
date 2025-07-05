@@ -2261,12 +2261,10 @@ class ProcessCategory(TenantModel):
 
     # 定义选择项常量
     CATEGORY_TYPES = [
-        ('', '空'),
         ('laminating', '淋膜')
     ]
     
     DATA_COLLECTION_MODES = [
-        ('', '空'),
         ('auto_weighing_scanning', '自动称重扫码模式'),
         ('auto_meter_scanning', '自动取米扫码模式'),
         ('auto_scanning', '自动扫码模式'),
@@ -2470,7 +2468,6 @@ class BagType(TenantModel):
     
     # 布尔字段
     is_roll_film = db.Column(db.Boolean, default=False, comment='卷膜')
-    is_disabled = db.Column(db.Boolean, default=False, comment='停用')
     is_custom_spec = db.Column(db.Boolean, default=False, comment='自定规格')
     is_strict_bag_type = db.Column(db.Boolean, default=True, comment='严格袋型')
     is_process_judgment = db.Column(db.Boolean, default=False, comment='工序判断')
@@ -2516,7 +2513,6 @@ class BagType(TenantModel):
             'bag_making_unit_price': float(self.bag_making_unit_price) if self.bag_making_unit_price else 0,
             'sort_order': self.sort_order,
             'is_roll_film': self.is_roll_film,
-            'is_disabled': self.is_disabled,
             'is_custom_spec': self.is_custom_spec,
             'is_strict_bag_type': self.is_strict_bag_type,
             'is_process_judgment': self.is_process_judgment,
@@ -2795,7 +2791,7 @@ class Process(TenantModel):
     process_category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('process_categories.id'), comment='工序分类')
     scheduling_method = db.Column(db.String(50), comment='排程方式')
     mes_condition_code = db.Column(db.String(100), comment='MES条码前缀')
-    unit = db.Column(db.String(50), comment='单位')
+    unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='单位')
     
     # 报产配置
     production_allowance = db.Column(db.Float, comment='报产允许差')
@@ -2830,16 +2826,16 @@ class Process(TenantModel):
     semi_product_usage = db.Column(db.Boolean, default=False, comment='本工序半成品领用')
     material_usage_required = db.Column(db.Boolean, default=False, comment='辅材用量必填')
     
-    # 报价相关公式
-    pricing_formula = db.Column(db.String(200), comment='报价拟合公式')
-    worker_formula = db.Column(db.String(200), comment='工单拟合公式')
-    material_formula = db.Column(db.String(200), comment='工单材料公式')
-    output_formula = db.Column(db.String(200), comment='产量上报拟合')
-    time_formula = db.Column(db.String(200), comment='计件工时公式')
-    energy_formula = db.Column(db.String(200), comment='计件产能公式')
-    saving_formula = db.Column(db.String(200), comment='节约公式')
-    labor_cost_formula = db.Column(db.String(200), comment='计件工资公式')
-    pricing_order_formula = db.Column(db.String(200), comment='报价工序公式')
+    # 报价相关公式（外键）
+    pricing_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='报价拟合公式')
+    worker_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='工单拟合公式')
+    material_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='工单材料公式')
+    output_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='产量上报拟合')
+    time_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='计件工时公式')
+    energy_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='计件产能公式')
+    saving_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='节约公式')
+    labor_cost_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='计件工资公式')
+    pricing_order_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='报价工序公式')
     
     # 通用字段
     description = db.Column(db.Text, comment='描述')
@@ -2850,14 +2846,16 @@ class Process(TenantModel):
     updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
     
     # 关联工序分类
-    process_category = db.relationship('ProcessCategory', foreign_keys=[process_category_id])
+    process_category = db.relationship('ProcessCategory', foreign_keys=[process_category_id], lazy='joined')
     
     # 关联机台
     machines = db.relationship('ProcessMachine', back_populates='process', cascade='all, delete-orphan')
+
+    # 关联单位
+    unit = db.relationship('Unit',  foreign_keys=[unit_id], lazy='joined')
     
     # 选项常量
     SCHEDULING_METHODS = [
-        ('', '无'),
         ('investment_m', '投产m'),
         ('investment_kg', '投产kg'),
         ('production_piece', '投产(个)'),
@@ -2877,8 +2875,8 @@ class Process(TenantModel):
             'process_category_name': self.process_category.process_name if self.process_category else None,
             'scheduling_method': self.scheduling_method,
             'mes_condition_code': self.mes_condition_code,
-            'unit': self.unit,
-            'unit_id': self.unit,  # 为了兼容前端期望的字段名
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'production_allowance': float(self.production_allowance) if self.production_allowance is not None else None,
             'return_allowance_kg': float(self.return_allowance_kg) if self.return_allowance_kg is not None else None,
             'sort_order': self.sort_order,
@@ -2904,15 +2902,15 @@ class Process(TenantModel):
             'process_with_machine': self.process_with_machine,
             'semi_product_usage': self.semi_product_usage,
             'material_usage_required': self.material_usage_required,
-            'pricing_formula': self.pricing_formula,
-            'worker_formula': self.worker_formula,
-            'material_formula': self.material_formula,
-            'output_formula': self.output_formula,
-            'time_formula': self.time_formula,
-            'energy_formula': self.energy_formula,
-            'saving_formula': self.saving_formula,
-            'labor_cost_formula': self.labor_cost_formula,
-            'pricing_order_formula': self.pricing_order_formula,
+            'pricing_formula_id': str(self.pricing_formula_id) if self.pricing_formula_id else None,
+            'worker_formula_id': str(self.worker_formula_id) if self.worker_formula_id else None,
+            'material_formula_id': str(self.material_formula_id) if self.material_formula_id else None,
+            'output_formula_id': str(self.output_formula_id) if self.output_formula_id else None,
+            'time_formula_id': str(self.time_formula_id) if self.time_formula_id else None,
+            'energy_formula_id': str(self.energy_formula_id) if self.energy_formula_id else None,
+            'saving_formula_id': str(self.saving_formula_id) if self.saving_formula_id else None,
+            'labor_cost_formula_id': str(self.labor_cost_formula_id) if self.labor_cost_formula_id else None,
+            'pricing_order_formula_id': str(self.pricing_order_formula_id) if self.pricing_order_formula_id else None,
             'description': self.description,
             'is_enabled': self.is_enabled,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -3211,7 +3209,7 @@ class CustomerManagement(TenantModel):
     customer_level = db.Column(db.String(10), comment='客户等级')  # 选择: 空/A/B
     parent_customer_id = db.Column(UUID(as_uuid=True), comment='上级客户ID')  # 选择
     region = db.Column(db.String(100), comment='区域')  # 选择省份
-    package_method_id = db.Column(UUID(as_uuid=True), comment='送货方式ID')  # 选择
+    package_method_id = db.Column(UUID(as_uuid=True), db.ForeignKey('package_methods.id'), comment='包装方式ID')  # 选择
     barcode_prefix = db.Column(db.String(50), comment='条码前缀')  # 手工输入
     business_type = db.Column(db.String(50), comment='经营业务类')  # 选择: 空/供应商/经销/代理/贸易/备案/物流配送
     enterprise_type = db.Column(db.String(50), comment='企业类型')  # 选择: 空/个人/个体工商户/有限责任公司
@@ -3238,7 +3236,7 @@ class CustomerManagement(TenantModel):
     
     # 选择字段
     payment_method_id = db.Column(UUID(as_uuid=True), comment='付款方式ID')  # 选择
-    currency_id = db.Column(UUID(as_uuid=True), comment='币别ID')  # 选择
+    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), comment='币别ID')  # 选择
     
     # 数字字段
     settlement_color_difference = db.Column(db.Numeric(10, 4), comment='定金比例%')  # 手工输入
@@ -3330,9 +3328,11 @@ class CustomerManagement(TenantModel):
     ]
     
     ENTERPRISE_TYPES = [
-        ('individual', '个人'),
-        ('individual_business', '个体工商户'),
-        ('limited_company', '有限责任公司')
+        ('state_owned', '国有企业'),
+        ('private', '民营企业'),
+        ('foreign', '外资企业'),
+        ('joint_venture', '合资企业'),
+        ('individual', '个体工商户')
     ]
     
     PROVINCES = [
@@ -3412,11 +3412,16 @@ class CustomerManagement(TenantModel):
             
             # 金额字段
             'registered_capital': float(self.registered_capital) if self.registered_capital else None,
+            'accounts_period': float(self.accounts_period) if self.accounts_period else None,
+            'account_period': float(self.account_period) if self.account_period else None,
+            'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,
+            'tax_rate': float(self.tax_rate) if self.tax_rate else None,
             'credit_amount': float(self.credit_amount) if self.credit_amount else None,
             'sales_commission': float(self.sales_commission) if self.sales_commission else None,
             'settlement_color_difference': float(self.settlement_color_difference) if self.settlement_color_difference else None,
             
             # 业务相关字段
+            'salesperson_id': str(self.salesperson_id) if self.salesperson_id else None,
             'company_website': self.company_website,
             'company_legal_person': self.company_legal_person,
             'company_address': self.company_address,
@@ -3449,9 +3454,14 @@ class CustomerManagement(TenantModel):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': str(self.created_by) if self.created_by else None,
-            'updated_by': str(self.updated_by) if self.updated_by else None
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'region': self.region,
+            'payment_method_id': str(self.payment_method_id) if self.payment_method_id else None,
+            'currency_id': str(self.currency_id) if self.currency_id else None
         }
         
+        code = self.enterprise_type
+        data['enterprise_type_name'] = dict(self.ENTERPRISE_TYPES).get(code, code)
         if include_details:
             data.update({
                 'contacts': [contact.to_dict() for contact in self.contacts],
@@ -3950,7 +3960,9 @@ class SupplierInvoiceUnit(TenantModel):
             'invoice_phone': self.invoice_phone,
             'invoice_bank': self.invoice_bank,
             'invoice_account': self.invoice_account,
-            'sort_order': self.sort_order
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
 
@@ -3976,7 +3988,9 @@ class SupplierAffiliatedCompany(TenantModel):
             'id': str(self.id),
             'supplier_id': str(self.supplier_id),
             'affiliated_company': self.affiliated_company,
-            'sort_order': self.sort_order
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
 

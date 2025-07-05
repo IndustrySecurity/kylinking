@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-工艺分类管理API
+工序分类管理API
 对应services/base_archive/base_category/process_category_service.py
 """
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
 from app.services.base_archive.base_category.process_category_service import ProcessCategoryService
+from app.models.basic_data import ProcessCategory
 
 process_category_bp = Blueprint('process_category', __name__)
 
@@ -18,7 +19,7 @@ bp = process_category_bp
 @jwt_required()
 @tenant_required
 def get_process_categories():
-    """获取工艺分类列表"""
+    """获取工序分类列表"""
     try:
         service = ProcessCategoryService()
         page = int(request.args.get('page', 1))
@@ -46,7 +47,7 @@ def get_process_categories():
 @jwt_required()
 @tenant_required
 def get_process_category(category_id):
-    """获取工艺分类详情"""
+    """获取工序分类详情"""
     try:
         service = ProcessCategoryService()
         category = service.get_process_category(category_id)
@@ -66,7 +67,7 @@ def get_process_category(category_id):
 @jwt_required()
 @tenant_required
 def create_process_category():
-    """创建工艺分类"""
+    """创建工序分类"""
     try:
         service = ProcessCategoryService()
         current_user_id = get_jwt_identity()
@@ -84,7 +85,7 @@ def create_process_category():
         return jsonify({
             'success': True,
             'data': category,
-            'message': '工艺分类创建成功'
+            'message': '工序分类创建成功'
         }), 201
         
     except ValueError as e:
@@ -97,7 +98,7 @@ def create_process_category():
 @jwt_required()
 @tenant_required
 def update_process_category(category_id):
-    """更新工艺分类"""
+    """更新工序分类"""
     try:
         service = ProcessCategoryService()
         current_user_id = get_jwt_identity()
@@ -111,7 +112,7 @@ def update_process_category(category_id):
         return jsonify({
             'success': True,
             'data': category,
-            'message': '工艺分类更新成功'
+            'message': '工序分类更新成功'
         })
         
     except ValueError as e:
@@ -124,14 +125,14 @@ def update_process_category(category_id):
 @jwt_required()
 @tenant_required
 def delete_process_category(category_id):
-    """删除工艺分类"""
+    """删除工序分类"""
     try:
         service = ProcessCategoryService()
         service.delete_process_category(category_id)
         
         return jsonify({
             'success': True,
-            'message': '工艺分类删除成功'
+            'message': '工序分类删除成功'
         })
         
     except ValueError as e:
@@ -144,7 +145,7 @@ def delete_process_category(category_id):
 @jwt_required()
 @tenant_required
 def get_enabled_process_categories():
-    """获取启用的工艺分类列表"""
+    """获取启用的工序分类列表"""
     try:
         service = ProcessCategoryService()
         categories = service.get_enabled_process_categories()
@@ -162,7 +163,7 @@ def get_enabled_process_categories():
 @jwt_required()
 @tenant_required
 def get_process_category_options():
-    """获取工艺分类选项（用于下拉框）"""
+    """获取工序分类选项（用于下拉框）"""
     try:
         service = ProcessCategoryService()
         categories = service.get_enabled_process_categories()
@@ -186,7 +187,7 @@ def get_process_category_options():
 @jwt_required()
 @tenant_required
 def batch_update_process_categories():
-    """批量更新工艺分类"""
+    """批量更新工序分类"""
     try:
         service = ProcessCategoryService()
         current_user_id = get_jwt_identity()
@@ -205,3 +206,22 @@ def batch_update_process_categories():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+
+@bp.route('/category-type-options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_category_type_options():
+    """工序分类 类型选项"""
+    options = [{'value': code, 'label': name}
+               for code, name in ProcessCategory.CATEGORY_TYPES]
+    return jsonify({'success': True, 'data': options})
+
+@bp.route('/data-collection-mode-options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_data_collection_mode_options():
+    """工序分类 数据采集模式选项"""
+    options = [{'value': code, 'label': name}
+               for code, name in ProcessCategory.DATA_COLLECTION_MODES]
+    return jsonify({'success': True, 'data': options})
