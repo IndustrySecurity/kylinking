@@ -6,12 +6,14 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app.services.base_archive.production.production_archive.bag_type_service import BagTypeService
+from app.api.tenant.routes import tenant_required
 
 bp = Blueprint('bag_type', __name__)
 
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_bag_types():
     """获取袋型列表"""
     try:
@@ -163,6 +165,7 @@ def batch_update_bag_types():
 
 @bp.route('/options', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_bag_type_options():
     """获取袋型选项数据"""
     try:
@@ -180,6 +183,7 @@ def get_bag_type_options():
 
 @bp.route('/form-options', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_bag_type_form_options():
     """获取袋型表单选项数据"""
     try:

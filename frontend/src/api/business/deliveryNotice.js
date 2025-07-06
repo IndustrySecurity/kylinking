@@ -1,7 +1,7 @@
 /**
  * 送货通知单服务
  */
-import request from '../utils/request';
+import request from '../../utils/request';
 
 class DeliveryNoticeService {
   baseURL = '/tenant/business/sales';

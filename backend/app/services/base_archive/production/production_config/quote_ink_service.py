@@ -25,7 +25,7 @@ class QuoteInkService(TenantAwareService):
             if search:
                 search_pattern = f"%{search}%"
                 query = query.filter(or_(
-                    QuoteInk.ink_name.ilike(search_pattern),
+                    QuoteInk.category_name.ilike(search_pattern),
                     QuoteInk.description.ilike(search_pattern)
                 ))
             
@@ -33,7 +33,7 @@ class QuoteInkService(TenantAwareService):
             total = query.count()
             
             # 排序和分页
-            query = query.order_by(QuoteInk.sort_order, QuoteInk.ink_name)
+            query = query.order_by(QuoteInk.sort_order, QuoteInk.category_name)
             inks = query.offset((page - 1) * per_page).limit(per_page).all()
             
             return {
@@ -65,19 +65,19 @@ class QuoteInkService(TenantAwareService):
         
         try:
             # 验证必填字段
-            if not data.get('ink_name'):
+            if not data.get('category_name'):
                 raise ValueError("油墨名称不能为空")
             
             # 检查名称是否重复
             existing = self.session.query(QuoteInk).filter_by(
-                ink_name=data['ink_name']
+                category_name=data['category_name']
             ).first()
             if existing:
                 raise ValueError("油墨名称已存在")
             
             # 创建报价油墨对象
             ink = self.create_with_tenant(QuoteInk,
-                ink_name=data['ink_name'],
+                category_name=data['category_name'],
                 unit_price=data.get('unit_price', 0.0),
                 ink_type=data.get('ink_type', ''),
                 description=data.get('description', ''),
@@ -106,13 +106,13 @@ class QuoteInkService(TenantAwareService):
                 raise ValueError("报价油墨不存在")
             
             # 验证必填字段
-            if 'ink_name' in data and not data['ink_name']:
+            if 'category_name' in data and not data['category_name']:
                 raise ValueError("油墨名称不能为空")
             
             # 检查名称是否重复（排除自己）
-            if 'ink_name' in data:
+            if 'category_name' in data:
                 existing = self.session.query(QuoteInk).filter(
-                    QuoteInk.ink_name == data['ink_name'],
+                    QuoteInk.category_name == data['category_name'],
                     QuoteInk.id != ink.id
                 ).first()
                 if existing:
@@ -170,7 +170,7 @@ class QuoteInkService(TenantAwareService):
                     continue
                 
                 # 更新字段
-                update_fields = ['ink_name', 'unit_price', 'ink_type', 'description', 'sort_order', 'is_enabled']
+                update_fields = ['category_name', 'unit_price', 'ink_type', 'description', 'sort_order', 'is_enabled']
                 
                 for field in update_fields:
                     if field in update_data:
@@ -197,13 +197,13 @@ class QuoteInkService(TenantAwareService):
             # 获取启用的报价油墨
             enabled_inks = self.session.query(QuoteInk).filter(
                 QuoteInk.is_enabled == True
-            ).order_by(QuoteInk.sort_order, QuoteInk.ink_name).all()
+            ).order_by(QuoteInk.sort_order, QuoteInk.category_name).all()
             
             return {
                 'inks': [
                     {
                         'id': str(ink.id),
-                        'ink_name': ink.ink_name,
+                        'category_name': ink.category_name,
                         'unit_price': float(ink.unit_price),
                         'ink_type': ink.ink_type,
                         'sort_order': ink.sort_order

@@ -49,14 +49,18 @@ class SupplierService(TenantAwareService):
     
     def get_suppliers(self, page=1, per_page=20, search=None, category_id=None, status=None):
         """获取供应商列表"""
-        query = self.session.query(SupplierManagement)
+        query = self.session.query(SupplierManagement).outerjoin(
+            SupplierCategoryManagement, 
+            SupplierManagement.supplier_category_id == SupplierCategoryManagement.id
+        )
         
         # 搜索条件
         if search:
             search_pattern = f"%{search}%"
             query = query.filter(or_(
                 SupplierManagement.supplier_code.ilike(search_pattern),
-                SupplierManagement.supplier_name.ilike(search_pattern)
+                SupplierManagement.supplier_name.ilike(search_pattern),
+                SupplierManagement.supplier_abbreviation.ilike(search_pattern)
             ))
         
         # 分类筛选
@@ -74,8 +78,20 @@ class SupplierService(TenantAwareService):
         total = query.count()
         suppliers = query.offset((page - 1) * per_page).limit(per_page).all()
         
+        # 构建返回数据，包含供应商分类名称
+        suppliers_data = []
+        for supplier in suppliers:
+            supplier_dict = supplier.to_dict()
+            # 添加供应商分类名称
+            if supplier.supplier_category_id:
+                category = self.session.query(SupplierCategoryManagement).get(supplier.supplier_category_id)
+                supplier_dict['supplier_category_name'] = category.category_name if category else None
+            else:
+                supplier_dict['supplier_category_name'] = None
+            suppliers_data.append(supplier_dict)
+        
         return {
-            'suppliers': [supplier.to_dict() for supplier in suppliers],
+            'suppliers': suppliers_data,
             'total': total,
             'page': page,
             'per_page': per_page,
@@ -93,37 +109,108 @@ class SupplierService(TenantAwareService):
             supplier_data = {
                 'supplier_code': data['supplier_code'],
                 'supplier_name': data['supplier_name'],
-                'supplier_category_id': uuid.UUID(data['supplier_category_id']) if data.get('supplier_category_id') else None,
-                
-                # 基本信息
-                'legal_name': data.get('legal_name'),
-                'unified_credit_code': data.get('unified_credit_code'),
-                'business_license': data.get('business_license'),
-                'industry': data.get('industry'),
-                'established_date': data.get('established_date'),
-                
-                # 联系信息
-                'contact_person': data.get('contact_person'),
-                'contact_phone': data.get('contact_phone'),
-                'contact_email': data.get('contact_email'),
-                'office_address': data.get('office_address'),
-                'factory_address': data.get('factory_address'),
-                
-                # 业务信息
-                'payment_terms': data.get('payment_terms', 30),
-                'currency': data.get('currency', 'CNY'),
-                'quality_level': data.get('quality_level', 'qualified'),
-                'cooperation_level': data.get('cooperation_level', 'ordinary'),
-                
-                # 自定义字段
-                'custom_fields': data.get('custom_fields', {}),
+                'supplier_abbreviation': data.get('supplier_abbreviation'),
+                'supplier_category_id': uuid.UUID(data['supplier_category_id']) if data.get('supplier_category_id') and data.get('supplier_category_id') != '' else None,
+                'purchaser_id': uuid.UUID(data['purchaser_id']) if data.get('purchaser_id') and data.get('purchaser_id') != '' else None,
+                'region': data.get('region'),
+                'delivery_method_id': uuid.UUID(data['delivery_method_id']) if data.get('delivery_method_id') and data.get('delivery_method_id') != '' else None,
+                'tax_rate_id': uuid.UUID(data['tax_rate_id']) if data.get('tax_rate_id') and data.get('tax_rate_id') != '' else None,
+                'tax_rate': data.get('tax_rate'),
+                'currency_id': uuid.UUID(data['currency_id']) if data.get('currency_id') and data.get('currency_id') != '' else None,
+                'payment_method_id': uuid.UUID(data['payment_method_id']) if data.get('payment_method_id') and data.get('payment_method_id') != '' else None,
+                'deposit_ratio': data.get('deposit_ratio'),
+                'delivery_preparation_days': data.get('delivery_preparation_days'),
+                'copyright_square_price': data.get('copyright_square_price'),
+                'supplier_level': data.get('supplier_level'),
+                'organization_code': data.get('organization_code'),
+                'company_website': data.get('company_website'),
+                'foreign_currency_id': uuid.UUID(data['foreign_currency_id']) if data.get('foreign_currency_id') and data.get('foreign_currency_id') != '' else None,
+                'barcode_prefix_code': data.get('barcode_prefix_code'),
+                'business_start_date': data.get('business_start_date'),
+                'business_end_date': data.get('business_end_date'),
+                'production_permit_start_date': data.get('production_permit_start_date'),
+                'production_permit_end_date': data.get('production_permit_end_date'),
+                'inspection_report_start_date': data.get('inspection_report_start_date'),
+                'inspection_report_end_date': data.get('inspection_report_end_date'),
+                'barcode_authorization': data.get('barcode_authorization'),
+                'ufriend_code': data.get('ufriend_code'),
+                'enterprise_type': data.get('enterprise_type'),
+                'province': data.get('province'),
+                'city': data.get('city'),
+                'district': data.get('district'),
+                'company_address': data.get('company_address'),
+                'remarks': data.get('remarks'),
+                'image_url': data.get('image_url'),
+                'sort_order': data.get('sort_order', 0),
+                'is_enabled': data.get('is_enabled', True),
+                'created_by': uuid.UUID(created_by)
             }
             
-            # 使用继承的create_with_tenant方法
+            # 创建供应商主表
             supplier = self.create_with_tenant(SupplierManagement, **supplier_data)
-            self.commit()
             
-            return supplier.to_dict()
+            # 处理子表数据
+            from app.models.basic_data import (
+                SupplierContact, SupplierDeliveryAddress, 
+                SupplierInvoiceUnit, SupplierAffiliatedCompany
+            )
+            
+            # 创建联系人
+            if 'contacts' in data and data['contacts']:
+                for contact_data in data['contacts']:
+                    if contact_data.get('contact_name'):  # 只有填写了联系人名称才创建
+                        contact = self.create_with_tenant(SupplierContact,
+                            supplier_id=supplier.id,
+                            contact_name=contact_data.get('contact_name'),
+                            landline=contact_data.get('landline'),
+                            mobile=contact_data.get('mobile'),
+                            fax=contact_data.get('fax'),
+                            qq=contact_data.get('qq'),
+                            wechat=contact_data.get('wechat'),
+                            email=contact_data.get('email'),
+                            department=contact_data.get('department'),
+                            sort_order=contact_data.get('sort_order', 0)
+                        )
+            
+            # 创建发货地址
+            if 'delivery_addresses' in data and data['delivery_addresses']:
+                for addr_data in data['delivery_addresses']:
+                    if addr_data.get('delivery_address'):
+                        addr = self.create_with_tenant(SupplierDeliveryAddress,
+                            supplier_id=supplier.id,
+                            delivery_address=addr_data.get('delivery_address'),
+                            contact_name=addr_data.get('contact_name'),
+                            contact_method=addr_data.get('contact_method'),
+                            sort_order=addr_data.get('sort_order', 0)
+                        )
+            
+            # 创建开票单位
+            if 'invoice_units' in data and data['invoice_units']:
+                for invoice_data in data['invoice_units']:
+                    if invoice_data.get('invoice_unit'):
+                        invoice = self.create_with_tenant(SupplierInvoiceUnit,
+                            supplier_id=supplier.id,
+                            invoice_unit=invoice_data.get('invoice_unit'),
+                            taxpayer_id=invoice_data.get('taxpayer_id'),
+                            invoice_address=invoice_data.get('invoice_address'),
+                            invoice_phone=invoice_data.get('invoice_phone'),
+                            invoice_bank=invoice_data.get('invoice_bank'),
+                            invoice_account=invoice_data.get('invoice_account'),
+                            sort_order=invoice_data.get('sort_order', 0)
+                        )
+            
+            # 创建归属公司
+            if 'affiliated_companies' in data and data['affiliated_companies']:
+                for company_data in data['affiliated_companies']:
+                    if company_data.get('affiliated_company'):
+                        company = self.create_with_tenant(SupplierAffiliatedCompany,
+                            supplier_id=supplier.id,
+                            affiliated_company=company_data.get('affiliated_company'),
+                            sort_order=company_data.get('sort_order', 0)
+                        )
+            
+            self.commit()
+            return supplier.to_dict(include_details=True)
             
         except IntegrityError:
             self.rollback()
@@ -137,7 +224,7 @@ class SupplierService(TenantAwareService):
         supplier = self.session.query(SupplierManagement).get(uuid.UUID(supplier_id))
         if not supplier:
             return None
-        return supplier.to_dict()
+        return supplier.to_dict(include_details=True)
     
     def update_supplier(self, supplier_id, data, updated_by):
         """更新供应商"""
@@ -146,26 +233,113 @@ class SupplierService(TenantAwareService):
             if not supplier:
                 return None
             
-            # 更新字段
+            # 更新主表字段
             update_fields = [
-                'supplier_name', 'legal_name', 'unified_credit_code',
-                'business_license', 'industry', 'contact_person',
-                'contact_phone', 'contact_email', 'office_address',
-                'factory_address', 'payment_terms', 'currency',
-                'quality_level', 'cooperation_level'
+                'supplier_name', 'supplier_abbreviation', 'region', 
+                'tax_rate', 'deposit_ratio', 'delivery_preparation_days',
+                'copyright_square_price', 'supplier_level', 'organization_code',
+                'company_website', 'barcode_prefix_code', 'business_start_date',
+                'business_end_date', 'production_permit_start_date', 
+                'production_permit_end_date', 'inspection_report_start_date',
+                'inspection_report_end_date', 'barcode_authorization', 
+                'ufriend_code', 'enterprise_type', 'province', 'city',
+                'district', 'company_address', 'remarks', 'image_url',
+                'sort_order', 'is_enabled'
             ]
             
             for field in update_fields:
                 if field in data:
                     setattr(supplier, field, data[field])
             
+            # 更新关联字段
             if 'supplier_category_id' in data:
-                supplier.supplier_category_id = uuid.UUID(data['supplier_category_id']) if data['supplier_category_id'] else None
+                supplier.supplier_category_id = uuid.UUID(data['supplier_category_id']) if data['supplier_category_id'] and data['supplier_category_id'] != '' else None
+            
+            if 'purchaser_id' in data:
+                supplier.purchaser_id = uuid.UUID(data['purchaser_id']) if data['purchaser_id'] and data['purchaser_id'] != '' else None
+            
+            if 'delivery_method_id' in data:
+                supplier.delivery_method_id = uuid.UUID(data['delivery_method_id']) if data['delivery_method_id'] and data['delivery_method_id'] != '' else None
+            
+            if 'tax_rate_id' in data:
+                supplier.tax_rate_id = uuid.UUID(data['tax_rate_id']) if data['tax_rate_id'] and data['tax_rate_id'] != '' else None
+            
+            if 'currency_id' in data:
+                supplier.currency_id = uuid.UUID(data['currency_id']) if data['currency_id'] and data['currency_id'] != '' else None
+            
+            if 'payment_method_id' in data:
+                supplier.payment_method_id = uuid.UUID(data['payment_method_id']) if data['payment_method_id'] and data['payment_method_id'] != '' else None
+            
+            if 'foreign_currency_id' in data:
+                supplier.foreign_currency_id = uuid.UUID(data['foreign_currency_id']) if data['foreign_currency_id'] and data['foreign_currency_id'] != '' else None
             
             supplier.updated_by = uuid.UUID(updated_by)
             
+            # 更新子表 - 简单的删除重建策略
+            from app.models.basic_data import (
+                SupplierContact, SupplierDeliveryAddress, 
+                SupplierInvoiceUnit, SupplierAffiliatedCompany
+            )
+            
+            # 删除现有子表数据
+            self.session.query(SupplierContact).filter_by(supplier_id=supplier.id).delete()
+            self.session.query(SupplierDeliveryAddress).filter_by(supplier_id=supplier.id).delete()
+            self.session.query(SupplierInvoiceUnit).filter_by(supplier_id=supplier.id).delete()
+            self.session.query(SupplierAffiliatedCompany).filter_by(supplier_id=supplier.id).delete()
+            
+            # 重新创建子表数据
+            if 'contacts' in data and data['contacts']:
+                for contact_data in data['contacts']:
+                    if contact_data.get('contact_name'):
+                        contact = self.create_with_tenant(SupplierContact,
+                            supplier_id=supplier.id,
+                            contact_name=contact_data.get('contact_name'),
+                            landline=contact_data.get('landline'),
+                            mobile=contact_data.get('mobile'),
+                            fax=contact_data.get('fax'),
+                            qq=contact_data.get('qq'),
+                            wechat=contact_data.get('wechat'),
+                            email=contact_data.get('email'),
+                            department=contact_data.get('department'),
+                            sort_order=contact_data.get('sort_order', 0)
+                        )
+            
+            if 'delivery_addresses' in data and data['delivery_addresses']:
+                for addr_data in data['delivery_addresses']:
+                    if addr_data.get('delivery_address'):
+                        addr = self.create_with_tenant(SupplierDeliveryAddress,
+                            supplier_id=supplier.id,
+                            delivery_address=addr_data.get('delivery_address'),
+                            contact_name=addr_data.get('contact_name'),
+                            contact_method=addr_data.get('contact_method'),
+                            sort_order=addr_data.get('sort_order', 0)
+                        )
+            
+            if 'invoice_units' in data and data['invoice_units']:
+                for invoice_data in data['invoice_units']:
+                    if invoice_data.get('invoice_unit'):
+                        invoice = self.create_with_tenant(SupplierInvoiceUnit,
+                            supplier_id=supplier.id,
+                            invoice_unit=invoice_data.get('invoice_unit'),
+                            taxpayer_id=invoice_data.get('taxpayer_id'),
+                            invoice_address=invoice_data.get('invoice_address'),
+                            invoice_phone=invoice_data.get('invoice_phone'),
+                            invoice_bank=invoice_data.get('invoice_bank'),
+                            invoice_account=invoice_data.get('invoice_account'),
+                            sort_order=invoice_data.get('sort_order', 0)
+                        )
+            
+            if 'affiliated_companies' in data and data['affiliated_companies']:
+                for company_data in data['affiliated_companies']:
+                    if company_data.get('affiliated_company'):
+                        company = self.create_with_tenant(SupplierAffiliatedCompany,
+                            supplier_id=supplier.id,
+                            affiliated_company=company_data.get('affiliated_company'),
+                            sort_order=company_data.get('sort_order', 0)
+                        )
+            
             self.commit()
-            return supplier.to_dict()
+            return supplier.to_dict(include_details=True)
             
         except Exception as e:
             self.rollback()

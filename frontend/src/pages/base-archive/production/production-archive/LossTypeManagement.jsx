@@ -64,10 +64,11 @@ const LossTypeManagement = () => {
       // 正确处理后端响应格式
       if (response.data && response.data.success) {
         const responseData = response.data.data || {};
-        const { loss_types, total, current_page } = responseData;
+        // 修正字段名：后端返回的是items而不是loss_types
+        const { items, total, current_page } = responseData;
         
-        // 安全检查，确保loss_types是数组
-        const lossTypesArray = Array.isArray(loss_types) ? loss_types : [];
+        // 安全检查，确保items是数组
+        const lossTypesArray = Array.isArray(items) ? items : [];
         
         // 为每行数据添加key
         const dataWithKeys = lossTypesArray.map((item, index) => ({
@@ -97,7 +98,9 @@ const LossTypeManagement = () => {
         }
       }
     } catch (error) {
+      console.error('加载报损类型数据失败:', error);
       message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      setData([]); // 确保在错误情况下设置空数据
     } finally {
       setLoading(false);
     }

@@ -43,7 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
-import { materialOutboundService, baseDataService } from '../../../services/materialOutboundService';
+import { materialOutboundService, baseDataService } from '../../../api/business/materialOutbound';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -236,7 +236,7 @@ const MaterialOutbound = ({ onBack }) => {
       console.error('获取仓库列表失败', error);
       // 使用备用API
       try {
-        const response = await request.get('/tenant/basic-data/warehouses/options', {
+        const response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options', {
           params: { warehouse_type: 'material' }
         });
         if (response.data?.success) {

@@ -1,4 +1,4 @@
-import request from '../utils/request';
+import request from '../../utils/request';
 
 const API_BASE = '/tenant/business/inventory/material-inbound';
 
@@ -86,7 +86,7 @@ export const materialInboundService = {
 export const baseDataService = {
   // 获取仓库选项（只获取物料仓库）
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/warehouses/options', { 
+    return request.get('/tenant/base-archive/production/production-archive/warehouses/options', { 
       params: { ...params, warehouse_type: 'material' }
     });
   },

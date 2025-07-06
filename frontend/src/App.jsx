@@ -82,13 +82,13 @@ import FinishedGoodsWeighingSlip from './pages/business/finished-goods/FinishedG
 import PackingWeighingSlip from './pages/business/finished-goods/PackingWeighingSlip';
 import RewindingOutputReport from './pages/business/finished-goods/RewindingOutputReport';
 import BagPickingOutputReport from './pages/business/finished-goods/BagPickingOutputReport';
-import SemiFinishedInbound from './pages/business/semi-finished/SemiFinishedInbound';
-import SemiFinishedOutbound from './pages/business/semi-finished/SemiFinishedOutbound';
+import SemiFinishedInbound from './pages/business/finished-goods/SemiFinishedInbound';
+import SemiFinishedOutbound from './pages/business/finished-goods/SemiFinishedOutbound';
 import BagPickingReturn from './pages/business/finished-goods/BagPickingReturn';
 import FinishedGoodsToTray from './pages/business/finished-goods/FinishedGoodsToTray';
 import FinishedGoodsRework from './pages/business/finished-goods/FinishedGoodsRework';
 import FinishedGoodsPacking from './pages/business/finished-goods/FinishedGoodsPacking';
-import SemiFinishedWeighing from './pages/business/semi-finished/SemiFinishedWeighing';
+import SemiFinishedWeighing from './pages/business/finished-goods/SemiFinishedWeighing';
 import FinishedGoodsInboundAccounting from './pages/business/finished-goods/FinishedGoodsInboundAccounting';
 
 // 材料仓库子页面导入
@@ -670,7 +670,7 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/business/semi-finished/inbound" element={
+            <Route path="/business/finished-goods/semi-finished-inbound" element={
               <ProtectedRoute>
                 <MainLayout>
                   <SemiFinishedInbound />
@@ -678,7 +678,7 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/business/semi-finished/outbound" element={
+            <Route path="/business/finished-goods/semi-finished-outbound" element={
               <ProtectedRoute>
                 <MainLayout>
                   <SemiFinishedOutbound />
@@ -718,7 +718,7 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/business/semi-finished/weighing" element={
+            <Route path="/business/finished-goods/semi-finished-weighing" element={
               <ProtectedRoute>
                 <MainLayout>
                   <SemiFinishedWeighing />

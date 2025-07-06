@@ -81,7 +81,7 @@ export const getWarehouseMaterialInventory = (warehouseId) => {
 
 // 获取仓库列表（用于选择仓库，只获取材料仓）
 export const getWarehouses = (params = {}) => {
-  return request.get('/tenant/base-archive/base-data/warehouses/options', { 
+  return request.get('/tenant/base-archive/production/production-archive/warehouses/options', { 
     params: { 
       ...params,
       warehouse_type: 'material' // 只获取材料仓

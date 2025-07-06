@@ -1,4 +1,4 @@
-import request from '../utils/request';
+import request from '../../utils/request';
 
 const API_BASE = '/tenant/business/inventory/product-outbound/product-outbound-orders';
 
@@ -86,7 +86,7 @@ export const finishedGoodsOutboundService = {
 export const baseDataService = {
   // 获取仓库选项（只获取成品仓）
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/warehouses/options', { 
+    return request.get('/tenant/base-archive/production/production-archive/warehouses/options', { 
       params: { ...params, warehouse_type: 'finished_goods' }
     });
   },

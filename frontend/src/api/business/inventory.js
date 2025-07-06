@@ -1,4 +1,4 @@
-import request from '../utils/request';
+import request from '../../utils/request';
 
 const API_BASE = '/tenant/business/inventory';
 
@@ -64,7 +64,7 @@ export const inventoryService = {
 export const baseDataService = {
   // 获取仓库选项（支持所有仓库类型）
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/warehouses/options', { params });
+    return request.get('/tenant/base-archive/production/production-archive/warehouses/options', { params });
   },
 
   // 获取产品选项

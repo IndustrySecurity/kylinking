@@ -157,3 +157,48 @@ def batch_update_units():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+
+@bp.route('/options', methods=['GET'])
+@jwt_required()
+def get_unit_options():
+    """获取单位选项"""
+    try:
+        unit_service = UnitService()
+        
+        # 获取单位列表
+        units = unit_service.get_units(page=1, per_page=1000, enabled_only=True)
+        
+        # 转换为选项格式
+        options = []
+        if units and 'units' in units:
+            for unit in units['units']:
+                options.append({
+                    'value': str(unit['id']),
+                    'label': unit['unit_name'],
+                    'code': unit.get('unit_code', unit['unit_name']),
+                    'unit_code': unit.get('unit_code', ''),
+                    'description': unit.get('description', ''),
+                    'sort_order': unit.get('sort_order', 0)
+                })
+        
+        # 如果没有数据，返回默认单位
+        if not options:
+            options = [
+                {'value': '1', 'label': '个', 'code': 'pcs'},
+                {'value': '2', 'label': '箱', 'code': 'box'},
+                {'value': '3', 'label': '公斤', 'code': 'kg'},
+                {'value': '4', 'label': '米', 'code': 'm'},
+                {'value': '5', 'label': '套', 'code': 'set'}
+            ]
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500 

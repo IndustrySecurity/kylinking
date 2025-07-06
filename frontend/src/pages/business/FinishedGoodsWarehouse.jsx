@@ -198,14 +198,14 @@ const FinishedGoodsWarehouse = () => {
       title: '半成品入库',
       description: '半成品入库管理',
       icon: <InboxOutlined style={{ fontSize: '32px', color: '#722ed1' }} />,
-      path: '/business/semi-finished/inbound',
+      path: '/business/finished-goods/semi-finished-inbound',
     },
     {
       key: 'semi-finished-outbound',
       title: '半成品出库',
       description: '半成品出库管理',
       icon: <ShoppingOutlined style={{ fontSize: '32px', color: '#fa8c16' }} />,
-      path: '/business/semi-finished/outbound',
+      path: '/business/finished-goods/semi-finished-outbound',
     },
     {
       key: 'bag-picking-return',
@@ -240,7 +240,7 @@ const FinishedGoodsWarehouse = () => {
       title: '半成品称重',
       description: '半成品称重管理',
       icon: <ReconciliationOutlined style={{ fontSize: '32px', color: '#722ed1' }} />,
-      path: '/business/semi-finished/weighing',
+      path: '/business/finished-goods/semi-finished-weighing',
     },
     {
       key: 'inbound-accounting',

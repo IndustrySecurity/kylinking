@@ -3674,7 +3674,7 @@ class SupplierManagement(TenantModel):
     supplier_abbreviation = db.Column(db.String(100), comment='供应商简称')  # 手工输入
     supplier_category_id = db.Column(UUID(as_uuid=True), comment='供应商分类ID')  # 选择
     purchaser_id = db.Column(UUID(as_uuid=True), comment='采购员ID')  # 选择，根据员工表选择
-    is_disabled = db.Column(db.Boolean, default=False, comment='是否停用')  # bool
+
     region = db.Column(db.String(100), comment='区域')  # 选择省份
     delivery_method_id = db.Column(UUID(as_uuid=True), comment='送货方式ID')  # 选择
     tax_rate_id = db.Column(UUID(as_uuid=True), comment='税收ID')  # 选择
@@ -3791,7 +3791,7 @@ class SupplierManagement(TenantModel):
             'supplier_abbreviation': self.supplier_abbreviation,
             'supplier_category_id': str(self.supplier_category_id) if self.supplier_category_id else None,
             'purchaser_id': str(self.purchaser_id) if self.purchaser_id else None,
-            'is_disabled': self.is_disabled,
+
             'region': self.region,
             'delivery_method_id': str(self.delivery_method_id) if self.delivery_method_id else None,
             'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,

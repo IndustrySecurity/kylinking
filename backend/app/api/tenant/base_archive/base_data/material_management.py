@@ -150,3 +150,42 @@ def get_material_form_options():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+
+@bp.route('/options', methods=['GET'])
+@jwt_required()
+def get_material_options():
+    """获取材料选项"""
+    try:
+        material_service = MaterialService()
+        
+        # 获取材料列表
+        materials = material_service.get_materials(page=1, page_size=1000)  # 获取所有材料
+        
+        # 转换为选项格式
+        options = []
+        if materials and 'materials' in materials:
+            for material in materials['materials']:
+                options.append({
+                    'value': str(material['id']),
+                    'label': material['material_name'],
+                    'code': material.get('material_code', ''),
+                    'specification': material.get('specification', ''),
+                    'unit': material.get('unit', ''),
+                    'price': material.get('price', 0),
+                    'material_type': material.get('material_type', ''),
+                    'category_name': material.get('category_name', ''),
+                    'supplier_name': material.get('supplier_name', ''),
+                    'inspection_type': material.get('inspection_type', '')
+                })
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500 

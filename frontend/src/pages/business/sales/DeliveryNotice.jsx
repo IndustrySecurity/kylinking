@@ -34,8 +34,8 @@ import {
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
-import deliveryNoticeService from '../../../services/deliveryNoticeService';
-import salesOrderService from '../../../services/salesOrderService';
+import deliveryNoticeService from '../../../api/business/deliveryNotice';
+import salesOrderService from '../../../api/business/salesOrder';
 
 const { Option } = Select;
 const { TextArea } = Input;

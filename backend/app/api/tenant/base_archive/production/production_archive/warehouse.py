@@ -6,12 +6,14 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+from app.api.tenant.routes import tenant_required
 
 bp = Blueprint('warehouse', __name__)
 
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_warehouses():
     """获取仓库列表"""
     try:
@@ -135,12 +137,32 @@ def delete_warehouse(warehouse_id):
 
 @bp.route('/options', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_warehouse_options():
-    """获取仓库选项数据"""
+    """获取仓库选项"""
     try:
         warehouse_service = WarehouseService()
+        
+        # 获取仓库列表
         warehouse_type = request.args.get('warehouse_type')
-        options = warehouse_service.get_warehouse_options(warehouse_type)
+        warehouses = warehouse_service.get_warehouses(page=1, per_page=20, warehouse_type=warehouse_type)
+        
+        # 转换为选项格式
+        options = []
+        if warehouses and 'warehouses' in warehouses:
+            for warehouse in warehouses['warehouses']:
+                options.append({
+                    'value': str(warehouse['id']),
+                    'label': warehouse['warehouse_name'],
+                    'code': warehouse.get('warehouse_code', ''),
+                    'type': warehouse.get('warehouse_type', ''),
+                    'warehouse_type': warehouse.get('warehouse_type', ''),
+                    'location': warehouse.get('location', ''),
+                    'address': warehouse.get('address', ''),
+                    'manager': warehouse.get('manager', ''),
+                    'contact_phone': warehouse.get('contact_phone', ''),
+                    'description': warehouse.get('description', '')
+                })
         
         return jsonify({
             'success': True,
@@ -148,4 +170,7 @@ def get_warehouse_options():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500 

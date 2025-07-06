@@ -58,11 +58,11 @@ class ProcessCategoryService(TenantAwareService):
                 # 添加用户信息
                 if pc.created_by:
                     created_user = self.session.query(User).get(pc.created_by)
-                    pc_data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+                    pc_data['created_by_username'] = created_user.get_full_name() if created_user else '未知用户'
                 
                 if pc.updated_by:
                     updated_user = self.session.query(User).get(pc.updated_by)
-                    pc_data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+                    pc_data['updated_by_username'] = updated_user.get_full_name() if updated_user else '未知用户'
                 
                 categories_data.append(pc_data)
             
@@ -101,11 +101,11 @@ class ProcessCategoryService(TenantAwareService):
         # 添加用户信息
         if process_category.created_by:
             created_user = self.session.query(User).get(process_category.created_by)
-            pc_data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+            pc_data['created_by_username'] = created_user.get_full_name() if created_user else '未知用户'
         
         if process_category.updated_by:
             updated_user = self.session.query(User).get(process_category.updated_by)
-            pc_data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+            pc_data['updated_by_username'] = updated_user.get_full_name() if updated_user else '未知用户'
         
         return pc_data
 

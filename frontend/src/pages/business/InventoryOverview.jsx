@@ -32,7 +32,7 @@ import {
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import { useApi } from '../../hooks/useApi';
-import { inventoryService, baseDataService } from '../../services/inventoryService';
+import { inventoryService, baseDataService } from '../../api/business/inventory';
 import request from '../../utils/request';
 
 const { RangePicker } = DatePicker;
@@ -169,7 +169,7 @@ const InventoryOverview = () => {
   const fetchWarehouses = async () => {
     try {
       // 使用仓库基础档案API获取仓库数据
-      const response = await request.get('/tenant/base-archive/base-data/warehouses/options');
+      const response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options');
       
       if (response.data?.success) {
         const warehouseData = response.data.data;

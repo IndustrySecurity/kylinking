@@ -38,7 +38,7 @@ import styled from 'styled-components';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { finishedGoodsInboundService, baseDataService } from '../../../services/finishedGoodsInboundService';
+import { finishedGoodsInboundService, baseDataService } from '../../../api/business/finishedGoodsInbound';
 import request from '../../../utils/request';
 
 // 扩展dayjs插件
@@ -164,6 +164,7 @@ const FinishedGoodsInbound = () => {
   // 基础数据状态
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
 
@@ -278,6 +279,7 @@ const FinishedGoodsInbound = () => {
       // 设置空数组，不使用模拟数据
       setWarehouses([]);
       setProducts([]);
+      setCustomers([]);
       setDepartments([]);
       setEmployees([]);
     }
@@ -1050,17 +1052,13 @@ const FinishedGoodsInbound = () => {
   const fetchEmployees = async () => {
     try {
       const response = await request.get('/tenant/base-archive/base-data/employees/options');
-      console.log('员工API响应:', response.data);
-      
       if (response.data?.success) {
         setEmployees(response.data.data || []);
       } else {
         console.warn('员工API返回失败:', response.data);
-        setEmployees([]);
       }
     } catch (error) {
       console.error('获取员工列表失败:', error);
-      setEmployees([]);
     }
   };
 
@@ -1068,23 +1066,75 @@ const FinishedGoodsInbound = () => {
   const fetchDepartments = async () => {
     try {
       const response = await request.get('/tenant/base-archive/base-data/departments/options');
-      console.log('部门API响应:', response.data);
-      
       if (response.data?.success) {
         setDepartments(response.data.data || []);
       } else {
         console.warn('部门API返回失败:', response.data);
-        setDepartments([]);
       }
     } catch (error) {
       console.error('获取部门列表失败:', error);
-      setDepartments([]);
+    }
+  };
+  
+  //获取仓库列表(只显示成品仓)
+  const fetchWarehouses = async () => {
+    try {
+        const response = await baseDataService.getWarehouses({ warehouse_type: 'finished_goods' });
+        if (response.data?.success) {
+          const warehouseData = response.data.data;
+          let warehouses = [];
+          if (Array.isArray(warehouseData)) {
+            warehouses = warehouseData;
+          }
+        warehouses = warehouses.map(item => ({
+          id: item.id,
+          warehouse_name: item.warehouse_name || item.name,
+          warehouse_code: item.warehouse_code || item.code
+        }));
+        setWarehouses(warehouses);
+      } else {
+        console.warn('仓库API返回失败:', response.data);
+      }
+    } catch (error) {
+      console.error('获取仓库列表失败:', error);
+    }
+  };
+
+  //获取产品列表
+  const fetchProducts = async () => {
+    try {
+      const response = await request.get('/tenant/base-archive/base-data/products/options');
+      if (response.data?.success) {
+        const productData = response.data.data;
+        let products = [];
+        if (Array.isArray(productData)) {
+          products = productData;
+        }
+        setProducts(products);
+      } else {
+        console.warn('产品API返回失败:', response.data);
+      }
+    } catch (error) {
+      console.error('获取产品列表失败:', error);
+    }
+  };
+  //获取客户列表
+  const fetchCustomers = async () => {
+    try {
+      const response = await request.get('/tenant/base-archive/base-data/customers/options');
+      if (response.data?.success) {
+        setCustomers(response.data.data || []);
+      } else {
+        console.warn('客户API返回失败:', response.data);
+      }
+    } catch (error) {
+      console.error('获取客户列表失败:', error);
     }
   };
 
   // 初始化数据
   useEffect(() => {
-    fetchData();
+    fetchInboundOrders();
     fetchWarehouses();
     fetchProducts();
     fetchCustomers();

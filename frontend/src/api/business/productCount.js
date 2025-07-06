@@ -133,7 +133,7 @@ export const getWarehouseProductInventory = (warehouseId) => {
 
 // 获取仓库列表
 export const getWarehouses = () => {
-  return request.get('/tenant/base-archive/base-data/warehouses/options');
+  return request.get('/tenant/base-archive/production/production-archive/warehouses/options');
 };
 
 // 获取员工列表

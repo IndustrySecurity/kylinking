@@ -124,7 +124,7 @@ const MaterialTransfer = () => {
       let response;
       try {
         // 直接使用正确的仓库基础档案API
-        response = await request.get('/tenant/base-archive/base-data/warehouses/options');
+        response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options');
         console.log('仓库基础档案API响应:', response.data);
       } catch (warehouseApiError) {
         console.warn('仓库基础档案API失败，尝试通用仓库API:', warehouseApiError);

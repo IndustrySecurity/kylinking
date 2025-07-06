@@ -193,14 +193,41 @@ def delete_tax_rate(tax_rate_id):
 
 
 @bp.route('/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+@tenant_context_required
 def get_tax_rate_options():
     """获取税率选项"""
     try:
-        options = [
-            {'value': '1', 'label': '增值税 (13%)'},
-            {'value': '2', 'label': '小规模增值税 (3%)'},
-            {'value': '3', 'label': '免税 (0%)'}
-        ]
+        service = get_tax_rate_service()
+        
+        # 获取启用的税率列表
+        tax_rates = service.get_enabled_tax_rates()
+        
+        # 转换为选项格式
+        options = []
+        if tax_rates:
+            for tax_rate in tax_rates:
+                rate_value = tax_rate.get('tax_rate', 0)
+                options.append({
+                    'value': str(tax_rate['id']),
+                    'label': f"{tax_rate['tax_name']} ({rate_value}%)",
+                    'tax_name': tax_rate['tax_name'],
+                    'rate': float(rate_value),
+                    'tax_rate': float(rate_value),
+                    'description': tax_rate.get('description', ''),
+                    'tax_code': tax_rate.get('tax_code', '')
+                })
+        
+        # 如果没有数据，返回默认税率
+        if not options:
+            options = [
+                {'value': '1', 'label': 'mock增值税13%', 'rate': 0.13},
+                {'value': '2', 'label': 'mock增值税9%', 'rate': 0.09},
+                {'value': '3', 'label': 'mock增值税6%', 'rate': 0.06},
+                {'value': '4', 'label': 'mock增值税3%', 'rate': 0.03},
+                {'value': '5', 'label': 'mock免税0%', 'rate': 0.00}
+            ]
         
         return jsonify({
             'success': True,
@@ -210,5 +237,5 @@ def get_tax_rate_options():
     except Exception as e:
         return jsonify({
             'success': False,
-            'message': str(e)
+            'error': str(e)
         }), 500 

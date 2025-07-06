@@ -65,10 +65,10 @@ const QuoteInkManagement = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { quote_inks, total, current_page } = response.data.data;
-        
+        const { inks, total, current_page } = response.data.data;
         // 为每行数据添加key
-        const dataWithKeys = quote_inks.map((item, index) => ({
+        const quoteInksArray = Array.isArray(inks) ? inks : [];
+        const dataWithKeys = quoteInksArray.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));

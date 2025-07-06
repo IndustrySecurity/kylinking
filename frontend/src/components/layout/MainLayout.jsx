@@ -358,9 +358,56 @@ const MainLayout = ({ children }) => {
   };
   
   // Determine selected menu key from current path
-  const selectedKey = location.pathname.split('/')[1] || 'dashboard';
-  // Only show open keys when sidebar is expanded
-  const openKeys = collapsed ? [] : ['admin', 'production', 'warehouseManagement', 'baseArchive'];
+  const getSelectedKey = () => {
+    const pathname = location.pathname;
+    
+    // Helper function to find matching menu item by path
+    const findMenuKey = (items, path) => {
+      for (const item of items) {
+        if (item.path === path) {
+          return item.key;
+        }
+        if (item.children) {
+          const childKey = findMenuKey(item.children, path);
+          if (childKey) return childKey;
+        }
+      }
+      return null;
+    };
+    
+    // First try exact match
+    let key = findMenuKey(menuItems, pathname);
+    if (key) return key;
+    
+    // Then try partial matches for nested paths
+    const pathSegments = pathname.split('/');
+    for (let i = pathSegments.length; i > 0; i--) {
+      const partialPath = pathSegments.slice(0, i).join('/');
+      key = findMenuKey(menuItems, partialPath);
+      if (key) return key;
+    }
+    
+    return 'dashboard';
+  };
+  
+  const selectedKey = getSelectedKey();
+  
+  // Determine which parent menus should be open
+  const getOpenKeys = () => {
+    if (collapsed) return [];
+    
+    const pathname = location.pathname;
+    const openKeys = [];
+    
+    if (pathname.startsWith('/admin')) openKeys.push('admin');
+    if (pathname.startsWith('/production')) openKeys.push('production');
+    if (pathname.startsWith('/business')) openKeys.push('warehouseManagement');
+    if (pathname.startsWith('/base-archive')) openKeys.push('baseArchive');
+    
+    return openKeys;
+  };
+  
+  const openKeys = getOpenKeys();
 
   return (
     <RootLayout>

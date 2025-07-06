@@ -200,9 +200,124 @@ def get_customer_form_options():
 
 # 添加options别名路由
 @customer_bp.route('/options', methods=['GET'])  
+@jwt_required()
+@tenant_required
 def get_customer_options():
-    """获取客户选项（别名）"""
-    return get_customer_form_options()
+    """获取客户选项"""
+    try:
+        customer_service = CustomerService()
+        
+        # 获取客户列表
+        customers = customer_service.get_customers(page=1, per_page=1000)  # 获取所有客户
+        
+        # 转换为选项格式
+        options = []
+        if customers and 'customers' in customers:
+            for customer in customers['customers']:
+                options.append({
+                    'value': str(customer['id']),
+                    'label': customer['customer_name'],
+                    'code': customer.get('customer_code', ''),
+                    'contact_person': customer.get('contact_person', ''),
+                    'phone': customer.get('phone', ''),
+                    'mobile': customer.get('mobile', ''),
+                    'address': customer.get('address', ''),
+                    'payment_method_id': customer.get('payment_method_id'),
+                    'salesperson_id': customer.get('salesperson_id'),
+                    'company_id': customer.get('company_id'),
+                    'tax_rate_id': customer.get('tax_rate_id'),
+                    'tax_rate': customer.get('tax_rate', 0)
+                })
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@customer_bp.route('/<customer_id>/contacts', methods=['GET'])
+@jwt_required()
+@tenant_required  
+def get_customer_contacts(customer_id):
+    """获取客户联系人选项"""
+    try:
+        customer_service = CustomerService()
+        
+        # 获取客户联系人
+        contacts = customer_service.get_customer_contacts(customer_id)
+        
+        # 转换为前端需要的格式
+        contact_options = []
+        for contact in contacts:
+            contact_options.append({
+                'id': str(contact['id']),
+                'value': str(contact['id']),
+                'label': contact['contact_name'],
+                'contact_name': contact['contact_name'],
+                'phone': contact.get('phone', ''),
+                'mobile': contact.get('mobile', ''),
+                'landline': contact.get('landline', ''),
+                'email': contact.get('email', ''),
+                'position': contact.get('position', ''),
+                'department': contact.get('department', '')
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': contact_options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@customer_bp.route('/<customer_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_details(customer_id):
+    """获取客户详细信息"""
+    try:
+        customer_service = CustomerService()
+        
+        # 获取客户详情
+        customer = customer_service.get_customer(customer_id)
+        
+        if not customer:
+            return jsonify({'error': '客户不存在'}), 404
+        
+        # 转换为前端需要的格式
+        customer_details = {
+            'id': str(customer['id']),
+            'customer_name': customer['customer_name'],
+            'customer_code': customer.get('customer_code', ''),
+            'contact_person': customer.get('contact_person', ''),
+            'phone': customer.get('phone', ''),
+            'mobile': customer.get('mobile', ''),
+            'address': customer.get('address', ''),
+            'payment_method_id': customer.get('payment_method_id'),
+            'salesperson_id': customer.get('salesperson_id'),
+            'company_id': customer.get('company_id'),
+            'tax_rate_id': customer.get('tax_rate_id'),
+            'tax_rate': customer.get('tax_rate', 0)
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': customer_details
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @customer_bp.route('/enabled', methods=['GET'])
 @jwt_required()

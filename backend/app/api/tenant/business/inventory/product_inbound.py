@@ -69,6 +69,7 @@ def get_product_inbound_orders():
         return jsonify({'error': str(e)}), 500
 
 
+# 获取产品入库单详情
 @bp.route('/product-inbound-orders/<order_id>', methods=['GET'])
 @jwt_required()
 @tenant_required
@@ -97,6 +98,7 @@ def get_product_inbound_order(order_id):
         return jsonify({'error': str(e)}), 500
 
 
+# 创建产品入库单
 @bp.route('/product-inbound-orders', methods=['POST'])
 @jwt_required()
 @tenant_required
@@ -129,4 +131,32 @@ def create_product_inbound_order():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         logger.error(f"创建产品入库单失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/product-inbound-orders/<order_id>/cancel', methods=['POST'])
+@jwt_required()
+@tenant_required
+def cancel_product_inbound_order(order_id):
+    """取消产品入库单"""
+    try:
+        current_user_id = get_jwt_identity()
+        claims = get_jwt()
+        tenant_id = claims.get('tenant_id')
+        data = request.get_json()   
+        cancel_reason = data.get('cancel_reason', '') if data else ''
+
+        from app.services.business.inventory.product_inbound_service import ProductInboundService
+        service = ProductInboundService()
+        result = service.cancel_product_inbound_order(order_id, current_user_id, cancel_reason)
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"取消产品入库单失败: {str(e)}")
         return jsonify({'error': str(e)}), 500

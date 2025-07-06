@@ -193,16 +193,15 @@ const ProcessCategoryManagement = () => {
       
       if (index > -1) {
         const item = newData[index];
-        const updatedItem = { ...item, ...row };
         
         // 调用API保存
         const response = await processCategoryApi.updateProcessCategory(item.id, row);
         
         if (isSuccessResp(response)) {
-          newData.splice(index, 1, { ...updatedItem, ...response.data.data });
-          setData(newData);
+          // 保存成功后重新加载数据，确保排序和创建人修改人信息立即生效
           setEditingKey('');
           message.success('保存成功');
+          loadData(); // 重新加载数据而不是仅更新本地状态
         }
       }
     } catch (errInfo) {

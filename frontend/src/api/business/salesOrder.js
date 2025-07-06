@@ -1,7 +1,7 @@
 /**
  * 销售订单服务
  */
-import request from '../utils/request';
+import request from '../../utils/request';
 
 class SalesOrderService {
   // 基础API路径

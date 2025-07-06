@@ -40,21 +40,3 @@ except Exception as e:
 
 # 为统一导入方式提供别名
 bp = tenant_bp
-
-def register_tenant_blueprints(app):
-    """注册所有租户蓝图到应用"""
-    # 注册基础档案蓝图
-    tenant_bp.register_blueprint(base_archive_bp, url_prefix='/base-archive')
-    
-    # 注册业务蓝图
-    tenant_bp.register_blueprint(business_bp, url_prefix='/business')
-    
-    # 注册系统管理蓝图
-    tenant_bp.register_blueprint(system_bp, url_prefix='/system')
-    
-    # 创建basic-data别名路由，重用base-archive的base-data
-    from .base_archive.base_data import base_data_bp
-    tenant_bp.register_blueprint(base_data_bp, url_prefix='/basic-data', name='basic_data_alias')
-    
-    # 注册租户蓝图到应用
-    app.register_blueprint(tenant_bp, url_prefix='/api/tenant')

@@ -43,7 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
-import { materialInboundService, baseDataService } from '../../../services/materialInboundService';
+import { materialInboundService, baseDataService } from '../../../api/business/materialInbound';
 
 // 扩展dayjs插件
 dayjs.extend(utc);
@@ -214,23 +214,11 @@ const MaterialInbound = ({ onBack }) => {
       if (response.data?.success) {
         setWarehouses(response.data.data);
       } else {
-        // 使用模拟数据
-        setWarehouses([
-          { value: '1', label: '原材料一库', code: 'CL001' },
-          { value: '2', label: '原材料二库', code: 'CL002' },
-          { value: '3', label: '原材料三库', code: 'CL003' },
-          { value: '4', label: '材料仓', code: 'CL004' }
-        ]);
+        setWarehouses([]);
       }
     } catch (error) {
       console.error('获取仓库列表失败', error);
-      // 使用模拟数据
-      setWarehouses([
-        { value: '1', label: '原材料一库', code: 'CL001' },
-        { value: '2', label: '原材料二库', code: 'CL002' },
-        { value: '3', label: '原材料三库', code: 'CL003' },
-        { value: '4', label: '材料仓', code: 'CL004' }
-      ]);
+      setWarehouses([]);
     }
   };
 

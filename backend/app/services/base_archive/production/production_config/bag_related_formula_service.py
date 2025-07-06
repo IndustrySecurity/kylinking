@@ -21,11 +21,11 @@ class BagRelatedFormulaService(TenantAwareService):
             
             query = self.session.query(BagRelatedFormula).join(BagType)
             
-            # 搜索条件
+            # 搜索条件 - 移除不存在的formula_name字段，改为搜索dimension_description和bag_type_name
             if search:
                 search_pattern = f"%{search}%"
                 query = query.filter(or_(
-                    BagRelatedFormula.formula_name.ilike(search_pattern),
+                    BagRelatedFormula.dimension_description.ilike(search_pattern),
                     BagType.bag_type_name.ilike(search_pattern),
                     BagRelatedFormula.description.ilike(search_pattern)
                 ))
@@ -34,11 +34,11 @@ class BagRelatedFormulaService(TenantAwareService):
             if bag_type_id:
                 query = query.filter(BagRelatedFormula.bag_type_id == uuid.UUID(bag_type_id))
             
-            # 排序
+            # 排序 - 移除不存在的formula_name字段
             query = query.order_by(
                 BagType.bag_type_name,
                 BagRelatedFormula.sort_order,
-                BagRelatedFormula.formula_name
+                BagRelatedFormula.dimension_description
             )
             
             # 分页
@@ -48,7 +48,7 @@ class BagRelatedFormulaService(TenantAwareService):
             # 构建返回数据
             result_data = []
             for formula in formulas:
-                formula_dict = formula.to_dict()
+                formula_dict = formula.to_dict(include_formulas=True)
                 # 添加袋型信息
                 if formula.bag_type:
                     formula_dict['bag_type_name'] = formula.bag_type.bag_type_name
@@ -73,7 +73,7 @@ class BagRelatedFormulaService(TenantAwareService):
             if not formula:
                 raise ValueError("袋型相关公式不存在")
             
-            result = formula.to_dict()
+            result = formula.to_dict(include_formulas=True)
             if formula.bag_type:
                 result['bag_type_name'] = formula.bag_type.bag_type_name
             
@@ -87,9 +87,6 @@ class BagRelatedFormulaService(TenantAwareService):
         
         try:
             # 验证必填字段
-            if not data.get('formula_name'):
-                raise ValueError("公式名称不能为空")
-            
             if not data.get('bag_type_id'):
                 raise ValueError("袋型不能为空")
             
@@ -98,19 +95,21 @@ class BagRelatedFormulaService(TenantAwareService):
             if not bag_type:
                 raise ValueError("选择的袋型不存在")
             
-            # 检查同一袋型下公式名称是否重复
+            # 检查同一袋型下是否已存在记录（一个袋型只能有一条公式记录）
             existing = self.session.query(BagRelatedFormula).filter_by(
-                bag_type_id=uuid.UUID(data['bag_type_id']),
-                formula_name=data['formula_name']
+                bag_type_id=uuid.UUID(data['bag_type_id'])
             ).first()
             if existing:
-                raise ValueError("该袋型下已存在同名公式")
+                raise ValueError("该袋型已存在相关公式配置")
             
             # 创建袋型相关公式对象
             formula = self.create_with_tenant(BagRelatedFormula,
-                formula_name=data['formula_name'],
                 bag_type_id=uuid.UUID(data['bag_type_id']),
-                formula_content=data.get('formula_content', ''),
+                meter_formula_id=uuid.UUID(data['meter_formula_id']) if data.get('meter_formula_id') else None,
+                square_formula_id=uuid.UUID(data['square_formula_id']) if data.get('square_formula_id') else None,
+                material_width_formula_id=uuid.UUID(data['material_width_formula_id']) if data.get('material_width_formula_id') else None,
+                per_piece_formula_id=uuid.UUID(data['per_piece_formula_id']) if data.get('per_piece_formula_id') else None,
+                dimension_description=data.get('dimension_description', ''),
                 description=data.get('description', ''),
                 sort_order=data.get('sort_order', 0),
                 is_enabled=data.get('is_enabled', True),
@@ -136,10 +135,6 @@ class BagRelatedFormulaService(TenantAwareService):
             if not formula:
                 raise ValueError("袋型相关公式不存在")
             
-            # 验证必填字段
-            if 'formula_name' in data and not data['formula_name']:
-                raise ValueError("公式名称不能为空")
-            
             # 如果更新了袋型，验证袋型是否存在
             if 'bag_type_id' in data:
                 if not data['bag_type_id']:
@@ -149,23 +144,19 @@ class BagRelatedFormulaService(TenantAwareService):
                 if not bag_type:
                     raise ValueError("选择的袋型不存在")
             
-            # 检查同一袋型下公式名称是否重复（排除自己）
-            if 'formula_name' in data or 'bag_type_id' in data:
-                new_name = data.get('formula_name', formula.formula_name)
-                new_bag_type_id = data.get('bag_type_id', formula.bag_type_id)
-                
+                # 检查新袋型是否已有其他记录（排除当前记录）
                 existing = self.session.query(BagRelatedFormula).filter(
-                    BagRelatedFormula.bag_type_id == uuid.UUID(new_bag_type_id),
-                    BagRelatedFormula.formula_name == new_name,
+                    BagRelatedFormula.bag_type_id == uuid.UUID(data['bag_type_id']),
                     BagRelatedFormula.id != formula.id
                 ).first()
                 if existing:
-                    raise ValueError("该袋型下已存在同名公式")
+                    raise ValueError("该袋型已存在相关公式配置")
             
             # 更新字段
             for key, value in data.items():
                 if hasattr(formula, key):
-                    if key == 'bag_type_id' and value:
+                    if key in ['bag_type_id', 'meter_formula_id', 'square_formula_id', 
+                             'material_width_formula_id', 'per_piece_formula_id'] and value:
                         setattr(formula, key, uuid.UUID(value))
                     else:
                         setattr(formula, key, value)
@@ -227,20 +218,15 @@ class BagRelatedFormulaService(TenantAwareService):
         from app.models.basic_data import BagRelatedFormula
         
         try:
-            formulas = self.session.query(BagRelatedFormula).filter_by(
+            formula = self.session.query(BagRelatedFormula).filter_by(
                 bag_type_id=uuid.UUID(bag_type_id),
                 is_enabled=True
-            ).order_by(BagRelatedFormula.sort_order, BagRelatedFormula.formula_name).all()
+            ).first()
             
-            return [
-                {
-                    'value': str(formula.id),
-                    'label': formula.formula_name,
-                    'content': formula.formula_content or '',
-                    'description': formula.description or ''
-                }
-                for formula in formulas
-            ]
+            if formula:
+                return formula.to_dict(include_formulas=True)
+            else:
+                return None
             
         except Exception as e:
             raise ValueError(f"获取袋型公式失败: {str(e)}")

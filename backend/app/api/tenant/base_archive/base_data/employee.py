@@ -230,17 +230,33 @@ def get_evaluation_level_options():
 
 @employee_bp.route('/options', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_employee_options():
-    """获取员工选项数据"""
+    """获取员工选项"""
     try:
         employee_service = EmployeeService()
-        department_id = request.args.get('department_id')
-        position_id = request.args.get('position_id')
         
-        options = employee_service.get_employee_options(
-            department_id=department_id,
-            position_id=position_id
-        )
+        # 获取员工列表
+        employees = employee_service.get_employees(page=1, per_page=1000)  # 获取所有员工
+        
+        # 转换为选项格式
+        options = []
+        if employees and 'employees' in employees:
+            for employee in employees['employees']:
+                options.append({
+                    'value': str(employee['id']),
+                    'label': employee['employee_name'],
+                    'employee_id': employee.get('employee_id', ''),
+                    'department': employee.get('department_name', ''),
+                    'department_id': employee.get('department_id', ''),
+                    'position': employee.get('position_name', ''),
+                    'position_id': employee.get('position_id', ''),
+                    'mobile_phone': employee.get('mobile_phone', ''),
+                    'email': employee.get('email', ''),
+                    'employment_status': employee.get('employment_status', ''),
+                    'gender': employee.get('gender', ''),
+                    'business_type': employee.get('business_type', '')
+                })
         
         return jsonify({
             'success': True,
@@ -248,7 +264,10 @@ def get_employee_options():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @employee_bp.route('/form-options', methods=['GET'])

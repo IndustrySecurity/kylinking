@@ -184,3 +184,127 @@ def get_product_form_options():
             'success': False,
             'message': str(e)
         }), 500 
+
+@bp.route('/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_options():
+    """获取产品选项"""
+    try:
+        service = get_product_management_service()
+        
+        # 获取产品列表
+        products = service.get_products(page=1, per_page=1000)  # 获取所有产品
+        
+        # 转换为选项格式
+        options = []
+        if products and 'products' in products:
+            for product in products['products']:
+                options.append({
+                    'value': str(product['id']),
+                    'label': product['product_name'],
+                    'code': product.get('product_code', ''),
+                    'specification': product.get('specification', ''),
+                    'unit': product.get('unit', ''),
+                    'price': product.get('price', 0),
+                    'bag_type': product.get('bag_type', ''),
+                    'material': product.get('material', ''),
+                    'color': product.get('color', ''),
+                    'width': product.get('width', 0),
+                    'length': product.get('length', 0),
+                    'thickness': product.get('thickness', 0)
+                })
+        
+        return jsonify({
+            'success': True,
+            'data': options
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/<product_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_details(product_id):
+    """获取产品详细信息"""
+    try:
+        service = get_product_management_service()
+        
+        # 获取产品详情
+        product = service.get_product_detail(product_id)
+        
+        if not product:
+            return jsonify({'error': '产品不存在'}), 404
+        
+        # 转换为前端需要的格式
+        product_details = {
+            'id': str(product['id']),
+            'product_code': product.get('product_code', ''),
+            'product_name': product['product_name'],
+            'specification': product.get('specification', ''),
+            'unit': product.get('unit', ''),
+            'price': product.get('price', 0),
+            'bag_type': product.get('bag_type', ''),
+            'material': product.get('material', ''),
+            'color': product.get('color', ''),
+            'width': product.get('width', 0),
+            'length': product.get('length', 0),
+            'thickness': product.get('thickness', 0),
+            'customer_id': product.get('customer_id'),
+            'customer_name': product.get('customer_name', ''),
+            'category_id': product.get('category_id'),
+            'category_name': product.get('category_name', '')
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': product_details
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@bp.route('/<product_id>/inventory', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_inventory(product_id):
+    """获取产品库存信息"""
+    try:
+        # 这里应该调用库存服务获取实际库存信息
+        # 暂时返回基础库存信息
+        return jsonify({
+            'success': True,
+            'data': {
+                'product_id': product_id,
+                'available_quantity': 100,
+                'total_quantity': 150,
+                'reserved_quantity': 50,
+                'on_order_quantity': 20,
+                'safety_stock': 10,
+                'warehouses': [
+                    {
+                        'warehouse_id': '1',
+                        'warehouse_name': '主仓库',
+                        'quantity': 80
+                    },
+                    {
+                        'warehouse_id': '2', 
+                        'warehouse_name': '分仓库',
+                        'quantity': 20
+                    }
+                ]
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500 

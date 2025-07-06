@@ -40,7 +40,7 @@ import styled from 'styled-components';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { finishedGoodsOutboundService, baseDataService } from '../../../services/finishedGoodsOutboundService';
+import { finishedGoodsOutboundService, baseDataService } from '../../../api/business/finishedGoodsOutbound';
 
 // 扩展dayjs插件
 dayjs.extend(utc);

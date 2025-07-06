@@ -147,6 +147,7 @@ def delete_department(department_id):
 
 @department_bp.route('/options', methods=['GET'])
 @jwt_required()
+@tenant_required
 def get_department_options():
     """获取部门选项数据"""
     try:

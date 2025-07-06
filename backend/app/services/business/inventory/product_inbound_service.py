@@ -59,12 +59,12 @@ class ProductInboundService(TenantAwareService):
 
     def get_product_inbound_order_list(
         self,
-        warehouse_id: str = None,
-        status: str = None,
-        approval_status: str = None,
-        start_date: str = None,
-        end_date: str = None,
-        search: str = None,
+        warehouse_id: Optional[str] = None,
+        status: Optional[str] = None,
+        approval_status: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        search: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> Dict[str, Any]:

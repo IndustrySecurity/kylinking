@@ -649,6 +649,20 @@ class ProductManagementService(TenantAwareService):
             self.logger.error(error_msg, exc_info=True)
             raise ValueError(error_msg)
 
+    def get_product_options(self):
+        """获取产品列表"""
+        try:
+            products = self.session.query(Product).filter(
+                Product.is_enabled == True
+            ).order_by(Product.product_name).all()
+            return [
+                {'value': str(product.id), 'label': product.product_name}
+                for product in products
+            ]
+        except Exception as e:
+            self.logger.error(f"获取产品列表失败: {str(e)}")
+            return []
+
 
 def get_product_management_service(tenant_id: str = None, schema_name: str = None) -> ProductManagementService:
     """获取产品管理服务实例"""
