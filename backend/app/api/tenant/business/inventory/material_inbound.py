@@ -433,144 +433,41 @@ def cancel_material_inbound_order(order_id):
         return jsonify({'error': str(e)}), 500
 
 
-# ==================== 辅助数据API ====================
 
-@bp.route('/warehouses', methods=['GET'])
+# ==================== 兼容路径别名 ====================
+# 为了兼容前端API调用，添加别名路径
+
+@bp.route('/material-inbound', methods=['GET'])
 @jwt_required()
 @tenant_required
-def get_warehouses():
-    """获取仓库列表"""
-    try:
-        # 获取查询参数
-        warehouse_type = request.args.get('warehouse_type', '')
-        
-        # 使用仓库服务获取真实的仓库数据
-        try:
-            # 这里应该调用仓库服务，但暂时使用模拟数据
-            warehouses = [
-                {'value': '1', 'label': '原材料一库', 'code': 'CL001', 'warehouse_type': '材料仓库'},
-                {'value': '2', 'label': '原材料二库', 'code': 'CL002', 'warehouse_type': '材料仓库'},
-                {'value': '3', 'label': '原材料三库', 'code': 'CL003', 'warehouse_type': '材料仓库'},
-                {'value': '4', 'label': '材料仓', 'code': 'CL004', 'warehouse_type': '材料仓库'},
-            ]
-            
-            # 过滤材料仓库
-            if warehouse_type == 'material' or not warehouse_type:
-                warehouses = [w for w in warehouses if w.get('warehouse_type') == '材料仓库' or '材料' in w.get('label', '')]
-                
-        except Exception as e:
-            current_app.logger.warning(f"获取仓库数据失败，使用模拟数据: {e}")
-            warehouses = [
-                {'value': '1', 'label': '原材料一库', 'code': 'CL001', 'warehouse_type': '材料仓库'},
-                {'value': '2', 'label': '原材料二库', 'code': 'CL002', 'warehouse_type': '材料仓库'},
-            ]
+def get_material_inbound_list_alias():
+    """获取材料入库列表（兼容别名）"""
+    return get_material_inbound_orders()
 
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': warehouses
-        })
-
-    except Exception as e:
-        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'}), 500
-
-
-@bp.route('/materials', methods=['GET'])
+@bp.route('/material-inbound', methods=['POST'])
 @jwt_required()
 @tenant_required
-def get_materials():
-    """获取材料列表"""
-    try:
-        search = request.args.get('search', '')
-        
-        materials = [
-            {
-                'id': 1,
-                'name': 'PE塑料颗粒',
-                'code': 'MAT001',
-                'specification': '规格A',
-                'unit': '吨',
-                'category': '塑料原料'
-            },
-            {
-                'id': 2,
-                'name': 'PP塑料颗粒',
-                'code': 'MAT002',
-                'specification': '规格B',
-                'unit': '吨',
-                'category': '塑料原料'
-            },
-            {
-                'id': 3,
-                'name': '聚乙烯薄膜',
-                'code': 'MAT003',
-                'specification': '0.05mm',
-                'unit': '米',
-                'category': '薄膜材料'
-            },
-            {
-                'id': 4,
-                'name': '包装袋',
-                'code': 'MAT004',
-                'specification': '50kg装',
-                'unit': '个',
-                'category': '包装材料'
-            },
-        ]
+def create_material_inbound_alias():
+    """创建材料入库（兼容别名）"""
+    return create_material_inbound_order()
 
-        # 简单的搜索过滤
-        if search:
-            materials = [m for m in materials if search.lower() in m['name'].lower() or search.lower() in m['code'].lower()]
-
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': materials
-        })
-
-    except Exception as e:
-        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'}), 500
-
-
-@bp.route('/suppliers', methods=['GET'])
+@bp.route('/material-inbound/<order_id>', methods=['GET'])
 @jwt_required()
 @tenant_required
-def get_suppliers():
-    """获取供应商列表"""
-    try:
-        suppliers = [
-            {'id': 1, 'name': '供应商A', 'code': 'SUP001'},
-            {'id': 2, 'name': '供应商B', 'code': 'SUP002'},
-            {'id': 3, 'name': '供应商C', 'code': 'SUP003'},
-        ]
+def get_material_inbound_detail_alias(order_id):
+    """获取材料入库详情（兼容别名）"""
+    return get_material_inbound_order(order_id)
 
-        return jsonify({
-            'code': 200,
-            'message': '获取成功',
-            'data': suppliers
-        })
-
-    except Exception as e:
-        return jsonify({'code': 500, 'message': f'获取失败: {str(e)}'}), 500
-
-
-@bp.route('/departments/options', methods=['GET'])
+@bp.route('/material-inbound/<order_id>', methods=['PUT'])
 @jwt_required()
 @tenant_required
-def get_department_options():
-    """获取部门选项"""
-    try:
-        # 这里应该调用部门服务，但暂时使用模拟数据
-        options = [
-            {'value': '1', 'label': '生产部门', 'code': 'PROD'},
-            {'value': '2', 'label': '采购部门', 'code': 'PURCH'},
-            {'value': '3', 'label': '仓储部门', 'code': 'WARE'},
-        ]
-        
-        return jsonify({
-            'success': True,
-            'data': options
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+def update_material_inbound_alias(order_id):
+    """更新材料入库（兼容别名）"""
+    return update_material_inbound_order(order_id)
+
+@bp.route('/material-inbound/<order_id>', methods=['DELETE'])
+@jwt_required()
+@tenant_required
+def delete_material_inbound_alias(order_id):
+    """删除材料入库（兼容别名）"""
+    return delete_material_inbound_order(order_id) 

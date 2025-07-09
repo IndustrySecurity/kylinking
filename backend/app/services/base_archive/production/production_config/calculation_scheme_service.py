@@ -374,7 +374,7 @@ class CalculationSchemeService(TenantAwareService):
         except Exception as e:
             raise ValueError(f"获取{category}分类计算方案失败: {str(e)}")
 
-    def get_calculation_scheme_options_by_category(self):
+    def get_calculation_scheme_options_by_category(self, request_category):
         """获取按类别分组的计算方案选项"""
         try:
             from app.models.basic_data import CalculationScheme
@@ -384,22 +384,20 @@ class CalculationSchemeService(TenantAwareService):
                 CalculationScheme.sort_order, 
                 CalculationScheme.scheme_name
             ).all()
-            
+                    
             # 按类别分组 - 支持工序相关分类
             categories = {
-                # 通用分类
-                'budget': [],           # 预算类
-                'production': [],       # 生产类
-                'other': [],           # 其他类
-                'saving': [],          # 节约奖类
-                'pricing': [],         # 报价类
-                'labor': [],           # 计件类
-                # 工序专用分类
-                'process_quote': [],   # 工序报价分类
-                'process_loss': [],    # 工序损耗分类
-                'process_bonus': [],   # 工序节约奖分类
-                'process_piece': [],   # 工序计件分类
-                'process_other': []    # 工序其它分类
+                'bag_spec': [],
+                'bag_formula': [],
+                'bag_quote': [],
+                'material_usage': [],
+                'material_quote': [],
+                'process_quote': [],
+                'process_loss': [],
+                'process_bonus': [],
+                'process_piece': [],
+                'process_other': [],
+                'multiple_formula': []
             }
             
             for scheme in schemes:
@@ -408,51 +406,21 @@ class CalculationSchemeService(TenantAwareService):
                     'value': str(scheme.id),
                     'label': scheme.scheme_name,
                     'category': scheme.scheme_category,
-                    'description': scheme.description or '',
-                    'formula': scheme.scheme_formula or ''
+                    'formula': scheme.scheme_formula or '',
+                    'description': scheme.description or ''
                 }
                 
                 # 根据计算方案分类添加到对应类别
                 category = scheme.scheme_category.lower() if scheme.scheme_category else ''
-                
-                # 工序专用分类映射
-                if category == 'process_quote':
-                    categories['process_quote'].append(option)
-                elif category == 'process_loss':
-                    categories['process_loss'].append(option)
-                elif category == 'process_bonus':
-                    categories['process_bonus'].append(option)
-                elif category == 'process_piece':
-                    categories['process_piece'].append(option)
-                elif category == 'process_other':
-                    categories['process_other'].append(option)
-                # 通用分类映射 (保持向后兼容)
-                elif 'budget' in category or '预算' in category:
-                    categories['budget'].append(option)
-                    # 同时添加到工序其它分类作为备选
-                    categories['process_other'].append(option)
-                elif 'production' in category or '生产' in category:
-                    categories['production'].append(option)
-                    # 同时添加到工序其它分类作为备选
-                    categories['process_other'].append(option)
-                elif 'saving' in category or '节约' in category or '节约奖' in category:
-                    categories['saving'].append(option)
-                    # 同时添加到工序节约奖分类
-                    categories['process_bonus'].append(option)
-                elif 'labor' in category or '计件' in category or '工资' in category:
-                    categories['labor'].append(option)
-                    # 同时添加到工序计件分类
-                    categories['process_piece'].append(option)
-                elif 'pricing' in category or '报价' in category:
-                    categories['pricing'].append(option)
-                    # 同时添加到工序报价分类
-                    categories['process_quote'].append(option)
+                if category in categories:
+                    categories[category].append(option)
                 else:
-                    categories['other'].append(option)
-                    # 添加到工序其它分类
-                    categories['process_other'].append(option)
-            
-            return categories
+                    categories[category] = [option]
+                    
+            if request_category:
+                return categories[request_category]
+            else:
+                return categories
             
         except Exception as e:
             raise ValueError(f"获取分类计算方案选项失败: {str(e)}")

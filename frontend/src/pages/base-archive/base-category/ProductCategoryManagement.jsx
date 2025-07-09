@@ -28,7 +28,7 @@ import {
   CloseOutlined,
   AppstoreOutlined
 } from '@ant-design/icons';
-import { productCategoryApi } from '../../../api/base-category/productCategory';
+import { productCategoryApi } from '../../../api/base-archive/base-category/productCategory';
 
 const { Title } = Typography;
 const { Option } = Select;

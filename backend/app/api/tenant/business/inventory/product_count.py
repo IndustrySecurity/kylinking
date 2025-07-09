@@ -348,4 +348,43 @@ def get_warehouse_product_inventory(warehouse_id):
         return jsonify({
             'success': False,
             'message': f"获取成品库存失败: {str(e)}"
-        }), 500 
+        }), 500
+
+
+# ==================== 兼容路径别名 ====================
+# 为了兼容前端API调用，添加别名路径
+
+@bp.route('/product-count', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_count_list_alias():
+    """获取产品盘点列表（兼容别名）"""
+    return get_product_count_plans()
+
+@bp.route('/product-count', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_product_count_alias():
+    """创建产品盘点（兼容别名）"""
+    return create_product_count_plan()
+
+@bp.route('/product-count/<plan_id>', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_count_detail_alias(plan_id):
+    """获取产品盘点详情（兼容别名）"""
+    return get_product_count_plan(plan_id)
+
+@bp.route('/product-count/<plan_id>', methods=['DELETE'])
+@jwt_required()
+@tenant_required
+def delete_product_count_alias(plan_id):
+    """删除产品盘点（兼容别名）"""
+    return delete_product_count_plan(plan_id)
+
+@bp.route('/product-count/<plan_id>/complete', methods=['POST'])
+@jwt_required()
+@tenant_required
+def complete_product_count_alias(plan_id):
+    """完成产品盘点（兼容别名）"""
+    return complete_product_count_plan(plan_id) 

@@ -37,7 +37,7 @@ import {
   ClearOutlined,
   CopyOutlined
 } from '@ant-design/icons';
-import { materialManagementApi } from '../../../api/base-data/materialManagement';
+import { materialManagementApi } from '../../../api/base-archive/base-data/materialManagement';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

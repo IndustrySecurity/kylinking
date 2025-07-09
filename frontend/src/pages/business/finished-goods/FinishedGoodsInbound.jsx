@@ -38,7 +38,7 @@ import styled from 'styled-components';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { finishedGoodsInboundService, baseDataService } from '../../../api/business/finishedGoodsInbound';
+import { finishedGoodsInboundService, baseDataService } from '../../../api/business/inventory/finishedGoodsInbound';
 import request from '../../../utils/request';
 
 // 扩展dayjs插件

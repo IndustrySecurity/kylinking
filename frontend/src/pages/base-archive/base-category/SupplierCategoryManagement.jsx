@@ -27,7 +27,7 @@ import {
   CloseOutlined,
   BankOutlined
 } from '@ant-design/icons';
-import { supplierCategoryApi } from '../../../api/base-category/supplierCategory';
+import { supplierCategoryApi } from '../../../api/base-archive/base-category/supplierCategory';
 
 const { Title } = Typography;
 

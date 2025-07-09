@@ -41,7 +41,7 @@ import {
   toggleCustomerStatus,
   exportCustomerManagement,
   getCustomerManagementFormOptions
-} from '@/api/base-data/customerManagement'
+} from '../../../api/base-archive/base-data/customerManagement'
 import dayjs from 'dayjs'
 
 const { TextArea } = Input

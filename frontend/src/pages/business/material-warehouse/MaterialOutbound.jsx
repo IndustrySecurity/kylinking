@@ -43,7 +43,7 @@ import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
-import { materialOutboundService, baseDataService } from '../../../api/business/materialOutbound';
+import { materialOutboundService, baseDataService } from '../../../api/business/inventory/materialOutbound';
 
 // 扩展dayjs插件
 dayjs.extend(utc);

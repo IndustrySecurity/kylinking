@@ -24,7 +24,7 @@ import {
   SearchOutlined,
   TransactionOutlined
 } from '@ant-design/icons';
-import { settlementMethodApi } from '../../../api/financial-management/settlementMethod';
+import { settlementMethodApi } from '../../../api/base-archive/financial-management/settlementMethod';
 
 const { Search } = Input;
 const { Title } = Typography;

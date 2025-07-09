@@ -289,4 +289,437 @@ def get_unscheduled_sales_order_options():
         return jsonify({'success': True, 'data': results})
     except Exception as e:
         print(f"获取未安排销售订单选项失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== 选项数据API ====================
+
+@bp.route('/customers/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_options():
+    """获取客户选项"""
+    try:
+        # 调用客户服务获取选项
+        from app.services.base_archive.base_data.customer_service import CustomerService
+        customer_service = CustomerService()
+        customers = customer_service.get_customers(page=1, per_page=1000)
+        
+        options = []
+        if customers and 'customers' in customers:
+            for customer in customers['customers']:
+                options.append({
+                    'value': str(customer['id']),
+                    'label': customer['customer_name'],
+                    'code': customer.get('customer_code', ''),
+                    'contact': customer.get('contact_person', ''),
+                    'phone': customer.get('contact_phone', ''),
+                    'address': customer.get('address', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/products/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_options():
+    """获取产品选项"""
+    try:
+        # 调用产品服务获取选项
+        from app.services.base_archive.base_data.product_management_service import ProductManagementService
+        product_service = ProductManagementService()
+        products = product_service.get_products(page=1, per_page=1000)
+        
+        options = []
+        if products and 'products' in products:
+            for product in products['products']:
+                options.append({
+                    'value': str(product['id']),
+                    'label': product['product_name'],
+                    'code': product.get('product_code', ''),
+                    'specification': product.get('specification_model', ''),
+                    'unit': product.get('unit_name', ''),
+                    'price': product.get('base_price', 0)
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/materials/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_options():
+    """获取材料选项"""
+    try:
+        # 调用材料服务获取选项
+        from app.services.base_archive.base_data.material_management_service import MaterialService
+        material_service = MaterialService()
+        materials = material_service.get_materials(page=1, page_size=1000)
+        
+        options = []
+        if materials and 'items' in materials:
+            for material in materials['items']:
+                options.append({
+                    'value': str(material['id']),
+                    'label': material['material_name'],
+                    'code': material.get('material_code', ''),
+                    'specification': material.get('specification_model', ''),
+                    'unit': material.get('unit_name', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/units/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_unit_options():
+    """获取单位选项"""
+    try:
+        # 调用单位服务获取选项
+        from app.services.base_archive.production.production_archive.unit_service import UnitService
+        unit_service = UnitService()
+        units = unit_service.get_units(page=1, per_page=1000)
+        
+        options = []
+        if units and 'units' in units:
+            for unit in units['units']:
+                options.append({
+                    'value': str(unit['id']),
+                    'label': unit['unit_name'],
+                    'code': unit.get('unit_code', ''),
+                    'type': unit.get('unit_type', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/taxes/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_tax_options():
+    """获取税收选项"""
+    try:
+        # 调用税率服务获取选项
+        from app.services.base_archive.financial_management.tax_rate_service import TaxRateService
+        tax_service = TaxRateService()
+        taxes = tax_service.get_tax_rates(page=1, per_page=1000)
+        
+        options = []
+        if taxes and 'tax_rates' in taxes:
+            for tax in taxes['tax_rates']:
+                options.append({
+                    'value': str(tax['id']),
+                    'label': f"{tax['tax_name']} ({tax.get('tax_rate', 0)}%)",
+                    'rate': tax.get('tax_rate', 0),
+                    'type': tax.get('tax_type', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/currencies/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_currency_options():
+    """获取币种选项"""
+    try:
+        # 调用币种服务获取选项
+        from app.services.base_archive.financial_management.currency_service import CurrencyService
+        currency_service = CurrencyService()
+        currencies = currency_service.get_currencies(page=1, per_page=1000)
+        
+        options = []
+        if currencies and 'currencies' in currencies:
+            for currency in currencies['currencies']:
+                options.append({
+                    'value': str(currency['id']),
+                    'label': f"{currency['currency_name']} ({currency.get('currency_code', '')})",
+                    'code': currency.get('currency_code', ''),
+                    'symbol': currency.get('currency_symbol', ''),
+                    'rate': currency.get('exchange_rate', 1)
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/warehouses/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_warehouse_options():
+    """获取仓库选项"""
+    try:
+        # 调用仓库服务获取选项
+        from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+        warehouse_service = WarehouseService()
+        warehouses = warehouse_service.get_warehouses(page=1, per_page=1000)
+        
+        options = []
+        if warehouses and 'warehouses' in warehouses:
+            for warehouse in warehouses['warehouses']:
+                options.append({
+                    'value': str(warehouse['id']),
+                    'label': warehouse['warehouse_name'],
+                    'code': warehouse.get('warehouse_code', ''),
+                    'type': warehouse.get('warehouse_type', ''),
+                    'location': warehouse.get('location', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/employees/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_employee_options():
+    """获取员工选项"""
+    try:
+        # 调用员工服务获取选项
+        from app.services.base_archive.base_data.employee_service import EmployeeService
+        employee_service = EmployeeService()
+        employees = employee_service.get_employees(page=1, per_page=1000)
+        
+        options = []
+        if employees and 'employees' in employees:
+            for employee in employees['employees']:
+                options.append({
+                    'value': str(employee['id']),
+                    'label': employee['employee_name'],
+                    'employee_id': employee.get('employee_id', ''),
+                    'department': employee.get('department_name', ''),
+                    'position': employee.get('position_name', ''),
+                    'phone': employee.get('mobile_phone', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/contacts/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_contact_options():
+    """获取联系人选项"""
+    try:
+        customer_id = request.args.get('customer_id')
+        if not customer_id:
+            return jsonify({'success': True, 'data': []})
+        
+        # 这里应该从客户联系人表获取数据，暂时返回模拟数据
+        options = [
+            {'value': '1', 'label': '张三', 'phone': '13800138001', 'email': 'zhangsan@example.com'},
+            {'value': '2', 'label': '李四', 'phone': '13800138002', 'email': 'lisi@example.com'}
+        ]
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/sales-orders/status-options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_order_status_options():
+    """获取销售订单状态选项"""
+    try:
+        options = [
+            {'value': 'draft', 'label': '草稿'},
+            {'value': 'confirmed', 'label': '已确认'},
+            {'value': 'approved', 'label': '已审批'},
+            {'value': 'in_production', 'label': '生产中'},
+            {'value': 'completed', 'label': '已完成'},
+            {'value': 'cancelled', 'label': '已取消'}
+        ]
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/payment-methods/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_payment_method_options():
+    """获取付款方式选项"""
+    try:
+        # 调用付款方式服务获取选项
+        from app.services.base_archive.financial_management.payment_method_service import PaymentMethodService
+        payment_service = PaymentMethodService()
+        methods = payment_service.get_payment_methods(page=1, per_page=1000)
+        
+        options = []
+        if methods and 'payment_methods' in methods:
+            for method in methods['payment_methods']:
+                options.append({
+                    'value': str(method['id']),
+                    'label': method['method_name'],
+                    'code': method.get('method_code', ''),
+                    'type': method.get('method_type', '')
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/delivery-methods/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_delivery_method_options():
+    """获取配送方式选项"""
+    try:
+        # 调用配送方式服务获取选项
+        from app.services.base_archive.production.production_archive.delivery_method_service import DeliveryMethodService
+        delivery_service = DeliveryMethodService()
+        methods = delivery_service.get_delivery_methods(page=1, per_page=1000)
+        
+        options = []
+        if methods and 'delivery_methods' in methods:
+            for method in methods['delivery_methods']:
+                options.append({
+                    'value': str(method['id']),
+                    'label': method['method_name'],
+                    'code': method.get('method_code', ''),
+                    'cost': method.get('default_cost', 0)
+                })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/sales-orders/stats', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_sales_order_stats():
+    """获取销售订单统计"""
+    try:
+        # 这里应该实现真实的统计逻辑，暂时返回模拟数据
+        stats = {
+            'total_orders': 120,
+            'total_amount': 1500000.00,
+            'draft_count': 15,
+            'confirmed_count': 45,
+            'completed_count': 60
+        }
+        
+        return jsonify({'success': True, 'data': stats})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/sales-orders/report', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_sales_order_report():
+    """获取销售订单报表"""
+    try:
+        # 这里应该实现真实的报表逻辑，暂时返回模拟数据
+        report = {
+            'period': request.args.get('period', '本月'),
+            'sales_trend': [
+                {'date': '2024-01-01', 'amount': 50000},
+                {'date': '2024-01-02', 'amount': 60000},
+                {'date': '2024-01-03', 'amount': 45000}
+            ],
+            'top_customers': [
+                {'name': '客户A', 'amount': 200000},
+                {'name': '客户B', 'amount': 150000}
+            ]
+        }
+        
+        return jsonify({'success': True, 'data': report})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/products/<product_id>/inventory', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_inventory(product_id):
+    """获取产品库存信息"""
+    try:
+        # 这里应该调用库存服务获取实际库存信息
+        # 暂时返回基础库存信息
+        inventory = {
+            'product_id': product_id,
+            'available_quantity': 100,
+            'total_quantity': 150,
+            'reserved_quantity': 50,
+            'safety_stock': 10
+        }
+        
+        return jsonify({'success': True, 'data': inventory})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/customers/<customer_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_details(customer_id):
+    """获取客户详细信息"""
+    try:
+        from app.services.base_archive.base_data.customer_service import CustomerService
+        customer_service = CustomerService()
+        customer = customer_service.get_customer(customer_id)
+        
+        return jsonify({'success': True, 'data': customer})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/customers/<customer_id>/contacts', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_contacts(customer_id):
+    """获取客户联系人"""
+    try:
+        # 这里应该从客户联系人表获取数据，暂时返回模拟数据
+        contacts = [
+            {'id': '1', 'name': '张三', 'phone': '13800138001', 'email': 'zhangsan@example.com', 'position': '采购经理'},
+            {'id': '2', 'name': '李四', 'phone': '13800138002', 'email': 'lisi@example.com', 'position': '项目经理'}
+        ]
+        
+        return jsonify({'success': True, 'data': contacts})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/products/<product_id>/details', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_product_details(product_id):
+    """获取产品详细信息"""
+    try:
+        # 这里应该调用产品服务获取详细信息，暂时返回基础信息
+        product_details = {
+            'id': product_id,
+            'product_name': '示例产品',
+            'product_code': 'PROD001',
+            'specification': '规格说明',
+            'unit': '个',
+            'sale_price': 100.00,
+            'description': '产品描述'
+        }
+        
+        return jsonify({'success': True, 'data': product_details})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/customers/<customer_id>/tax-rate', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_customer_tax_rate(customer_id):
+    """获取客户税率信息"""
+    try:
+        # 这里应该从客户表或税率配置获取数据，暂时返回模拟数据
+        tax_rate = {
+            'customer_id': customer_id,
+            'tax_rate': 13.0,
+            'tax_type': 'VAT',
+            'is_tax_inclusive': False
+        }
+        
+        return jsonify({'success': True, 'data': tax_rate})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500 

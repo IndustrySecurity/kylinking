@@ -45,7 +45,7 @@ import {
 // 暂时移除拖拽功能，避免依赖问题
 // import { DndProvider, useDrag, useDrop } from 'react-dnd';
 // import { HTML5Backend } from 'react-dnd-html5-backend';
-import { materialCategoryApi } from '../../../api/base-category/materialCategory';
+import { materialCategoryApi } from '../../../api/base-archive/base-category/materialCategory';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

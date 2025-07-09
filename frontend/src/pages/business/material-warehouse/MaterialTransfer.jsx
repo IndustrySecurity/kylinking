@@ -43,10 +43,10 @@ import {
   receiveMaterialTransferOrder,
   cancelMaterialTransferOrder,
   getWarehouseTransferMaterials
-} from '../../../api/business/materialTransfer';
-import { warehouseApi } from '../../../api/production/production-archive/warehouse';
-import { getEmployeeOptions } from '../../../api/base-data/employee';
-import { getDepartmentOptions } from '../../../api/base-data/department';
+} from '../../../api/business/inventory/materialTransfer';
+import { warehouseApi } from '../../../api/base-archive/production-archive/warehouse';
+import { getEmployeeOptions } from '../../../api/base-archive/base-data/employee';
+import { getDepartmentOptions } from '../../../api/base-archive/base-data/department';
 import request from '../../../utils/request';
 
 const { Option } = Select;

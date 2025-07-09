@@ -24,7 +24,7 @@ import {
   SearchOutlined,
   ReloadOutlined
 } from '@ant-design/icons';
-import positionApi from '../../../api/base-data/position';
+import positionApi from '../../../api/base-archive/base-data/position';
 
 const { Title } = Typography;
 const { Option } = Select;

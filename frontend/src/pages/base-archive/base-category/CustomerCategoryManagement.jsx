@@ -26,7 +26,7 @@ import {
   CloseOutlined,
   UserOutlined
 } from '@ant-design/icons';
-import { customerCategoryApi } from '../../../api/base-category/customerCategory';
+import { customerCategoryApi } from '../../../api/base-archive/base-category/customerCategory';
 
 const { Title } = Typography;
 

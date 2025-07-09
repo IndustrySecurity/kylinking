@@ -49,7 +49,7 @@ import {
   getWarehouses,
   getEmployees,
   getDepartments
-} from '../../../api/business/productCount';
+} from '../../../api/business/inventory/productCount';
 
 const { Option } = Select;
 const { TextArea } = Input;

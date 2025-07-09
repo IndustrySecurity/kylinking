@@ -37,7 +37,7 @@ import {
   batchUpdateDepartments, 
   getDepartmentOptions, 
   getDepartmentTree 
-} from '../../../api/base-data/department';
+} from '../../../api/base-archive/base-data/department';
 
 const { Title } = Typography;
 const { Option } = Select;

@@ -226,54 +226,63 @@ frontend/
 │   │
 │   ├── api/                     # API 调用层
 │   │   ├── tenant.js            # 租户 API
-│   │   ├── base-category/       # 基础分类 API
-│   │   │   ├── customerCategory.js     # 客户分类
-│   │   │   ├── materialCategory.js     # 材料分类
-│   │   │   ├── processCategoryApi.js   # 工艺分类
-│   │   │   ├── productCategory.js      # 产品分类
-│   │   │   └── supplierCategory.js     # 供应商分类
-│   │   ├── base-data/           # 基础数据 API
-│   │   │   ├── customerManagement.js   # 客户管理
-│   │   │   ├── department.js           # 部门管理
-│   │   │   ├── employee.js             # 员工管理
-│   │   │   ├── materialManagement.js   # 材料管理
-│   │   │   ├── position.js             # 职位管理
-│   │   │   ├── productManagement.js    # 产品管理
-│   │   │   └── supplierManagement.js   # 供应商管理
-│   │   ├── business/            # 业务相关 API
-│   │   │   ├── materialCount.js        # 材料盘点
-│   │   │   ├── materialTransfer.js     # 材料调拨
-│   │   │   ├── productCount.js         # 产品盘点
-│   │   │   └── productTransfer.js      # 产品调拨
-│   │   ├── financial-management/ # 财务管理 API
-│   │   │   ├── accountManagement.js    # 账户管理
-│   │   │   ├── currency.js             # 币种管理
-│   │   │   ├── paymentMethod.js        # 付款方式
-│   │   │   ├── settlementMethod.js     # 结算方式
-│   │   │   └── taxRate.js              # 税率管理
-│   │   └── production/          # 生产相关 API
-│   │       ├── production-archive/     # 生产档案
-│   │       │   ├── bagType.js          # 袋型管理
-│   │       │   ├── colorCard.js        # 色卡管理
-│   │       │   ├── deliveryMethod.js   # 送货方式
-│   │       │   ├── lossTypeApi.js      # 损耗类型
-│   │       │   ├── machineApi.js       # 机台管理
-│   │       │   ├── packageMethod.js    # 包装方式
-│   │       │   ├── processApi.js       # 工艺管理
-│   │       │   ├── specification.js    # 规格管理
-│   │       │   ├── teamGroup.js        # 班组管理
-│   │       │   ├── unit.js             # 单位管理
-│   │       │   └── warehouse.js        # 仓库管理
-│   │       └── production-config/      # 生产配置
-│   │           ├── bagRelatedFormula.js    # 袋相关公式
-│   │           ├── calculationParameter.js # 计算参数
-│   │           ├── calculationScheme.js    # 计算方案
-│   │           ├── inkOption.js            # 油墨选项
-│   │           ├── quoteAccessoryApi.js    # 报价配件
-│   │           ├── quoteFreight.js         # 报价运费
-│   │           ├── quoteInkApi.js          # 报价油墨
-│   │           ├── quoteLossApi.js         # 报价损耗
-│   │           └── quoteMaterialApi.js     # 报价材料
+│   │   ├── base-archive/        # 基础档案 API
+│   │   │   ├── base-category/   # 基础分类 API
+│   │   │   │   ├── customerCategory.js     # 客户分类
+│   │   │   │   ├── materialCategory.js     # 材料分类
+│   │   │   │   ├── processCategoryApi.js   # 工艺分类
+│   │   │   │   ├── productCategory.js      # 产品分类
+│   │   │   │   └── supplierCategory.js     # 供应商分类
+│   │   │   ├── base-data/       # 基础数据 API
+│   │   │   │   ├── customerManagement.js   # 客户管理
+│   │   │   │   ├── department.js           # 部门管理
+│   │   │   │   ├── employee.js             # 员工管理
+│   │   │   │   ├── materialManagement.js   # 材料管理
+│   │   │   │   ├── position.js             # 职位管理
+│   │   │   │   ├── productManagement.js    # 产品管理
+│   │   │   │   └── supplierManagement.js   # 供应商管理
+│   │   │   ├── financial-management/ # 财务管理 API
+│   │   │   │   ├── accountManagement.js    # 账户管理
+│   │   │   │   ├── currency.js             # 币种管理
+│   │   │   │   ├── paymentMethod.js        # 付款方式
+│   │   │   │   ├── settlementMethod.js     # 结算方式
+│   │   │   │   └── taxRate.js              # 税率管理
+│   │   │   ├── production-archive/ # 生产档案 API
+│   │   │   │   ├── bagType.js          # 袋型管理
+│   │   │   │   ├── colorCard.js        # 色卡管理
+│   │   │   │   ├── deliveryMethod.js   # 送货方式
+│   │   │   │   ├── lossTypeApi.js      # 损耗类型
+│   │   │   │   ├── machineApi.js       # 机台管理
+│   │   │   │   ├── packageMethod.js    # 包装方式
+│   │   │   │   ├── processApi.js       # 工艺管理
+│   │   │   │   ├── specification.js    # 规格管理
+│   │   │   │   ├── teamGroup.js        # 班组管理
+│   │   │   │   ├── unit.js             # 单位管理
+│   │   │   │   └── warehouse.js        # 仓库管理
+│   │   │   └── production-config/ # 生产配置 API
+│   │   │       ├── bagRelatedFormula.js    # 袋相关公式
+│   │   │       ├── calculationParameter.js # 计算参数
+│   │   │       ├── calculationScheme.js    # 计算方案
+│   │   │       ├── inkOption.js            # 油墨选项
+│   │   │       ├── quoteAccessoryApi.js    # 报价配件
+│   │   │       ├── quoteFreight.js         # 报价运费
+│   │   │       ├── quoteInkApi.js          # 报价油墨
+│   │   │       ├── quoteLossApi.js         # 报价损耗
+│   │   │       └── quoteMaterialApi.js     # 报价材料
+│   │   └── business/            # 业务相关 API
+│   │       ├── inventory/       # 库存管理 API
+│   │       │   ├── finishedGoodsInbound.js  # 成品入库
+│   │       │   ├── finishedGoodsOutbound.js # 成品出库
+│   │       │   ├── inventory.js            # 库存查询
+│   │       │   ├── materialCount.js        # 材料盘点
+│   │       │   ├── materialInbound.js      # 材料入库
+│   │       │   ├── materialOutbound.js     # 材料出库
+│   │       │   ├── materialTransfer.js     # 材料调拨
+│   │       │   ├── productCount.js         # 产品盘点
+│   │       │   └── productTransfer.js      # 产品调拨
+│   │       └── sales/           # 销售管理 API
+│   │           ├── deliveryNotice.js       # 送货通知
+│   │           └── salesOrder.js           # 销售订单
 │   │
 │   ├── components/              # 组件
 │   │   ├── auth/                # 认证组件
@@ -325,7 +334,6 @@ frontend/
 │   │   │   │   ├── PaymentMethod.jsx              # 付款方式
 │   │   │   │   ├── SettlementMethod.jsx           # 结算方式
 │   │   │   │   └── TaxRate.jsx                    # 税率管理
-│   │   │   ├── finished-goods-warehouse/ # 成品仓库
 │   │   │   └── production/              # 生产相关
 │   │   │       ├── production-archive/          # 生产档案
 │   │   │       │   ├── BagTypeManagement.jsx    # 袋型管理
@@ -367,24 +375,23 @@ frontend/
 │   │       │   ├── FinishedGoodsTransfer.jsx       # 成品调拨
 │   │       │   ├── FinishedGoodsWeighingSlip.jsx   # 成品过磅单
 │   │       │   ├── PackingWeighingSlip.jsx         # 包装过磅单
-│   │       │   └── RewindingOutputReport.jsx       # 复卷产出报告
+│   │       │   ├── RewindingOutputReport.jsx       # 复卷产出报告
+│   │       │   ├── SemiFinishedInbound.jsx         # 半成品入库
+│   │       │   ├── SemiFinishedOutbound.jsx        # 半成品出库
+│   │       │   └── SemiFinishedWeighing.jsx        # 半成品过磅
 │   │       ├── material-warehouse/          # 材料仓库
 │   │       │   ├── MaterialCount.jsx       # 材料盘点
 │   │       │   ├── MaterialInbound.jsx     # 材料入库
 │   │       │   ├── MaterialOutbound.jsx    # 材料出库
 │   │       │   └── MaterialTransfer.jsx    # 材料调拨
-│   │       ├── sales/                       # 销售相关
-│   │       │   ├── CustomerContract.jsx    # 客户合同
-│   │       │   ├── DeliveryNotice.jsx      # 送货通知
-│   │       │   ├── DeliveryOrder.jsx       # 送货单
-│   │       │   ├── MonthlyPlan.jsx         # 月度计划
-│   │       │   ├── ReturnNotice.jsx        # 退货通知
-│   │       │   ├── ReturnOrder.jsx         # 退货单
-│   │       │   └── SalesOrder.jsx          # 销售订单
-│   │       └── semi-finished/               # 半成品相关
-│   │           ├── SemiFinishedInbound.jsx  # 半成品入库
-│   │           ├── SemiFinishedOutbound.jsx # 半成品出库
-│   │           └── SemiFinishedWeighing.jsx # 半成品过磅
+│   │       └── sales/                       # 销售相关
+│   │           ├── CustomerContract.jsx    # 客户合同
+│   │           ├── DeliveryNotice.jsx      # 送货通知
+│   │           ├── DeliveryOrder.jsx       # 送货单
+│   │           ├── MonthlyPlan.jsx         # 月度计划
+│   │           ├── ReturnNotice.jsx        # 退货通知
+│   │           ├── ReturnOrder.jsx         # 退货单
+│   │           └── SalesOrder.jsx          # 销售订单
 │   │
 │   ├── hooks/                   # 自定义 Hooks
 │   │   └── useApi.js            # API 调用 Hook

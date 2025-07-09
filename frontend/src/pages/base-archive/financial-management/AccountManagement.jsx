@@ -33,8 +33,8 @@ import {
   deleteAccount, 
   getAccountById,
   batchUpdateAccounts
-} from '../../../api/financial-management/accountManagement';
-import { getEnabledCurrencies } from '../../../api/financial-management/currency';
+} from '../../../api/base-archive/financial-management/accountManagement';
+import { getEnabledCurrencies } from '../../../api/base-archive/financial-management/currency';
 import dayjs from 'dayjs';
 
 const { Search } = Input;

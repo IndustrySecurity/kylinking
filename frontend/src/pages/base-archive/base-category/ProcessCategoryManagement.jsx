@@ -30,7 +30,7 @@ import {
   CheckOutlined,
   CloseOutlined
 } from '@ant-design/icons';
-import processCategoryApi from '../../../api/base-category/processCategoryApi';
+import processCategoryApi from '../../../api/base-archive/base-category/processCategoryApi';
 
 const { Title } = Typography;
 const { TextArea } = Input;

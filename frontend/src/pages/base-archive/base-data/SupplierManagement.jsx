@@ -17,7 +17,7 @@ import {
   toggleSupplierStatus,
   exportSupplierManagement,
   getSupplierManagementFormOptions
-} from '@/api/base-data/supplierManagement';
+} from '../../../api/base-archive/base-data/supplierManagement';
 import dayjs from 'dayjs';
 
 const { Option } = Select;

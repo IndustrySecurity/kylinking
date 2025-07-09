@@ -521,11 +521,40 @@ def cancel_material_outbound_order(order_id):
         logger.error(f"取消材料出库单失败: {str(e)}")
         return jsonify({'code': 500, 'message': f'取消失败: {str(e)}'}), 500
 
+# ==================== 兼容路径别名 ====================
+# 为了兼容前端API调用，添加别名路径
 
-# ==================== 辅助数据API ====================
+@bp.route('/material-outbound', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_outbound_list_alias():
+    """获取材料出库列表（兼容别名）"""
+    return get_material_outbound_orders()
 
-# 导入辅助数据API函数
-def get_warehouses():
-    """获取仓库列表 - 辅助函数"""
-    # 这里应该调用对应的仓库API
-    pass 
+@bp.route('/material-outbound', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_material_outbound_alias():
+    """创建材料出库（兼容别名）"""
+    return create_material_outbound_order()
+
+@bp.route('/material-outbound/<order_id>', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_outbound_detail_alias(order_id):
+    """获取材料出库详情（兼容别名）"""
+    return get_material_outbound_order(order_id)
+
+@bp.route('/material-outbound/<order_id>', methods=['PUT'])
+@jwt_required()
+@tenant_required
+def update_material_outbound_alias(order_id):
+    """更新材料出库（兼容别名）"""
+    return update_material_outbound_order(order_id)
+
+@bp.route('/material-outbound/<order_id>', methods=['DELETE'])
+@jwt_required()
+@tenant_required
+def delete_material_outbound_alias(order_id):
+    """删除材料出库（兼容别名）"""
+    return delete_material_outbound_order(order_id) 

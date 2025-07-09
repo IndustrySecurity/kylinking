@@ -37,9 +37,9 @@ import {
   getBusinessTypeOptions,
   getGenderOptions,
   getEvaluationLevelOptions,
-} from '@/api/base-data/employee'
-import { getDepartmentOptions } from '@/api/base-data/department'
-import { getPositionOptions } from '@/api/base-data/position'
+} from '../../../api/base-archive/base-data/employee'
+import { getDepartmentOptions } from '../../../api/base-archive/base-data/department'
+import { getPositionOptions } from '../../../api/base-archive/base-data/position'
 import dayjs from 'dayjs'
 
 const { Title } = Typography

@@ -32,7 +32,7 @@ import {
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import { useApi } from '../../hooks/useApi';
-import { inventoryService, baseDataService } from '../../api/business/inventory';
+import { inventoryService, baseDataService } from '../../api/business/inventory/inventory';
 import request from '../../utils/request';
 
 const { RangePicker } = DatePicker;

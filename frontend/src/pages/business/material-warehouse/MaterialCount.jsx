@@ -28,7 +28,7 @@ import {
   adjustMaterialCountInventory,
   getWarehouseMaterialInventory,
   getWarehouses
-} from '../../../api/business/materialCount';
+} from '../../../api/business/inventory/materialCount';
 import request from '../../../utils/request';
 
 const { Option } = Select;

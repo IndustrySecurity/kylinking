@@ -113,7 +113,11 @@ def get_calculation_scheme_options_by_category():
     """获取按分类的计算方案选项"""
     try:
         service = get_calculation_scheme_service()
-        result = service.get_calculation_scheme_options_by_category()
+        category = request.args.get('category', '')
+        if category:
+            result = service.get_calculation_scheme_options_by_category(category)
+        else:
+            result = service.get_calculation_scheme_options()
         
         return jsonify({
             'success': True,
@@ -122,3 +126,20 @@ def get_calculation_scheme_options_by_category():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
+
+@bp.route('/categories', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_calculation_scheme_categories():
+    """获取计算方案分类"""
+    try:
+        service = get_calculation_scheme_service()
+        result = service.get_scheme_categories()
+        
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

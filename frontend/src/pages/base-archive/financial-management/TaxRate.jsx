@@ -33,7 +33,7 @@ import {
   createTaxRate, 
   updateTaxRate, 
   deleteTaxRate 
-} from '../../../api/financial-management/taxRate';
+} from '../../../api/base-archive/financial-management/taxRate';
 
 const { Title } = Typography;
 

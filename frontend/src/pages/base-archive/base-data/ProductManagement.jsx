@@ -32,7 +32,7 @@ import {
   UploadOutlined,
   InboxOutlined
 } from '@ant-design/icons';
-import { productManagementApi } from '../../../api/base-data/productManagement';
+import { productManagementApi } from '../../../api/base-archive/base-data/productManagement';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -456,10 +456,6 @@ const ProductManagement = () => {
         product_processes: processData,
         product_materials: materialData
       };
-
-      console.log('保存产品数据:', productData);
-      console.log('工序数据:', processData);
-      console.log('材料数据:', materialData);
 
       if (modalType === 'create') {
         await productManagementApi.createProduct(productData);

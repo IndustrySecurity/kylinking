@@ -34,7 +34,7 @@ import {
   updateCurrency, 
   deleteCurrency, 
   getCurrencyById 
-} from '../../../api/financial-management/currency';
+} from '../../../api/base-archive/financial-management/currency';
 
 const { Title } = Typography;
 

@@ -34,8 +34,8 @@ import {
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
-import salesOrderService from '../../../api/business/salesOrder';
-import { getEmployeeOptions } from '@/api/base-data/employee';
+import salesOrderService from '../../../api/business/sales/salesOrder';
+import { getEmployeeOptions } from '../../../api/base-archive/base-data/employee';
 
 const { Option } = Select;
 const { TextArea } = Input;
