@@ -27,14 +27,6 @@ def get_positions():
         search = request.args.get('search')
         department_id = request.args.get('department_id')
         
-        # 获取当前用户和租户信息
-        current_user_id = get_jwt_identity()
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
-        
-        if not tenant_id:
-            return jsonify({'error': '租户信息缺失'}), 400
-        
         # 获取职位列表
         result = position_service.get_positions(
             page=page,

@@ -184,8 +184,7 @@ const MaterialOutbound = ({ onBack }) => {
         page_size: pagination.pageSize,
         ...params
       });
-      
-      console.log('材料出库API响应:', response.data);
+
       
       if (response.data.success || response.data.code === 200) {
         const responseData = response.data.data;
@@ -201,8 +200,7 @@ const MaterialOutbound = ({ onBack }) => {
         } else {
           orders = [];
         }
-        
-        console.log('解析出的订单数据:', orders);
+
         
         setData(orders);
         
@@ -227,10 +225,9 @@ const MaterialOutbound = ({ onBack }) => {
   const fetchWarehouses = async () => {
     try {
       const response = await baseDataService.getWarehouses();
-      console.log('仓库API响应:', response.data);
+      
       if (response.data.success) {
         setWarehouses(response.data.data || []);
-        console.log('仓库数据设置完成:', response.data.data);
       }
     } catch (error) {
       console.error('获取仓库列表失败', error);
@@ -262,7 +259,6 @@ const MaterialOutbound = ({ onBack }) => {
         page_size: 1000, // 获取更多数据
         is_enabled: true // 只获取启用的材料
       });
-      console.log('材料API响应:', response.data);
       if (response.data?.success) {
         const materialData = response.data.data;
         let materials = [];
@@ -274,7 +270,6 @@ const MaterialOutbound = ({ onBack }) => {
           materials = materialData.items;
         }
         setMaterials(materials);
-        console.log('材料数据设置完成:', materials);
       }
     } catch (error) {
       console.error('获取材料列表失败', error);
@@ -286,7 +281,6 @@ const MaterialOutbound = ({ onBack }) => {
   const fetchEmployees = async () => {
     try {
       const response = await request.get('/tenant/base-archive/base-data/employees/options');
-      console.log('员工API响应:', response.data);
       
       if (response.data?.success) {
         setEmployees(response.data.data || []);
@@ -304,7 +298,6 @@ const MaterialOutbound = ({ onBack }) => {
   const fetchDepartments = async () => {
     try {
       const response = await request.get('/tenant/base-archive/base-data/departments/options');
-      console.log('部门API响应:', response.data);
       
       if (response.data?.success) {
         setDepartments(response.data.data || []);
@@ -401,8 +394,6 @@ const MaterialOutbound = ({ onBack }) => {
           remarks: detail.remarks
         }))
       };
-
-      console.log('发送的订单数据:', orderData);
 
       let response;
       if (currentRecord) {

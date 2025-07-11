@@ -39,13 +39,6 @@ def get_material_count_orders():
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         
-        # 获取当前用户和租户信息
-        current_user_id = get_jwt_identity()
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
-        
-        if not tenant_id:
-            return jsonify({'error': '租户信息缺失'}), 400
         
         # 获取材料盘点列表
         from app.services.business.inventory.material_count_service import MaterialCountService
@@ -105,8 +98,7 @@ def create_material_count_order():
     """创建材料盘点"""
     try:
         current_user_id = get_jwt_identity()
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
+
         data = request.get_json()
         
         if not data:

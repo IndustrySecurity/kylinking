@@ -159,13 +159,32 @@ const MaterialInbound = ({ onBack }) => {
   };
 
   useEffect(() => {
+    // 初始化时获取基础数据和列表数据
     fetchData();
-    fetchWarehouses();
-    fetchMaterials();
-    fetchSuppliers();
-    fetchEmployees();
-    fetchDepartments();
+    fetchBaseData();
+  }, []);
+
+  // 监听分页变化，只重新获取列表数据
+  useEffect(() => {
+    fetchData();
   }, [pagination.current, pagination.pageSize]);
+
+  // 统一获取基础数据的函数
+  const fetchBaseData = async () => {
+    try {
+      // 并行获取所有基础数据
+      await Promise.all([
+        fetchWarehouses(),
+        fetchMaterials(),
+        fetchSuppliers(),
+        fetchEmployees(),
+        fetchDepartments()
+      ]);
+    } catch (error) {
+      console.error('获取基础数据失败:', error);
+      message.error('获取基础数据失败，请检查网络连接');
+    }
+  };
 
   // 获取入库单列表
   const fetchData = async (params = {}) => {
@@ -212,8 +231,15 @@ const MaterialInbound = ({ onBack }) => {
         warehouse_type: 'material' // 只获取材料仓库
       });
       if (response.data?.success) {
-        setWarehouses(response.data.data);
+        const warehouseData = response.data.data;
+        const warehouses = Array.isArray(warehouseData) ? warehouseData.map(item => ({
+          id: item.value || item.id,
+          warehouse_name: item.label || item.warehouse_name || item.name,
+          warehouse_code: item.code || item.warehouse_code
+        })) : [];
+        setWarehouses(warehouses);
       } else {
+        console.warn('仓库API返回失败:', response.data);
         setWarehouses([]);
       }
     } catch (error) {
@@ -267,11 +293,17 @@ const MaterialInbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await request.get('/tenant/base-archive/base-data/employees/options');
-      console.log('员工API响应:', response.data);
-      
+      const response = await baseDataService.getEmployees();
       if (response.data?.success) {
-        setEmployees(response.data.data || []);
+        const employeeData = response.data.data;
+        const employees = Array.isArray(employeeData) ? employeeData.map(item => ({
+          id: item.id || item.value,
+          employee_name: item.employee_name || item.name || item.label,
+          employee_code: item.employee_code || item.code,
+          department_id: item.department_id || item.department,
+          department_name: item.department_name
+        })) : [];
+        setEmployees(employees);
       } else {
         console.warn('员工API返回失败:', response.data);
         setEmployees([]);
@@ -285,11 +317,16 @@ const MaterialInbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await request.get('/tenant/base-archive/base-data/departments/options');
-      console.log('部门API响应:', response.data);
+      const response = await baseDataService.getDepartments();
       
       if (response.data?.success) {
-        setDepartments(response.data.data || []);
+        const departmentData = response.data.data;
+        const departments = Array.isArray(departmentData) ? departmentData.map(item => ({
+          id: item.value || item.id,
+          department_name: item.label || item.department_name || item.name,
+          department_code: item.code || item.department_code
+        })) : [];
+        setDepartments(departments);
       } else {
         console.warn('部门API返回失败:', response.data);
         setDepartments([]);
@@ -347,7 +384,6 @@ const MaterialInbound = ({ onBack }) => {
       // 获取明细数据
       const detailResponse = await materialInboundService.getInboundOrderDetails(orderId);
       if (detailResponse.data.success) {
-        console.log('明细数据:', detailResponse.data.data);
         // 清理数据，移除SQLAlchemy内部属性
         const cleanDetails = (detailResponse.data.data || []).map(detail => {
           const cleanDetail = { ...detail };
@@ -885,8 +921,8 @@ const MaterialInbound = ({ onBack }) => {
                   <Form.Item name="warehouse_id" label="仓库">
                     <Select placeholder="选择仓库" allowClear>
                       {warehouses.map(warehouse => (
-                        <Option key={`search-warehouse-${warehouse.value || warehouse.id}`} value={warehouse.value || warehouse.id}>
-                          {warehouse.label || warehouse.name || warehouse.warehouse_name}
+                        <Option key={`search-warehouse-${warehouse.id}`} value={warehouse.id}>
+                          {warehouse.warehouse_name}
                         </Option>
                       ))}
                     </Select>
@@ -1006,17 +1042,17 @@ const MaterialInbound = ({ onBack }) => {
                     <Select
                       placeholder="请选择仓库"
                       onChange={(value) => {
-                        const warehouse = warehouses.find(w => w.value === value || w.id === value);
+                        const warehouse = warehouses.find(w => w.id === value);
                         if (warehouse) {
                           form.setFieldsValue({ 
-                            warehouse_name: warehouse.warehouse_name || warehouse.name 
+                            warehouse_name: warehouse.warehouse_name
                           });
                         }
                       }}
                     >
                       {warehouses.map(warehouse => (
-                        <Option key={`form-warehouse-${warehouse.value || warehouse.id}`} value={warehouse.value || warehouse.id}>
-                          {warehouse.label || warehouse.name || warehouse.warehouse_name}
+                        <Option key={`form-warehouse-${warehouse.id}`} value={warehouse.id}>
+                          {warehouse.warehouse_name}
                         </Option>
                       ))}
                     </Select>
@@ -1090,18 +1126,32 @@ const MaterialInbound = ({ onBack }) => {
                     rules={[{ required: true, message: '请选择入库人' }]}
                   >
                     <Select 
-                      showSearch
                       placeholder="请选择入库人"
-                      allowClear
-                      filterOption={(input, option) => {
-                        return option?.children?.toLowerCase().includes(input.toLowerCase());
+                      onChange={(value) => {
+                        if (value && employees.length > 0) {
+                          const selectedEmployee = employees.find(emp => emp.id === value);
+                          
+                          if (selectedEmployee && selectedEmployee.department_id) {
+                            const department = departments.find(dept => dept.id === selectedEmployee.department_id);
+                            
+                            if (department) {
+                              form.setFieldsValue({
+                                department_id: selectedEmployee.department_id
+                              });
+                            } else {
+                              console.warn('未找到匹配的部门，员工部门ID:', selectedEmployee.department_id);
+                            }
+                          } else {
+                            console.warn('员工没有部门信息');
+                          }
+                        }
                       }}
                     >
-                      {employees.map(emp => (
-                        <Option key={`form-employee-${emp.id}`} value={emp.id}>
-                          {emp.employee_name || emp.name}
-                        </Option>
-                      ))}
+                      {employees.map((employee, index) => (
+                    <Option key={employee.id || `material-inbound-employee-${index}`} value={employee.id}>
+                      {employee.employee_name || employee.name || employee.label}
+                    </Option>
+                  ))}
                     </Select>
                   </Form.Item>
                 </Col>
@@ -1111,17 +1161,10 @@ const MaterialInbound = ({ onBack }) => {
                     label="部门"
                     rules={[{ required: true, message: '请选择部门' }]}
                   >
-                    <Select 
-                      showSearch
-                      placeholder="请选择部门"
-                      allowClear
-                      filterOption={(input, option) => {
-                        return option?.children?.toLowerCase().includes(input.toLowerCase());
-                      }}
-                    >
-                      {departments.map(dept => (
-                        <Option key={`form-department-${dept.id || dept.value}`} value={dept.id}>
-                          {dept.department_name || dept.dept_name || dept.name || dept.label}
+                    <Select placeholder="请选择部门">
+                      {departments.map((dept, index) => (
+                        <Option key={dept.id || `material-inbound-department-${index}`} value={dept.id}>
+                          {dept.department_name || dept.name}
                         </Option>
                       ))}
                     </Select>

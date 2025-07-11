@@ -250,13 +250,10 @@ const ProcessCategoryManagement = () => {
   const handleModalOk = async () => {
     try {
       const values = await modalForm.validateFields();
-      console.log('表单值:', values);
       
       if (editingRecord) {
         // 更新
-        console.log('更新记录:', editingRecord.id);
         const response = await processCategoryApi.updateProcessCategory(editingRecord.id, values);
-        console.log('更新响应:', response);
         if (isSuccessResp(response)) {
           message.success('更新成功');
           loadData();
@@ -266,9 +263,7 @@ const ProcessCategoryManagement = () => {
         }
       } else {
         // 新建
-        console.log('创建新记录');
         const response = await processCategoryApi.createProcessCategory(values);
-        console.log('创建响应:', response);
         if (isSuccessResp(response)) {
           message.success('创建成功');
           loadData();

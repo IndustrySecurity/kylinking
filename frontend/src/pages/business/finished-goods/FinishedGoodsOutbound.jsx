@@ -149,7 +149,7 @@ const FinishedGoodsOutbound = () => {
   const [outboundOrders, setOutboundOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [viewModalVisible, setViewModalVisible] = useState(false); // 查看出库单详情模态框
   const [currentOrder, setCurrentOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState([]);
   const [detailModalVisible2, setDetailModalVisible2] = useState(false);
@@ -404,7 +404,7 @@ const FinishedGoodsOutbound = () => {
         // 后备方案：根据ID查找
         if (record.outbound_person_id && employees.length > 0) {
           const employee = employees.find(emp => emp.id === record.outbound_person_id);
-          return employee ? (employee.employee_name || employee.name) : '未知员工';
+          return employee ? (employee.label || employee.name) : '未知员工';
         }
         return '-';
       }
@@ -632,7 +632,6 @@ const FinishedGoodsOutbound = () => {
             size="small" 
             icon={<EditOutlined />}
             onClick={() => editDetail(record)}
-            disabled={isViewMode}
           >
             编辑
           </Button>
@@ -641,14 +640,12 @@ const FinishedGoodsOutbound = () => {
             onConfirm={() => deleteDetail(record)}
             okText="确定"
             cancelText="取消"
-            disabled={isViewMode}
           >
             <Button 
               type="link" 
               size="small" 
               danger
               icon={<DeleteOutlined />}
-              disabled={isViewMode}
             >
               删除
             </Button>
@@ -674,33 +671,23 @@ const FinishedGoodsOutbound = () => {
   // 查看出库单
   const viewOrder = async (record) => {
     try {
-      const response = await finishedGoodsOutboundService.getOutboundOrderById(record.id);
-      if (response.data?.success) {
-        setCurrentOrder(response.data.data);
-        setIsViewMode(true);
-        form.setFieldsValue({
-          ...response.data.data,
-          order_date: response.data.data.order_date ? dayjs(response.data.data.order_date) : null
-        });
-        
-        // 加载出库单明细
-        try {
-          const detailResponse = await finishedGoodsOutboundService.getOutboundOrderDetails(record.id);
-          if (detailResponse.data?.success) {
-            setOrderDetails(detailResponse.data.data || []);
-          } else {
-            setOrderDetails(createMockDetails(record.id));
-          }
-        } catch (error) {
-          console.error('加载明细失败:', error);
-          setOrderDetails(createMockDetails(record.id));
-        }
-        
-        setModalVisible(true);
-      } else {
-        message.error('获取出库单详情失败');
-      }
+      // 设置当前订单
+      setCurrentOrder(record);
+      
+      // 获取出库单明细
+      const { data: detailResponse } = await finishedGoodsOutboundService.getOutboundOrderDetails(record.id);
+      
+      // 处理明细数据（成功或失败场景）
+      setOrderDetails(
+        detailResponse?.success ? 
+        (detailResponse.data || []) : 
+        createMockDetails(record.id)
+      );
+      
+      // 显示查看模态框
+      setViewModalVisible(true);
     } catch (error) {
+      console.error('查看订单失败:', error);
       message.error('获取出库单详情失败');
     }
   };
@@ -1043,8 +1030,8 @@ const FinishedGoodsOutbound = () => {
                   <Form.Item name="outbound_person_id" label="出库人">
                     <Select placeholder="选择出库人" allowClear>
                       {employees.map((employee, index) => (
-                        <Option key={employee.id || `employee-${index}`} value={employee.id}>
-                          {employee.employee_name || employee.name || '未知员工'}
+                        <Option key={employee.value || `employee-${index}`} value={employee.value}>
+                          {employee.label || employee.name || '未知员工'}
                         </Option>
                       ))}
                     </Select>
@@ -1121,14 +1108,10 @@ const FinishedGoodsOutbound = () => {
 
       {/* 新增/编辑出库单弹窗 */}
       <Modal
-        title={isViewMode ? '查看出库单' : (currentOrder ? '编辑出库单' : '新增出库单')}
+        title={currentOrder ? '编辑出库单' : '新增出库单'}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
-        footer={isViewMode ? [
-          <Button key="close" onClick={() => setModalVisible(false)}>
-            关闭
-          </Button>
-        ] : [
+        footer={[
           <Button key="cancel" onClick={() => setModalVisible(false)}>
             取消
           </Button>,
@@ -1145,7 +1128,6 @@ const FinishedGoodsOutbound = () => {
               form={form} 
               layout="vertical" 
               onFinish={handleSubmit}
-              disabled={isViewMode}
             >
               <Row gutter={16}>
                 <Col span={12}>
@@ -1191,10 +1173,22 @@ const FinishedGoodsOutbound = () => {
                 </Col>
                 <Col span={12}>
                   <Form.Item name="outbound_person_id" label="出库人">
-                    <Select placeholder="请选择出库人" allowClear>
+                    <Select placeholder="请选择出库人" 
+                    onChange={(value) => {
+                      // 根据选择的员工自动填充部门
+                      if (value && employees.length > 0) {
+                        const selectedEmployee = employees.find(emp => emp.value === value);
+                        if (selectedEmployee && selectedEmployee.department_id) {
+                          form.setFieldsValue({
+                            department_id: selectedEmployee.department_id,
+                            department_name: selectedEmployee.department_name
+                          });
+                        }
+                      }
+                    }}>
                       {employees.map((employee, index) => (
-                        <Option key={employee.id || `employee-${index}`} value={employee.id}>
-                          {employee.employee_name || employee.name || '未知员工'}
+                        <Option key={employee.value || `employee-${index}`} value={employee.value}>
+                          {employee.label || employee.name || '未知员工'}
                         </Option>
                       ))}
                     </Select>
@@ -1238,14 +1232,12 @@ const FinishedGoodsOutbound = () => {
                   type="primary" 
                   icon={<PlusOutlined />} 
                   onClick={addDetail}
-                  disabled={isViewMode}
                 >
                   添加明细
                 </Button>
                 <Button 
                   icon={<PlusOutlined />} 
                   onClick={selectProducts}
-                  disabled={isViewMode}
                 >
                   选择产品
                 </Button>
@@ -1278,7 +1270,6 @@ const FinishedGoodsOutbound = () => {
             key="submit" 
             type="primary" 
             onClick={() => detailForm.submit()}
-            disabled={isViewMode}
           >
             确定
           </Button>
@@ -1290,7 +1281,6 @@ const FinishedGoodsOutbound = () => {
           form={detailForm}
           layout="vertical"
           onFinish={handleDetailSubmit}
-          disabled={isViewMode}
         >
           <Row gutter={16}>
             <Col span={12}>
@@ -1491,6 +1481,222 @@ const FinishedGoodsOutbound = () => {
           size="small"
           scroll={{ y: 400 }}
         />
+      </Modal>
+
+      {/* 查看出库单详情模态框 */}
+      <Modal
+        title={`出库单详情 - ${currentOrder?.order_number}`}
+        open={viewModalVisible}
+        onCancel={() => setViewModalVisible(false)}
+        footer={null}
+        width={1200}
+      >
+        {currentOrder && (
+          <Tabs defaultActiveKey="1">
+            <TabPane tab="基本信息" key="1">
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Text strong>出库单号：</Text>
+                  <Text>{currentOrder.order_number}</Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>发生日期：</Text>
+                  <Text>{currentOrder.order_date ? dayjs(currentOrder.order_date).format('YYYY-MM-DD') : '-'}</Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>仓库名称：</Text>
+                  <Text>
+                    {(() => {
+                      // 如果有仓库名称直接显示，否则根据仓库ID查找
+                      if (currentOrder.warehouse_name) return currentOrder.warehouse_name;
+                      if (currentOrder.warehouse_id && warehouses.length > 0) {
+                        const warehouse = warehouses.find(w => w.id === currentOrder.warehouse_id);
+                        return warehouse ? warehouse.warehouse_name : '未知仓库';
+                      }
+                      return '未知仓库';
+                    })()}
+                  </Text>
+                </Col>
+              </Row>
+              <Divider />
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Text strong>出库人：</Text>
+                  <Text>
+                    {(() => {
+                      if (currentOrder.outbound_person) return currentOrder.outbound_person;
+                      if (currentOrder.outbound_person_id && employees.length > 0) {
+                        const employee = employees.find(emp => emp.id === currentOrder.outbound_person_id);
+                        return employee ? (employee.label || employee.name) : '未知员工';
+                      }
+                      return '-';
+                    })()}
+                  </Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>客户：</Text>
+                  <Text>
+                    {(() => {
+                      if (currentOrder.customer_name) return currentOrder.customer_name;
+                      if (currentOrder.customer_id && customers.length > 0) {
+                        const customer = customers.find(c => c.id === currentOrder.customer_id);
+                        return customer ? customer.customer_name : '未知客户';
+                      }
+                      return '-';
+                    })()}
+                  </Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>部门：</Text>
+                  <Text>
+                    {(() => {
+                      if (currentOrder.department) return currentOrder.department;
+                      if (currentOrder.department_id && departments.length > 0) {
+                        const department = departments.find(dept => dept.id === currentOrder.department_id);
+                        return department ? (department.department_name || department.name) : '未知部门';
+                      }
+                      return '-';
+                    })()}
+                  </Text>
+                </Col>
+              </Row>
+              <Divider />
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Text strong>托盘套数：</Text>
+                  <Text>{currentOrder.pallet_count || 0} 套</Text>
+                </Col>
+                <Col span={8}>
+                  <Text strong>单据状态：</Text>
+                  {getStatusTag(currentOrder.status)}
+                </Col>
+                <Col span={8}>
+                  <Text strong>审核状态：</Text>
+                  {getApprovalStatusTag(currentOrder.approval_status)}
+                </Col>
+              </Row>
+              <Divider />
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Text strong>创建时间：</Text>
+                  <Text>
+                    {currentOrder.created_at ? 
+                      (() => {
+                        try {
+                          const localTime = dayjs.utc(currentOrder.created_at).local();
+                          return `${localTime.format('YYYY-MM-DD')} ${localTime.format('HH:mm:ss')}`;
+                        } catch (error) {
+                          return currentOrder.created_at;
+                        }
+                      })()
+                      : '-'
+                    }
+                  </Text>
+                </Col>
+                <Col span={12}>
+                  <Text strong>备注：</Text>
+                  <Text>{currentOrder.remark || '-'}</Text>
+                </Col>
+              </Row>
+            </TabPane>
+            
+            <TabPane tab="出库明细" key="2">
+              <DetailTable
+                columns={[
+                  {
+                    title: '行号',
+                    dataIndex: 'line_number',
+                    key: 'line_number',
+                    width: 60,
+                    render: (_, __, index) => index + 1
+                  },
+                  {
+                    title: '产品编码',
+                    dataIndex: 'product_code',
+                    key: 'product_code',
+                    width: 120
+                  },
+                  {
+                    title: '产品名称',
+                    dataIndex: 'product_name',
+                    key: 'product_name',
+                    width: 150
+                  },
+                  {
+                    title: '产品规格',
+                    dataIndex: 'product_spec',
+                    key: 'product_spec',
+                    width: 120
+                  },
+                  {
+                    title: '出库数量',
+                    dataIndex: 'outbound_quantity',
+                    key: 'outbound_quantity',
+                    width: 100,
+                    render: (text, record) => `${text || 0} ${record.unit || '个'}`
+                  },
+                  {
+                    title: '单价',
+                    dataIndex: 'unit_cost',
+                    key: 'unit_cost',
+                    width: 100,
+                    render: (text) => `¥${(text || 0).toFixed(2)}`
+                  },
+                  {
+                    title: '出库公斤数',
+                    dataIndex: 'outbound_kg_quantity',
+                    key: 'outbound_kg_quantity',
+                    width: 100,
+                    render: (text) => `${text || 0} kg`
+                  },
+                  {
+                    title: '出库米数',
+                    dataIndex: 'outbound_m_quantity',
+                    key: 'outbound_m_quantity',
+                    width: 100,
+                    render: (text) => `${text || 0} m`
+                  },
+                  {
+                    title: '出库卷数',
+                    dataIndex: 'outbound_roll_quantity',
+                    key: 'outbound_roll_quantity',
+                    width: 100,
+                    render: (text) => `${text || 0} 卷`
+                  },
+                  {
+                    title: '箱数',
+                    dataIndex: 'box_quantity',
+                    key: 'box_quantity',
+                    width: 80,
+                    render: (text) => `${text || 0} 箱`
+                  },
+                  {
+                    title: '批次号',
+                    dataIndex: 'batch_number',
+                    key: 'batch_number',
+                    width: 120
+                  },
+                  {
+                    title: '库位码',
+                    dataIndex: 'location_code',
+                    key: 'location_code',
+                    width: 100
+                  },
+                  {
+                    title: '备注',
+                    dataIndex: 'remark',
+                    key: 'remark',
+                    width: 120
+                  }
+                ]}
+                dataSource={orderDetails}
+                rowKey="id"
+                scroll={{ x: 1000 }}
+                pagination={false}
+              />
+            </TabPane>
+          </Tabs>
+        )}
       </Modal>
     </PageContainer>
   );

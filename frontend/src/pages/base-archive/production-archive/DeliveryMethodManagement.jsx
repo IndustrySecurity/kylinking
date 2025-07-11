@@ -123,7 +123,6 @@ const DeliveryMethodManagement = () => {
 
   // 开始编辑
   const edit = (record) => {
-    console.log('编辑记录:', record); // 添加调试日志
     
     form.setFieldsValue({
       delivery_name: record.delivery_name || '',
@@ -145,7 +144,6 @@ const DeliveryMethodManagement = () => {
   const save = async (key) => {
     try {
       const row = await form.validateFields();
-      console.log('保存数据:', row); // 添加调试日志
       
       const newData = [...data];
       const index = newData.findIndex((item) => key === item.key);
@@ -157,15 +155,12 @@ const DeliveryMethodManagement = () => {
         let response;
         if (item.id && !item.id.startsWith('temp_')) {
           // 更新现有记录
-          console.log('更新记录ID:', item.id, '数据:', row);
           response = await deliveryMethodApi.updateDeliveryMethod(item.id, row);
         } else {
           // 创建新记录
-          console.log('创建新记录，数据:', row);
           response = await deliveryMethodApi.createDeliveryMethod(row);
         }
 
-        console.log('API响应:', response.data); // 添加调试日志
 
         // 正确处理后端响应格式
         if (response.data.success) {
@@ -181,7 +176,6 @@ const DeliveryMethodManagement = () => {
       console.error('保存错误详情:', error); // 添加详细错误日志
       
       if (error.errorFields) {
-        console.log('表单验证错误:', error.errorFields);
         message.error('请检查输入内容');
       } else {
         const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || '保存失败';

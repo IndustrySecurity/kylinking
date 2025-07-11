@@ -328,7 +328,7 @@ class ProductInboundService(TenantAwareService):
             current_app.logger.error(f"删除产品入库单失败: {str(e)}")
             raise ValueError(f"删除产品入库单失败: {str(e)}")
 
-    def approve_product_inbound_order(self, order_id: str, approval_data: Dict[str, Any], approved_by: str) -> Dict[str, Any]:
+    def approve_product_inbound_order(self, order_id: str, approval_status: str, approved_by: str) -> Dict[str, Any]:
         """审核产品入库单"""
         try:
             order = self.session.query(InboundOrder).filter(
@@ -343,16 +343,11 @@ class ProductInboundService(TenantAwareService):
             if order.status not in ['draft', 'confirmed']:
                 raise ValueError("只有草稿和已确认状态的产品入库单可以审核")
             
-            approval_status = approval_data.get('approval_status', 'approved')
-            
             order.approval_status = approval_status
             order.approved_by = uuid.UUID(approved_by)
             order.approved_at = func.now()
             order.updated_by = uuid.UUID(approved_by)
             order.updated_at = func.now()
-            
-            if approval_data.get('approval_comment'):
-                order.remark = f"{order.remark or ''}\n审核意见: {approval_data['approval_comment']}".strip()
             
             # 如果审核通过，更新状态为已确认
             if approval_status == 'approved':
@@ -520,9 +515,6 @@ class ProductInboundService(TenantAwareService):
             order.updated_by = uuid.UUID(cancelled_by)
             order.updated_at = func.now()
             
-            # 记录取消原因
-            if cancel_data.get('cancel_reason'):
-                order.remarks = f"{order.remarks or ''}\n取消原因: {cancel_data['cancel_reason']}".strip()
             
             self.commit()
             
@@ -535,6 +527,225 @@ class ProductInboundService(TenantAwareService):
             self.rollback()
             current_app.logger.error(f"取消产品入库单失败: {str(e)}")
             raise ValueError(f"取消产品入库单失败: {str(e)}")
+
+    # ==================== 产品入库单明细管理 ====================
+
+    def get_product_inbound_order_details(self, order_id: str) -> List[Dict[str, Any]]:
+        """获取产品入库单明细列表"""
+        try:
+            details = self.session.query(InboundOrderDetail).filter(
+                InboundOrderDetail.inbound_order_id == order_id
+            ).all()
+            
+            return [detail.to_dict() for detail in details]
+            
+        except Exception as e:
+            current_app.logger.error(f"获取产品入库单明细失败: {str(e)}")
+            raise ValueError(f"获取产品入库单明细失败: {str(e)}")
+
+    def create_product_inbound_order_detail(self, order_id: str, detail_data: Dict[str, Any], created_by: str) -> Dict[str, Any]:
+        """创建产品入库单明细"""
+        try:
+            # 检查入库单是否存在
+            order = self.session.query(InboundOrder).filter(
+                InboundOrder.id == order_id,
+                InboundOrder.order_type == 'finished_goods'
+            ).first()
+            
+            if not order:
+                raise ValueError(f"产品入库单不存在: {order_id}")
+            
+            # 检查状态是否允许添加明细
+            if order.status not in ['draft', 'confirmed']:
+                raise ValueError("只有草稿和已确认状态的入库单可以添加明细")
+            
+            created_by_uuid = uuid.UUID(created_by)
+            
+            detail_params = {
+                'inbound_order_id': uuid.UUID(order_id),
+                'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
+                'unit': detail_data.get('unit', '个'),
+                'created_by': created_by_uuid
+            }
+            
+            # 设置其他明细字段
+            if detail_data.get('product_id'):
+                detail_params['product_id'] = uuid.UUID(detail_data['product_id'])
+            if detail_data.get('product_name'):
+                detail_params['product_name'] = detail_data['product_name']
+            if detail_data.get('product_code'):
+                detail_params['product_code'] = detail_data['product_code']
+            if detail_data.get('batch_number'):
+                detail_params['batch_number'] = detail_data['batch_number']
+            if detail_data.get('location_code'):
+                detail_params['location_code'] = detail_data['location_code']
+            if detail_data.get('unit_cost'):
+                detail_params['unit_cost'] = Decimal(str(detail_data['unit_cost']))
+            
+            detail = self.create_with_tenant(InboundOrderDetail, **detail_params)
+            self.commit()
+            
+            return detail.to_dict()
+            
+        except Exception as e:
+            self.rollback()
+            current_app.logger.error(f"创建产品入库单明细失败: {str(e)}")
+            raise ValueError(f"创建产品入库单明细失败: {str(e)}")
+
+    def update_product_inbound_order_detail(self, order_id: str, detail_id: str, detail_data: Dict[str, Any], updated_by: str) -> Dict[str, Any]:
+        """更新产品入库单明细"""
+        try:
+            detail = self.session.query(InboundOrderDetail).filter(
+                InboundOrderDetail.id == detail_id,
+                InboundOrderDetail.inbound_order_id == order_id
+            ).first()
+            
+            if not detail:
+                raise ValueError(f"产品入库单明细不存在: {detail_id}")
+            
+            # 检查主单状态
+            order = detail.inbound_order
+            if order.status not in ['draft', 'confirmed']:
+                raise ValueError("只有草稿和已确认状态的入库单明细可以修改")
+            
+            # 更新字段
+            for key, value in detail_data.items():
+                if hasattr(detail, key) and key not in ['id', 'inbound_order_id', 'created_at', 'created_by']:
+                    if key == 'inbound_quantity' and value is not None:
+                        detail.inbound_quantity = Decimal(str(value))
+                    elif key == 'unit_cost' and value is not None:
+                        detail.unit_cost = Decimal(str(value))
+                    elif key == 'product_id' and value:
+                        detail.product_id = uuid.UUID(value)
+                    else:
+                        setattr(detail, key, value)
+            
+            detail.updated_by = uuid.UUID(updated_by)
+            detail.updated_at = func.now()
+            
+            self.commit()
+            
+            return detail.to_dict()
+            
+        except Exception as e:
+            self.rollback()
+            current_app.logger.error(f"更新产品入库单明细失败: {str(e)}")
+            raise ValueError(f"更新产品入库单明细失败: {str(e)}")
+
+    def delete_product_inbound_order_detail(self, order_id: str, detail_id: str) -> bool:
+        """删除产品入库单明细"""
+        try:
+            detail = self.session.query(InboundOrderDetail).filter(
+                InboundOrderDetail.id == detail_id,
+                InboundOrderDetail.inbound_order_id == order_id
+            ).first()
+            
+            if not detail:
+                raise ValueError(f"产品入库单明细不存在: {detail_id}")
+            
+            # 检查主单状态
+            order = detail.inbound_order
+            if order.status not in ['draft', 'confirmed']:
+                raise ValueError("只有草稿和已确认状态的入库单明细可以删除")
+            
+            self.session.delete(detail)
+            self.commit()
+            
+            return True
+            
+        except Exception as e:
+            self.rollback()
+            current_app.logger.error(f"删除产品入库单明细失败: {str(e)}")
+            raise ValueError(f"删除产品入库单明细失败: {str(e)}")
+
+    def batch_create_product_inbound_order_details(self, order_id: str, details_data: List[Dict[str, Any]], created_by: str) -> List[Dict[str, Any]]:
+        """批量创建产品入库单明细"""
+        try:
+            # 检查入库单是否存在
+            order = self.session.query(InboundOrder).filter(
+                InboundOrder.id == order_id,
+                InboundOrder.order_type == 'finished_goods'
+            ).first()
+            
+            if not order:
+                raise ValueError(f"产品入库单不存在: {order_id}")
+            
+            # 检查状态是否允许添加明细
+            if order.status not in ['draft', 'confirmed']:
+                raise ValueError("只有草稿和已确认状态的入库单可以添加明细")
+            
+            created_by_uuid = uuid.UUID(created_by)
+            details = []
+            
+            for detail_data in details_data:
+                detail_params = {
+                    'inbound_order_id': uuid.UUID(order_id),
+                    'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
+                    'unit': detail_data.get('unit', '个'),
+                    'created_by': created_by_uuid
+                }
+                
+                # 设置其他明细字段
+                if detail_data.get('product_id'):
+                    detail_params['product_id'] = uuid.UUID(detail_data['product_id'])
+                if detail_data.get('product_name'):
+                    detail_params['product_name'] = detail_data['product_name']
+                if detail_data.get('product_code'):
+                    detail_params['product_code'] = detail_data['product_code']
+                if detail_data.get('batch_number'):
+                    detail_params['batch_number'] = detail_data['batch_number']
+                if detail_data.get('location_code'):
+                    detail_params['location_code'] = detail_data['location_code']
+                if detail_data.get('unit_cost'):
+                    detail_params['unit_cost'] = Decimal(str(detail_data['unit_cost']))
+                
+                detail = self.create_with_tenant(InboundOrderDetail, **detail_params)
+                details.append(detail)
+            
+            self.commit()
+            
+            return [detail.to_dict() for detail in details]
+            
+        except Exception as e:
+            self.rollback()
+            current_app.logger.error(f"批量创建产品入库单明细失败: {str(e)}")
+            raise ValueError(f"批量创建产品入库单明细失败: {str(e)}")
+
+    def batch_update_product_inbound_order_details(self, order_id: str, details_data: List[Dict[str, Any]], updated_by: str) -> List[Dict[str, Any]]:
+        """批量更新产品入库单明细"""
+        try:
+            updated_details = []
+            
+            for detail_data in details_data:
+                detail_id = detail_data.get('id')
+                if not detail_id:
+                    continue
+                    
+                detail = self.update_product_inbound_order_detail(
+                    order_id, detail_id, detail_data, updated_by
+                )
+                updated_details.append(detail)
+            
+            return updated_details
+            
+        except Exception as e:
+            current_app.logger.error(f"批量更新产品入库单明细失败: {str(e)}")
+            raise ValueError(f"批量更新产品入库单明细失败: {str(e)}")
+
+    def batch_delete_product_inbound_order_details(self, order_id: str, detail_ids: List[str]) -> int:
+        """批量删除产品入库单明细"""
+        try:
+            deleted_count = 0
+            
+            for detail_id in detail_ids:
+                if self.delete_product_inbound_order_detail(order_id, detail_id):
+                    deleted_count += 1
+            
+            return deleted_count
+            
+        except Exception as e:
+            current_app.logger.error(f"批量删除产品入库单明细失败: {str(e)}")
+            raise ValueError(f"批量删除产品入库单明细失败: {str(e)}")
 
 
 def get_product_inbound_service(tenant_id: str = None, schema_name: str = None) -> ProductInboundService:

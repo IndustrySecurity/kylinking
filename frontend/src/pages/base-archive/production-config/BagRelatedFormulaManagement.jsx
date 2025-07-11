@@ -58,14 +58,7 @@ const BagRelatedFormulaManagement = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-      console.log('加载袋型公式数据，参数:', {
-        page: pagination.current,
-        per_page: pagination.pageSize,
-        search: searchText,
-        bag_type_id: bagTypeFilter,
-        is_enabled: enabledFilter,
-        ...params
-      });
+
 
       const response = await bagRelatedFormulaApi.getBagRelatedFormulas({
         page: pagination.current,
@@ -76,34 +69,18 @@ const BagRelatedFormulaManagement = () => {
         ...params
       });
 
-      console.log('袋型公式API响应:', response.data);
-
       if (response.data.success) {
-        // 添加详细的调试信息
-        console.log('=== 袋型公式数据解析调试 ===');
-        console.log('1. 完整响应:', response);
-        console.log('2. response.data:', response.data);
-        console.log('3. response.data.data:', response.data.data);
         
         // 修正数据路径：实际数据在 response.data.data.data 中
         const responseWrapper = response.data.data || {};
         const actualData = responseWrapper.data || {};
-        console.log('4. 实际数据层 (response.data.data.data):', actualData);
-        console.log('5. actualData.formulas:', actualData.formulas);
-        console.log('6. formulas是否为数组:', Array.isArray(actualData.formulas));
         
         // 从正确的层级提取字段
         const formulasArray = Array.isArray(actualData.formulas) ? actualData.formulas : [];
         const total = actualData.total || 0;
         const currentPage = actualData.current_page || 1;
         
-        console.log('7. 提取结果:', { 
-          formulasArray, 
-          formulasLength: formulasArray.length,
-          total, 
-          currentPage,
-          firstFormula: formulasArray[0]
-        });
+        
         
         // 为每行数据添加key
         const dataWithKeys = formulasArray.map((item, index) => ({
@@ -111,7 +88,7 @@ const BagRelatedFormulaManagement = () => {
           key: item.id || `temp_${index}`
         }));
         
-        console.log('8. 最终处理的数据:', dataWithKeys);
+        
         
         setData(dataWithKeys);
         setPagination(prev => ({
@@ -120,7 +97,7 @@ const BagRelatedFormulaManagement = () => {
           current: currentPage
         }));
         
-        console.log('9. 数据设置完成，表格应该显示', dataWithKeys.length, '条记录');
+        
       } else {
         console.error('袋型公式API返回失败:', response.data.message);
         message.error('加载数据失败：' + (response.data.message || '未知错误'));
@@ -139,21 +116,12 @@ const BagRelatedFormulaManagement = () => {
   // 加载选项数据
   const loadOptions = async () => {
     try {
-      console.log('=== 袋型公式选项数据加载调试 ===');
-      console.log('开始加载袋型公式选项数据...');
-      
       const response = await bagRelatedFormulaApi.getBagRelatedFormulaOptions();
-      console.log('1. 选项API完整响应:', response);
-      console.log('2. response.data:', response.data);
-      console.log('3. response.data.data:', response.data.data);
       
       if (response.data.success) {
         // 修正选项数据路径：根据日志，实际数据可能在 response.data.data.data 中
         const responseWrapper = response.data.data || {};
         const actualOptionsData = responseWrapper.data || responseWrapper; // 备用方案
-        console.log('4. 实际选项数据层:', actualOptionsData);
-        console.log('5. bag_types:', actualOptionsData.bag_types);
-        console.log('6. formulas:', actualOptionsData.formulas);
         
         // 处理袋型选项
         let bagTypeOptions = [];
@@ -179,11 +147,7 @@ const BagRelatedFormulaManagement = () => {
           bag_types: bagTypeOptions,
           formulas: formulaOptions
         };
-        
-        console.log('7. 处理后的选项:', processedOptions);
-        
         setFormOptions(processedOptions);
-        console.log('8. 选项数据设置完成');
       } else {
         console.warn('选项API返回失败，使用默认数据');
         const defaultOptions = {
@@ -211,7 +175,6 @@ const BagRelatedFormulaManagement = () => {
           { id: 'cost_formula', value: 'cost_formula', label: '成本公式', name: '成本公式' }
         ]
       };
-      console.log('9. 使用默认选项:', defaultOptions);
       setFormOptions(defaultOptions);
     }
   };
@@ -227,23 +190,11 @@ const BagRelatedFormulaManagement = () => {
 
   // 监控数据状态变化
   useEffect(() => {
-    console.log('=== 数据状态变化监控 ===');
-    console.log('表格数据更新:', {
-      dataLength: data.length,
-      hasData: data.length > 0,
-      firstItemId: data[0]?.id,
-      firstItemBagType: data[0]?.bag_type_name
-    });
+
   }, [data]);
 
   useEffect(() => {
-    console.log('=== 选项状态变化监控 ===');
-    console.log('选项数据更新:', {
-      bagTypesLength: formOptions.bag_types?.length || 0,
-      formulasLength: formOptions.formulas?.length || 0,
-      bagTypesPreview: formOptions.bag_types?.slice(0, 2),
-      formulasPreview: formOptions.formulas?.slice(0, 2)
-    });
+
   }, [formOptions]);
 
   // 搜索

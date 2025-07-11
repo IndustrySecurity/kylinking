@@ -462,7 +462,6 @@ const CustomerManagement = () => {
       const response = await exportCustomerManagement(searchParams)
       if (response?.data?.success) {
         message.success(`导出成功，共${response.data.data.length}条数据`)
-        console.log('导出数据:', response.data.data)
       } else {
         message.error(response?.data?.error || '导出失败')
       }

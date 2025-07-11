@@ -374,6 +374,24 @@ class MaterialInboundService(TenantAwareService):
         
         return detail
 
+    def delete_material_inbound_order(self, order_id: str) -> bool:
+        try:
+            order = self.get_session().query(MaterialInboundOrder).filter_by(id=order_id).first()
+            if not order:
+                return False
+            # 删除明细
+            self.get_session().query(MaterialInboundOrderDetail).filter_by(
+                material_inbound_order_id=order_id
+            ).delete()
+            # 删除主表
+            self.get_session().delete(order)
+            self.commit()  # 成功则提交
+            return True
+        except Exception as e:
+            self.get_session().rollback()  # 失败则回滚
+            logger.error(f"删除入库单失败: {str(e)}")
+            return False
+
     def delete_material_inbound_order_detail(self, detail_id: str) -> bool:
         """删除材料入库单明细"""
         detail = self.get_session().query(MaterialInboundOrderDetail).filter(

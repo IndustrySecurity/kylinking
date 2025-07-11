@@ -1,19 +1,17 @@
 """
-销售订单服务类
+销售订单业务服务
 """
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
-from sqlalchemy import and_, or_, desc, asc, func, text
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.exc import SQLAlchemyError
-from flask import g, current_app
+from typing import Dict, Any, Optional, List
+from sqlalchemy.orm import joinedload
+from sqlalchemy import desc
 from uuid import UUID
 
-from app.models.business.sales import SalesOrder, SalesOrderDetail, SalesOrderOtherFee, SalesOrderMaterial
-from app.models.basic_data import CustomerManagement, Product, Material, Unit, CustomerContact, Employee, TaxRate
-from app.extensions import db
 from app.services.base_service import TenantAwareService
+from app.models.business.sales import SalesOrder, SalesOrderDetail, SalesOrderOtherFee, SalesOrderMaterial
+from app.models.basic_data import CustomerManagement, CustomerContact, Employee, TaxRate
+from flask import current_app
 
 
 class SalesOrderService(TenantAwareService):
@@ -343,17 +341,22 @@ class SalesOrderService(TenantAwareService):
             # 获取联系人信息（手机号）
             if order.contact_person_id:
                 try:
+                    current_app.logger.info(f"查询联系人信息，contact_person_id: {order.contact_person_id}")
                     contact = self.get_session().query(CustomerContact).filter_by(id=order.contact_person_id).first()
                     if contact:
-                        order_data['contact_person'] = contact.contact_name if hasattr(contact, 'contact_name') else ''
-                        mobile_val = getattr(contact, 'mobile', None) or getattr(contact, 'landline', None) or ''
+                        contact_name = getattr(contact, 'contact_name', '') or ''
+                        order_data['contact_person'] = contact_name
+                        mobile_val = getattr(contact, 'mobile', '') or ''
                         order_data['mobile'] = mobile_val
                         order_data['phone'] = mobile_val
+                        current_app.logger.info(f"联系人信息查询成功：{contact_name}")
                     else:
+                        current_app.logger.warning(f"未找到联系人信息，contact_person_id: {order.contact_person_id}")
                         order_data['contact_person'] = ''
                         order_data['mobile'] = ''
                         order_data['phone'] = ''
-                except Exception:
+                except Exception as e:
+                    current_app.logger.error(f"查询联系人信息失败: {str(e)}")
                     order_data['contact_person'] = ''
                     order_data['mobile'] = ''
                     order_data['phone'] = ''

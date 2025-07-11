@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Table,
@@ -44,10 +44,7 @@ import {
   cancelProductTransferOrder,
   getWarehouseProductInventory
 } from '../../../api/business/inventory/productTransfer';
-import { warehouseApi } from '../../../api/base-archive/production-archive/warehouse';
-import { getEmployeeOptions } from '../../../api/base-archive/base-data/employee';
-import { getDepartmentOptions } from '../../../api/base-archive/base-data/department';
-import request from '../../../utils/request';
+import { baseDataService } from '../../../api/business/inventory/finishedGoodsInbound';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -82,14 +79,12 @@ const FinishedGoodsTransfer = () => {
   const [warehouses, setWarehouses] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [baseDataLoading, setBaseDataLoading] = useState(false);
 
   // 页面加载
   useEffect(() => {
-    console.log('成品调拨组件初始化，开始加载数据...');
     fetchOrders();
-    fetchWarehouses();
-    fetchEmployees();
-    fetchDepartments();
+    fetchBaseData();
   }, []);
 
   // 获取调拨单列表
@@ -117,91 +112,69 @@ const FinishedGoodsTransfer = () => {
     setLoading(false);
   };
 
-  // 获取仓库列表（只获取成品仓库）
-  const fetchWarehouses = async () => {
+  // 统一的基础数据获取函数
+  const fetchBaseData = useCallback(async () => {
+    if (baseDataLoading) return; // 防止重复请求
+    
+    setBaseDataLoading(true);
     try {
-      // 优先使用成品仓库专用API，确保只获取成品仓库
-      let response;
-      try {
-        // 直接使用正确的仓库基础档案API
-        response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options');
-        console.log('仓库基础档案API响应:', response.data);
-      } catch (warehouseApiError) {
-        console.warn('仓库基础档案API失败，尝试通用仓库API:', warehouseApiError);
-        // 备用方案：使用通用仓库API
-        const generalResponse = await warehouseApi.getWarehouseOptions();
-        response = generalResponse;
-        console.log('通用仓库API响应:', response.data);
-      }
-      
-      if (response.data && (response.data.success || response.data.code === 200)) {
-        // 处理返回的数据格式
-        let warehouseList = response.data.data;
-        
-        if (Array.isArray(warehouseList)) {
-          // 转换为标准格式并过滤，确保只显示成品仓库
-          const formattedWarehouses = warehouseList
-            .filter(warehouse => {
-              // 过滤条件：仓库类型为成品仓库或名称包含"成品"
-              const warehouseType = warehouse.warehouse_type || warehouse.type || '';
-              const warehouseName = warehouse.label || warehouse.warehouse_name || warehouse.name || '';
-              return warehouseType === 'finished_goods' || 
-                     warehouseType === '成品' || 
-                     warehouseType === '成品仓库' ||
-                     warehouseName.includes('成品') ||
-                     warehouseName.includes('产品');
-            })
-            .map(warehouse => ({
-              id: warehouse.value || warehouse.id,
-              warehouse_name: warehouse.label || warehouse.warehouse_name || warehouse.name,
-              warehouse_code: warehouse.code || warehouse.warehouse_code,
-              warehouse_type: warehouse.warehouse_type || warehouse.type
-            }));
-          
-          setWarehouses(formattedWarehouses);
-          console.log('设置成品仓库数据:', formattedWarehouses);
-          
-          if (formattedWarehouses.length === 0) {
-            message.warning('未找到成品仓库，请先在基础档案中创建成品类型的仓库');
-          }
-        } else {
-          console.warn('仓库数据格式不正确:', warehouseList);
-          setWarehouses([]);
-        }
+      const [warehousesRes, employeesRes, departmentsRes] = await Promise.all([
+        baseDataService.getWarehouses({ warehouse_type: 'finished_goods' }),
+        baseDataService.getEmployees(),
+        baseDataService.getDepartments()
+      ]);
+
+      // 处理仓库数据
+      if (warehousesRes.data?.success) {
+        const warehouseData = warehousesRes.data.data;
+        const warehouses = Array.isArray(warehouseData) ? warehouseData.map(item => ({
+          id: item.value || item.id,
+          warehouse_name: item.label || item.warehouse_name || item.name,
+          warehouse_code: item.code || item.warehouse_code
+        })) : [];
+        setWarehouses(warehouses);
       } else {
-        console.warn('仓库API返回失败:', response.data);
         setWarehouses([]);
       }
+
+      // 处理员工数据
+      if (employeesRes.data?.success) {
+        const employeeData = employeesRes.data.data;
+        const employees = Array.isArray(employeeData) ? employeeData.map(item => ({
+          id: item.id || item.value,
+          employee_name: item.employee_name || item.name || item.label,
+          employee_code: item.employee_code || item.code,
+          department_id: item.department_id || item.department,
+          department_name: item.department_name
+        })) : [];
+        setEmployees(employees);
+      } else {
+        setEmployees([]);
+      }
+
+      // 处理部门数据
+      if (departmentsRes.data?.success) {
+        const departmentData = departmentsRes.data.data;
+        const departments = Array.isArray(departmentData) ? departmentData.map(item => ({
+          id: item.value || item.id,
+          department_name: item.label || item.department_name || item.name,
+          department_code: item.code || item.department_code
+        })) : [];
+        setDepartments(departments);
+      } else {
+        setDepartments([]);
+      }
     } catch (error) {
-      console.error('获取成品仓库列表失败:', error);
-      message.error('获取成品仓库列表失败');
+      console.error('获取基础数据失败:', error);
+      message.error('获取基础数据失败，请检查网络连接');
+      // 设置空数组
       setWarehouses([]);
+      setEmployees([]);
+      setDepartments([]);
+    } finally {
+      setBaseDataLoading(false);
     }
-  };
-
-  // 获取员工列表
-  const fetchEmployees = async () => {
-    try {
-      const response = await getEmployeeOptions();
-      if (response.data.success) {
-        setEmployees(response.data.data);
-      }
-    } catch (error) {
-      message.error('获取员工列表失败');
-    }
-  };
-
-  // 获取部门列表
-  const fetchDepartments = async () => {
-    try {
-      const response = await getDepartmentOptions();
-      if (response.data.success) {
-        setDepartments(response.data.data);
-      }
-    } catch (error) {
-      message.error('获取部门列表失败');
-    }
-  };
+  }, []);
 
   // 获取调拨单明细
   const fetchOrderDetails = async (orderId) => {
@@ -218,11 +191,8 @@ const FinishedGoodsTransfer = () => {
   // 获取可用成品库存
   const fetchAvailableProducts = async (warehouseId) => {
     try {
-      console.log('开始获取仓库成品库存，仓库ID:', warehouseId);
       const response = await getWarehouseProductInventory(warehouseId);
-      console.log('获取仓库成品库存响应:', response);
       if (response.data.success) {
-        console.log('成品库存数据:', response.data.data);
         setAvailableProducts(response.data.data);
       } else {
         console.error('获取仓库成品库存失败:', response.data.message);
@@ -734,9 +704,9 @@ const FinishedGoodsTransfer = () => {
                 rules={[{ required: true, message: '请选择调出仓库' }]}
               >
                 <Select placeholder="请选择调出仓库">
-                  {warehouses.map(warehouse => (
-                    <Option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.warehouse_name}
+                  {warehouses.map((warehouse, index) => (
+                    <Option key={warehouse.id || `from-warehouse-${index}`} value={warehouse.id}>
+                      {warehouse.warehouse_name || '未知仓库'}
                     </Option>
                   ))}
                 </Select>
@@ -759,9 +729,9 @@ const FinishedGoodsTransfer = () => {
                 ]}
               >
                 <Select placeholder="请选择调入仓库">
-                  {warehouses.map(warehouse => (
-                    <Option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.warehouse_name}
+                  {warehouses.map((warehouse, index) => (
+                    <Option key={warehouse.id || `to-warehouse-${index}`} value={warehouse.id}>
+                      {warehouse.warehouse_name || '未知仓库'}
                     </Option>
                   ))}
                 </Select>
@@ -777,19 +747,28 @@ const FinishedGoodsTransfer = () => {
                 rules={[{ required: true, message: '请选择调拨类型' }]}
               >
                 <Select>
-                  <Option key="warehouse" value="warehouse">仓库调拨</Option>
-                  <Option key="department" value="department">部门调拨</Option>
-                  <Option key="project" value="project">项目调拨</Option>
-                  <Option key="emergency" value="emergency">紧急调拨</Option>
+                  <Option key="create-transfer-type-warehouse" value="warehouse">仓库调拨</Option>
+                  <Option key="create-transfer-type-department" value="department">部门调拨</Option>
+                  <Option key="create-transfer-type-project" value="project">项目调拨</Option>
+                  <Option key="create-transfer-type-emergency" value="emergency">紧急调拨</Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="transfer_person_id" label="调拨人">
-                <Select placeholder="请选择调拨人" allowClear>
-                  {employees.map(employee => (
-                    <Option key={employee.id} value={employee.id}>
-                      {employee.employee_name}
+                <Select placeholder="请选择调拨人" allowClear
+                onChange={(value) => {
+                  const selectedEmployee = employees.find(emp => emp.value === value);
+                  if (selectedEmployee && selectedEmployee.department_id) {
+                    form.setFieldsValue({
+                      department_id: selectedEmployee.department_id
+                    });
+                  }
+                }}
+                >
+                  {employees.map((employee, index) => (
+                    <Option key={employee.id || `create-employee-${index}`} value={employee.id}>
+                      {employee.employee_name || employee.name || employee.label || '未知员工'}
                     </Option>
                   ))}
                 </Select>
@@ -801,9 +780,9 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="department_id" label="部门">
                 <Select placeholder="请选择部门" allowClear>
-                  {departments.map(dept => (
-                    <Option key={dept.value} value={dept.value}>
-                      {dept.label}
+                  {departments.map((dept, index) => (
+                    <Option key={dept.id || `create-dept-${index}`} value={dept.id}>
+                      {dept.department_name || dept.label || '未知部门'}
                     </Option>
                   ))}
                 </Select>
@@ -812,10 +791,10 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transport_method" label="运输方式">
                 <Select placeholder="请选择运输方式" allowClear>
-                  <Option key="manual" value="manual">人工搬运</Option>
-                  <Option key="vehicle" value="vehicle">车辆运输</Option>
-                  <Option key="logistics" value="logistics">物流配送</Option>
-                  <Option key="forklift" value="forklift">叉车运输</Option>
+                  <Option key="create-transport-manual" value="manual">人工搬运</Option>
+                  <Option key="create-transport-vehicle" value="vehicle">车辆运输</Option>
+                  <Option key="create-transport-logistics" value="logistics">物流配送</Option>
+                  <Option key="create-transport-forklift" value="forklift">叉车运输</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -887,19 +866,19 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transfer_type" label="调拨类型">
                 <Select>
-                  <Option key="warehouse" value="warehouse">仓库调拨</Option>
-                  <Option key="department" value="department">部门调拨</Option>
-                  <Option key="project" value="project">项目调拨</Option>
-                  <Option key="emergency" value="emergency">紧急调拨</Option>
+                  <Option key="edit-transfer-type-warehouse" value="warehouse">仓库调拨</Option>
+                  <Option key="edit-transfer-type-department" value="department">部门调拨</Option>
+                  <Option key="edit-transfer-type-project" value="project">项目调拨</Option>
+                  <Option key="edit-transfer-type-emergency" value="emergency">紧急调拨</Option>
                 </Select>
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="transfer_person_id" label="调拨人">
                 <Select placeholder="请选择调拨人" allowClear>
-                  {employees.map(employee => (
-                    <Option key={employee.id} value={employee.id}>
-                      {employee.employee_name}
+                  {employees.map((employee, index) => (
+                    <Option key={employee.id || `edit-employee-${index}`} value={employee.id}>
+                      {employee.employee_name || employee.name || employee.label || '未知员工'}
                     </Option>
                   ))}
                 </Select>
@@ -911,9 +890,9 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="department_id" label="部门">
                 <Select placeholder="请选择部门" allowClear>
-                  {departments.map(dept => (
-                    <Option key={dept.value} value={dept.value}>
-                      {dept.label}
+                  {departments.map((dept, index) => (
+                    <Option key={dept.id || `edit-dept-${index}`} value={dept.id}>
+                      {dept.department_name || dept.label || '未知部门'}
                     </Option>
                   ))}
                 </Select>
@@ -922,10 +901,10 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transport_method" label="运输方式">
                 <Select placeholder="请选择运输方式" allowClear>
-                  <Option key="manual-edit" value="manual">人工搬运</Option>
-                  <Option key="vehicle-edit" value="vehicle">车辆运输</Option>
-                  <Option key="logistics-edit" value="logistics">物流配送</Option>
-                  <Option key="forklift-edit" value="forklift">叉车运输</Option>
+                  <Option key="edit-transport-manual" value="manual">人工搬运</Option>
+                  <Option key="edit-transport-vehicle" value="vehicle">车辆运输</Option>
+                  <Option key="edit-transport-logistics" value="logistics">物流配送</Option>
+                  <Option key="edit-transport-forklift" value="forklift">叉车运输</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -983,7 +962,7 @@ const FinishedGoodsTransfer = () => {
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
-          <Button key="close" onClick={() => setDetailModalVisible(false)}>
+          <Button key="detail-modal-close" onClick={() => setDetailModalVisible(false)}>
             关闭
           </Button>
         ]}
@@ -1081,8 +1060,8 @@ const FinishedGoodsTransfer = () => {
                 }
               }}
             >
-              {Array.isArray(availableProducts) && availableProducts.map(product => (
-                <Option key={product.product_id} value={product.product_id}>
+              {Array.isArray(availableProducts) && availableProducts.map((product, index) => (
+                <Option key={product.product_id || `product-${index}`} value={product.product_id}>
                   {product.product_code} - {product.product_name}
                   {product.product_spec && ` (${product.product_spec})`}
                   - 库存: {Number(product.current_quantity).toFixed(3)}

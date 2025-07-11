@@ -22,6 +22,7 @@ bp = Blueprint('sales_order', __name__)
 def get_sales_orders():
     """获取销售订单列表"""
     try:
+        
         # 创建服务实例
         sales_order_service = SalesOrderService()
         
@@ -675,11 +676,9 @@ def get_customer_details(customer_id):
 def get_customer_contacts(customer_id):
     """获取客户联系人"""
     try:
-        # 这里应该从客户联系人表获取数据，暂时返回模拟数据
-        contacts = [
-            {'id': '1', 'name': '张三', 'phone': '13800138001', 'email': 'zhangsan@example.com', 'position': '采购经理'},
-            {'id': '2', 'name': '李四', 'phone': '13800138002', 'email': 'lisi@example.com', 'position': '项目经理'}
-        ]
+        from app.services.base_archive.base_data.customer_service import CustomerService
+        customer_service = CustomerService()
+        contacts = customer_service.get_customer_contacts(customer_id)
         
         return jsonify({'success': True, 'data': contacts})
     except Exception as e:

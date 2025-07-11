@@ -85,7 +85,6 @@ const MaterialTransfer = () => {
 
   // 页面加载
   useEffect(() => {
-    console.log('MaterialTransfer组件初始化，开始加载数据...');
     fetchOrders();
     fetchWarehouses();
     fetchEmployees();
@@ -125,13 +124,11 @@ const MaterialTransfer = () => {
       try {
         // 直接使用正确的仓库基础档案API
         response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options');
-        console.log('仓库基础档案API响应:', response.data);
       } catch (warehouseApiError) {
         console.warn('仓库基础档案API失败，尝试通用仓库API:', warehouseApiError);
         // 备用方案：使用通用仓库API
         const generalResponse = await warehouseApi.getWarehouseOptions();
         response = generalResponse;
-        console.log('通用仓库API响应:', response.data);
       }
       
       if (response.data && (response.data.success || response.data.code === 200)) {
@@ -159,7 +156,6 @@ const MaterialTransfer = () => {
             }));
           
           setWarehouses(formattedWarehouses);
-          console.log('设置材料仓库数据:', formattedWarehouses);
           
           if (formattedWarehouses.length === 0) {
             message.warning('未找到材料仓库，请先在基础档案中创建材料类型的仓库');

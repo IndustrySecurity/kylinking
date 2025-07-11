@@ -940,4 +940,4 @@ CREATE INDEX IF NOT EXISTS idx_tenant_extensions_tenant_id ON system.tenant_exte
 CREATE INDEX IF NOT EXISTS idx_tenant_extensions_module_id ON system.tenant_extensions(module_id);
 
 -- 为现有租户创建基础档案表
-SELECT system.create_basic_data_tables('wanle'); 
+-- SELECT system.create_basic_data_tables('wanle'); 

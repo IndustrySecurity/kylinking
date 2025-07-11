@@ -170,6 +170,7 @@ const FinishedGoodsCount = () => {
   // 表单
   const [createForm] = Form.useForm();
 
+
   // 状态配置
   const statusConfig = {
     draft: { text: '草稿', color: 'default' },
@@ -218,7 +219,7 @@ const FinishedGoodsCount = () => {
       if (employeesRes && employeesRes.data && employeesRes.data.data && Array.isArray(employeesRes.data.data)) {
         employeeData = employeesRes.data.data;
       }
-             setEmployees(employeeData);
+      setEmployees(employeeData);
        
        // 处理部门数据 - Axios响应格式: {data: {success: true, data: [...]}}
        let departmentData = [];
@@ -244,15 +245,12 @@ const FinishedGoodsCount = () => {
       };
       
       const response = await getProductCountPlans(queryParams);
-      console.log('获取盘点计划列表响应:', response);
       
       // 处理响应数据结构
       const result = response.data || response;
-      console.log('处理后的列表结果:', result);
       
       if (result.success) {
         const items = result.data?.items || [];
-        console.log('盘点计划列表数据:', items);
         
         setPlans(items);
         setPagination(prev => ({
@@ -273,7 +271,6 @@ const FinishedGoodsCount = () => {
 
   // 创建盘点计划
   const handleCreate = async (values) => {
-    console.log('表单提交的值:', values);
     
     try {
       // 验证必填字段
@@ -305,16 +302,11 @@ const FinishedGoodsCount = () => {
         count_date: values.count_date.toISOString()
       };
       
-      console.log('发送到后端的数据:', data);
       
       const response = await createProductCountPlan(data);
-      console.log('后端响应:', response);
-      console.log('response.success:', response.success);
-      console.log('response.data:', response.data);
       
       // 检查响应结构，可能成功信息在 data 中
       const result = response.data || response;
-      console.log('处理后的结果:', result);
       
       if (result.success) {
         message.success('创建盘点计划成功');
@@ -420,13 +412,10 @@ const FinishedGoodsCount = () => {
         page_size: 50
       });
       
-      console.log('盘点记录响应:', recordsResponse);
       const recordsResult = recordsResponse.data || recordsResponse;
-      console.log('处理后的记录结果:', recordsResult);
       
       if (recordsResult.success) {
         const items = recordsResult.data?.items || [];
-        console.log('盘点记录数据:', items);
         setRecords(items);
       }
       
@@ -671,7 +660,7 @@ const FinishedGoodsCount = () => {
           value={value}
           record={record}
           onSave={handleSaveActualQuantity}
-          disabled={currentPlan?.status === 'completed' || currentPlan?.status === 'adjusted'}
+          disabled={currentPlan?.status !== 'in_progress'}
         />
       )
     },
@@ -783,7 +772,6 @@ const FinishedGoodsCount = () => {
           layout="vertical"
           onFinish={handleCreate}
           onFinishFailed={(errorInfo) => {
-            console.log('表单验证失败:', errorInfo);
             message.error('请检查表单填写是否完整');
           }}
           initialValues={{
@@ -798,17 +786,11 @@ const FinishedGoodsCount = () => {
                 rules={[{ required: true, message: '请选择盘点仓库' }]}
               >
                 <Select placeholder="选择成品仓库" showSearch optionFilterProp="children">
-                  {(warehouses || []).map((warehouse, index) => {
-                    const key = warehouse.value || warehouse.id || `warehouse-${index}`;
-                    const value = warehouse.value || warehouse.id;
-                    const label = warehouse.label || warehouse.warehouse_name || '未命名仓库';
-                    
-                    return value ? (
-                      <Option key={key} value={value}>
-                        {label}
-                      </Option>
-                    ) : null;
-                  }).filter(Boolean)}
+                  {warehouses.map((warehouse, index) => (
+                    <Option key={warehouse.value || warehouse.id || `warehouse-${index}`} value={warehouse.value || warehouse.id}>
+                      {warehouse.label || warehouse.warehouse_name || '未命名仓库'}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -819,18 +801,25 @@ const FinishedGoodsCount = () => {
                 label="盘点人"
                 rules={[{ required: true, message: '请选择盘点人' }]}
               >
-                <Select placeholder="选择盘点人" showSearch optionFilterProp="children">
-                  {(employees || []).map((employee, index) => {
-                    const key = employee.id || `employee-${index}`;
-                    const value = employee.id;
-                    const label = employee.employee_name || employee.name || '未命名员工';
-                    
-                    return value ? (
-                      <Option key={key} value={value}>
-                        {label}
-                      </Option>
-                    ) : null;
-                  }).filter(Boolean)}
+                <Select 
+                  placeholder="请选择盘点人"
+                  onChange={(value) => {
+                    // 根据选择的员工自动填充部门
+                    if (value && employees.length > 0) {
+                      const selectedEmployee = employees.find(emp => emp.value === value);
+                      if (selectedEmployee && selectedEmployee.department_id) {
+                        createForm.setFieldsValue({
+                          department_id: selectedEmployee.department_id
+                        });
+                      }
+                    }
+                  }}
+                >
+                  {employees.map((employee, index) => (
+                    <Option key={employee.value || `employee-${index}`} value={employee.value}>
+                      {employee.label || employee.name || '未知员工'}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -842,18 +831,12 @@ const FinishedGoodsCount = () => {
                 name="department_id"
                 label="所属部门"
               >
-                <Select placeholder="选择部门" allowClear showSearch optionFilterProp="children">
-                  {(departments || []).map((dept, index) => {
-                    const key = dept.value || dept.id || `dept-${index}`;
-                    const value = dept.value || dept.id;
-                    const label = dept.label || dept.dept_name || dept.name || '未命名部门';
-                    
-                    return value ? (
-                      <Option key={key} value={value}>
-                        {label}
-                      </Option>
-                    ) : null;
-                  }).filter(Boolean)}
+                <Select placeholder="选择部门" allowClear showSearch>
+                  {departments.map((dept, index) => (
+                    <Option key={dept.value || dept.id || `dept-${index}`} value={dept.value || dept.id}>
+                      {dept.label || dept.dept_name || dept.name || '未命名部门'}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Table, 
   Button, 
@@ -107,41 +107,6 @@ const DetailTable = styled(Table)`
   }
 `;
 
-// 创建模拟明细数据的函数
-const createMockDetails = (orderId) => {
-  return [
-    {
-      id: `mock-${orderId}-1`,
-      product_code: 'P001',
-      product_name: '产品A',
-      product_spec: '规格A',
-      inbound_quantity: 10,
-      unit: '个',
-      unit_cost: 50.00,
-      inbound_kg_quantity: 5.5,
-      inbound_m_quantity: 0,
-      inbound_roll_quantity: 0,
-      box_quantity: 2,
-      batch_number: 'BATCH001',
-      location_code: 'A01-01'
-    },
-    {
-      id: `mock-${orderId}-2`,
-      product_code: 'P002',
-      product_name: '产品B',
-      product_spec: '规格B',
-      inbound_quantity: 20,
-      unit: '箱',
-      unit_cost: 25.00,
-      inbound_kg_quantity: 0,
-      inbound_m_quantity: 15.2,
-      inbound_roll_quantity: 0,
-      box_quantity: 1,
-      batch_number: 'BATCH002',
-      location_code: 'A01-02'
-    }
-  ];
-};
 
 const FinishedGoodsInbound = () => {
   // 状态管理
@@ -167,6 +132,7 @@ const FinishedGoodsInbound = () => {
   const [customers, setCustomers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [baseDataLoading, setBaseDataLoading] = useState(false);
 
   // 分页和筛选状态
   const [pagination, setPagination] = useState({
@@ -177,7 +143,118 @@ const FinishedGoodsInbound = () => {
   const [filters, setFilters] = useState({});
   const [searchParams, setSearchParams] = useState({});
 
-  // 初始化数据
+  // 统一的基础数据获取函数
+  const fetchBaseData = useCallback(async () => {
+    if (baseDataLoading) return; // 防止重复请求
+    
+    setBaseDataLoading(true);
+    try {
+      const [warehousesRes, productsRes, departmentsRes, employeesRes, customersRes] = await Promise.all([
+        baseDataService.getWarehouses({ warehouse_type: 'finished_goods' }),
+        baseDataService.getProducts(),
+        baseDataService.getDepartments(),
+        baseDataService.getEmployees(),
+        baseDataService.getCustomers()
+      ]);
+
+      // 处理仓库数据
+      if (warehousesRes.data?.success) {
+        const warehouseData = warehousesRes.data.data;
+        const warehouses = Array.isArray(warehouseData) ? warehouseData.map(item => ({
+          id: item.value || item.id,
+          warehouse_name: item.label || item.warehouse_name || item.name,
+          warehouse_code: item.code || item.warehouse_code
+        })) : [];
+        setWarehouses(warehouses);
+      } else {
+        setWarehouses([]);
+      }
+
+      // 处理产品数据
+      if (productsRes.data?.success) {
+        const productData = productsRes.data.data;
+        let products = [];
+        if (Array.isArray(productData)) {
+          products = productData;
+        } else if (productData?.products && Array.isArray(productData.products)) {
+          products = productData.products;
+        } else if (productData?.items && Array.isArray(productData.items)) {
+          products = productData.items;
+        } else if (productData?.data && Array.isArray(productData.data)) {
+          products = productData.data;
+        }
+        setProducts(products);
+      } else {
+        setProducts([]);
+      }
+
+      // 处理部门数据
+      if (departmentsRes.data?.success) {
+        const departmentData = departmentsRes.data.data;
+        const departments = Array.isArray(departmentData) ? departmentData.map(item => ({
+          id: item.value || item.id,
+          department_name: item.label || item.department_name || item.name,
+          department_code: item.code || item.department_code
+        })) : [];
+        setDepartments(departments);
+      } else {
+        setDepartments([]);
+      }
+
+      // 处理员工数据
+      if (employeesRes.data?.success) {
+        const employeeData = employeesRes.data.data;
+        const employees = Array.isArray(employeeData) ? employeeData.map(item => ({
+          id: item.id || item.value,
+          employee_name: item.employee_name || item.name || item.label,
+          employee_code: item.employee_code || item.code,
+          department_id: item.department_id || item.department,
+          department_name: item.department_name
+        })) : [];
+        setEmployees(employees);
+      } else {
+        setEmployees([]);
+      }
+
+      // 处理客户数据
+      if (customersRes.data?.success) {
+        const customerData = customersRes.data.data;
+        let customers = [];
+        if (Array.isArray(customerData)) {
+          customers = customerData;
+        } else if (customerData?.customers && Array.isArray(customerData.customers)) {
+          customers = customerData.customers;
+        } else if (customerData?.items && Array.isArray(customerData.items)) {
+          customers = customerData.items;
+        } else if (customerData?.data && Array.isArray(customerData.data)) {
+          customers = customerData.data;
+        }
+        setCustomers(customers);
+      } else {
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error('获取基础数据失败:', error);
+      message.error('获取基础数据失败，请检查网络连接');
+      // 设置空数组
+      setWarehouses([]);
+      setProducts([]);
+      setCustomers([]);
+      setDepartments([]);
+      setEmployees([]);
+    } finally {
+      setBaseDataLoading(false);
+    }
+  }, [baseDataLoading]);
+
+  // 确保产品数据已加载的函数
+  const ensureProductsLoaded = useCallback(async () => {
+    if (products.length === 0 && !baseDataLoading) {
+      await fetchBaseData();
+    }
+  }, [products.length, baseDataLoading, fetchBaseData]);
+
+  // 初始化数据 - 只保留一个useEffect
   useEffect(() => {
     fetchInboundOrders();
     fetchBaseData();
@@ -210,79 +287,7 @@ const FinishedGoodsInbound = () => {
   // 刷新数据
   const handleRefresh = () => {
     fetchInboundOrders();
-  };
-
-  // 获取基础数据
-  const fetchBaseData = async () => {
-    try {
-      const [warehousesRes, productsRes, departmentsRes, employeesRes] = await Promise.all([
-        baseDataService.getWarehouses(),
-        baseDataService.getProducts(),
-        baseDataService.getDepartments(),
-        baseDataService.getEmployees()
-      ]);
-
-      // 处理仓库数据 - 选项API返回格式 {value, label, code}
-      if (warehousesRes.data?.success) {
-        const warehouseData = warehousesRes.data.data;
-        const warehouses = Array.isArray(warehouseData) ? warehouseData.map(item => ({
-          id: item.value,
-          warehouse_name: item.label,
-          warehouse_code: item.code
-        })) : [];
-        setWarehouses(warehouses);
-      } else {
-        setWarehouses([]);
-      }
-
-      // 处理产品数据 - 列表API返回格式
-      if (productsRes.data?.success) {
-        const productData = productsRes.data.data;
-        // 处理分页数据或直接数组
-        let products = [];
-        if (Array.isArray(productData)) {
-          products = productData;
-        } else if (productData?.products && Array.isArray(productData.products)) {
-          products = productData.products;
-        } else if (productData?.items && Array.isArray(productData.items)) {
-          products = productData.items;
-        } else if (productData?.data && Array.isArray(productData.data)) {
-          products = productData.data;
-        }
-        setProducts(products);
-      } else {
-        setProducts([]);
-      }
-
-      // 处理部门数据 - 选项API返回格式 {value, label, code}
-      if (departmentsRes.data?.success) {
-        const departmentData = departmentsRes.data.data;
-        const departments = Array.isArray(departmentData) ? departmentData.map(item => ({
-          id: item.value,
-          department_name: item.label,
-          department_code: item.code
-        })) : [];
-        setDepartments(departments);
-      } else {
-        setDepartments([]);
-      }
-
-      // 处理员工数据 - 特殊格式 {success: true, data: [{id, employee_name, ...}]}
-      if (employeesRes.data?.success) {
-        const employeeData = employeesRes.data.data;
-        setEmployees(Array.isArray(employeeData) ? employeeData : []);
-      } else {
-        setEmployees([]);
-      }
-    } catch (error) {
-      message.error('获取基础数据失败，请检查网络连接');
-      // 设置空数组，不使用模拟数据
-      setWarehouses([]);
-      setProducts([]);
-      setCustomers([]);
-      setDepartments([]);
-      setEmployees([]);
-    }
+    fetchBaseData(); // 同时刷新基础数据
   };
 
   const fetchInboundOrders = async () => {
@@ -309,8 +314,6 @@ const FinishedGoodsInbound = () => {
       }
     } catch (error) {
       message.error('获取入库单列表失败');
-      
-      // 设置空数组，不使用模拟数据
       setInboundOrders([]);
       setPagination(prev => ({
         ...prev,
@@ -666,14 +669,11 @@ const FinishedGoodsInbound = () => {
     setCurrentOrder(record);
     setIsViewMode(true); // 设置为查看模式
     try {
-      console.log('正在获取入库单明细，入库单ID:', record.id);
       const response = await finishedGoodsInboundService.getInboundOrderDetails(record.id);
-      console.log('API响应:', response);
       
       // 检查响应格式
       if (response && response.data && response.data.success !== false) {
         const details = response.data?.data || response.data || [];
-        console.log('获取到的明细数据:', details);
         setOrderDetails(details);
         if (details.length === 0) {
           message.info('该入库单暂无明细记录');
@@ -681,9 +681,6 @@ const FinishedGoodsInbound = () => {
       } else {
         const errorMsg = response?.data?.error || response?.error || response?.message || '获取入库单明细失败';
         console.error('获取明细失败:', errorMsg);
-        console.log('使用模拟数据作为备用方案');
-        message.warning(`${errorMsg}，正在显示模拟数据`);
-        setOrderDetails(createMockDetails(record.id));
       }
     } catch (error) {
       console.error('获取入库单明细异常:', error);
@@ -697,16 +694,28 @@ const FinishedGoodsInbound = () => {
       } else {
         errorMsg = error.message || errorMsg;
       }
-      console.log('使用模拟数据作为备用方案');
-      message.warning(`${errorMsg}，正在显示模拟数据`);
-      setOrderDetails(createMockDetails(record.id));
     }
     setDetailModalVisible(true);
   };
 
-  const editOrder = (record) => {
+  const editOrder = async (record) => {
     setCurrentOrder(record);
     setIsViewMode(false); // 设置为编辑模式
+    try{
+      const response = await finishedGoodsInboundService.getInboundOrderDetails(record.id);
+      if (response && response.data && response.data.success !== false) {
+        const details = response.data?.data || response.data || [];
+        setOrderDetails(details);
+        if (details.length === 0) {
+          message.info('该入库单暂无明细记录');
+        }
+      } else {
+        const errorMsg = response?.data?.error || response?.error || response?.message || '获取入库单明细失败';
+        console.error('获取明细失败:', errorMsg);
+      }
+    }catch(error){
+      console.error('获取入库单明细异常:', error);
+    }
     form.setFieldsValue({
       ...record,
       order_date: record.order_date ? dayjs(record.order_date) : null
@@ -719,7 +728,7 @@ const FinishedGoodsInbound = () => {
       const response = await finishedGoodsInboundService.executeInboundOrder(record.id);
       
       // 修复响应数据访问
-      if (response.data?.success || response.success) {
+      if (response.data?.success) {
         message.success('入库单执行成功');
         fetchInboundOrders();
       } else {
@@ -833,60 +842,15 @@ const FinishedGoodsInbound = () => {
     detailForm.resetFields();
     
     // 确保产品数据已加载
-    if (products.length === 0) {
-      try {
-        const response = await baseDataService.getProducts();
-        if (response.data?.success) {
-          const productData = response.data.data;
-          let newProducts = [];
-          if (Array.isArray(productData)) {
-            newProducts = productData;
-          } else if (productData?.products && Array.isArray(productData.products)) {
-            newProducts = productData.products;
-          } else if (productData?.items && Array.isArray(productData.items)) {
-            newProducts = productData.items;
-          } else if (productData?.data && Array.isArray(productData.data)) {
-            newProducts = productData.data;
-          }
-          setProducts(newProducts);
-        } else {
-          console.error('获取产品数据失败 - API返回失败');
-        }
-      } catch (error) {
-        console.error('获取产品数据失败:', error);
-      }
-    }
+    await ensureProductsLoaded();
     
     setDetailModalVisible2(true);
   };
 
   // 批量选择产品
   const selectProducts = async () => {
-    // 如果产品数据为空，重新获取
-    if (products.length === 0) {
-      try {
-        const response = await baseDataService.getProducts();
-        if (response.data?.success) {
-          const productData = response.data.data;
-          let newProducts = [];
-          if (Array.isArray(productData)) {
-            newProducts = productData;
-          } else if (productData?.products && Array.isArray(productData.products)) {
-            newProducts = productData.products;
-          } else if (productData?.items && Array.isArray(productData.items)) {
-            newProducts = productData.items;
-          } else if (productData?.data && Array.isArray(productData.data)) {
-            newProducts = productData.data;
-          }
-          console.log('重新获取的产品数据:', newProducts);
-          setProducts(newProducts);
-        } else {
-          console.error('重新获取产品数据失败 - API返回失败');
-        }
-      } catch (error) {
-        console.error('重新获取产品数据失败:', error);
-      }
-    }
+    // 确保产品数据已加载
+    await ensureProductsLoaded();
     setProductSelectVisible(true);
   };
 
@@ -927,29 +891,7 @@ const FinishedGoodsInbound = () => {
     detailForm.setFieldsValue(record);
     
     // 确保产品数据已加载
-    if (products.length === 0) {
-      try {
-        const response = await baseDataService.getProducts();
-        if (response.data?.success) {
-          const productData = response.data.data;
-          let newProducts = [];
-          if (Array.isArray(productData)) {
-            newProducts = productData;
-          } else if (productData?.products && Array.isArray(productData.products)) {
-            newProducts = productData.products;
-          } else if (productData?.items && Array.isArray(productData.items)) {
-            newProducts = productData.items;
-          } else if (productData?.data && Array.isArray(productData.data)) {
-            newProducts = productData.data;
-          }
-          setProducts(newProducts);
-        } else {
-          console.error('获取产品数据失败 - API返回失败');
-        }
-      } catch (error) {
-        console.error('获取产品数据失败:', error);
-      }
-    }
+    await ensureProductsLoaded();
     
     setDetailModalVisible2(true);
   };
@@ -963,7 +905,7 @@ const FinishedGoodsInbound = () => {
           record.id
         );
         
-        if (response.success) {
+        if (response.data?.success) {
           const newDetails = orderDetails.filter(item => item.id !== record.id);
           setOrderDetails(newDetails);
           message.success('明细删除成功');
@@ -993,7 +935,7 @@ const FinishedGoodsInbound = () => {
             currentDetail.id, 
             values
           );
-          if (response.success) {
+          if (response.data?.success) {
             const newDetails = orderDetails.map(item => 
               item.id === currentDetail.id ? { ...item, ...values } : item
             );
@@ -1019,9 +961,9 @@ const FinishedGoodsInbound = () => {
             currentOrder.id, 
             values
           );
-          if (response.success) {
+          if (response.data?.success) {
             const newDetail = {
-              id: response.data.id || Date.now().toString(),
+              id: response.data.data.id || Date.now().toString(),
               ...values
             };
             setOrderDetails([...orderDetails, newDetail]);
@@ -1048,99 +990,7 @@ const FinishedGoodsInbound = () => {
     }
   };
 
-  // 获取员工列表
-  const fetchEmployees = async () => {
-    try {
-      const response = await request.get('/tenant/base-archive/base-data/employees/options');
-      if (response.data?.success) {
-        setEmployees(response.data.data || []);
-      } else {
-        console.warn('员工API返回失败:', response.data);
-      }
-    } catch (error) {
-      console.error('获取员工列表失败:', error);
-    }
-  };
 
-  // 获取部门列表
-  const fetchDepartments = async () => {
-    try {
-      const response = await request.get('/tenant/base-archive/base-data/departments/options');
-      if (response.data?.success) {
-        setDepartments(response.data.data || []);
-      } else {
-        console.warn('部门API返回失败:', response.data);
-      }
-    } catch (error) {
-      console.error('获取部门列表失败:', error);
-    }
-  };
-  
-  //获取仓库列表(只显示成品仓)
-  const fetchWarehouses = async () => {
-    try {
-        const response = await baseDataService.getWarehouses({ warehouse_type: 'finished_goods' });
-        if (response.data?.success) {
-          const warehouseData = response.data.data;
-          let warehouses = [];
-          if (Array.isArray(warehouseData)) {
-            warehouses = warehouseData;
-          }
-        warehouses = warehouses.map(item => ({
-          id: item.id,
-          warehouse_name: item.warehouse_name || item.name,
-          warehouse_code: item.warehouse_code || item.code
-        }));
-        setWarehouses(warehouses);
-      } else {
-        console.warn('仓库API返回失败:', response.data);
-      }
-    } catch (error) {
-      console.error('获取仓库列表失败:', error);
-    }
-  };
-
-  //获取产品列表
-  const fetchProducts = async () => {
-    try {
-      const response = await request.get('/tenant/base-archive/base-data/products/options');
-      if (response.data?.success) {
-        const productData = response.data.data;
-        let products = [];
-        if (Array.isArray(productData)) {
-          products = productData;
-        }
-        setProducts(products);
-      } else {
-        console.warn('产品API返回失败:', response.data);
-      }
-    } catch (error) {
-      console.error('获取产品列表失败:', error);
-    }
-  };
-  //获取客户列表
-  const fetchCustomers = async () => {
-    try {
-      const response = await request.get('/tenant/base-archive/base-data/customers/options');
-      if (response.data?.success) {
-        setCustomers(response.data.data || []);
-      } else {
-        console.warn('客户API返回失败:', response.data);
-      }
-    } catch (error) {
-      console.error('获取客户列表失败:', error);
-    }
-  };
-
-  // 初始化数据
-  useEffect(() => {
-    fetchInboundOrders();
-    fetchWarehouses();
-    fetchProducts();
-    fetchCustomers();
-    fetchEmployees();
-    fetchDepartments();
-  }, []);
 
   return (
     <PageContainer>
@@ -1353,7 +1203,20 @@ const FinishedGoodsInbound = () => {
                 name="inbound_person_id"
                 label="入库人"
               >
-                <Select placeholder="请选择入库人">
+                <Select 
+                  placeholder="请选择入库人"
+                  onChange={(value) => {
+                    // 根据选择的员工自动填充部门
+                    if (value && employees.length > 0) {
+                      const selectedEmployee = employees.find(emp => emp.id === value);
+                      if (selectedEmployee && selectedEmployee.department_id) {
+                        form.setFieldsValue({
+                          department_id: selectedEmployee.department_id
+                        });
+                      }
+                    }
+                  }}
+                >
                   {employees.map((employee, index) => (
                     <Option key={employee.id || `employee-${index}`} value={employee.id}>
                       {employee.employee_name || employee.name || '未知员工'}

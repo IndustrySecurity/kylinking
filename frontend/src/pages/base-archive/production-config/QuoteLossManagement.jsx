@@ -60,18 +60,15 @@ const QuoteLossManagement = () => {
   // 加载袋型选项
   const loadBagTypeOptions = async () => {
     try {
-      console.log('开始加载袋型选项...');
       
       // 首先尝试获取袋型选项
       let response;
       try {
         response = await bagTypeApi.getBagTypeOptions();
-        console.log('袋型选项API响应:', response.data);
       } catch (optionsError) {
         console.warn('袋型选项API调用失败，尝试获取袋型列表:', optionsError);
         // 如果选项API失败，尝试获取袋型列表
         response = await bagTypeApi.getBagTypes({ is_enabled: true });
-        console.log('袋型列表API响应:', response.data);
       }
 
       if (response.data.success) {
@@ -94,7 +91,6 @@ const QuoteLossManagement = () => {
           }));
         }
         
-        console.log('处理后的袋型选项:', options);
         setBagTypeOptions(options);
       } else {
         console.warn('袋型API返回失败，使用默认选项');
@@ -103,18 +99,8 @@ const QuoteLossManagement = () => {
     } catch (error) {
       console.error('加载袋型选项失败:', error);
       // 使用默认选项作为后备
-      const defaultOptions = [
-        { value: '三边封', label: '三边封', name: '三边封' },
-        { value: '中封', label: '中封', name: '中封' },
-        { value: '背封', label: '背封', name: '背封' },
-        { value: '四边封', label: '四边封', name: '四边封' },
-        { value: '自立袋', label: '自立袋', name: '自立袋' },
-        { value: '拉链袋', label: '拉链袋', name: '拉链袋' },
-        { value: '吸嘴袋', label: '吸嘴袋', name: '吸嘴袋' },
-        { value: '异形袋', label: '异形袋', name: '异形袋' }
-      ];
+      const defaultOptions = [];
       setBagTypeOptions(defaultOptions);
-      console.log('使用默认袋型选项:', defaultOptions);
     }
   };
 

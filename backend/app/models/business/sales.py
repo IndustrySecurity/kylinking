@@ -112,8 +112,8 @@ class SalesOrder(TenantModel):
                     result['contact_person'] = {
                         'id': str(contact.id),
                         'contact_name': getattr(contact, 'contact_name', '') or getattr(contact, 'name', ''),
-                        'mobile': getattr(contact, 'mobile', '') or getattr(contact, 'landline', ''),
-                        'phone': getattr(contact, 'mobile', '') or getattr(contact, 'landline', '')
+                        'mobile': getattr(contact, 'mobile', ''),
+                        'phone': getattr(contact, 'mobile', '')
                     }
                 else:
                     result['contact_person'] = None

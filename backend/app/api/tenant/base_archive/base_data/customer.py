@@ -259,9 +259,8 @@ def get_customer_contacts(customer_id):
                 'value': str(contact['id']),
                 'label': contact['contact_name'],
                 'contact_name': contact['contact_name'],
-                'phone': contact.get('phone', ''),
+                'phone': contact.get('mobile', ''),
                 'mobile': contact.get('mobile', ''),
-                'landline': contact.get('landline', ''),
                 'email': contact.get('email', ''),
                 'position': contact.get('position', ''),
                 'department': contact.get('department', '')

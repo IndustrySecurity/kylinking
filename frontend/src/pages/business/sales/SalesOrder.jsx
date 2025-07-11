@@ -35,7 +35,6 @@ import {
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import salesOrderService from '../../../api/business/sales/salesOrder';
-import { getEmployeeOptions } from '../../../api/base-archive/base-data/employee';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -74,7 +73,7 @@ const SalesOrder = () => {
   const [productOptions, setProductOptions] = useState([]);
   const [materialOptions, setMaterialOptions] = useState([]);
   const [taxOptions, setTaxOptions] = useState([]);
-  const [employeeOptions, setEmployeeOptions] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [contactOptions, setContactOptions] = useState([]);
 
   // 子表数据
@@ -125,7 +124,7 @@ const SalesOrder = () => {
         salesOrderService.getProductOptions(),
         salesOrderService.getMaterialOptions(),
         salesOrderService.getTaxOptions(),
-        getEmployeeOptions()
+        salesOrderService.getEmployeeOptions()
       ]);
 
       if (customerRes.data.success) {
@@ -141,7 +140,7 @@ const SalesOrder = () => {
         setTaxOptions(taxRes.data.data);
       }
       if (employeeRes?.data?.success) {
-        setEmployeeOptions(employeeRes.data.data);
+        setEmployees(employeeRes.data.data);
       }
     } catch (error) {
       console.error('获取选项数据失败:', error);
@@ -186,11 +185,9 @@ const SalesOrder = () => {
       const response = await salesOrderService.getSalesOrderById(record.id);
       if (response.data.success) {
         const orderData = response.data.data;
-        // 如果订单有客户ID，先获取联系人列表
-        if (orderData.customer_id) {
-          await handleCustomerChange(orderData.customer_id);
-        }
-        form.setFieldsValue({
+        
+        // 先设置基本字段（不包括联系人相关字段）
+        const basicFields = {
           ...orderData,
           order_date: orderData.order_date ? dayjs(orderData.order_date) : null,
           delivery_date: orderData.order_date ? dayjs(orderData.order_date) : dayjs(), // 使用order_date作为delivery_date
@@ -198,7 +195,38 @@ const SalesOrder = () => {
           contract_date: orderData.contract_date ? dayjs(orderData.contract_date) : null,
           // 映射税收字段名
           tax_id: orderData.tax_type_id
-        });
+        };
+        
+        // 如果订单有客户ID，先获取联系人列表
+        if (orderData.customer_id) {
+          try {
+            const contactsResponse = await salesOrderService.getCustomerContacts(orderData.customer_id);
+            if (contactsResponse.data.success) {
+              const formattedContacts = contactsResponse.data.data.map(c => ({
+                value: c.id,
+                label: c.contact_name,
+                ...c
+              }));
+              setContactOptions(formattedContacts);
+              
+              // 查找当前订单对应的联系人
+              const currentContact = formattedContacts.find(c => c.value === orderData.contact_person_id);
+              if (currentContact) {
+                // 使用当前订单的联系人信息
+                basicFields.contact_person_id = currentContact.value;
+                basicFields.contact_phone = currentContact.mobile || '';
+                basicFields.contact_mobile = currentContact.mobile || '';
+                basicFields.contact_method = currentContact.mobile || '';
+              }
+            }
+          } catch (error) {
+            console.error('加载联系人信息失败:', error);
+            setContactOptions([]);
+          }
+        }
+        
+        // 设置表单值
+        form.setFieldsValue(basicFields);
         setOrderDetails(orderData.order_details || []);
         setOtherFees(orderData.other_fees || []);
         setMaterials(orderData.material_details || []);
@@ -320,7 +348,7 @@ const SalesOrder = () => {
 
         if (detailResponse.data.success) {
           const customerDetails = detailResponse.data.data;
-          // 自动填充红框内的客户相关字段
+          // 自动填充客户相关字段
           form.setFieldsValue({
             customer_code: customerDetails.customer_code,
             payment_method_id: customerDetails.payment_method_id,
@@ -330,7 +358,6 @@ const SalesOrder = () => {
             tax_rate: customerDetails.tax_rate
           });
         }
-
         if (contactsResponse.data.success) {
           const formattedContacts = contactsResponse.data.data.map(c => ({
             value: c.id,
@@ -343,9 +370,9 @@ const SalesOrder = () => {
             const firstContact = formattedContacts[0];
             form.setFieldsValue({
               contact_person_id: firstContact.value,
-              contact_phone: firstContact.landline,
+              contact_phone: firstContact.mobile,
               contact_mobile: firstContact.mobile,
-              contact_method: firstContact.landline || firstContact.mobile
+              contact_method: firstContact.mobile
             });
           }
           message.success('已自动加载客户信息');
@@ -1854,11 +1881,13 @@ const SalesOrder = () => {
                 </Col>
                 <Col span={4}>
                   <Form.Item name="salesperson_id" label="业务员">
-                    <Select placeholder="请选择业务员" allowClear showSearch optionFilterProp="children">
-                      {employeeOptions.map(emp => (
-                        <Option key={emp.id} value={emp.id}>{emp.employee_name || emp.name}</Option>
-                      ))}
-                    </Select>
+                  <Select placeholder="请选择业务员" allowClear>
+                  {employees.map((employee, index) => (
+                    <Option key={employee.id || `sales-employee-${index}`} value={employee.id}>
+                      {employee.employee_name || employee.name || employee.label}
+                    </Option>
+                  ))}
+                </Select>
                   </Form.Item>
                 </Col>
                 <Col span={4}>
@@ -1879,9 +1908,11 @@ const SalesOrder = () => {
                 <Col span={4}>
                   <Form.Item name="tracking_person" label="跟单员">
                     <Select placeholder="请选择跟单员" allowClear showSearch optionFilterProp="children">
-                      {employeeOptions.map(emp => (
-                        <Option key={emp.id} value={emp.id}>{emp.employee_name || emp.name}</Option>
-                      ))}
+                    {employees.map((employee, index) => (
+                    <Option key={employee.id || `sales-employee-${index}`} value={employee.id}>
+                      {employee.employee_name || employee.name || employee.label}
+                    </Option>
+                  ))}
                     </Select>
                   </Form.Item>
                 </Col>

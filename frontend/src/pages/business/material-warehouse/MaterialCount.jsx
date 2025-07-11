@@ -220,7 +220,6 @@ const MaterialCount = () => {
   const fetchEmployees = async () => {
     try {
       const response = await request.get('/tenant/base-archive/base-data/employees/options');
-      console.log('员工API响应:', response.data);
       
       if (response.data?.success) {
         setEmployees(response.data.data || []);
@@ -238,7 +237,6 @@ const MaterialCount = () => {
   const fetchDepartments = async () => {
     try {
       const response = await request.get('/tenant/base-archive/base-data/departments/options');
-      console.log('部门API响应:', response.data);
       
       if (response.data?.success) {
         setDepartments(response.data.data || []);
