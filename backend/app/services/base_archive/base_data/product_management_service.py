@@ -243,7 +243,7 @@ class ProductManagementService(TenantAwareService):
             
             # 使用继承的create_with_tenant方法
             product = self.create_with_tenant(Product, **product_data)
-            self.flush()  # 获取product.id
+            self.session.flush()  # 获取product.id
             
             # 创建产品结构（如果选择了袋型，自动填入结构数据）
             if data.get('bag_type_id') and data.get('auto_fill_structure', True):
@@ -576,7 +576,7 @@ class ProductManagementService(TenantAwareService):
                 from app.models.basic_data import BagType
                 bag_types = self.session.query(BagType).filter(
                     BagType.is_enabled == True
-                ).order_by(BagType.bag_name).all()
+                ).order_by(BagType.bag_type_name).all()
             except Exception as e:
                 self.logger.error(f"获取袋型失败: {str(e)}")
                 bag_types = []
@@ -592,13 +592,24 @@ class ProductManagementService(TenantAwareService):
                 self.logger.error(f"获取工序失败: {str(e)}")
                 processes = []
             
+            SCHEDULING_METHODS = [
+                ('investment_m', '投产m'),
+                ('investment_kg', '投产kg'),
+                ('production_piece', '投产(个)'),
+                ('production_output', '产出m'),
+                ('production_kg', '产出kg'),
+                ('production_piece_out', '产出(个)'),
+                ('production_set', '产出(套)'),
+                ('production_sheet', '产出(张)')
+            ]
+            scheduling_method_map = {value: label for value, label in SCHEDULING_METHODS}
             return {
                 'product_categories': [
                     {'value': str(cat.id), 'label': cat.category_name}
                     for cat in product_categories
                 ],
                 'customers': [
-                    {'value': str(cust.id), 'label': f'{cust.customer_code} - {cust.customer_name}'}
+                    {'value': str(cust.id), 'label': f'{cust.customer_code} - {cust.customer_name}', 'sales_person_id': cust.salesperson_id}
                     for cust in customers
                 ],
                 'employees': [
@@ -610,23 +621,15 @@ class ProductManagementService(TenantAwareService):
                     for curr in currencies
                 ],
                 'bagTypes': [
-                    {'value': str(bag.id), 'label': bag.bag_name}
+                    {'value': str(bag.id), 'label': bag.bag_type_name}
                     for bag in bag_types
-                ] if bag_types else [
-                    {'value': '1', 'label': '平口袋'},
-                    {'value': '2', 'label': '封底袋'},
-                    {'value': '3', 'label': '手提袋'}
-                ],
+                ] if bag_types else [],
                 'processes': [
-                    {'value': str(proc.id), 'label': proc.process_name}
+                    {'value': str(proc.id), 'label': proc.process_name, 'process_category_name': proc.process_category.process_name, 'scheduling_method':scheduling_method_map[proc.scheduling_method], 'unit': proc.unit.unit_name}
                     for proc in processes
-                ] if processes else [
-                    {'value': '1', 'label': '吹膜'},
-                    {'value': '2', 'label': '制袋'},
-                    {'value': '3', 'label': '印刷'}
-                ],
+                ] if processes else [],
                 'materials': [
-                    {'value': str(mat.id), 'label': mat.material_name}
+                    {'value': str(mat.id), 'label': mat.material_name,'material_code': mat.material_code, 'material_category_name': mat.material_category.material_name, 'material_attribute': mat.material_category.material_type}
                     for mat in materials
                 ],
                 'product_types': [

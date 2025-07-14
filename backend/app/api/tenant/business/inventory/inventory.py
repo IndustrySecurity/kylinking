@@ -31,7 +31,7 @@ def get_inventories():
         expired_only = request.args.get('expired_only', 'false').lower() == 'true'
         page = int(request.args.get('page', 1))
         page_size = min(int(request.args.get('page_size', 20)), 100)
-        
+
         # 创建服务实例
         service = InventoryService()
         result = service.get_inventory_list(
@@ -43,7 +43,6 @@ def get_inventories():
             page=page,
             page_size=page_size
         )
-        
         return jsonify({
             'success': True,
             'data': result

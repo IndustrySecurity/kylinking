@@ -117,7 +117,7 @@ export const deleteProductTransferOrderDetail = (orderId, detailId) => {
 
 // 确认调拨单
 export const confirmProductTransferOrder = (orderId) => {
-  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/approve`);
+  return request.post(`/tenant/business/inventory/product-transfer/product-transfer-orders/${orderId}/confirm`);
 };
 
 // 执行调拨单（出库）

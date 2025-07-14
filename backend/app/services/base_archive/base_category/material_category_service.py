@@ -60,9 +60,9 @@ class MaterialCategoryService(TenantAwareService):
             items = query.offset((page - 1) * per_page).limit(per_page).all()
             
             return {
-                'items': [self._format_material_category(item) for item in items],
+                'material_categories': [self._format_material_category(item) for item in items],
                 'total': total,
-                'page': page,
+                'current_page': page,
                 'per_page': per_page,
                 'pages': (total + per_page - 1) // per_page
             }

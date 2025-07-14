@@ -1,0 +1,73 @@
+================================================================================
+Schema 一致性检查报告
+检查时间: 2025-07-12 02:48:17
+比较对象: wanle vs yiboshuo
+================================================================================
+
+❌ 只存在于 yiboshuo 中的表:
+  - bag_related_formulas
+  - loss_types
+  - team_group_machines
+  - team_group_members
+  - team_group_processes
+  - team_groups
+
+⚠️  表结构差异:
+
+📋 表: bag_type_structures
+  外键 'bag_type_id -> bag_types.id' 只存在于 schema2 中
+
+📋 表: bag_types
+  外键 'production_unit_id -> units.id' 只存在于 schema2 中
+  外键 'sales_unit_id -> units.id' 只存在于 schema2 中
+
+📋 表: customers
+  外键 'category_id -> customer_category_management.id' 只存在于 schema1 中
+
+📋 表: delivery_notice_details
+  外键 'product_id -> products.id' 只存在于 schema2 中
+
+📋 表: delivery_notices
+  外键 'sales_order_id -> sales_orders.id' 只存在于 schema2 中
+  外键 'customer_id -> customer_management.id' 只存在于 schema2 中
+
+📋 表: material_suppliers
+  外键 'material_id -> materials.id' 只存在于 schema2 中
+
+📋 表: materials
+  外键 'material_category_id -> material_categories.id' 只存在于 schema2 中
+
+📋 表: process_machines
+  外键 'machine_id -> machines.id' 只存在于 schema2 中
+
+📋 表: product_materials
+  外键 'material_id -> materials.id' 只存在于 schema2 中
+
+📋 表: product_transfer_orders
+  外键 'department_id -> departments.id' 只存在于 schema2 中
+
+📋 表: products
+  外键 'customer_id -> customer_management.id' 只存在于 schema2 中
+
+📋 表: quote_accessories
+  外键 'calculation_scheme_id -> calculation_schemes.id' 只存在于 schema2 中
+
+📋 表: sales_order_details
+  外键 'product_id -> products.id' 只存在于 schema2 中
+
+📋 表: sales_order_materials
+  外键 'material_id -> materials.id' 只存在于 schema2 中
+
+📋 表: sales_order_other_fees
+  外键 'product_id -> products.id' 只存在于 schema2 中
+
+📋 表: sales_orders
+  外键 'customer_id -> customer_management.id' 只存在于 schema2 中
+
+📊 总结:
+  - 公共表数量: 92
+  - 只在 wanle 中的表: 0
+  - 只在 yiboshuo 中的表: 6
+  - 有结构差异的表: 16
+
+❌ 发现不一致的地方，请检查上述差异。

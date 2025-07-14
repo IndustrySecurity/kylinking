@@ -184,13 +184,7 @@ def get_unit_options():
         
         # 如果没有数据，返回默认单位
         if not options:
-            options = [
-                {'value': '1', 'label': '个', 'code': 'pcs'},
-                {'value': '2', 'label': '箱', 'code': 'box'},
-                {'value': '3', 'label': '公斤', 'code': 'kg'},
-                {'value': '4', 'label': '米', 'code': 'm'},
-                {'value': '5', 'label': '套', 'code': 'set'}
-            ]
+            options = []
         
         return jsonify({
             'success': True,

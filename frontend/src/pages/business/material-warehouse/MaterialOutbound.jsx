@@ -45,6 +45,14 @@ import request from '../../../utils/request';
 import { useNavigate } from 'react-router-dom';
 import { materialOutboundService, baseDataService } from '../../../api/business/inventory/materialOutbound';
 
+// 确保明细数据每一项都有唯一的key
+function ensureDetailKeys(details) {
+  return (details || []).map((item, idx) => ({
+    ...item,
+    key: item.key || item.id || `${item.material_id || 'row'}-${idx}-${Date.now()}-${Math.random()}`
+  }));
+}
+
 // 扩展dayjs插件
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -224,31 +232,14 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取仓库列表（只获取材料仓库）
   const fetchWarehouses = async () => {
     try {
-      const response = await baseDataService.getWarehouses();
+      const response = await baseDataService.getWarehouses({ warehouse_type: 'material' });
       
       if (response.data.success) {
         setWarehouses(response.data.data || []);
       }
     } catch (error) {
       console.error('获取仓库列表失败', error);
-      // 使用备用API
-      try {
-        const response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options', {
-          params: { warehouse_type: 'material' }
-        });
-        if (response.data?.success) {
-          setWarehouses(response.data.data);
-        }
-      } catch (backupError) {
-        console.error('备用仓库API也失败', backupError);
-        // 使用模拟数据
-        setWarehouses([
-          { value: '1', label: '原材料一库', code: 'CL001' },
-          { value: '2', label: '原材料二库', code: 'CL002' },
-          { value: '3', label: '原材料三库', code: 'CL003' },
-          { value: '4', label: '材料仓', code: 'CL004' }
-        ]);
-      }
+      setWarehouses([]);
     }
   };
 
@@ -280,8 +271,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await request.get('/tenant/base-archive/base-data/employees/options');
-      
+      const response = await baseDataService.getEmployees();
       if (response.data?.success) {
         setEmployees(response.data.data || []);
       } else {
@@ -297,7 +287,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await request.get('/tenant/base-archive/base-data/departments/options');
+      const response = await baseDataService.getDepartments();
       
       if (response.data?.success) {
         setDepartments(response.data.data || []);
@@ -348,7 +338,7 @@ const MaterialOutbound = ({ onBack }) => {
         order_date: dayjs(),
         order_type: 'production'
       });
-      setDetails([]);
+      setDetails(ensureDetailKeys([]));
     }
   };
 
@@ -357,7 +347,7 @@ const MaterialOutbound = ({ onBack }) => {
     try {
       const response = await materialOutboundService.getOutboundOrderById(orderId);
       if (response.data.success || response.data.code === 200) {
-        setDetails(response.data.data.details || []);
+        setDetails(ensureDetailKeys(response.data.data.details || []));
       } else {
         message.error(response.data.message || '获取详情失败');
       }
@@ -406,7 +396,7 @@ const MaterialOutbound = ({ onBack }) => {
         message.success(currentRecord ? '更新成功' : '创建成功');
         setModalVisible(false);
         form.resetFields();
-        setDetails([]);
+        setDetails(ensureDetailKeys([]));
         setCurrentRecord(null);
         fetchData();
       } else {
@@ -421,7 +411,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 删除
   const handleDelete = async (record) => {
     try {
-      const response = await request.delete(`/tenant/inventory/material-outbound-orders/${record.id}`);
+      const response = await materialOutboundService.deleteOutboundOrder(record.id);
       if (response.data.code === 200 || response.data.success) {
         message.success('删除成功');
         fetchData();
@@ -437,7 +427,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 提交
   const handleSubmit = async (record) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-outbound-orders/${record.id}/submit`);
+      const response = await materialOutboundService.submitOutboundOrder(record.id);
       if (response.data.code === 200 || response.data.success) {
         message.success('提交成功');
         fetchData();
@@ -453,7 +443,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 审核
   const handleAudit = async (values) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-outbound-orders/${currentRecord.id}/approve`, values);
+      const response = await materialOutboundService.approveOutboundOrder(currentRecord.id, values);
       if (response.data.code === 200 || response.data.success) {
         message.success('审核成功');
         setAuditModalVisible(false);
@@ -470,7 +460,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 执行
   const handleExecute = async (record) => {
     try {
-      const response = await request.post(`/tenant/inventory/material-outbound-orders/${record.id}/execute`);
+      const response = await materialOutboundService.executeOutboundOrder(record.id);
       if (response.data.code === 200 || response.data.success) {
         message.success('执行成功');
         fetchData();
@@ -497,13 +487,13 @@ const MaterialOutbound = ({ onBack }) => {
       const values = await detailForm.validateFields();
       const newDetail = {
         ...values,
-        key: Date.now(),
+        key: `${Date.now()}-${Math.random()}`,
         material_id: values.material_id,
         material_name: materials.find(m => m.id === values.material_id)?.material_name || materials.find(m => m.id === values.material_id)?.name || '',
         material_code: materials.find(m => m.id === values.material_id)?.material_code || materials.find(m => m.id === values.material_id)?.code || '',
         specification: materials.find(m => m.id === values.material_id)?.specification_model || materials.find(m => m.id === values.material_id)?.specification || ''
       };
-      setDetails([...details, newDetail]);
+      setDetails(ensureDetailKeys([...details, newDetail]));
       detailForm.resetFields();
     } catch (error) {
       // 表单验证失败
@@ -513,7 +503,7 @@ const MaterialOutbound = ({ onBack }) => {
   // 删除明细
   const handleRemoveDetail = (index) => {
     const newDetails = details.filter((_, i) => i !== index);
-    setDetails(newDetails);
+    setDetails(ensureDetailKeys(newDetails));
   };
 
   // 添加单个明细
@@ -531,12 +521,21 @@ const MaterialOutbound = ({ onBack }) => {
   };
 
   // 删除明细
-  const deleteDetail = (record) => {
-    setDetails(prev => prev.filter(item => item.key !== record.key));
+  const deleteDetail = async (record) => {
+    try {
+      const response = await materialOutboundService.deleteOutboundOrderDetail(currentRecord.id, record.id);
+      if (response.data.code === 200 || response.data.success) {
+        message.success('删除成功');
+        setDetails(prev => ensureDetailKeys(prev.filter(item => item.key !== record.key)));
+      }
+    } catch (error) {
+      console.error('删除失败:', error);
+      message.error('删除失败: ' + (error.response?.data?.message || error.message));
+    }
   };
 
   // 明细提交
-  const handleDetailSubmit = (values) => {
+  const handleDetailSubmit = async (values) => {
     if (currentDetail) {
       // 编辑模式
       const material = materials.find(m => m.id === values.material_id);
@@ -548,22 +547,39 @@ const MaterialOutbound = ({ onBack }) => {
         specification: material?.specification_model || material?.specification || values.specification || '',
         unit: material?.unit_name || material?.unit || values.unit || ''
       };
-      setDetails(prev => prev.map(item => 
-        item.key === currentDetail.key ? updatedDetail : item
-      ));
+      const response = await materialOutboundService.updateOutboundOrderDetail(currentRecord.id, currentDetail.id, updatedDetail);
+      if (response.data.code === 200 || response.data.success) {
+        message.success('更新成功');
+        setDetails(prev => ensureDetailKeys(prev.map(item => 
+          item.key === currentDetail.key ? updatedDetail : item
+        )));
+      } else {
+        message.error(response.data.message || '更新失败');
+      }
     } else {
       // 新增模式
-      const material = materials.find(m => m.id === values.material_id);
-      const newDetail = {
-        ...values,
-        key: Date.now(),
-        material_id: values.material_id,
-        material_name: material?.material_name || material?.name || values.material_name || '',
-        material_code: material?.material_code || material?.code || values.material_code || '',
-        specification: material?.specification_model || material?.specification || values.specification || '',
-        unit: material?.unit_name || material?.unit || values.unit || ''
-      };
-      setDetails(prev => [...prev, newDetail]);
+      if (currentRecord) {
+        const response = await materialOutboundService.createOutboundOrderDetail(currentRecord.id, values);
+        if (response.data.code === 200 || response.data.success) {
+          message.success('新增成功');
+          setDetails(prev => ensureDetailKeys([...prev, newDetail]));
+        } else {
+          message.error(response.data.message || '新增失败');
+        }
+      } else {
+        const material = materials.find(m => m.id === values.material_id);
+        const newDetail = {
+          ...values,
+          key: `${Date.now()}-${Math.random()}`,
+          material_id: values.material_id,
+          material_name: material?.material_name || material?.name || values.material_name || '',
+          material_code: material?.material_code || material?.code || values.material_code || '',
+          specification: material?.specification_model || material?.specification || values.specification || '',
+          unit: material?.unit_name || material?.unit || values.unit || ''
+        };
+        setDetails(prev => ensureDetailKeys([...prev, newDetail]));
+        message.success('新增成功');
+      }
     }
     setDetailModalVisible2(false);
     detailForm.resetFields();
@@ -746,83 +762,98 @@ const MaterialOutbound = ({ onBack }) => {
   ];
 
   // 明细表格列定义
-  const detailColumns = [
-    {
-      title: '材料编码',
-      dataIndex: 'material_code',
-      key: 'material_code',
-      width: 120
-    },
-    {
-      title: '材料名称',
-      dataIndex: 'material_name',
-      key: 'material_name',
-      width: 150
-    },
-    {
-      title: '规格型号',
-      dataIndex: 'specification',
-      key: 'specification',
-      width: 120
-    },
-    {
-      title: '出库数量',
-      dataIndex: 'outbound_quantity',
-      key: 'outbound_quantity',
-      width: 100
-    },
-    {
-      title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 80
-    },
-    {
-      title: '批次号',
-      dataIndex: 'batch_number',
-      key: 'batch_number',
-      width: 120
-    },
-    {
-      title: '库位编码',
-      dataIndex: 'location_code',
-      key: 'location_code',
-      width: 100
-    },
-    {
-      title: '备注',
-      dataIndex: 'remarks',
-      key: 'remarks',
-      width: 150,
-      ellipsis: true
-    },
-    ...(!isViewMode ? [{
-      title: '操作',
-      key: 'action',
-      width: 120,
-      render: (_, record) => (
-        <Space size="small">
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
-            onClick={() => editDetail(record)}
-            size="small"
-          >
-            编辑
-          </Button>
-          <Button 
-            type="link" 
-            danger 
-            icon={<DeleteOutlined />} 
-            onClick={() => deleteDetail(record)}
-            size="small"
-          >
-            删除
-          </Button>
-        </Space>
-      )
-    }] : [])
-  ];
+  const getDetailColumns = () => {
+    const baseColumns = [
+      {
+        title: '材料编码',
+        dataIndex: 'material_code',
+        key: 'material_code',
+        width: 120
+      },
+      {
+        title: '材料名称',
+        dataIndex: 'material_name',
+        key: 'material_name',
+        width: 150
+      },
+      {
+        title: '规格型号',
+        dataIndex: 'specification',
+        key: 'specification',
+        width: 120
+      },
+      {
+        title: '出库数量',
+        dataIndex: 'outbound_quantity',
+        key: 'outbound_quantity',
+        width: 100
+      },
+      {
+        title: '单位',
+        dataIndex: 'unit',
+        key: 'unit',
+        width: 80
+      },
+      {
+        title: '批次号',
+        dataIndex: 'batch_number',
+        key: 'batch_number',
+        width: 120
+      },
+      {
+        title: '库位编码',
+        dataIndex: 'location_code',
+        key: 'location_code',
+        width: 100
+      },
+      {
+        title: '备注',
+        dataIndex: 'remarks',
+        key: 'remarks',
+        width: 150,
+        ellipsis: true
+      }
+    ];
+
+    if (!isViewMode) {
+      baseColumns.push({
+        title: '操作',
+        key: 'action',
+        width: 120,
+        render: (_, record) => (
+          <Space size="small">
+            <Button 
+              type="link" 
+              icon={<EditOutlined />} 
+              onClick={() => editDetail(record)}
+              size="small"
+            >
+              编辑
+            </Button>
+            <Popconfirm
+              title="确定要删除这条明细吗？"
+              onConfirm={() => deleteDetail(record)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button 
+                type="link" 
+                danger 
+                icon={<DeleteOutlined />} 
+                size="small"
+              >
+                删除
+              </Button>
+            </Popconfirm>
+          </Space>
+        )
+      });
+    }
+
+    return baseColumns;
+  };
+
+  const detailColumns = getDetailColumns();
 
   return (
     <PageContainer>
@@ -1032,10 +1063,18 @@ const MaterialOutbound = ({ onBack }) => {
                       filterOption={(input, option) => {
                         return option?.children?.toLowerCase().includes(input.toLowerCase());
                       }}
+                      onChange={(value) => {
+                        const employee = employees.find(e => e.value === value);
+                        if (employee) {
+                          form.setFieldsValue({ 
+                            department_id: employee.department_id
+                          });
+                        }
+                      }}
                     >
                       {employees.map(emp => (
-                        <Option key={`form-outbound-employee-${emp.id}`} value={emp.id}>
-                          {emp.employee_name || emp.name}
+                        <Option key={emp.value} value={emp.value}>
+                          {emp.label || emp.name || emp.employee_name}
                         </Option>
                       ))}
                     </Select>
@@ -1059,7 +1098,7 @@ const MaterialOutbound = ({ onBack }) => {
                       }}
                     >
                       {departments.map(dept => (
-                        <Option key={`form-outbound-department-${dept.value || dept.id}`} value={dept.id}>
+                        <Option key={`form-outbound-department-${dept.value || dept.id}`} value={dept.value}>
                           {dept.label || dept.dept_name || dept.department_name || dept.name}
                         </Option>
                       ))}
@@ -1249,7 +1288,7 @@ const MaterialOutbound = ({ onBack }) => {
                   }}
                 >
                   {materials.map(material => (
-                    <Option key={`detail-outbound-material-${material.id}`} value={material.id}>
+                    <Option key={material.id} value={material.id}>
                       {material.material_code || material.code} - {material.material_name || material.name}
                     </Option>
                   ))}

@@ -127,13 +127,15 @@ const ProductManagement = () => {
       const response = await productManagementApi.getFormOptions();
       
       if (response.data.success) {
-        setFormOptions(response.data.data || {
+        const formData = response.data.data || {
           customers: [],
           bagTypes: [],
           processes: [],
           materials: [],
           employees: []
-        });
+        };
+        
+        setFormOptions(formData);
       } else {
         message.error(response.data.error || '获取表单选项失败');
       }
@@ -149,7 +151,7 @@ const ProductManagement = () => {
     
     try {
       // 根据客户ID获取相关信息并自动填充
-      const customer = formOptions.customers.find(c => c.id === customerId);
+      const customer = formOptions.customers.find(c => c.value === customerId);
       if (customer) {
         form.setFieldsValue({
           salesperson_id: customer.sales_person_id, // 自动填充业务员
@@ -166,7 +168,7 @@ const ProductManagement = () => {
     
     try {
       // 根据袋型ID获取相关结构信息并自动填充
-      const bagType = formOptions.bagTypes.find(b => b.id === bagTypeId);
+      const bagType = formOptions.bagTypes.find(b => b.value === bagTypeId);
       if (bagType) {
         // 自动填充产品结构相关字段，使用默认值0处理不存在的字段
         form.setFieldsValue({
@@ -290,14 +292,14 @@ const ProductManagement = () => {
     
     // 设置默认值
     form.setFieldsValue({
-      salesperson_id: currentUserId, // 自动设置业务员为当前用户
+      salesperson_id: undefined, 
       status: 'active',
       product_type: 'finished',
-      base_unit: 'm²',
-      currency: 'CNY',
-      conversion_rate: 1,
-      safety_stock: 0,
-      min_order_qty: 1,
+      base_unit: undefined,
+      currency: undefined,
+      conversion_rate: undefined,
+      safety_stock: undefined,
+      min_order_qty: undefined,
       is_sellable: true,
       is_purchasable: true,
       is_producible: true
@@ -520,7 +522,7 @@ const ProductManagement = () => {
       const updatedProcesses = [...productProcesses];
       if (value) {
         // 查找选中的工序信息
-        const selectedProcess = (formOptions.processes || []).find(p => p.id === value);
+        const selectedProcess = (formOptions.processes || []).find(p => p.value === value);
         if (selectedProcess) {
           updatedProcesses[index] = {
             ...updatedProcesses[index],
@@ -579,7 +581,7 @@ const ProductManagement = () => {
       const updatedMaterials = [...productMaterials];
       if (value) {
         // 查找选中的材料信息
-        const selectedMaterial = (formOptions.materials || []).find(m => m.id === value);
+        const selectedMaterial = (formOptions.materials || []).find(m => m.value === value);
         if (selectedMaterial) {
           updatedMaterials[index] = {
             ...updatedMaterials[index],
@@ -776,8 +778,8 @@ const ProductManagement = () => {
         <Col span={8}>
           <Form.Item name="salesperson_id" label="业务员">
             <Select 
-              placeholder={modalType === 'create' ? '当前用户' : '根据客户自动填入'} 
-              disabled={modalType !== 'create'}
+              placeholder={'根据客户自动填入'} 
+              disabled
             >
               {(formOptions.employees || []).map(employee => (
                 <Option key={employee.value || employee.id} value={employee.value || employee.id}>
@@ -788,8 +790,8 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name="product_type" label="产品类型">
-            <Select placeholder="成品" disabled initialValue="finished">
+          <Form.Item name="product_type" label="产品类型" initialValue="finished">
+            <Select placeholder="成品" disabled>
               <Option value="finished">成品</Option>
               <Option value="semi">半成品</Option>
               <Option value="material">原料</Option>

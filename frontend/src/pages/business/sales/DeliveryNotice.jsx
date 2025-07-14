@@ -160,6 +160,7 @@ const DeliveryNotice = () => {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+
       const payload = {
         ...values,
         delivery_date: values.delivery_date ? values.delivery_date.format('YYYY-MM-DD HH:mm:ss') : null,
@@ -607,6 +608,7 @@ const DeliveryNotice = () => {
       const res = await salesOrderService.getUnscheduledSalesOrders(custId);
       if (res.data.success) {
         const list = res.data.data || [];
+        console.log(res);
         const opts = list.map(order => ({
           value: order.value || order.id,
           label: order.label || order.order_number,

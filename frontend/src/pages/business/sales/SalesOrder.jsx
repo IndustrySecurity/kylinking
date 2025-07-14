@@ -252,15 +252,44 @@ const SalesOrder = () => {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      // 过滤无效的销售订单明细（未选产品的行）
+      const filteredOrderDetails = orderDetails.filter(item => !!item.product_id);
+
+      // 过滤无效的销售材料（未选材料的行）
+      const filteredMaterials = materials.filter(item => !!item.material_id);
+
+      // 过滤无效的其他费用（未选费用类型的行）
+      const filteredOtherFees = otherFees.filter(item => !!item.fee_type);
+
+      // 判断销售订单明细中每一项的订单数量是否为0或为空，如果为空或0，则提示用户填写产品数量
+      for (let i = 0; i < filteredOrderDetails.length; i++) {
+        const item = filteredOrderDetails[i];
+        if (!item.order_quantity || item.order_quantity === 0 || item.order_quantity === null) {
+          message.error('请填写订单明细中的数量：' + item.product_name);
+          return; // 直接终止整个handleSave函数，后续代码不再执行
+        }
+      };
+
+      // 判断销售材料中每一项的数量是否为0或为空，如果为空或0，则提示用户填写材料数量
+      for (let i = 0; i < filteredMaterials.length; i++) {
+        console.log('filteredMaterials',filteredMaterials);
+        const item = filteredMaterials[i];
+        if (!item.quantity || item.quantity === 0 || item.quantity === null) {
+          console.log('item',item);
+          message.error('请填写材料明细中的数量：' + item.material.material_name);
+          return; // 直接终止整个handleSave函数
+        }
+      };
+
       const orderData = {
         ...values,
         order_date: values.order_date ? values.order_date.format('YYYY-MM-DD') : null,
         delivery_date: values.delivery_date ? values.delivery_date.format('YYYY-MM-DD') : null,
         internal_delivery_date: values.internal_delivery_date ? values.internal_delivery_date.format('YYYY-MM-DD') : null,
         contract_date: values.contract_date ? values.contract_date.format('YYYY-MM-DD') : null,
-        order_details: orderDetails,
-        other_fees: otherFees,
-        material_details: materials,
+        order_details: filteredOrderDetails,
+        other_fees: filteredOtherFees,
+        material_details: filteredMaterials,
         // 映射税收字段名
         tax_type_id: values.tax_id
       };
@@ -374,6 +403,13 @@ const SalesOrder = () => {
               contact_mobile: firstContact.mobile,
               contact_method: firstContact.mobile
             });
+          }else{
+            form.setFieldsValue({
+              contact_person_id: undefined,
+              contact_phone: '',
+              contact_mobile: '',
+              contact_method: null
+            });
           }
           message.success('已自动加载客户信息');
         } else {
@@ -461,20 +497,20 @@ const SalesOrder = () => {
         product_id: null,
         product_code: '',
         product_name: '',
-        order_quantity: 0,
-        unit_price: 0,
+        order_quantity: undefined, // 这里改为 undefined
+        unit_price: undefined,
         amount: 0,
         unit: '',
-        negative_deviation_percentage: 0,
-        positive_deviation_percentage: 0,
-        production_small_quantity: 0,
-        production_large_quantity: 0,
-        shipping_quantity: 0,
-        production_quantity: 0,
-        usable_inventory: 0,
-        storage_quantity: 0,
-        estimated_thickness_m: 0,
-        estimated_weight_kg: 0,
+        negative_deviation_percentage: undefined,
+        positive_deviation_percentage: undefined,
+        production_small_quantity: undefined,
+        production_large_quantity: undefined,
+        shipping_quantity: undefined,
+        production_quantity: undefined,
+        usable_inventory: undefined,
+        storage_quantity: undefined,
+        estimated_thickness_m: undefined,
+        estimated_weight_kg: undefined,
         customer_code: '',
         customer_requirements: '',
         material_structure: '',
@@ -508,7 +544,7 @@ const SalesOrder = () => {
         const response = await salesOrderService.getProductDetails(value);
         if (response.data.success) {
           const productData = response.data.data;
-          
+          console.log(productData);
           // 自动填充产品相关字段
           newDetails[index] = {
             ...newDetails[index],
@@ -632,9 +668,9 @@ const SalesOrder = () => {
       fee_type: '',
       product_id: null,
       product_name: '',
-      length: 0,
-      width: 0,
-      price: 0,
+      length: undefined,
+      width: undefined,
+      price: undefined,
       quantity: 1,
       amount: 0,
       customer_order_number: '',
@@ -669,12 +705,12 @@ const SalesOrder = () => {
     setMaterials([...materials, {
       id: Date.now(),
       material_id: null,
-      negative_deviation_percentage: 0,
-      positive_deviation_percentage: 0,
-      gift_quantity: 0,
-      quantity: 0,
-      auxiliary_quantity: 0,
-      price: 0,
+      negative_deviation_percentage: undefined,
+      positive_deviation_percentage: undefined,
+      gift_quantity: undefined,
+      quantity: undefined,
+      auxiliary_quantity: undefined,
+      price: undefined,
       amount: 0,
       delivery_date: null,
       internal_delivery_date: null,
@@ -1024,6 +1060,7 @@ const SalesOrder = () => {
           style={{ width: '100%' }}
           min={0}
           value={value}
+          placeholder="必填"
           onChange={(val) => updateOrderDetail(index, 'order_quantity', val)}
         />
       )
@@ -1061,6 +1098,30 @@ const SalesOrder = () => {
           onChange={(e) => updateOrderDetail(index, 'unit', e.target.value)}
           placeholder="单位"
         />
+      )
+    },
+    {
+      title: '可用库存',
+      dataIndex: 'usable_inventory',
+      key: 'usable_inventory',
+      width: 100,
+      render: (value, record, index) => (
+        <Tooltip title="点击刷新库存">
+          <InputNumber
+            style={{ width: '100%' }}
+            min={0}
+            value={value}
+            onChange={(val) => updateOrderDetail(index, 'usable_inventory', val)}
+            addonAfter={
+              <Button 
+                type="link" 
+                size="small" 
+                icon={<ReloadOutlined />}
+                onClick={() => loadInventoryForProduct(record.product_id, index)}
+              />
+            }
+          />
+        </Tooltip>
       )
     },
     {
@@ -1149,30 +1210,6 @@ const SalesOrder = () => {
           value={value}
           onChange={(val) => updateOrderDetail(index, 'production_quantity', val)}
         />
-      )
-    },
-    {
-      title: '可用库存',
-      dataIndex: 'usable_inventory',
-      key: 'usable_inventory',
-      width: 100,
-      render: (value, record, index) => (
-        <Tooltip title="点击刷新库存">
-          <InputNumber
-            style={{ width: '100%' }}
-            min={0}
-            value={value}
-            onChange={(val) => updateOrderDetail(index, 'usable_inventory', val)}
-            addonAfter={
-              <Button 
-                type="link" 
-                size="small" 
-                icon={<ReloadOutlined />}
-                onClick={() => loadInventoryForProduct(record.product_id, index)}
-              />
-            }
-          />
-        </Tooltip>
       )
     },
     {
@@ -1550,6 +1587,7 @@ const SalesOrder = () => {
           style={{ width: '100%' }}
           min={0}
           value={value}
+          placeholder="必填"
           onChange={(val) => updateMaterial(index, 'quantity', val)}
         />
       )

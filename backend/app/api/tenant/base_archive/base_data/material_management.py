@@ -189,3 +189,19 @@ def get_material_options():
             'success': False,
             'error': str(e)
         }), 500 
+
+@bp.route('/category-details/<category_id>', methods=['GET'])
+@jwt_required()
+def get_category_details(category_id):
+    """获取材料分类详情"""
+    try:
+        material_service = MaterialService()
+        category_details = material_service.get_material_category_details(category_id)
+        
+        return jsonify({
+            'success': True,
+            'data': category_details
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500 

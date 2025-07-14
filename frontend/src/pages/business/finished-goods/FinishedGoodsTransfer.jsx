@@ -45,6 +45,7 @@ import {
   getWarehouseProductInventory
 } from '../../../api/business/inventory/productTransfer';
 import { baseDataService } from '../../../api/business/inventory/finishedGoodsInbound';
+import { getProductById } from '../../../api/base-archive/base-data/productManagement';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -188,19 +189,84 @@ const FinishedGoodsTransfer = () => {
     }
   };
 
+
   // 获取可用成品库存
   const fetchAvailableProducts = async (warehouseId) => {
     try {
       const response = await getWarehouseProductInventory(warehouseId);
       if (response.data.success) {
-        setAvailableProducts(response.data.data);
+        const rawData = response.data.data;
+        
+        // 确保数据是数组格式
+        let processedData = [];
+        if (Array.isArray(rawData)) {
+          processedData = rawData;
+        } else if (rawData && Array.isArray(rawData.items)) {
+          processedData = rawData.items;
+        } else if (rawData && Array.isArray(rawData.data)) {
+          processedData = rawData.data;
+        }
+        
+        
+        if (processedData.length === 0) {
+          setAvailableProducts([]);
+          return;
+        }
+        
+        // 合并库存数据和产品信息
+        const productPromises = processedData.map(async (item) => {
+          try {
+            const productResponse = await getProductById(item.product_id);
+            const product = productResponse.data.success ? productResponse.data.data : {};
+            
+            return {
+              product_id: item.product_id,
+              product_code: product.product_code || item.product_code || '',
+              product_name: product.product_name || item.product_name || '未知产品',
+              product_spec: product.specification || item.product_spec || '',
+              current_quantity: item.current_quantity || item.quantity || 0,
+              available_quantity: item.available_quantity || item.current_quantity || item.quantity || 0,
+              unit: product.base_unit || item.unit || '个',
+              unit_cost: item.unit_cost || item.cost || 0,
+              warehouse_id: item.warehouse_id || warehouseId,
+              warehouse_name: item.warehouse_name,
+              // 添加更多产品信息
+              customer_name: product.customer_name || '',
+              bag_type_name: product.bag_type_name || ''
+            };
+          } catch (error) {
+            console.error(`获取产品 ${item.product_id} 信息失败:`, error);
+            // 如果获取产品信息失败，返回基础库存信息
+            return {
+              product_id: item.product_id,
+              product_code: item.product_code || '',
+              product_name: item.product_name || '未知产品',
+              product_spec: item.product_spec || '',
+              current_quantity: item.current_quantity || item.quantity || 0,
+              available_quantity: item.available_quantity || item.current_quantity || item.quantity || 0,
+              unit: item.unit || '个',
+              unit_cost: item.unit_cost || item.cost || 0,
+              warehouse_id: item.warehouse_id || warehouseId,
+              warehouse_name: item.warehouse_name,
+              customer_name: '',
+              bag_type_name: ''
+            };
+          }
+        });
+        
+        // 等待所有异步操作完成
+        const mappedData = await Promise.all(productPromises);
+        
+        setAvailableProducts(mappedData);
       } else {
         console.error('获取仓库成品库存失败:', response.data.message);
         message.error(response.data.message || '获取仓库成品库存失败');
+        setAvailableProducts([]);
       }
     } catch (error) {
       console.error('获取仓库成品库存异常:', error);
       message.error('获取仓库成品库存失败');
+      setAvailableProducts([]);
     }
   };
 
@@ -304,7 +370,10 @@ const FinishedGoodsTransfer = () => {
       }
       
       setProductModalVisible(false);
+      // 刷新明细数据
       await fetchOrderDetails(selectedOrder.id);
+      // 刷新调拨单列表以更新总数量
+      await fetchOrders();
       
     } catch (error) {
       message.error(editingDetail ? '更新成品明细失败' : '添加成品明细失败');
@@ -317,7 +386,10 @@ const FinishedGoodsTransfer = () => {
       const response = await deleteProductTransferOrderDetail(selectedOrder.id, detailId);
       if (response.data.success) {
         message.success('成品明细删除成功');
+        // 刷新明细数据
         await fetchOrderDetails(selectedOrder.id);
+        // 刷新调拨单列表以更新总数量
+        await fetchOrders();
       }
     } catch (error) {
       message.error('删除成品明细失败');
@@ -409,6 +481,17 @@ const FinishedGoodsTransfer = () => {
     return <Tag color={typeInfo.color}>{typeInfo.text}</Tag>;
   };
 
+  // 运输方式文本转换
+  const getTransportMethodText = (method) => {
+    const methodMap = {
+      manual: '人工搬运',
+      vehicle: '车辆运输',
+      logistics: '物流配送',
+      forklift: '叉车运输'
+    };
+    return methodMap[method] || method || '-';
+  };
+
   // 表格列定义
   const columns = [
     {
@@ -482,7 +565,7 @@ const FinishedGoodsTransfer = () => {
             icon={<EyeOutlined />}
             onClick={() => handleViewDetail(record)}
           >
-            查看
+            {record.status === 'draft' ? '添加调拨明细' : '查看'}
           </Button>
           
           {record.status === 'draft' && (
@@ -757,14 +840,15 @@ const FinishedGoodsTransfer = () => {
             <Col span={12}>
               <Form.Item name="transfer_person_id" label="调拨人">
                 <Select placeholder="请选择调拨人" allowClear
-                onChange={(value) => {
-                  const selectedEmployee = employees.find(emp => emp.value === value);
-                  if (selectedEmployee && selectedEmployee.department_id) {
-                    form.setFieldsValue({
-                      department_id: selectedEmployee.department_id
-                    });
-                  }
-                }}
+                   onChange={(value) => {
+                   // 根据选择的员工自动填充部门
+                   const selectedEmployee = employees.find(emp => emp.id === value);
+                   if (selectedEmployee && selectedEmployee.department_id) {
+                     form.setFieldsValue({
+                       department_id: selectedEmployee.department_id
+                     });
+                   }
+                 }}
                 >
                   {employees.map((employee, index) => (
                     <Option key={employee.id || `create-employee-${index}`} value={employee.id}>
@@ -979,7 +1063,7 @@ const FinishedGoodsTransfer = () => {
               <Descriptions.Item label="调拨人">{selectedOrder.transfer_person || '-'}</Descriptions.Item>
               <Descriptions.Item label="部门">{selectedOrder.department || '-'}</Descriptions.Item>
               <Descriptions.Item label="承运人">{selectedOrder.transporter || '-'}</Descriptions.Item>
-              <Descriptions.Item label="运输方式">{selectedOrder.transport_method || '-'}</Descriptions.Item>
+              <Descriptions.Item label="运输方式">{getTransportMethodText(selectedOrder.transport_method)}</Descriptions.Item>
               <Descriptions.Item label="调拨日期">
                 {selectedOrder.transfer_date ? dayjs(selectedOrder.transfer_date).format('YYYY-MM-DD') : '-'}
               </Descriptions.Item>
@@ -1063,8 +1147,6 @@ const FinishedGoodsTransfer = () => {
               {Array.isArray(availableProducts) && availableProducts.map((product, index) => (
                 <Option key={product.product_id || `product-${index}`} value={product.product_id}>
                   {product.product_code} - {product.product_name}
-                  {product.product_spec && ` (${product.product_spec})`}
-                  - 库存: {Number(product.current_quantity).toFixed(3)}
                 </Option>
               ))}
             </Select>

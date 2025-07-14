@@ -10,7 +10,7 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
-from app.services import MaterialInboundService
+from app.services.business.inventory.material_inbound_service import MaterialInboundService
 from decimal import Decimal
 from datetime import datetime
 
@@ -39,7 +39,6 @@ def get_material_inbound_orders():
             start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
         if end_date:
             end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-        
         # 使用MaterialInboundService
         service = MaterialInboundService()
         result = service.get_material_inbound_order_list(
@@ -53,7 +52,6 @@ def get_material_inbound_orders():
             page=page,
             page_size=page_size
         )
-        
         return jsonify({
             'success': True,
             'data': result
@@ -432,42 +430,3 @@ def cancel_material_inbound_order(order_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
-
-# ==================== 兼容路径别名 ====================
-# 为了兼容前端API调用，添加别名路径
-
-@bp.route('/material-inbound', methods=['GET'])
-@jwt_required()
-@tenant_required
-def get_material_inbound_list_alias():
-    """获取材料入库列表（兼容别名）"""
-    return get_material_inbound_orders()
-
-@bp.route('/material-inbound', methods=['POST'])
-@jwt_required()
-@tenant_required
-def create_material_inbound_alias():
-    """创建材料入库（兼容别名）"""
-    return create_material_inbound_order()
-
-@bp.route('/material-inbound/<order_id>', methods=['GET'])
-@jwt_required()
-@tenant_required
-def get_material_inbound_detail_alias(order_id):
-    """获取材料入库详情（兼容别名）"""
-    return get_material_inbound_order(order_id)
-
-@bp.route('/material-inbound/<order_id>', methods=['PUT'])
-@jwt_required()
-@tenant_required
-def update_material_inbound_alias(order_id):
-    """更新材料入库（兼容别名）"""
-    return update_material_inbound_order(order_id)
-
-@bp.route('/material-inbound/<order_id>', methods=['DELETE'])
-@jwt_required()
-@tenant_required
-def delete_material_inbound_alias(order_id):
-    """删除材料入库（兼容别名）"""
-    return delete_material_inbound_order(order_id) 

@@ -27,6 +27,36 @@ class MaterialCountService(TenantAwareService):
     提供材料盘点相关的业务逻辑操作
     """
     
+    def _parse_date(self, date_str):
+        """解析日期字符串，支持多种格式"""
+        if not date_str:
+            return datetime.now()
+        
+        if isinstance(date_str, datetime):
+            return date_str
+        
+        # 尝试解析ISO格式 (2025-07-13T10:55:19.958Z)
+        try:
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+        
+        # 尝试解析日期格式 (2025-07-13)
+        try:
+            return datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError:
+            pass
+        
+        # 尝试解析带时间的格式 (2025-07-13 10:55:19)
+        try:
+            return datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            pass
+        
+        # 如果都失败，返回当前时间
+        current_app.logger.warning(f"无法解析日期格式: {date_str}，使用当前时间")
+        return datetime.now()
+
     def _fill_warehouse_info(self, counts):
         """批量填充盘点的仓库名称信息"""
         if not counts:
@@ -43,11 +73,13 @@ class MaterialCountService(TenantAwareService):
             from app.models.basic_data import Warehouse
             warehouses = self.session.query(Warehouse).filter(Warehouse.id.in_(warehouse_ids)).all()
             warehouse_dict = {str(w.id): w.warehouse_name for w in warehouses}
+            warehouse_code_dict = {str(w.id): w.code for w in warehouses}
             
             # 填充仓库名称
             for count in counts:
                 if count.warehouse_id and str(count.warehouse_id) in warehouse_dict:
                     count.warehouse_name = warehouse_dict[str(count.warehouse_id)]
+                    count.warehouse_code = warehouse_code_dict[str(count.warehouse_id)]
                 elif not count.warehouse_name:
                     count.warehouse_name = '未知仓库'
         except Exception as e:
@@ -82,14 +114,14 @@ class MaterialCountService(TenantAwareService):
         
         if start_date:
             try:
-                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                start_dt = self._parse_date(start_date)
                 query = query.filter(MaterialCountPlan.count_date >= start_dt)
             except ValueError:
                 pass
         
         if end_date:
             try:
-                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                end_dt = self._parse_date(end_date)
                 query = query.filter(MaterialCountPlan.count_date <= end_dt)
             except ValueError:
                 pass
@@ -155,7 +187,7 @@ class MaterialCountService(TenantAwareService):
                 'warehouse_id': uuid.UUID(data['warehouse_id']),
                 'warehouse_name': data.get('warehouse_name', ''),
                 'count_number': count_number,
-                'count_date': datetime.strptime(data['count_date'], '%Y-%m-%d') if data.get('count_date') else datetime.now(),
+                'count_date': self._parse_date(data.get('count_date')) if data.get('count_date') else datetime.now(),
                 'status': 'draft',
                 'count_person_id': uuid.UUID(data['count_person_id']) if data.get('count_person_id') else None,
                 'department_id': uuid.UUID(data['department_id']) if data.get('department_id') else None,
@@ -174,7 +206,7 @@ class MaterialCountService(TenantAwareService):
                         'count_plan_id': count.id,
                         'book_quantity': Decimal(str(detail_data.get('book_quantity', 0))),
                         'actual_quantity': Decimal(str(detail_data.get('actual_quantity', 0))),
-                        'unit': detail_data.get('unit', '个'),
+                        'unit': detail_data.get('unit'),
                         'created_by': created_by_uuid
                     }
                     
@@ -235,7 +267,7 @@ class MaterialCountService(TenantAwareService):
             if data.get('warehouse_name'):
                 count.warehouse_name = data['warehouse_name']
             if data.get('count_date'):
-                count.count_date = datetime.strptime(data['count_date'], '%Y-%m-%d')
+                count.count_date = self._parse_date(data['count_date'])
             if data.get('count_person_id'):
                 count.count_person_id = uuid.UUID(data['count_person_id'])
             if data.get('department_id'):

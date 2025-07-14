@@ -1484,6 +1484,17 @@ class MaterialInboundOrder(TenantModel):
         """
         转换为字典
         """
+        # 安全地获取关联对象的属性
+        try:
+            inbound_person_name = self.inbound_person.employee_name if self.inbound_person else None
+        except:
+            inbound_person_name = None
+        
+        try:
+            department_name = self.department.dept_name if self.department else None
+        except:
+            department_name = None
+        
         return {
             'id': str(self.id),
             'order_number': self.order_number,
@@ -1492,9 +1503,9 @@ class MaterialInboundOrder(TenantModel):
             'warehouse_id': str(self.warehouse_id) if self.warehouse_id else None,
             'warehouse_name': self.warehouse_name,
             'inbound_person_id': str(self.inbound_person_id) if self.inbound_person_id else None,
-            'inbound_person': self.inbound_person.employee_name if self.inbound_person else None,
+            'inbound_person': inbound_person_name,
             'department_id': str(self.department_id) if self.department_id else None,
-            'department': self.department.dept_name if self.department else None,
+            'department': department_name,
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,

@@ -252,34 +252,26 @@ class MaterialOutboundService(TenantAwareService):
         
         return detail
 
-    def update_material_outbound_order_detail(
-        self,
-        detail_id: str,
-        updated_by: str,
-        **update_data
-    ) -> Optional[MaterialOutboundOrderDetail]:
+    def update_material_outbound_order_detail(self, detail_id: str, data: Dict[str, Any], updated_by: str) -> bool:
         """更新材料出库单明细"""
         detail = self.session.query(MaterialOutboundOrderDetail).filter(
             MaterialOutboundOrderDetail.id == detail_id
         ).first()
         
         if not detail:
-            return None
-        
-        # 更新字段
-        for key, value in update_data.items():
+            return False
+
+        for key, value in data.items():
             if hasattr(detail, key) and key not in ['id', 'created_at', 'created_by']:
-                if key == 'outbound_quantity' and value is not None:
-                    value = Decimal(value)
                 setattr(detail, key, value)
-        
+
         detail.updated_by = uuid.UUID(updated_by) if isinstance(updated_by, str) else updated_by
         detail.updated_at = datetime.now()
-        
+
         self.commit()
-        self.refresh(detail)
-        
-        return detail
+
+        return True
+
 
     def delete_material_outbound_order_detail(self, detail_id: str) -> bool:
         """删除材料出库单明细"""
@@ -290,7 +282,7 @@ class MaterialOutboundService(TenantAwareService):
         if not detail:
             return False
         
-        self.delete(detail)
+        self.session.delete(detail)
         self.commit()
         
         return True

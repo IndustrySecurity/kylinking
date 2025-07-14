@@ -94,7 +94,7 @@ class ProductTransferService(TenantAwareService):
             current_app.logger.error(f"创建成品调拨单失败: {str(e)}")
             return {'success': False, 'message': f'创建失败: {str(e)}'}
     
-    def add_transfer_detail(self, transfer_order_id, product_data, created_by):
+    def add_transfer_order_detail(self, transfer_order_id, product_data, created_by):
         """添加调拨明细"""
         try:
             # 验证调拨单存在
@@ -179,6 +179,33 @@ class ProductTransferService(TenantAwareService):
             current_app.logger.error(f"添加调拨明细失败: {str(e)}")
             return {'success': False, 'message': f'添加失败: {str(e)}'}
     
+    def update_transfer_order_detail(self, detail_id, product_data, created_by):
+        """更新调拨明细"""
+        try:
+            detail = self.session.query(ProductTransferOrderDetail).filter_by(
+                id=detail_id
+            ).first()
+            
+            # 更新明细数据
+            detail.transfer_quantity = product_data['transfer_quantity']
+            detail.batch_number = product_data.get('batch_number')
+            detail.from_location_code = product_data.get('from_location_code')
+            detail.to_location_code = product_data.get('to_location_code')
+            detail.notes = product_data.get('notes')
+            
+            self.commit()
+            
+            return {
+                'success': True,
+                'message': '调拨明细更新成功',
+                'data': detail.to_dict()
+            }
+            
+        except Exception as e:
+            self.rollback()
+            current_app.logger.error(f"更新调拨明细失败: {str(e)}")
+            return {'success': False, 'message': f'更新失败: {str(e)}'}
+
     def confirm_transfer_order(self, transfer_order_id, confirmed_by):
         """确认调拨单"""
         try:

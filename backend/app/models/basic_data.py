@@ -12,18 +12,6 @@ import time
 from datetime import datetime
 
 
-# CustomerCategory 已移至下方的 CustomerCategoryManagement 模型
-
-
-# Customer 已移至下方的 CustomerManagement 模型
-
-
-# SupplierCategory 已移至下方的 SupplierCategoryManagement 模型
-
-
-# Supplier 已移至下方的 SupplierManagement 模型
-
-
 class ProductCategory(TenantModel):
     """产品分类模型"""
     __tablename__ = 'product_categories'

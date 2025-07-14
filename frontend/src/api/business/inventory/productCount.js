@@ -55,14 +55,6 @@ export const confirmProductCount = (id) => {
   });
 };
 
-// 获取产品库存
-export const getProductInventory = (params) => {
-  return request({
-    url: '/tenant/business/inventory/inventories',
-    method: 'get',
-    params
-  });
-};
 
 // 导出产品盘点
 export const exportProductCount = (params) => {
@@ -155,7 +147,6 @@ export const productCountApi = {
   deleteProductCount,
   getProductCountById,
   confirmProductCount,
-  getProductInventory,
   exportProductCount,
   // 盘点计划API
   getProductCountPlans,

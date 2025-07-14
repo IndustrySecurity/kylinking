@@ -171,6 +171,28 @@ def get_enabled_material_categories():
         return jsonify({'error': str(e)}), 500
 
 
+@material_category_bp.route('/options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_material_category_options():
+    """获取材料分类选项"""
+    try:
+        service = MaterialCategoryService()
+        result = service.get_material_categories(
+            page=1,
+            per_page=1000,
+            is_enabled=True
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result['material_categories']
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @material_category_bp.route('/form-options', methods=['GET'])
 @jwt_required()
 @tenant_required

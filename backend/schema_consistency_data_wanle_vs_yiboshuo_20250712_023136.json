@@ -1,0 +1,519 @@
+{
+  "schema1": "wanle",
+  "schema2": "yiboshuo",
+  "only_in_schema1": [
+    "quote_auxiliary_materials",
+    "customer_material_prices",
+    "suppliers",
+    "customers"
+  ],
+  "only_in_schema2": [
+    "team_groups",
+    "team_group_members",
+    "loss_types",
+    "bag_related_formulas",
+    "team_group_machines",
+    "team_group_processes"
+  ],
+  "common_tables": [
+    "delivery_notice_details",
+    "inventory_count_records",
+    "supplier_management_affiliated_companies",
+    "customer_category_management",
+    "outbound_orders",
+    "quote_losses",
+    "product_categories",
+    "product_quality_indicators",
+    "customer_management_invoice_units",
+    "material_outbound_orders",
+    "calculation_schemes",
+    "quality_inspections",
+    "quote_freights",
+    "customer_management_delivery_addresses",
+    "supplier_management_delivery_addresses",
+    "processes",
+    "materials",
+    "inventory_transactions",
+    "supplier_management_contacts",
+    "employees",
+    "quote_inks",
+    "material_count_records",
+    "material_suppliers",
+    "sales_order_materials",
+    "bag_type_structures",
+    "customer_management_payment_units",
+    "product_structures",
+    "inventory_materials",
+    "material_inbound_order_details",
+    "process_categories",
+    "sales_orders",
+    "warehouses",
+    "bag_types",
+    "material_transfer_order_details",
+    "products",
+    "customer_management_affiliated_companies",
+    "currencies",
+    "inbound_order_details",
+    "customer_categories",
+    "product_count_records",
+    "production_records",
+    "supplier_management_invoice_units",
+    "outbound_order_details",
+    "product_transfer_order_details",
+    "quote_accessories",
+    "departments",
+    "settlement_methods",
+    "supplier_categories",
+    "ink_options",
+    "package_methods",
+    "equipment_maintenance",
+    "machines",
+    "tax_rates",
+    "inventory_products",
+    "quote_materials",
+    "production_plans",
+    "specifications",
+    "inbound_orders",
+    "material_inbound_orders",
+    "product_materials",
+    "delivery_methods",
+    "account_management",
+    "product_images",
+    "sales_order_details",
+    "material_count_plans",
+    "delivery_notices",
+    "calculation_parameters",
+    "units",
+    "material_categories",
+    "product_count_plans",
+    "supplier_category_management",
+    "payment_methods",
+    "equipments",
+    "color_cards",
+    "customer_management",
+    "process_machines",
+    "material_outbound_order_details",
+    "inventories",
+    "supplier_management",
+    "positions",
+    "material_properties",
+    "inventory_count_plans",
+    "sales_order_other_fees",
+    "material_transfer_orders",
+    "product_customer_requirements",
+    "customer_management_contacts",
+    "product_transfer_orders",
+    "product_processes"
+  ],
+  "table_differences": {
+    "account_management": [
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "bag_type_structures": [
+      "  外键 'bag_type_id -> bag_types.id' 只存在于 schema2 中"
+    ],
+    "bag_types": [
+      "  外键 'production_unit_id -> units.id' 只存在于 schema2 中",
+      "  外键 'sales_unit_id -> units.id' 只存在于 schema2 中"
+    ],
+    "color_cards": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "currencies": [
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "customer_category_management": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "customer_management": [
+      "  列 'created_by' 默认值不一致: gen_random_uuid() vs None"
+    ],
+    "delivery_methods": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "delivery_notice_details": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'product_id -> products.id' 只存在于 schema2 中"
+    ],
+    "delivery_notices": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'customer_id -> customer_management.id' 只存在于 schema2 中",
+      "  外键 'sales_order_id -> sales_orders.id' 只存在于 schema2 中"
+    ],
+    "departments": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ],
+    "employees": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ],
+    "inbound_order_details": [
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'expiry_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'production_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "inbound_orders": [
+      "  列 'approved_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'order_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES",
+      "  外键 'inbound_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "ink_options": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ],
+    "inventories": [
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'expiry_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'last_count_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'production_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "inventory_count_plans": [
+      "  列 'actual_end_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'actual_start_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'count_team' 只存在于 schema2 中",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'custom_fields' 只存在于 schema1 中",
+      "  列 'manager_id' 只存在于 schema1 中",
+      "  列 'manager_name' 只存在于 schema1 中",
+      "  列 'material_categories' 只存在于 schema2 中",
+      "  列 'plan_end_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'plan_start_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'supervisor_id' 只存在于 schema2 中",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "inventory_count_records": [
+      "  列 'count_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'recount_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "inventory_transactions": [
+      "  列 'approved_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'cancelled_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'transaction_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "material_categories": [
+      "  列 'code_prefix' 默认值不一致: None vs 'M'::character varying",
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'created_by' 可空性不一致: YES vs NO",
+      "  列 'display_order' 可空性不一致: NO vs YES",
+      "  列 'enable_barcode' 可空性不一致: NO vs YES",
+      "  列 'enable_batch' 可空性不一致: NO vs YES",
+      "  列 'id' 默认值不一致: uuid_generate_v4() vs gen_random_uuid()",
+      "  列 'is_accessory' 可空性不一致: NO vs YES",
+      "  列 'is_active' 可空性不一致: NO vs YES",
+      "  列 'is_consumable' 可空性不一致: NO vs YES",
+      "  列 'is_customized' 可空性不一致: NO vs YES",
+      "  列 'is_fragile' 可空性不一致: NO vs YES",
+      "  列 'is_hazardous' 可空性不一致: NO vs YES",
+      "  列 'is_imported' 可空性不一致: NO vs YES",
+      "  列 'is_ink' 可空性不一致: NO vs YES",
+      "  列 'is_light_sensitive' 可空性不一致: NO vs YES",
+      "  列 'is_moisture_sensitive' 可空性不一致: NO vs YES",
+      "  列 'is_perishable' 可空性不一致: NO vs YES",
+      "  列 'is_recyclable' 可空性不一致: NO vs YES",
+      "  列 'is_seasonal' 可空性不一致: NO vs YES",
+      "  列 'is_temperature_sensitive' 可空性不一致: NO vs YES",
+      "  列 'material_name' 字符长度不一致: 200 vs 100",
+      "  列 'material_type' 默认值不一致: 'main'::character varying vs None",
+      "  列 'quality_grade' 字符长度不一致: 50 vs 100",
+      "  列 'requires_certification' 可空性不一致: NO vs YES",
+      "  列 'requires_special_storage' 可空性不一致: NO vs YES",
+      "  列 'show_on_kanban' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "material_count_plans": [
+      "  列 'count_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  外键 'count_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "material_count_records": [
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone"
+    ],
+    "material_inbound_order_details": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "material_inbound_orders": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'order_date' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'inbound_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "material_outbound_order_details": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "material_outbound_orders": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'order_date' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'requisition_person_id -> employees.id' 只存在于 schema1 中",
+      "  外键 'outbound_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "material_properties": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "material_suppliers": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'delivery_days' 默认值不一致: 0 vs None",
+      "  列 'supplier_id' 可空性不一致: NO vs YES",
+      "  列 'supplier_price' 默认值不一致: 0 vs None",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  外键 'material_id -> materials.id' 只存在于 schema2 中"
+    ],
+    "material_transfer_order_details": [
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'expiry_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'production_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone"
+    ],
+    "material_transfer_orders": [
+      "  列 'actual_arrival_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'approved_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'executed_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'expected_arrival_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'transfer_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  外键 'transfer_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "materials": [
+      "  外键 'material_category_id -> material_categories.id' 只存在于 schema2 中"
+    ],
+    "outbound_order_details": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "outbound_orders": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'order_date' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'outbound_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "package_methods": [
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'created_at' 默认值不一致: None vs CURRENT_TIMESTAMP",
+      "  列 'id' 默认值不一致: None vs gen_random_uuid()",
+      "  列 'updated_at' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 默认值不一致: None vs CURRENT_TIMESTAMP"
+    ],
+    "payment_methods": [
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "positions": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ],
+    "process_machines": [
+      "  列 'created_at' 只存在于 schema1 中",
+      "  列 'created_by' 只存在于 schema1 中",
+      "  列 'updated_at' 只存在于 schema1 中",
+      "  列 'updated_by' 只存在于 schema1 中",
+      "  外键 'machine_id -> machines.id' 只存在于 schema2 中"
+    ],
+    "product_categories": [
+      "  列 'category_name' 只存在于 schema1 中",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 默认值不一致: CURRENT_TIMESTAMP vs now()",
+      "  列 'created_by' 只存在于 schema1 中",
+      "  列 'creator' 只存在于 schema2 中",
+      "  列 'delivery_days' 只存在于 schema1 中",
+      "  列 'description' 只存在于 schema1 中",
+      "  列 'id' 默认值不一致: gen_random_uuid() vs uuid_generate_v4()",
+      "  列 'is_blow' 只存在于 schema2 中",
+      "  列 'is_blown_film' 只存在于 schema1 中",
+      "  列 'is_enabled' 只存在于 schema1 中",
+      "  列 'name' 只存在于 schema2 中",
+      "  列 'sort_order' 只存在于 schema1 中",
+      "  列 'subject' 只存在于 schema2 中",
+      "  列 'subject_name' 只存在于 schema1 中",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 默认值不一致: CURRENT_TIMESTAMP vs now()",
+      "  列 'updated_by' 只存在于 schema1 中",
+      "  列 'updater' 只存在于 schema2 中"
+    ],
+    "product_count_plans": [
+      "  列 'count_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  外键 'count_person_id -> employees.id' 只存在于 schema1 中"
+    ],
+    "product_count_records": [
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'expiry_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'production_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone"
+    ],
+    "product_images": [
+      "  列 'file_size' 数据类型不一致: bigint vs integer"
+    ],
+    "product_materials": [
+      "  列 'material_id' 可空性不一致: YES vs NO",
+      "  外键 'material_id -> materials.id' 只存在于 schema2 中"
+    ],
+    "product_transfer_order_details": [
+      "  列 'actual_transfer_quantity' 默认值不一致: 0 vs None",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_by' 可空性不一致: YES vs NO",
+      "  列 'expiry_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'product_name' 可空性不一致: YES vs NO",
+      "  列 'production_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'received_quantity' 默认值不一致: 0 vs None",
+      "  列 'transfer_quantity' 可空性不一致: YES vs NO",
+      "  列 'transferred_quantity' 只存在于 schema1 中",
+      "  列 'unit' 可空性不一致: YES vs NO",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone"
+    ],
+    "product_transfer_orders": [
+      "  列 'actual_arrival_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'approved_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'business_type' 只存在于 schema1 中",
+      "  列 'created_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'created_by' 可空性不一致: YES vs NO",
+      "  列 'department_name' 只存在于 schema1 中",
+      "  列 'execute_date' 只存在于 schema1 中",
+      "  列 'executed_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'executor_id' 只存在于 schema1 中",
+      "  列 'executor_name' 只存在于 schema1 中",
+      "  列 'expected_arrival_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'from_warehouse_id' 可空性不一致: YES vs NO",
+      "  列 'from_warehouse_name' 字符长度不一致: 100 vs 200",
+      "  列 'priority' 只存在于 schema1 中",
+      "  列 'receive_date' 只存在于 schema1 中",
+      "  列 'receiver_id' 只存在于 schema1 中",
+      "  列 'receiver_name' 只存在于 schema1 中",
+      "  列 'related_order_id' 只存在于 schema1 中",
+      "  列 'related_order_no' 只存在于 schema1 中",
+      "  列 'review_date' 只存在于 schema1 中",
+      "  列 'review_notes' 只存在于 schema1 中",
+      "  列 'reviewer_id' 只存在于 schema1 中",
+      "  列 'reviewer_name' 只存在于 schema1 中",
+      "  列 'to_warehouse_id' 可空性不一致: YES vs NO",
+      "  列 'to_warehouse_name' 字符长度不一致: 100 vs 200",
+      "  列 'total_cost' 只存在于 schema1 中",
+      "  列 'total_varieties' 只存在于 schema1 中",
+      "  列 'tracking_no' 只存在于 schema1 中",
+      "  列 'transfer_date' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'transfer_date' 可空性不一致: YES vs NO",
+      "  列 'transfer_date' 默认值不一致: None vs CURRENT_TIMESTAMP",
+      "  列 'transfer_number' 字符长度不一致: 50 vs 100",
+      "  列 'transfer_person_name' 只存在于 schema1 中",
+      "  列 'transport_cost' 只存在于 schema1 中",
+      "  列 'transport_method' 字符长度不一致: 20 vs 50",
+      "  列 'transporter' 字符长度不一致: 100 vs 200",
+      "  列 'updated_at' 数据类型不一致: timestamp without time zone vs timestamp with time zone",
+      "  列 'urgent_reason' 只存在于 schema1 中",
+      "  外键 'department_id -> departments.id' 只存在于 schema2 中"
+    ],
+    "products": [
+      "  外键 'customer_id -> customer_management.id' 只存在于 schema2 中"
+    ],
+    "quote_accessories": [
+      "  外键 'calculation_scheme_id -> calculation_schemes.id' 只存在于 schema2 中"
+    ],
+    "quote_freights": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ],
+    "quote_inks": [
+      "  列 'created_at' 默认值不一致: None vs CURRENT_TIMESTAMP",
+      "  列 'id' 默认值不一致: None vs gen_random_uuid()",
+      "  列 'is_enabled' 默认值不一致: None vs true",
+      "  列 'is_ink' 默认值不一致: None vs false",
+      "  列 'is_solvent' 默认值不一致: None vs false",
+      "  列 'sort_order' 默认值不一致: None vs 0",
+      "  列 'updated_at' 默认值不一致: None vs CURRENT_TIMESTAMP"
+    ],
+    "quote_losses": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ],
+    "quote_materials": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "sales_order_details": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'product_id -> products.id' 只存在于 schema2 中"
+    ],
+    "sales_order_materials": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'material_id -> materials.id' 只存在于 schema2 中"
+    ],
+    "sales_order_other_fees": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'product_id -> products.id' 只存在于 schema2 中"
+    ],
+    "sales_orders": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'order_date' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  外键 'customer_id -> customer_management.id' 只存在于 schema2 中"
+    ],
+    "settlement_methods": [
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "specifications": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "supplier_category_management": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "supplier_management": [
+      "  列 'created_by' 默认值不一致: gen_random_uuid() vs None"
+    ],
+    "tax_rates": [
+      "  列 'created_at' 可空性不一致: NO vs YES",
+      "  列 'updated_at' 可空性不一致: NO vs YES"
+    ],
+    "units": [
+      "  列 'created_at' 默认值不一致: now() vs CURRENT_TIMESTAMP",
+      "  列 'updated_at' 默认值不一致: now() vs CURRENT_TIMESTAMP"
+    ],
+    "warehouses": [
+      "  列 'created_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone",
+      "  列 'updated_at' 数据类型不一致: timestamp with time zone vs timestamp without time zone"
+    ]
+  }
+}

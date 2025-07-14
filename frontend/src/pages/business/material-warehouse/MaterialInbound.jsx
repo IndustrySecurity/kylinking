@@ -136,6 +136,7 @@ const MaterialInbound = ({ onBack }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [units, setUnits] = useState([]);
   const [details, setDetails] = useState([]);
   const [pagination, setPagination] = useState({
     current: 1,
@@ -178,7 +179,8 @@ const MaterialInbound = ({ onBack }) => {
         fetchMaterials(),
         fetchSuppliers(),
         fetchEmployees(),
-        fetchDepartments()
+        fetchDepartments(),
+        fetchUnits()
       ]);
     } catch (error) {
       console.error('获取基础数据失败:', error);
@@ -334,6 +336,30 @@ const MaterialInbound = ({ onBack }) => {
     } catch (error) {
       console.error('获取部门列表失败:', error);
       setDepartments([]);
+    }
+  };
+
+  // 获取单位列表
+  const fetchUnits = async () => {
+    try {
+      const response = await baseDataService.getUnits();
+      console.log(response);
+      if (response.data?.success) {
+        const unitData = response.data.data;
+        const units = Array.isArray(unitData) ? unitData.map(item => ({
+          id: item.value || item.id,
+          unit_name: item.label || item.unit_name || item.name,
+          unit_code: item.code || item.unit_code || item.label,
+          description: item.description || ''
+        })) : [];
+        setUnits(units);
+      } else {
+        console.warn('单位API返回失败:', response.data);
+        setUnits([]);
+      }
+    } catch (error) {
+      console.error('获取单位列表失败:', error);
+      setUnits([]);
     }
   };
 
@@ -1379,7 +1405,7 @@ const MaterialInbound = ({ onBack }) => {
                         material_code: material.material_code || material.code || '',
                         material_name: material.material_name || material.name || '',
                         specification: material.specification || material.spec || '',
-                        unit: material.unit || '个'
+                        unit: material.unit
                       });
                     }
                   }}
@@ -1440,9 +1466,27 @@ const MaterialInbound = ({ onBack }) => {
               <Form.Item
                 name="unit"
                 label="单位"
-                rules={[{ required: true, message: '请输入单位' }]}
+                rules={[{ required: true, message: '请选择单位' }]}
+                extra="从单位表中选择标准单位"
               >
-                <Input placeholder="请输入单位" />
+                <Select
+                  placeholder="请选择单位"
+                  allowClear
+                  showSearch
+                  filterOption={(input, option) => {
+                    if (!option || !option.children) return false;
+                    const text = option.children.toString().toLowerCase();
+                    const inputLower = input.toLowerCase();
+                    return text.includes(inputLower);
+                  }}
+                >
+                  {units.map(unit => (
+                    <Option key={`detail-unit-${unit.id}`} value={unit.unit_name}>
+                      {unit.unit_name} {unit.unit_code && unit.unit_code !== unit.unit_name ? `(${unit.unit_code})` : ''}
+                      {unit.description ? ` - ${unit.description}` : ''}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
             <Col span={8}>

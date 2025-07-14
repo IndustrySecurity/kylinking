@@ -18,17 +18,7 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import {
-  getMaterialCountPlans,
-  createMaterialCountPlan,
-  getMaterialCountRecords,
-  updateMaterialCountRecord,
-  startMaterialCountPlan,
-  completeMaterialCountPlan,
-  adjustMaterialCountInventory,
-  getWarehouseMaterialInventory,
-  getWarehouses
-} from '../../../api/business/inventory/materialCount';
+import {materialCountService, baseDataService, inventoryService, reportService} from '../../../api/business/inventory/materialCount';
 import request from '../../../utils/request';
 
 const { Option } = Select;
@@ -144,9 +134,9 @@ const MaterialCount = () => {
   const fetchPlans = async () => {
     try {
       setLoading(true);
-      const response = await getMaterialCountPlans();
+      const response = await materialCountService.getCountOrderList();
       if (response.data.success) {
-        setPlans(response.data.data.plans || []);
+        setPlans(response.data.data.items || []);
       }
     } catch (error) {
       message.error('获取盘点计划失败');
@@ -158,7 +148,7 @@ const MaterialCount = () => {
   // 获取仓库列表（只显示材料仓）
   const fetchWarehouses = async () => {
     try {
-      const response = await getWarehouses();
+      const response = await baseDataService.getWarehouses();
       if (response.data.success) {
         const warehouseData = response.data.data;
         
@@ -205,7 +195,7 @@ const MaterialCount = () => {
   const fetchRecords = async (planId) => {
     try {
     setLoading(true);
-      const response = await getMaterialCountRecords(planId);
+      const response = await materialCountService.getCountRecords(planId);
       if (response.data.success) {
         setRecords(response.data.data || []);
       }
@@ -219,7 +209,7 @@ const MaterialCount = () => {
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
-      const response = await request.get('/tenant/base-archive/base-data/employees/options');
+      const response = await baseDataService.getEmployees();
       
       if (response.data?.success) {
         setEmployees(response.data.data || []);
@@ -236,7 +226,7 @@ const MaterialCount = () => {
   // 获取部门列表
   const fetchDepartments = async () => {
     try {
-      const response = await request.get('/tenant/base-archive/base-data/departments/options');
+      const response = await baseDataService.getDepartments();
       
       if (response.data?.success) {
         setDepartments(response.data.data || []);
@@ -266,10 +256,9 @@ const MaterialCount = () => {
     
     try {
       setLoading(true);
-      
       // 先获取选定仓库的材料库存，确保仓库有材料
-      const inventoryResponse = await getWarehouseMaterialInventory(values.warehouse_id);
-      if (!inventoryResponse.data.success || !inventoryResponse.data.data.length) {
+      const inventoryResponse = await inventoryService.getWarehouseMaterialInventory(values.warehouse_id);
+      if (!inventoryResponse.data.success || !inventoryResponse.data.data.items.length) {
         message.warning('该仓库没有材料库存，无法创建盘点计划');
         setLoading(false);
         return;
@@ -285,7 +274,7 @@ const MaterialCount = () => {
         notes: values.notes
       };
 
-      const response = await createMaterialCountPlan(planData);
+      const response = await materialCountService.createCountOrder(planData);
       
       if (response.data) {
         message.success('盘点计划创建成功');
@@ -304,7 +293,7 @@ const MaterialCount = () => {
   // 开始盘点
   const handleStart = async (planId) => {
     try {
-      const response = await startMaterialCountPlan(planId);
+      const response = await materialCountService.startMaterialCountPlan(planId);
       if (response.data.success) {
         message.success('盘点已开始');
         fetchPlans();
@@ -319,7 +308,7 @@ const MaterialCount = () => {
   // 完成盘点
   const handleComplete = async (planId) => {
     try {
-      const response = await completeMaterialCountPlan(planId);
+      const response = await materialCountService.completeMaterialCountPlan(planId);
       if (response.data.success) {
         message.success('盘点已完成');
         fetchPlans();
@@ -334,7 +323,7 @@ const MaterialCount = () => {
   // 调整库存
   const handleAdjust = async (planId) => {
     try {
-      const response = await adjustMaterialCountInventory(planId, {});
+      const response = await materialCountService.adjustMaterialCountInventory(planId, {});
       if (response.data.success) {
         message.success(response.data.message || '库存调整完成');
         fetchPlans(); // 刷新计划列表，更新状态
@@ -367,7 +356,7 @@ const MaterialCount = () => {
         return;
       }
       
-      const response = await updateMaterialCountRecord(
+      const response = await materialCountService.updateCountRecord(
         selectedPlan.id,
         recordId,
         { actual_quantity: numericQuantity }
@@ -717,10 +706,21 @@ const MaterialCount = () => {
             label="盘点人"
             rules={[{ required: true, message: '请选择盘点人' }]}
           >
-            <Select placeholder="请选择盘点人">
+            <Select placeholder="请选择盘点人"
+            showSearch
+            optionFilterProp="children"
+            onChange={(value) => {
+              const employee = employees.find(emp => emp.value === value);
+              if (employee) {
+                form.setFieldsValue({
+                  department_id: employee.department_id
+                });
+              }
+            }}
+          >
               {Array.isArray(employees) && employees.map((employee) => (
-                <Option key={`count-employee-${employee.id}`} value={employee.id}>
-                  {employee.employee_name || employee.name}
+                <Option key={`count-employee-${employee.value}`} value={employee.value}>
+                  {employee.label || employee.employee_name || employee.name}
                 </Option>
               ))}
                 </Select>
@@ -732,8 +732,8 @@ const MaterialCount = () => {
           >
             <Select placeholder="请选择部门" allowClear>
               {Array.isArray(departments) && departments.map((dept) => (
-                <Option key={`count-department-${dept.id}`} value={dept.id}>
-                  {dept.dept_name || dept.department_name || dept.name}
+                <Option key={`count-department-${dept.value}`} value={dept.value}>
+                  {dept.label || dept.dept_name || dept.department_name || dept.name}
                 </Option>
               ))}
                 </Select>

@@ -214,30 +214,6 @@ def update_material_outbound_order(order_id):
             if field in data:
                 setattr(order, field, data[field])
 
-        # 更新明细
-        if 'details' in data:
-            # 删除原有明细
-            MaterialOutboundOrderDetail.query.filter_by(
-                material_outbound_order_id=order_id
-            ).delete()
-            
-            # 添加新明细
-            for detail_data in data['details']:
-                # 提取必需的位置参数
-                material_outbound_order_id = order_id
-                outbound_quantity = detail_data.pop('outbound_quantity', 0)
-                unit = detail_data.pop('unit', 'kg')
-                created_by = current_user
-                
-                detail = MaterialOutboundOrderDetail(
-                    material_outbound_order_id=material_outbound_order_id,
-                    outbound_quantity=outbound_quantity,
-                    unit=unit,
-                    created_by=created_by,
-                    **detail_data
-                )
-                db.session.add(detail)
-
         order.updated_by = current_user
         order.updated_at = datetime.now()
         
@@ -305,10 +281,13 @@ def submit_material_outbound_order(order_id):
         if order.status != 'draft':
             return jsonify({'code': 400, 'message': '只能提交草稿状态的出库单'}), 400
 
-        order.status = 'submitted'
+        # 直接设置为已审核状态
+        order.status = 'approved'
+        order.approval_status = 'approved'
         order.submitted_by = current_user
         order.submitted_at = datetime.now()
-        order.approval_status = 'pending'
+        order.approved_by = current_user
+        order.approved_at = datetime.now()
         
         db.session.commit()
 
@@ -521,40 +500,40 @@ def cancel_material_outbound_order(order_id):
         logger.error(f"取消材料出库单失败: {str(e)}")
         return jsonify({'code': 500, 'message': f'取消失败: {str(e)}'}), 500
 
-# ==================== 兼容路径别名 ====================
-# 为了兼容前端API调用，添加别名路径
-
-@bp.route('/material-outbound', methods=['GET'])
+@bp.route('/outbound-orders/<order_id>/details/<detail_id>', methods=['DELETE'])
 @jwt_required()
 @tenant_required
-def get_material_outbound_list_alias():
-    """获取材料出库列表（兼容别名）"""
-    return get_material_outbound_orders()
+def delete_material_outbound_order_detail(order_id, detail_id):
+    """删除材料出库单明细"""
+    try:
+        service = MaterialOutboundService()
+        service.delete_material_outbound_order_detail(detail_id)
 
-@bp.route('/material-outbound', methods=['POST'])
+        return jsonify({
+            'code': 200,
+            'message': '删除成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"删除材料出库单明细失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'删除失败: {str(e)}'}), 500
+
+@bp.route('/outbound-orders/<order_id>/details/<detail_id>', methods=['PUT'])
 @jwt_required()
 @tenant_required
-def create_material_outbound_alias():
-    """创建材料出库（兼容别名）"""
-    return create_material_outbound_order()
+def update_material_outbound_order_detail(order_id, detail_id):
+    """更新材料出库单明细"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        service = MaterialOutboundService()
+        service.update_material_outbound_order_detail(detail_id, data, current_user_id)
 
-@bp.route('/material-outbound/<order_id>', methods=['GET'])
-@jwt_required()
-@tenant_required
-def get_material_outbound_detail_alias(order_id):
-    """获取材料出库详情（兼容别名）"""
-    return get_material_outbound_order(order_id)
-
-@bp.route('/material-outbound/<order_id>', methods=['PUT'])
-@jwt_required()
-@tenant_required
-def update_material_outbound_alias(order_id):
-    """更新材料出库（兼容别名）"""
-    return update_material_outbound_order(order_id)
-
-@bp.route('/material-outbound/<order_id>', methods=['DELETE'])
-@jwt_required()
-@tenant_required
-def delete_material_outbound_alias(order_id):
-    """删除材料出库（兼容别名）"""
-    return delete_material_outbound_order(order_id) 
+        return jsonify({
+            'code': 200,
+            'message': '更新成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"更新材料出库单明细失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'}), 500

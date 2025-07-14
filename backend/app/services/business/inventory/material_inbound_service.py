@@ -113,6 +113,7 @@ class MaterialInboundService(TenantAwareService):
         page: int = 1,
         page_size: int = 20
     ) -> Dict[str, Any]:
+
         """获取材料入库单列表"""
         from sqlalchemy.orm import joinedload
         query = self.get_session().query(MaterialInboundOrder).options(
@@ -458,14 +459,36 @@ class MaterialInboundService(TenantAwareService):
                 continue
             
             # 查找或创建库存记录
+            # 首先尝试精确匹配
             inventory = self.get_session().query(Inventory).filter(
                 and_(
                     Inventory.warehouse_id == order.warehouse_id,
                     Inventory.material_id == detail.material_id,
                     Inventory.batch_number == detail.batch_number,
+                    Inventory.location_code == (detail.actual_location_code or detail.location_code),
+                    Inventory.unit == detail.unit,
                     Inventory.is_active == True
                 )
             ).first()
+            
+            # 如果没有找到精确匹配，尝试忽略库位进行匹配
+            if not inventory:
+                inventory = self.get_session().query(Inventory).filter(
+                    and_(
+                        Inventory.warehouse_id == order.warehouse_id,
+                        Inventory.material_id == detail.material_id,
+                        Inventory.batch_number == detail.batch_number,
+                        Inventory.location_code.is_(None),  # 查找没有库位的记录
+                        Inventory.unit == detail.unit,
+                        Inventory.is_active == True
+                    )
+                ).first()
+                
+                if inventory:
+                    # 设置库位信息
+                    new_location = detail.actual_location_code or detail.location_code
+                    if new_location:
+                        inventory.location_code = new_location
             
             if not inventory and auto_create_inventory:
                 # 创建新的库存记录
@@ -501,7 +524,6 @@ class MaterialInboundService(TenantAwareService):
                         inventory.unit_cost = inventory.total_cost / total_quantity
                 
                 inventory.updated_by = uuid.UUID(executed_by) if isinstance(executed_by, str) else executed_by
-                # 删除显式设置updated_at，让数据库自动处理
                 
                 # 创建库存流水记录
                 transaction = InventoryTransaction(
@@ -529,7 +551,6 @@ class MaterialInboundService(TenantAwareService):
         # 更新入库单状态
         order.status = 'completed'
         order.updated_by = uuid.UUID(executed_by) if isinstance(executed_by, str) else executed_by
-        # 删除显式设置updated_at，让数据库自动处理
         
         self.commit()
         

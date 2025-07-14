@@ -144,6 +144,14 @@ class MaterialService(TenantAwareService):
             properties_data = data.pop('properties', [])
             suppliers_data = data.pop('suppliers', [])
             
+            # 设置created_by
+            if created_by:
+                try:
+                    data['created_by'] = uuid.UUID(created_by) if isinstance(created_by, str) else created_by
+                except (ValueError, TypeError):
+                    # 如果转换失败，使用当前用户ID
+                    data['created_by'] = self.get_current_user_id()
+            
             # 数据类型转换
             if 'material_category_id' in data and data['material_category_id']:
                 data['material_category_id'] = uuid.UUID(data['material_category_id'])
@@ -162,11 +170,16 @@ class MaterialService(TenantAwareService):
             
             # 使用继承的create_with_tenant方法创建主记录
             material = self.create_with_tenant(Material, **data)
-            self.flush()  # 获取材料ID
+            self.session.flush()  # 获取材料ID
             
             # 创建子表记录
             for prop_data in properties_data:
                 prop_data['material_id'] = material.id
+                if created_by:
+                    try:
+                        prop_data['created_by'] = uuid.UUID(created_by) if isinstance(created_by, str) else created_by
+                    except (ValueError, TypeError):
+                        prop_data['created_by'] = self.get_current_user_id()
                 self.create_with_tenant(MaterialProperty, **prop_data)
             
             for supplier_data in suppliers_data:
@@ -174,22 +187,21 @@ class MaterialService(TenantAwareService):
                     supplier_data['supplier_id'] = uuid.UUID(supplier_data['supplier_id'])
                 
                 supplier_data['material_id'] = material.id
+                if created_by:
+                    try:
+                        supplier_data['created_by'] = uuid.UUID(created_by) if isinstance(created_by, str) else created_by
+                    except (ValueError, TypeError):
+                        supplier_data['created_by'] = self.get_current_user_id()
                 self.create_with_tenant(MaterialSupplier, **supplier_data)
             
             self.commit()
             
-            return {
-                'success': True,
-                'message': '材料创建成功',
-                'material_id': str(material.id)
-            }
+            # 返回创建的材料详情（与其他服务保持一致）
+            return material.to_dict(include_details=True)
             
         except Exception as e:
             self.rollback()
-            return {
-                'success': False,
-                'message': f'材料创建失败: {str(e)}'
-            }
+            raise ValueError(f'材料创建失败: {str(e)}')
     
     def update_material(self, material_id: str, data: Dict[str, Any], updated_by: str = None) -> Dict[str, Any]:
         """更新材料"""

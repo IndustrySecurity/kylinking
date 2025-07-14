@@ -123,7 +123,7 @@ class InventoryService(TenantAwareService):
                     Inventory.expiry_date <= datetime.now()
                 )
             )
-        
+
         total = query.count()
         
         inventories = query.offset((page - 1) * page_size).limit(page_size).all()

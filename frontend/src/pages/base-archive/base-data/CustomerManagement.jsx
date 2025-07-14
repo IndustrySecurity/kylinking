@@ -422,10 +422,17 @@ const CustomerManagement = () => {
         delete processedData.inspection_report_period
       }
 
-      // 包含子表数据
+      // 过滤子表数据：只保留填写了内容的项
+      const filterFilledRows = (arr) =>
+        (arr || []).filter(row => Object.values(row).some(val => val !== undefined && val !== null && String(val).trim() !== ''));
+
       const submitData = {
         ...processedData,
-        ...subTableData
+        contacts: filterFilledRows(subTableData.contacts),
+        delivery_addresses: filterFilledRows(subTableData.delivery_addresses),
+        invoice_units: filterFilledRows(subTableData.invoice_units),
+        payment_units: filterFilledRows(subTableData.payment_units),
+        affiliated_companies: filterFilledRows(subTableData.affiliated_companies)
       }
 
       setLoading(true)

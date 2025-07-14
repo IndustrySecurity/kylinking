@@ -1,0 +1,26 @@
+================================================================================
+Schema 一致性检查报告
+检查时间: 2025-07-12 02:51:38
+比较对象: wanle vs yiboshuo
+================================================================================
+
+❌ 只存在于 yiboshuo 中的表:
+  - bag_related_formulas
+  - loss_types
+  - team_group_machines
+  - team_group_members
+  - team_group_processes
+  - team_groups
+
+⚠️  表结构差异:
+
+📋 表: customers
+  外键 'category_id -> customer_category_management.id' 只存在于 schema1 中
+
+📊 总结:
+  - 公共表数量: 92
+  - 只在 wanle 中的表: 0
+  - 只在 yiboshuo 中的表: 6
+  - 有结构差异的表: 1
+
+❌ 发现不一致的地方，请检查上述差异。

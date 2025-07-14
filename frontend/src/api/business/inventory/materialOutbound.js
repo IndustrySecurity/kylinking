@@ -29,6 +29,11 @@ export const materialOutboundService = {
     return request.delete(`${API_BASE}/outbound-orders/${id}`);
   },
 
+  // 提交出库单
+  submitOutboundOrder: (id) => {
+    return request.post(`${API_BASE}/outbound-orders/${id}/submit`);
+  },
+  
   // 审核出库单
   approveOutboundOrder: (id, data) => {
     return request.post(`${API_BASE}/outbound-orders/${id}/approve`, data);
@@ -63,6 +68,7 @@ export const materialOutboundService = {
   deleteOutboundOrderDetail: (orderId, detailId) => {
     return request.delete(`${API_BASE}/outbound-orders/${orderId}/details/${detailId}`);
   },
+
 
   // 批量创建出库单明细
   batchCreateOutboundOrderDetails: (orderId, data) => {

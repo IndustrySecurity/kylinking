@@ -174,33 +174,9 @@ class ProcessCategoryService(TenantAwareService):
                 
                 # 布尔字段组1
                 report_quantity=data.get('report_quantity', False),
-                has_report_staff=data.get('has_report_staff', False),
-                has_specifications=data.get('has_specifications', False),
-                has_report_material=data.get('has_report_material', False),
-                has_print_qty=data.get('has_print_qty', False),
-                has_report_person=data.get('has_report_person', False),
-                has_report_defects=data.get('has_report_defects', False),
-                has_material_specs=data.get('has_material_specs', False),
-                has_combined_color=data.get('has_combined_color', False),
-                has_print_batch=data.get('has_print_batch', False),
-                has_production_date=data.get('has_production_date', False),
-                has_compound_color=data.get('has_compound_color', False),
-                
-                # 报表字段
-                has_report_replacement=data.get('has_report_replacement', False),
-                has_replace_support=data.get('has_replace_support', False),
-                has_replace_defects=data.get('has_replace_defects', False),
-                has_replaced_support=data.get('has_replaced_support', False),
-                has_new_material=data.get('has_new_material', False),
-                has_multiple_specs=data.get('has_multiple_specs', False),
-                has_batch_management=data.get('has_batch_management', False),
-                has_self_check=data.get('has_self_check', False),
                 
                 # 其他设置
                 is_enabled=data.get('is_enabled', True),
-                auto_report=data.get('auto_report', False),
-                requires_signature=data.get('requires_signature', False),
-                alert_on_deviation=data.get('alert_on_deviation', False),
                 
                 created_by=created_by_uuid
             )

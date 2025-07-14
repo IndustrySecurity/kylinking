@@ -160,13 +160,7 @@ const BagRelatedFormulaManagement = () => {
       console.error('袋型公式选项数据加载错误:', error);
       // 使用默认选项作为后备
       const defaultOptions = {
-        bag_types: [
-          { id: 'flat_bag', value: 'flat_bag', label: '平口袋', name: '平口袋' },
-          { id: 'vest_bag', value: 'vest_bag', label: '背心袋', name: '背心袋' },
-          { id: 'shopping_bag', value: 'shopping_bag', label: '手提袋', name: '手提袋' },
-          { id: 'garbage_bag', value: 'garbage_bag', label: '垃圾袋', name: '垃圾袋' },
-          { id: 'food_bag', value: 'food_bag', label: '食品袋', name: '食品袋' }
-        ],
+        bag_types: [],
         formulas: [
           { id: 'area_formula', value: 'area_formula', label: '面积公式', name: '面积公式' },
           { id: 'weight_formula', value: 'weight_formula', label: '重量公式', name: '重量公式' },

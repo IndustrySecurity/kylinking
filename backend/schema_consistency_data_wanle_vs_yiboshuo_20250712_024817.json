@@ -1,0 +1,159 @@
+{
+  "schema1": "wanle",
+  "schema2": "yiboshuo",
+  "only_in_schema1": [],
+  "only_in_schema2": [
+    "loss_types",
+    "team_group_processes",
+    "team_groups",
+    "team_group_members",
+    "team_group_machines",
+    "bag_related_formulas"
+  ],
+  "common_tables": [
+    "currencies",
+    "ink_options",
+    "supplier_categories",
+    "customer_material_prices",
+    "bag_types",
+    "inventory_count_records",
+    "quote_losses",
+    "quality_inspections",
+    "delivery_notices",
+    "payment_methods",
+    "product_quality_indicators",
+    "inventory_count_plans",
+    "process_categories",
+    "suppliers",
+    "product_count_records",
+    "bag_type_structures",
+    "units",
+    "material_count_plans",
+    "customer_management_contacts",
+    "sales_order_other_fees",
+    "outbound_order_details",
+    "account_management",
+    "supplier_management_contacts",
+    "sales_order_details",
+    "inventory_products",
+    "processes",
+    "customer_management_invoice_units",
+    "calculation_parameters",
+    "material_inbound_order_details",
+    "product_categories",
+    "delivery_methods",
+    "product_materials",
+    "inventory_transactions",
+    "supplier_management_delivery_addresses",
+    "quote_freights",
+    "equipment_maintenance",
+    "customer_categories",
+    "tax_rates",
+    "material_properties",
+    "customer_management_delivery_addresses",
+    "material_transfer_order_details",
+    "products",
+    "material_outbound_order_details",
+    "supplier_management_affiliated_companies",
+    "production_records",
+    "quote_accessories",
+    "supplier_management",
+    "materials",
+    "package_methods",
+    "sales_order_materials",
+    "supplier_management_invoice_units",
+    "equipments",
+    "production_plans",
+    "color_cards",
+    "inventory_materials",
+    "product_transfer_orders",
+    "quote_auxiliary_materials",
+    "product_count_plans",
+    "positions",
+    "product_transfer_order_details",
+    "customer_management_affiliated_companies",
+    "specifications",
+    "customer_management",
+    "inbound_orders",
+    "product_structures",
+    "material_inbound_orders",
+    "product_images",
+    "customers",
+    "quote_inks",
+    "customer_category_management",
+    "settlement_methods",
+    "material_outbound_orders",
+    "inbound_order_details",
+    "supplier_category_management",
+    "calculation_schemes",
+    "customer_management_payment_units",
+    "quote_materials",
+    "material_suppliers",
+    "product_customer_requirements",
+    "material_count_records",
+    "process_machines",
+    "inventories",
+    "sales_orders",
+    "outbound_orders",
+    "delivery_notice_details",
+    "product_processes",
+    "machines",
+    "material_transfer_orders",
+    "employees",
+    "departments",
+    "warehouses",
+    "material_categories"
+  ],
+  "table_differences": {
+    "bag_type_structures": [
+      "  外键 'bag_type_id -> bag_types.id' 只存在于 schema2 中"
+    ],
+    "bag_types": [
+      "  外键 'production_unit_id -> units.id' 只存在于 schema2 中",
+      "  外键 'sales_unit_id -> units.id' 只存在于 schema2 中"
+    ],
+    "customers": [
+      "  外键 'category_id -> customer_category_management.id' 只存在于 schema1 中"
+    ],
+    "delivery_notice_details": [
+      "  外键 'product_id -> products.id' 只存在于 schema2 中"
+    ],
+    "delivery_notices": [
+      "  外键 'sales_order_id -> sales_orders.id' 只存在于 schema2 中",
+      "  外键 'customer_id -> customer_management.id' 只存在于 schema2 中"
+    ],
+    "material_suppliers": [
+      "  外键 'material_id -> materials.id' 只存在于 schema2 中"
+    ],
+    "materials": [
+      "  外键 'material_category_id -> material_categories.id' 只存在于 schema2 中"
+    ],
+    "process_machines": [
+      "  外键 'machine_id -> machines.id' 只存在于 schema2 中"
+    ],
+    "product_materials": [
+      "  外键 'material_id -> materials.id' 只存在于 schema2 中"
+    ],
+    "product_transfer_orders": [
+      "  外键 'department_id -> departments.id' 只存在于 schema2 中"
+    ],
+    "products": [
+      "  外键 'customer_id -> customer_management.id' 只存在于 schema2 中"
+    ],
+    "quote_accessories": [
+      "  外键 'calculation_scheme_id -> calculation_schemes.id' 只存在于 schema2 中"
+    ],
+    "sales_order_details": [
+      "  外键 'product_id -> products.id' 只存在于 schema2 中"
+    ],
+    "sales_order_materials": [
+      "  外键 'material_id -> materials.id' 只存在于 schema2 中"
+    ],
+    "sales_order_other_fees": [
+      "  外键 'product_id -> products.id' 只存在于 schema2 中"
+    ],
+    "sales_orders": [
+      "  外键 'customer_id -> customer_management.id' 只存在于 schema2 中"
+    ]
+  }
+}

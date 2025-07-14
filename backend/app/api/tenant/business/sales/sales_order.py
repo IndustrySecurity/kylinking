@@ -12,6 +12,7 @@ from app.services import (
     SalesOrderService
 )
 from app.models.business.sales import SalesOrder
+from app.services.base_archive.base_data.product_management_service import ProductManagementService
 
 bp = Blueprint('sales_order', __name__)
 
@@ -280,6 +281,7 @@ def get_unscheduled_sales_order_options():
             remaining = 0
             for d in order.order_details:
                 remaining += max((d.order_quantity or 0) - (d.scheduled_delivery_quantity or 0), 0)
+
             if remaining > 0:
                 results.append({
                     'value': str(order.id),
@@ -329,7 +331,6 @@ def get_product_options():
     """获取产品选项"""
     try:
         # 调用产品服务获取选项
-        from app.services.base_archive.base_data.product_management_service import ProductManagementService
         product_service = ProductManagementService()
         products = product_service.get_products(page=1, per_page=1000)
         
@@ -690,16 +691,9 @@ def get_customer_contacts(customer_id):
 def get_product_details(product_id):
     """获取产品详细信息"""
     try:
-        # 这里应该调用产品服务获取详细信息，暂时返回基础信息
-        product_details = {
-            'id': product_id,
-            'product_name': '示例产品',
-            'product_code': 'PROD001',
-            'specification': '规格说明',
-            'unit': '个',
-            'sale_price': 100.00,
-            'description': '产品描述'
-        }
+
+        product_service = ProductManagementService()
+        product_details = product_service.get_product_detail(product_id)
         
         return jsonify({'success': True, 'data': product_details})
     except Exception as e:

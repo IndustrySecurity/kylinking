@@ -438,24 +438,3 @@ def cancel_product_transfer_order(order_id):
     except Exception as e:
         logger.error(f"取消成品调拨单失败: {str(e)}")
         return jsonify({'success': False, 'error': '取消调拨单失败'}), 500
-
-
-# ==================== 辅助功能API ====================
-
-@bp.route('/warehouses/<warehouse_id>/transfer-products', methods=['GET'])
-@jwt_required()
-@tenant_required
-def get_warehouse_transfer_products(warehouse_id):
-    """获取仓库可调拨成品库存"""
-    try:
-        product_transfer_service = ProductTransferService()
-        products = product_transfer_service.get_warehouse_product_inventory(warehouse_id)
-        
-        return jsonify({
-            'success': True,
-            'data': products
-        })
-
-    except Exception as e:
-        logger.error(f"获取仓库可调拨成品失败: {str(e)}")
-        return jsonify({'success': False, 'error': '获取可调拨成品失败'}), 500 

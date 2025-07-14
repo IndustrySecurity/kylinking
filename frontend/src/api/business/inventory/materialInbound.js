@@ -6,6 +6,7 @@ const API_BASE = '/tenant/business/inventory/material-inbound';
 export const materialInboundService = {
   // 获取入库单列表
   getInboundOrderList: (params = {}) => {
+    console.log("params",params);
     return request.get(`${API_BASE}/inbound-orders`, { params });
   },
 
@@ -109,6 +110,11 @@ export const baseDataService = {
   // 获取供应商列表
   getSuppliers: (params = {}) => {
     return request.get('/tenant/base-archive/base-data/suppliers', { params });
+  },
+
+  // 获取单位选项
+  getUnits: () => {
+    return request.get('/tenant/base-archive/production/production-archive/units/options');
   }
 };
 
