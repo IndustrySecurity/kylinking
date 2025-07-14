@@ -11,7 +11,7 @@
 /nginx/ssl/*.crt
 /nginx/ssl/*.key
 /nginx/ssl/*.pem
-/nginx/ssl/*.csr
+/nginx/*
 /nginx/conf.d/kylinking.com_nginx.zip
 
 # 临时文件
