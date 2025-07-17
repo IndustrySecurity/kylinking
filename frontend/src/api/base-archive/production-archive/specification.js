@@ -5,7 +5,7 @@ export const specificationApi = {
   // 获取规格列表
   getSpecifications: (params = {}) => {
     return request({
-      url: '/tenant/base-archive/production/production-archive/specifications',
+      url: '/tenant/base-archive/production/production-archive/specifications/',
       method: 'get',
       params
     });
@@ -22,7 +22,7 @@ export const specificationApi = {
   // 创建规格
   createSpecification: (data) => {
     return request({
-      url: '/tenant/base-archive/production/production-archive/specifications',
+      url: '/tenant/base-archive/production/production-archive/specifications/',
       method: 'post',
       data
     });

@@ -9,7 +9,7 @@ import request from '../../../utils/request'
  */
 export function getCustomerManagementList(params) {
   return request({
-    url: '/tenant/base-archive/base-data/customers',
+    url: '/tenant/base-archive/base-data/customers/',
     method: 'get',
     params
   })
@@ -34,7 +34,7 @@ export function getCustomerManagementDetail(id) {
  */
 export function createCustomerManagement(data) {
   return request({
-    url: '/tenant/base-archive/base-data/customers',
+    url: '/tenant/base-archive/base-data/customers/',
     method: 'post',
     data
   })

@@ -5,7 +5,7 @@ export const machineApi = {
   // 获取机台列表
   getMachines: (params) => {
     return request({
-      url: '/tenant/base-archive/production/production-archive/machines',
+      url: '/tenant/base-archive/production/production-archive/machines/',
       method: 'get',
       params
     });
@@ -30,7 +30,7 @@ export const machineApi = {
   // 创建机台
   createMachine: (data) => {
     return request({
-      url: '/tenant/base-archive/production/production-archive/machines',
+      url: '/tenant/base-archive/production/production-archive/machines/',
       method: 'post',
       data
     });

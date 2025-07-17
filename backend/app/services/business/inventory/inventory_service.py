@@ -162,7 +162,7 @@ class InventoryService(TenantAwareService):
     def create_inventory(
         self,
         warehouse_id: str,
-        unit: str,
+        unit_id: str,
         created_by: str,
         product_id: str = None,
         material_id: str = None,
@@ -174,7 +174,7 @@ class InventoryService(TenantAwareService):
             warehouse_id=warehouse_id,
             product_id=product_id,
             material_id=material_id,
-            unit=unit,
+            unit_id=unit_id,
             created_by=created_by,
             **kwargs
         )
@@ -225,7 +225,7 @@ class InventoryService(TenantAwareService):
             quantity_change=quantity_change,
             quantity_before=quantity_before,
             quantity_after=inventory.current_quantity,
-            unit=inventory.unit,
+            unit_id=inventory.unit_id,
             unit_price=unit_price,
             source_document_type=source_document_type,
             source_document_id=source_document_id,
@@ -266,7 +266,7 @@ class InventoryService(TenantAwareService):
                 quantity_change=-quantity,  # 预留减少可用数量
                 quantity_before=inventory.available_quantity + quantity,
                 quantity_after=inventory.available_quantity,
-                unit=inventory.unit,
+                unit_id=inventory.unit_id,
                 reason=reason or '库存预留',
                 created_by=updated_by
             )
@@ -300,7 +300,7 @@ class InventoryService(TenantAwareService):
                 quantity_change=quantity,  # 取消预留增加可用数量
                 quantity_before=inventory.available_quantity - quantity,
                 quantity_after=inventory.available_quantity,
-                unit=inventory.unit,
+                unit_id=inventory.unit_id,
                 reason=reason or '取消预留',
                 created_by=updated_by
             )
@@ -345,7 +345,7 @@ class InventoryService(TenantAwareService):
                 warehouse_id=to_warehouse_id,
                 product_id=from_inventory.product_id,
                 material_id=from_inventory.material_id,
-                unit=from_inventory.unit,
+                unit_id=from_inventory.unit_id,
                 batch_number=from_inventory.batch_number,
                 location_code=to_location_code,
                 unit_cost=from_inventory.unit_cost,
@@ -449,7 +449,7 @@ class InventoryService(TenantAwareService):
                 book_quantity=inventory.current_quantity,
                 batch_number=inventory.batch_number,
                 location_code=inventory.location_code,
-                unit=inventory.unit,
+                unit_id=inventory.unit_id,
                 created_by=created_by
             )
             count_records.append(count_record)
@@ -810,7 +810,7 @@ class InventoryService(TenantAwareService):
             quantity_change=quantity,
             quantity_before=inventory.available_quantity - quantity,
             quantity_after=inventory.available_quantity,
-            unit=inventory.unit,
+            unit_id=inventory.unit_id,
             reason=reason,
             notes=f'释放预留库存: {reason}',
             created_by=updated_by
@@ -1008,7 +1008,7 @@ class InventoryService(TenantAwareService):
         self,
         order_id: str,
         inbound_quantity: Decimal,
-        unit: str,
+        unit_id: str,
         created_by: str,
         product_id: str = None,
         product_name: str = None,
@@ -1028,10 +1028,10 @@ class InventoryService(TenantAwareService):
         detail = InboundOrderDetail(
             inbound_order_id=order_id,
             inbound_quantity=inbound_quantity,
-            unit=unit,
-            created_by=created_by,
+            unit_id=unit_id,
             product_id=product_id,
             product_name=product_name,
+            created_by=created_by,
             **kwargs
         )
         
@@ -1161,7 +1161,7 @@ class InventoryService(TenantAwareService):
                     inventory = self.create_inventory(
                         warehouse_id=inbound_order.warehouse_id,
                         product_id=detail.product_id,
-                        unit=detail.unit,
+                        unit_id=detail.unit_id,
                         batch_number=detail.batch_number,
                         location_code=detail.actual_location_code or detail.location_code,
                         unit_cost=detail.unit_cost,

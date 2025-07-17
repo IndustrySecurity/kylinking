@@ -332,10 +332,14 @@ const ProcessManagement = () => {
 
         // 兼容旧代码/别名
         const aliasMap = {
-          production_m: '产出m',
           investment_m: '投产m',
-          production_piece: '产出(个)',
+          investment_kg: '投产kg',
+          production_piece: '投产(个)',
+          production_m: '产出m',
+          production_kg: '产出kg',
           production_piece_out: '产出(个)',
+          production_set: '产出(套)',
+          production_sheet: '产出(张)'
         };
         return aliasMap[value] || value || '-';
       },

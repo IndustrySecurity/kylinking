@@ -5,7 +5,7 @@ export const supplierCategoryApi = {
   // 获取供应商分类列表
   getSupplierCategories: (params = {}) => {
     return request({
-      url: '/tenant/base-archive/base-category/supplier-categories',
+      url: '/tenant/base-archive/base-category/supplier-categories/',
       method: 'get',
       params
     });
@@ -22,7 +22,7 @@ export const supplierCategoryApi = {
   // 创建供应商分类
   createSupplierCategory: (data) => {
     return request({
-      url: '/tenant/base-archive/base-category/supplier-categories',
+      url: '/tenant/base-archive/base-category/supplier-categories/',
       method: 'post',
       data
     });

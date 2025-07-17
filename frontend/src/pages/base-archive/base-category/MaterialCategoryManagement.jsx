@@ -220,8 +220,11 @@ const MaterialCategoryManagement = () => {
   // 加载选项数据
   const loadOptions = async () => {
     try {
-      const response = await materialCategoryApi.getMaterialCategoryOptions();
-      setOptions(response);
+      const response = await materialCategoryApi.getMaterialCategoryFormOptions();
+      if (response.data.success) {
+        setOptions(response.data.data);
+        console.log("form options response", response.data.data);
+      }
     } catch (error) {
       message.error('加载选项数据失败：' + (error.response?.data?.error || error.message));
     }

@@ -442,6 +442,11 @@ const MaterialInbound = ({ onBack }) => {
         // 删除SQLAlchemy和React的内部属性
         delete cleanDetail._sa_instance_state;
         delete cleanDetail.key;
+        
+        // 处理单位字段
+        const unit_id = cleanDetail.unit_id;
+        const unit = cleanDetail.unit || (unit_id ? units.find(u => u.id === unit_id)?.unit_name : null);
+        
         // 确保必要字段存在
         return {
           material_id: cleanDetail.material_id,
@@ -452,7 +457,8 @@ const MaterialInbound = ({ onBack }) => {
           inbound_weight: cleanDetail.inbound_weight || cleanDetail.weight,
           inbound_length: cleanDetail.inbound_length || cleanDetail.length,
           inbound_rolls: cleanDetail.inbound_rolls || cleanDetail.roll_count,
-          unit: cleanDetail.unit,
+          unit: unit,
+          unit_id: unit_id,
           batch_number: cleanDetail.batch_number,
           unit_price: cleanDetail.unit_price,
           notes: cleanDetail.notes
@@ -581,7 +587,12 @@ const MaterialInbound = ({ onBack }) => {
   // 编辑明细
   const editDetail = (record) => {
     setCurrentDetail(record);
-    detailForm.setFieldsValue(record);
+    // 确保unit_id字段正确设置
+    const formValues = {
+      ...record,
+      unit_id: record.unit_id || (record.unit ? units.find(u => u.unit_name === record.unit)?.id : null)
+    };
+    detailForm.setFieldsValue(formValues);
     setDetailModalVisible2(true);
   };
 
@@ -604,12 +615,14 @@ const MaterialInbound = ({ onBack }) => {
     } else {
       // 添加明细
       const material = materials.find(m => m.id === values.material_id);
+      const unit = units.find(u => u.id === values.unit_id);
       const newDetail = {
         ...values,
         key: Date.now(),
         material_name: material?.material_name || material?.name || '',
         material_code: material?.material_code || material?.code || '',
-        specification: material?.specification || material?.spec || ''
+        specification: material?.specification || material?.spec || '',
+        unit: unit?.unit_name || ''
       };
       setDetails([...details, newDetail]);
       message.success('明细添加成功');
@@ -810,11 +823,11 @@ const MaterialInbound = ({ onBack }) => {
       title: '入库数量',
       dataIndex: 'inbound_quantity',
       key: 'inbound_quantity',
-    },
-    {
-      title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
+      render: (text, record) => {
+        const unit = units.find(u => u.id === record.unit_id);  // 获取单位名称
+        if (!text && text !== 0) return '-';
+        return `${text} ${unit?.unit_name || ''}`;
+      }
     },
     {
       title: '重量(kg)',
@@ -1149,7 +1162,6 @@ const MaterialInbound = ({ onBack }) => {
                   <Form.Item
                     name="inbound_person_id"
                     label="入库人"
-                    rules={[{ required: true, message: '请选择入库人' }]}
                   >
                     <Select 
                       placeholder="请选择入库人"
@@ -1185,7 +1197,6 @@ const MaterialInbound = ({ onBack }) => {
                   <Form.Item
                     name="department_id"
                     label="部门"
-                    rules={[{ required: true, message: '请选择部门' }]}
                   >
                     <Select placeholder="请选择部门">
                       {departments.map((dept, index) => (
@@ -1401,11 +1412,13 @@ const MaterialInbound = ({ onBack }) => {
                   onChange={(value) => {
                     const material = materials.find(m => m.id === value);
                     if (material) {
+                      // 查找对应的单位ID
+                      const unit = units.find(u => u.unit_name === material.unit);
                       detailForm.setFieldsValue({
                         material_code: material.material_code || material.code || '',
                         material_name: material.material_name || material.name || '',
                         specification: material.specification || material.spec || '',
-                        unit: material.unit
+                        unit_id: unit?.id || null
                       });
                     }
                   }}
@@ -1464,26 +1477,17 @@ const MaterialInbound = ({ onBack }) => {
             </Col>
             <Col span={8}>
               <Form.Item
-                name="unit"
+                name="unit_id"
                 label="单位"
                 rules={[{ required: true, message: '请选择单位' }]}
-                extra="从单位表中选择标准单位"
               >
                 <Select
                   placeholder="请选择单位"
                   allowClear
-                  showSearch
-                  filterOption={(input, option) => {
-                    if (!option || !option.children) return false;
-                    const text = option.children.toString().toLowerCase();
-                    const inputLower = input.toLowerCase();
-                    return text.includes(inputLower);
-                  }}
                 >
                   {units.map(unit => (
-                    <Option key={`detail-unit-${unit.id}`} value={unit.unit_name}>
-                      {unit.unit_name} {unit.unit_code && unit.unit_code !== unit.unit_name ? `(${unit.unit_code})` : ''}
-                      {unit.description ? ` - ${unit.description}` : ''}
+                    <Option key={`detail-unit-${unit.id}`} value={unit.id}>
+                      {unit.unit_name}
                     </Option>
                   ))}
                 </Select>

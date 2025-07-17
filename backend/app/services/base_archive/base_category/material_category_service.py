@@ -81,13 +81,19 @@ class MaterialCategoryService(TenantAwareService):
         Returns:
             dict: 材料分类详情
         """
-        try:
-            category = self.session.query(MaterialCategory).get(uuid.UUID(category_id))
+        try:  
+            # 安全地转换UUID
+            if isinstance(category_id, str):
+                category_uuid = uuid.UUID(category_id)
+            else:
+                category_uuid = category_id
+                
+            category = self.session.query(MaterialCategory).get(category_uuid)
+
             if not category:
                 raise ValueError('材料分类不存在')
-            
+
             return self._format_material_category(category)
-            
         except Exception as e:
             raise e
     
@@ -271,14 +277,9 @@ class MaterialCategoryService(TenantAwareService):
                 if hasattr(category, field) and field not in ['id', 'created_by', 'created_at']:
                     setattr(category, field, value)
             
-            # 设置更新者
-            user_id = updated_by
-            if not user_id and hasattr(g, 'current_user') and g.current_user:
-                user_id = g.current_user.id
-            
-            category.updated_by = user_id
+            category.updated_by = uuid.UUID(updated_by)
             self.commit()
-            
+
             return self.get_material_category_by_id(category.id)
         except Exception as e:
             self.rollback()

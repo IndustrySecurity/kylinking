@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取税率列表
 export const getTaxRates = (params) => {
   return request({
-    url: '/tenant/base-archive/financial-management/tax-rates',
+    url: '/tenant/base-archive/financial-management/tax-rates/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getTaxRates = (params) => {
 // 创建税率
 export const createTaxRate = (data) => {
   return request({
-    url: '/tenant/base-archive/financial-management/tax-rates',
+    url: '/tenant/base-archive/financial-management/tax-rates/',
     method: 'post',
     data
   });

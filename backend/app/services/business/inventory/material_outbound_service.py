@@ -14,6 +14,7 @@ from decimal import Decimal
 from datetime import datetime, date
 from uuid import UUID
 from app.models.business.inventory import MaterialOutboundOrder, MaterialOutboundOrderDetail, Inventory, InventoryTransaction
+from app.models.basic_data import Unit
 from app.services.base_service import TenantAwareService
 from flask import g, current_app
 import logging
@@ -177,19 +178,42 @@ class MaterialOutboundService(TenantAwareService):
             # 创建明细
             if details_data:
                 for detail_data in details_data:
+                    # 处理unit_id字段
+                    unit_id = detail_data.get('unit_id')
+                    if not unit_id and detail_data.get('unit'):
+                        # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+                        unit = self.session.query(Unit).filter(Unit.unit_name == detail_data['unit']).first()
+                        if unit:
+                            unit_id = unit.id
+                        else:
+                            # 如果找不到对应的单位，抛出错误
+                            raise ValueError(f"明细缺少必需的unit_id参数")
+                    
+                    if not unit_id:
+                        raise ValueError(f"明细缺少必需的unit_id参数")
+                    
                     # 提取必需的位置参数
                     outbound_quantity = Decimal(detail_data.get('outbound_quantity', 0))
                     
-                    # 设置关联ID
-                    detail_data['material_outbound_order_id'] = order.id
-                    detail_data['created_by'] = created_by_uuid
-                    detail_data['outbound_quantity'] = outbound_quantity
-                    
-                    if 'material_id' in detail_data:
-                        detail_data['material_id'] = uuid.UUID(detail_data['material_id'])
-                    
                     # 创建明细
-                    detail: MaterialOutboundOrderDetail = self.create_with_tenant(MaterialOutboundOrderDetail, **detail_data)
+                    material_id = detail_data.get('material_id')
+                    if material_id:
+                        material_id = uuid.UUID(material_id)
+                    
+                    detail = MaterialOutboundOrderDetail(
+                        material_outbound_order_id=order.id,
+                        outbound_quantity=outbound_quantity,
+                        unit_id=unit_id,
+                        created_by=created_by_uuid,
+                        material_id=material_id,
+                        material_name=detail_data.get('material_name'),
+                        material_code=detail_data.get('material_code'),
+                        material_spec=detail_data.get('specification'),
+                        batch_number=detail_data.get('batch_number'),
+                        location_code=detail_data.get('location_code'),
+                        notes=detail_data.get('remarks')
+                    )
+                    self.session.add(detail)
             
             self.session.commit()
             return order
@@ -220,36 +244,54 @@ class MaterialOutboundService(TenantAwareService):
         order.updated_at = datetime.now()
         
         self.commit()
-        self.refresh(order)
+        self.session.refresh(order)
         
         return order
 
-    def add_material_outbound_order_detail(
-        self,
-        order_id: str,
-        outbound_quantity: Decimal,
-        unit: str,
-        created_by: str,
-        material_id: str = None,
-        material_name: str = None,
-        **kwargs
-    ) -> MaterialOutboundOrderDetail:
-        """添加材料出库单明细"""
+    def create_material_outbound_order_detail(self, order_id: str, data: Dict[str, Any], created_by: str) -> MaterialOutboundOrderDetail:
+        """创建材料出库单明细"""
+        # 清理数据，移除SQLAlchemy内部属性
+        detail_data = {}
+        for key, value in data.items():
+            if not key.startswith('_') and key not in ['_sa_instance_state']:
+                detail_data[key] = value
         
+        # 处理unit_id字段
+        unit_id = detail_data.get('unit_id')
+        if not unit_id and detail_data.get('unit'):
+            # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+            unit = self.session.query(Unit).filter(Unit.unit_name == detail_data['unit']).first()
+            if unit:
+                unit_id = unit.id
+            else:
+                # 如果找不到对应的单位，抛出错误
+                raise ValueError(f"明细缺少必需单位的数据")
+        
+        if not unit_id:
+            raise ValueError(f"明细缺少必需的unit_id参数")
+        
+        # 处理外键字段的UUID转换
+        for key in ['material_id']:
+            if key in detail_data and detail_data[key]:
+                detail_data[key] = uuid.UUID(detail_data[key])
+        
+        # 明确设置必需字段
         detail = MaterialOutboundOrderDetail(
             material_outbound_order_id=uuid.UUID(order_id),
-            material_id=uuid.UUID(material_id) if material_id else None,
-            material_name=material_name,
-            outbound_quantity=outbound_quantity,
-            unit=unit,
             created_by=uuid.UUID(created_by) if isinstance(created_by, str) else created_by,
-            **kwargs
-        )
-        
-        self.add(detail)
+            outbound_quantity=Decimal(detail_data.get('outbound_quantity', 0)),
+            unit_id=unit_id,
+            material_id=detail_data.get('material_id'),
+            material_name=detail_data.get('material_name'),
+            material_code=detail_data.get('material_code'),
+            material_spec=detail_data.get('material_spec'),
+            batch_number=detail_data.get('batch_number'),
+            location_code=detail_data.get('location_code'),
+            notes=detail_data.get('notes')
+        )   
+        self.session.add(detail)
         self.commit()
-        self.refresh(detail)
-        
+        self.session.refresh(detail)
         return detail
 
     def update_material_outbound_order_detail(self, detail_id: str, data: Dict[str, Any], updated_by: str) -> bool:
@@ -261,9 +303,36 @@ class MaterialOutboundService(TenantAwareService):
         if not detail:
             return False
 
+        # 清理数据，移除SQLAlchemy内部属性
+        clean_data = {}
         for key, value in data.items():
-            if hasattr(detail, key) and key not in ['id', 'created_at', 'created_by']:
-                setattr(detail, key, value)
+            if not key.startswith('_') and key not in ['_sa_instance_state', 'id', 'created_at', 'created_by']:
+                clean_data[key] = value
+
+        # 处理unit_id字段
+        if 'unit_id' in clean_data or 'unit' in clean_data:
+            unit_id = clean_data.get('unit_id')
+            if not unit_id and clean_data.get('unit'):
+                # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+                unit = self.session.query(Unit).filter(Unit.unit_name == clean_data['unit']).first()
+                if unit:
+                    unit_id = unit.id
+                else:
+                    # 如果找不到对应的单位，抛出错误
+                    raise ValueError(f"明细缺少必需单位的数据")
+            
+            if unit_id:
+                detail.unit_id = unit_id
+
+        for key, value in clean_data.items():
+            if hasattr(detail, key) and key not in ['unit_id', 'unit']:  # unit_id已经单独处理
+                # 处理外键字段的UUID转换
+                if key in ['material_id', 'outbound_order_id'] and value:
+                    setattr(detail, key, uuid.UUID(value))
+                elif key == 'outbound_quantity':
+                    setattr(detail, key, Decimal(value))
+                else:
+                    setattr(detail, key, value)
 
         detail.updated_by = uuid.UUID(updated_by) if isinstance(updated_by, str) else updated_by
         detail.updated_at = datetime.now()
@@ -287,6 +356,7 @@ class MaterialOutboundService(TenantAwareService):
         
         return True
 
+
     def approve_material_outbound_order(
         self,
         order_id: str,
@@ -302,6 +372,14 @@ class MaterialOutboundService(TenantAwareService):
         if order.approval_status != 'pending':
             raise ValueError("材料出库单已经审核过")
         
+        # 检查是否有明细
+        details = self.session.query(MaterialOutboundOrderDetail).filter(
+            MaterialOutboundOrderDetail.material_outbound_order_id == order_id
+        ).all()
+        
+        if not details:
+            raise ValueError("材料出库单没有明细，无法审核")
+        
         order.approval_status = approval_status
         order.approved_by = uuid.UUID(approved_by) if isinstance(approved_by, str) else approved_by
         order.approved_at = datetime.now()
@@ -310,7 +388,7 @@ class MaterialOutboundService(TenantAwareService):
             order.status = 'confirmed'
         
         self.commit()
-        self.refresh(order)
+        self.session.refresh(order)
         
         return order
 
@@ -378,18 +456,18 @@ class MaterialOutboundService(TenantAwareService):
                 quantity_change=-detail.outbound_quantity,
                 quantity_before=quantity_before,
                 quantity_after=inventory.current_quantity,
-                unit=detail.unit,
-                unit_price=detail.unit_price or inventory.unit_cost,
+                unit_id=detail.unit_id,
+                unit_price=detail.unit_price,
                 source_document_type='material_outbound_order',
                 source_document_id=order.id,
                 source_document_number=order.order_number,
                 batch_number=detail.batch_number,
-                from_location=detail.actual_location_code or detail.location_code,
-                reason=f"材料出库 - {order.requisition_purpose or ''}",
+                from_location=detail.location_code,
+                reason=f"材料出库单执行: {order.order_number}",
                 created_by=executed_by
             )
             
-            self.add(transaction)
+            self.session.add(transaction)
             transactions.append(transaction)
         
         # 更新出库单状态
@@ -423,7 +501,7 @@ class MaterialOutboundService(TenantAwareService):
         order.updated_at = datetime.now()
         
         self.commit()
-        self.refresh(order)
+        self.session.refresh(order)
         
         return order
 

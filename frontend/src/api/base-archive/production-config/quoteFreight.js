@@ -5,7 +5,7 @@ export const quoteFreightApi = {
   // 获取报价运费列表
   getQuoteFreights: (params = {}) => {
     return request({
-      url: '/tenant/basic-data/quote-freights',
+      url: '/tenant/basic-data/quote-freights/',
       method: 'get',
       params
     });
@@ -22,7 +22,7 @@ export const quoteFreightApi = {
   // 创建报价运费
   createQuoteFreight: (data) => {
     return request({
-      url: '/tenant/basic-data/quote-freights',
+      url: '/tenant/basic-data/quote-freights/',
       method: 'post',
       data
     });

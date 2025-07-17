@@ -108,41 +108,6 @@ const DetailTable = styled(Table)`
   }
 `;
 
-// 创建模拟明细数据的函数
-const createMockDetails = (orderId) => {
-  return [
-    {
-      id: `mock-${orderId}-1`,
-      product_code: 'P001',
-      product_name: '产品A',
-      product_spec: '规格A',
-      outbound_quantity: 10,
-      unit: '个',
-      unit_cost: 50.00,
-      outbound_kg_quantity: 5.5,
-      outbound_m_quantity: 0,
-      outbound_roll_quantity: 0,
-      box_quantity: 2,
-      batch_number: 'BATCH001',
-      location_code: 'A01-01'
-    },
-    {
-      id: `mock-${orderId}-2`,
-      product_code: 'P002',
-      product_name: '产品B',
-      product_spec: '规格B',
-      outbound_quantity: 20,
-      unit: '箱',
-      unit_cost: 25.00,
-      outbound_kg_quantity: 0,
-      outbound_m_quantity: 15.2,
-      outbound_roll_quantity: 0,
-      box_quantity: 1,
-      batch_number: 'BATCH002',
-      location_code: 'A01-02'
-    }
-  ];
-};
 
 const FinishedGoodsOutbound = () => {
   // 状态管理
@@ -168,7 +133,7 @@ const FinishedGoodsOutbound = () => {
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [customers, setCustomers] = useState([]);
-
+  const [units, setUnits] = useState([]);
   // 分页和筛选状态
   const [pagination, setPagination] = useState({
     current: 1,
@@ -214,12 +179,13 @@ const FinishedGoodsOutbound = () => {
   // 获取基础数据
   const fetchBaseData = async () => {
     try {
-      const [warehousesRes, productsRes, departmentsRes, employeesRes, customersRes] = await Promise.all([
+      const [warehousesRes, productsRes, departmentsRes, employeesRes, customersRes, unitsRes] = await Promise.all([
         baseDataService.getWarehouses(),
         baseDataService.getProducts(),
         baseDataService.getDepartments(),
         baseDataService.getEmployees(),
-        baseDataService.getCustomers()
+        baseDataService.getCustomers(),
+        baseDataService.getUnits()
       ]);
 
       // 处理仓库数据 - 选项API返回格式 {value, label, code}
@@ -292,6 +258,14 @@ const FinishedGoodsOutbound = () => {
         console.error('客户数据加载失败:', customersRes.data);
         setCustomers([]);
       }
+
+      // 处理单位数据
+      if (unitsRes.data?.success) {
+        const unitData = unitsRes.data.data;
+        setUnits(unitData);
+      } else {
+        setUnits([]);
+      }
     } catch (error) {
       message.error('获取基础数据失败，请检查网络连接');
       // 设置空数组，不使用模拟数据
@@ -300,6 +274,7 @@ const FinishedGoodsOutbound = () => {
       setDepartments([]);
       setEmployees([]);
       setCustomers([]);
+      setUnits([]);
     }
   };
 
@@ -549,76 +524,100 @@ const FinishedGoodsOutbound = () => {
   // 明细表格列定义
   const detailColumns = [
     {
+      title: '行号',
+      dataIndex: 'line_number',
+      key: 'line_number',
+      width: 60,
+      render: (_, __, index) => index + 1
+    },
+    {
       title: '产品编码',
       dataIndex: 'product_code',
       key: 'product_code',
-      width: 120
+      width: 120,
+      render: (text) => text || '-'
     },
     {
       title: '产品名称',
       dataIndex: 'product_name',
       key: 'product_name',
-      width: 150
+      width: 150,
+      render: (text) => text || '-'
     },
     {
       title: '规格',
       dataIndex: 'product_spec',
       key: 'product_spec',
-      width: 120
+      width: 120,
+      render: (text) => text || '-'
     },
     {
       title: '出库数量',
       dataIndex: 'outbound_quantity',
       key: 'outbound_quantity',
       width: 100,
-      render: (text, record) => `${text || 0} ${record.unit || '个'}`
+      render: (text, record) => {
+        if (!text && text !== 0) return '-';
+        // 优先使用record.unit_name，如果没有则从units数组中查找
+        const unitName = record.unit_name || (record.unit_id ? units.find(unit => unit.value === record.unit_id)?.label : '');
+        return `${text} ${unitName || ''}`;
+      }
     },
     {
       title: '单价',
       dataIndex: 'unit_cost',
       key: 'unit_cost',
       width: 100,
-      render: (text) => `¥${(text || 0).toFixed(2)}`
+      render: (text) => text ? `¥${text.toFixed(2)}` : '-'
     },
     {
       title: '出库公斤数',
       dataIndex: 'outbound_kg_quantity',
       key: 'outbound_kg_quantity',
       width: 100,
-      render: (text) => `${text || 0} kg`
+      render: (text) => text ? `${text} kg` : '-'
     },
     {
       title: '出库米数',
       dataIndex: 'outbound_m_quantity',
       key: 'outbound_m_quantity',
       width: 100,
-      render: (text) => `${text || 0} m`
+      render: (text) => text ? `${text} m` : '-'
     },
     {
       title: '出库卷数',
       dataIndex: 'outbound_roll_quantity',
       key: 'outbound_roll_quantity',
       width: 100,
-      render: (text) => `${text || 0} 卷`
+      render: (text) => text ? `${text} 卷` : '-'
     },
     {
       title: '箱数',
       dataIndex: 'box_quantity',
       key: 'box_quantity',
       width: 80,
-      render: (text) => `${text || 0} 箱`
+      render: (text) => text ? `${text} 箱` : '-'
     },
     {
       title: '批次号',
       dataIndex: 'batch_number',
       key: 'batch_number',
-      width: 120
+      width: 120,
+      render: (text) => text || '-'
     },
     {
       title: '库位码',
       dataIndex: 'location_code',
       key: 'location_code',
-      width: 100
+      width: 100,
+      render: (text) => text || '-'
+    },
+    {
+      title: '备注',
+      dataIndex: 'remark',
+      key: 'remark',
+      width: 120,
+      render: (text) => text || '-'
     },
     {
       title: '操作',
@@ -655,6 +654,9 @@ const FinishedGoodsOutbound = () => {
     }
   ];
 
+  // 查看详情用的明细表格列定义（不包含操作列）
+  const viewDetailColumns = detailColumns.filter(col => col.key !== 'action');
+
   // 新增出库单
   const handleCreateOrder = () => {
     setCurrentOrder(null);
@@ -679,9 +681,7 @@ const FinishedGoodsOutbound = () => {
       
       // 处理明细数据（成功或失败场景）
       setOrderDetails(
-        detailResponse?.success ? 
-        (detailResponse.data || []) : 
-        createMockDetails(record.id)
+        detailResponse?.success ? (detailResponse.data || []) : []
       );
       
       // 显示查看模态框
@@ -706,12 +706,9 @@ const FinishedGoodsOutbound = () => {
       const detailResponse = await finishedGoodsOutboundService.getOutboundOrderDetails(record.id);
       if (detailResponse.data?.success) {
         setOrderDetails(detailResponse.data.data || []);
-      } else {
-        setOrderDetails(createMockDetails(record.id));
       }
     } catch (error) {
       console.error('加载明细失败:', error);
-      setOrderDetails(createMockDetails(record.id));
     }
     
     setModalVisible(true);
@@ -770,13 +767,21 @@ const FinishedGoodsOutbound = () => {
   // 提交出库单
   const handleSubmit = async (values) => {
     try {
-      // 清理明细数据，去掉临时ID和多余字段
+      // 清理明细数据，去掉临时ID和多余字段，确保单位字段正确传递
       const cleanDetails = orderDetails.map(detail => {
         const cleanDetail = { ...detail };
         // 如果是临时ID，去掉ID字段让后端生成
         if (cleanDetail.id && cleanDetail.id.toString().startsWith('temp-')) {
           delete cleanDetail.id;
         }
+        
+        // 确保单位字段正确传递：优先使用unit_id，如果没有则使用unit
+        if (cleanDetail.unit_id) {
+          cleanDetail.unit = cleanDetail.unit_id; // 后端期望unit字段
+        } else if (cleanDetail.unit) {
+          cleanDetail.unit_id = cleanDetail.unit; // 同时设置unit_id
+        }
+        
         return cleanDetail;
       });
 
@@ -836,7 +841,9 @@ const FinishedGoodsOutbound = () => {
       product_name: product.product_name,
       product_spec: product.product_spec,
       outbound_quantity: 1,
-      unit: product.unit || '个',
+      unit_id: product.unit_id, // 使用 unit_id
+      unit: product.unit_id, // 同时设置 unit 字段用于表单显示
+      unit_name: product.unit_name, // 保存单位名称用于显示
       unit_cost: 0,
       outbound_kg_quantity: 0,
       outbound_m_quantity: 0,
@@ -855,10 +862,19 @@ const FinishedGoodsOutbound = () => {
   // 编辑明细
   const editDetail = async (record) => {
     setCurrentDetail(record);
-    detailForm.setFieldsValue({
-      ...record,
-      // 确保日期等特殊字段的格式正确
-    });
+    
+    // 处理表单数据，确保字段映射正确
+    const formData = { ...record };
+    
+    // 处理单位字段映射：unit_id -> unit
+    if (record.unit_id && units.length > 0) {
+      const unit = units.find(u => u.value === record.unit_id);
+      if (unit) {
+        formData.unit = unit.value;
+      }
+    }
+    
+    detailForm.setFieldsValue(formData);
     setDetailModalVisible2(true);
   };
 
@@ -896,11 +912,18 @@ const FinishedGoodsOutbound = () => {
         product_spec: selectedProduct?.specification || selectedProduct?.spec || ''
       };
 
+      // 处理单位字段映射：unit -> unit_id
+      const submitData = { ...values };
+      if (values.unit) {
+        submitData.unit_id = values.unit;
+        delete submitData.unit; // 删除unit字段，避免后端混淆
+      }
+
       if (currentDetail) {
         // 编辑明细
         if (currentOrder && currentDetail.id && !currentDetail.id.toString().startsWith('temp-')) {
           // 如果是编辑模式且明细已保存，调用API更新
-          const response = await finishedGoodsOutboundService.updateOutboundOrderDetail(currentOrder.id, currentDetail.id, values);
+          const response = await finishedGoodsOutboundService.updateOutboundOrderDetail(currentOrder.id, currentDetail.id, submitData);
           if (response.data?.success) {
             const updatedDetail = response.data.data || { ...currentDetail, ...values, ...productInfo };
             setOrderDetails(orderDetails.map(item => 
@@ -911,23 +934,30 @@ const FinishedGoodsOutbound = () => {
             message.error(response.data?.message || '更新明细失败');
             return;
           }
-        } else {
-          // 新建模式或临时明细，直接更新本地数据
-          const updatedDetail = { 
-            ...currentDetail, 
-            ...values,
-            ...productInfo
-          };
+                  } else {
+            // 新建模式或临时明细，直接更新本地数据
+            const updatedDetail = { 
+              ...currentDetail, 
+              ...values,
+              ...productInfo,
+              unit_id: values.unit // 确保本地数据也包含unit_id
+            };
+          
+          // 确保单位字段正确设置
+          if (values.unit) {
+            updatedDetail.unit_id = values.unit;
+          }
+          
           setOrderDetails(orderDetails.map(item => 
             item.id === currentDetail.id ? updatedDetail : item
           ));
           message.success('明细更新成功');
         }
-      } else {
-        // 新增明细
-        if (currentOrder) {
-          // 如果是编辑模式，调用API添加明细
-          const response = await finishedGoodsOutboundService.createOutboundOrderDetail(currentOrder.id, values);
+              } else {
+          // 新增明细
+          if (currentOrder) {
+            // 如果是编辑模式，调用API添加明细
+            const response = await finishedGoodsOutboundService.createOutboundOrderDetail(currentOrder.id, submitData);
           if (response.data?.success) {
             const newDetail = {
               ...response.data.data,
@@ -939,13 +969,20 @@ const FinishedGoodsOutbound = () => {
             message.error(response.data?.message || '添加明细失败');
             return;
           }
-        } else {
-          // 新建模式下，直接添加到本地数据
-          const newDetail = {
-            id: `temp-${Date.now()}`,
-            ...values,
-            ...productInfo
-          };
+                  } else {
+            // 新建模式下，直接添加到本地数据
+            const newDetail = {
+              id: `temp-${Date.now()}`,
+              ...values,
+              ...productInfo,
+              unit_id: values.unit // 确保本地数据也包含unit_id
+            };
+          
+          // 确保单位字段正确设置
+          if (values.unit) {
+            newDetail.unit_id = values.unit;
+          }
+          
           setOrderDetails([...orderDetails, newDetail]);
           message.success('明细添加成功');
         }
@@ -1297,11 +1334,14 @@ const FinishedGoodsOutbound = () => {
                   }
                   onChange={(productId) => {
                     // 当选择产品时，自动填入单位
-                    const selectedProduct = products.find(p => p.id === productId);
-                    if (selectedProduct && selectedProduct.unit) {
-                      detailForm.setFieldsValue({
-                        unit: selectedProduct.unit
-                      });
+                    const product = products.find(p => p.id === productId);
+                    if (product && product.unit_id && units.length > 0) {
+                      const unit = units.find(u => u.value === product.unit_id);
+                      if (unit) {
+                        detailForm.setFieldsValue({
+                          unit: unit.value
+                        });
+                      }
                     }
                   }}
                 >
@@ -1339,8 +1379,12 @@ const FinishedGoodsOutbound = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="unit" label="单位">
-                <Input placeholder="自动填入" readOnly />
+              <Form.Item name="unit" label="单位" rules={[{ required: true, message: '请选择单位' }]}>
+                <Select placeholder="请选择单位" allowClear>
+                  {units.map(unit => (
+                    <Option key={unit.value} value={unit.value}>{unit.label}</Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -1467,8 +1511,8 @@ const FinishedGoodsOutbound = () => {
             },
             {
               title: '单位',
-              dataIndex: 'unit',
-              key: 'unit',
+              dataIndex: 'unit_name',
+              key: 'unit_name',
             },
           ]}
           dataSource={products.filter(product => 
@@ -1602,93 +1646,7 @@ const FinishedGoodsOutbound = () => {
             
             <TabPane tab="出库明细" key="2">
               <DetailTable
-                columns={[
-                  {
-                    title: '行号',
-                    dataIndex: 'line_number',
-                    key: 'line_number',
-                    width: 60,
-                    render: (_, __, index) => index + 1
-                  },
-                  {
-                    title: '产品编码',
-                    dataIndex: 'product_code',
-                    key: 'product_code',
-                    width: 120
-                  },
-                  {
-                    title: '产品名称',
-                    dataIndex: 'product_name',
-                    key: 'product_name',
-                    width: 150
-                  },
-                  {
-                    title: '产品规格',
-                    dataIndex: 'product_spec',
-                    key: 'product_spec',
-                    width: 120
-                  },
-                  {
-                    title: '出库数量',
-                    dataIndex: 'outbound_quantity',
-                    key: 'outbound_quantity',
-                    width: 100,
-                    render: (text, record) => `${text || 0} ${record.unit || '个'}`
-                  },
-                  {
-                    title: '单价',
-                    dataIndex: 'unit_cost',
-                    key: 'unit_cost',
-                    width: 100,
-                    render: (text) => `¥${(text || 0).toFixed(2)}`
-                  },
-                  {
-                    title: '出库公斤数',
-                    dataIndex: 'outbound_kg_quantity',
-                    key: 'outbound_kg_quantity',
-                    width: 100,
-                    render: (text) => `${text || 0} kg`
-                  },
-                  {
-                    title: '出库米数',
-                    dataIndex: 'outbound_m_quantity',
-                    key: 'outbound_m_quantity',
-                    width: 100,
-                    render: (text) => `${text || 0} m`
-                  },
-                  {
-                    title: '出库卷数',
-                    dataIndex: 'outbound_roll_quantity',
-                    key: 'outbound_roll_quantity',
-                    width: 100,
-                    render: (text) => `${text || 0} 卷`
-                  },
-                  {
-                    title: '箱数',
-                    dataIndex: 'box_quantity',
-                    key: 'box_quantity',
-                    width: 80,
-                    render: (text) => `${text || 0} 箱`
-                  },
-                  {
-                    title: '批次号',
-                    dataIndex: 'batch_number',
-                    key: 'batch_number',
-                    width: 120
-                  },
-                  {
-                    title: '库位码',
-                    dataIndex: 'location_code',
-                    key: 'location_code',
-                    width: 100
-                  },
-                  {
-                    title: '备注',
-                    dataIndex: 'remark',
-                    key: 'remark',
-                    width: 120
-                  }
-                ]}
+                columns={viewDetailColumns}
                 dataSource={orderDetails}
                 rowKey="id"
                 scroll={{ x: 1000 }}

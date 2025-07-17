@@ -651,8 +651,9 @@ const MaterialManagement = () => {
                   <Form.Item
                     label="单位"
                     name="unit_id"
+                    rules={[{ required: true, message: '请选择单位' }]}
                   >
-                    <Select placeholder="自动填入" disabled>
+                    <Select placeholder="请选择单位" allowClear>
                       {options.units?.filter(unit => unit && unit.id).map(unit => (
                         <Option key={unit.id} value={unit.id}>{unit.unit_name || unit.name}</Option>
                       ))}

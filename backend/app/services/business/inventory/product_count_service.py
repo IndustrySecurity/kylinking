@@ -463,7 +463,7 @@ class ProductCountService(TenantAwareService):
                     quantity_change=record.variance_quantity,
                     quantity_before=old_quantity,
                     quantity_after=record.actual_quantity,
-                    unit=inventory.unit,
+                    unit_id=inventory.unit_id,
                     source_document_type='count_order',
                     source_document_id=plan.id,
                     source_document_number=plan.count_number,

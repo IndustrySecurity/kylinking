@@ -6,7 +6,7 @@ const BASE_URL = '/tenant/basic-data/calculation-parameters';
 export const calculationParameterApi = {
   // 获取计算参数列表
   getCalculationParameters: (params = {}) => {
-    return request.get(BASE_URL, { params });
+    return request.get(`${BASE_URL}/`, { params });
   },
 
   // 获取计算参数详情
@@ -16,7 +16,7 @@ export const calculationParameterApi = {
 
   // 创建计算参数
   createCalculationParameter: (data) => {
-    return request.post(BASE_URL, data);
+    return request.post(`${BASE_URL}/`, data);
   },
 
   // 更新计算参数

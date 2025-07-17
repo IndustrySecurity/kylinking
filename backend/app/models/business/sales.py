@@ -23,7 +23,7 @@ class SalesOrder(TenantModel):
     customer_id = Column(UUID(as_uuid=True), ForeignKey('customer_management.id'), nullable=False, comment='客户ID')  # 外键
     customer_order_number = Column(String(100), comment='客户订单号')  # 手工输入
     contact_person_id = Column(UUID(as_uuid=True), comment='联系人ID')  # 外键，根据客户表选择
-    tax_type_id = Column(UUID(as_uuid=True), comment='税收ID')  # 外键，根据税收表选择
+    tax_rate_id = Column(UUID(as_uuid=True), ForeignKey('tax_rates.id'), comment='税收ID')  # 外键，根据税收表选择
     
     # 金额信息
     order_amount = Column(Numeric(15, 4), default=0, comment='订金')  # 手工输入，默认0
@@ -32,7 +32,7 @@ class SalesOrder(TenantModel):
     plate_fee_percentage = Column(Numeric(5, 2), default=0, comment='版费订金%')  # 手工输入，默认0
     
     # 日期信息
-    order_date = Column(DateTime, default=func.now(), comment='交货日期')  # 选择
+    delivery_date = Column(DateTime, default=func.now(), comment='交货日期')  # 选择
     internal_delivery_date = Column(DateTime, comment='内部交期')  # 选择
     salesperson_id = Column(UUID(as_uuid=True), comment='业务员ID')  # 外键，根据选择的客户填入
     contract_date = Column(DateTime, comment='合同日期')  # 选择
@@ -61,6 +61,7 @@ class SalesOrder(TenantModel):
     other_fees = relationship("SalesOrderOtherFee", back_populates="sales_order", cascade="all, delete-orphan")
     material_details = relationship("SalesOrderMaterial", back_populates="sales_order", cascade="all, delete-orphan")
     delivery_notices = relationship("DeliveryNotice", back_populates="sales_order")
+    tax_rate = relationship("TaxRate", foreign_keys=[tax_rate_id])
 
     def to_dict(self):
         """转换为字典"""
@@ -71,12 +72,12 @@ class SalesOrder(TenantModel):
             'customer_id': str(self.customer_id) if self.customer_id else None,
             'customer_order_number': self.customer_order_number,
             'contact_person_id': str(self.contact_person_id) if self.contact_person_id else None,
-            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,
             'order_amount': float(self.order_amount) if self.order_amount else 0,
             'deposit': float(self.deposit) if self.deposit else 0,
             'plate_fee': float(self.plate_fee) if self.plate_fee else 0,
             'plate_fee_percentage': float(self.plate_fee_percentage) if self.plate_fee_percentage else 0,
-            'order_date': self.order_date.isoformat() if self.order_date else None,
+            'delivery_date': self.delivery_date.isoformat() if self.delivery_date else None,
             'internal_delivery_date': self.internal_delivery_date.isoformat() if self.internal_delivery_date else None,
             'salesperson_id': str(self.salesperson_id) if self.salesperson_id else None,
             'contract_date': self.contract_date.isoformat() if self.contract_date else None,
@@ -120,13 +121,15 @@ class SalesOrder(TenantModel):
             except Exception as e:
                 # 如果查询失败，设置为空
                 result['contact_person'] = None
+        else:
+                result['contact_person'] = None
         
         # 添加税收信息
-        if self.tax_type_id:
+        if self.tax_rate_id:
             try:
                 from app.models.basic_data import TaxRate
                 from app.extensions import db
-                tax_rate = db.session.query(TaxRate).filter_by(id=self.tax_type_id).first()
+                tax_rate = db.session.query(TaxRate).filter_by(id=self.tax_rate_id).first()
                 if tax_rate:
                     result['tax_name'] = tax_rate.tax_name
                     result['tax_rate'] = float(tax_rate.tax_rate) if tax_rate.tax_rate else 0
@@ -195,12 +198,12 @@ class SalesOrderDetail(TenantModel):
     production_large_quantity = Column(Numeric(15, 4), comment='生产最大数')  # 手工输入
     order_quantity = Column(Numeric(15, 4), nullable=False, comment='订单数量')  # 手工输入
     scheduled_delivery_quantity = Column(Numeric(15, 4), default=0, comment='已安排送货数')  # 新增字段
-    sales_unit_id = Column(UUID(as_uuid=True), comment='销售单位ID')  # 自动，根据选择的产品自动填入
+    sales_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='销售单位ID')  # 自动，根据选择的产品自动填入
     
     # 价格信息（自动计算）
     unit_price = Column(Numeric(15, 4), comment='订单联数')  # 自动
     amount = Column(Numeric(15, 4), comment='订单数量单位')  # 自动
-    unit = Column(String(20), comment='单位')  # 自动，根据选择的产品自动填入，支持修改
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='单位')  # 外键，根据选择的产品自动填入
     estimated_thickness_m = Column(Numeric(10, 4), comment='预测厚M')  # 手工输入
     estimated_weight_kg = Column(Numeric(10, 4), comment='预测厚kg')  # 手工输入
     estimated_volume = Column(Numeric(10, 4), comment='预测厚数')  # 手工输入
@@ -213,8 +216,8 @@ class SalesOrderDetail(TenantModel):
     storage_quantity = Column(Numeric(15, 4), comment='存库数')  # 手工输入
     
     # 税收信息
-    tax_type_id = Column(UUID(as_uuid=True), comment='税收ID')  # 根据选择的产品自动填入
-    currency_id = Column(UUID(as_uuid=True), comment='币种ID')  # 根据选择的产品自动填入
+    tax_rate_id = Column(UUID(as_uuid=True), ForeignKey('tax_rates.id'), comment='税收ID')  # 根据选择的产品自动填入
+    currency_id = Column(UUID(as_uuid=True), ForeignKey('currencies.id'), comment='币种ID')  # 根据选择的产品自动填入
     material_structure = Column(Text, comment='材质结构')  # 自动
     customer_requirements = Column(Text, comment='客户要求')  # 自动
     storage_requirements = Column(Text, comment='存库要求')  # 自动
@@ -225,7 +228,7 @@ class SalesOrderDetail(TenantModel):
     # 外币信息
     foreign_currency_unit_price = Column(Numeric(15, 4), comment='外币单价')  # 手工输入
     foreign_currency_amount = Column(Numeric(15, 4), comment='外币金额')  # 手工输入
-    foreign_currency_id = Column(UUID(as_uuid=True), comment='外币ID')  # 选择
+    foreign_currency_id = Column(UUID(as_uuid=True), ForeignKey('currencies.id'), comment='外币ID')  # 选择
     
     # 生产信息
     internal_delivery_date = Column(DateTime, comment='内部交期')  # 选择
@@ -300,6 +303,11 @@ class SalesOrderDetail(TenantModel):
     # 关联关系
     sales_order = relationship("SalesOrder", back_populates="order_details")
     product = relationship("Product")
+    sales_unit = relationship("Unit", foreign_keys=[sales_unit_id])
+    unit = relationship("Unit", foreign_keys=[unit_id])
+    tax_rate = relationship("TaxRate", foreign_keys=[tax_rate_id])
+    currency = relationship("Currency", foreign_keys=[currency_id])
+    foreign_currency = relationship("Currency", foreign_keys=[foreign_currency_id])
 
     def to_dict(self):
         """转换为字典"""
@@ -318,7 +326,8 @@ class SalesOrderDetail(TenantModel):
             'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
             'unit_price': float(self.unit_price) if self.unit_price else None,
             'amount': float(self.amount) if self.amount else None,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'estimated_thickness_m': float(self.estimated_thickness_m) if self.estimated_thickness_m else None,
             'estimated_weight_kg': float(self.estimated_weight_kg) if self.estimated_weight_kg else None,
             'estimated_volume': float(self.estimated_volume) if self.estimated_volume else None,
@@ -327,7 +336,7 @@ class SalesOrderDetail(TenantModel):
             'usable_inventory': float(self.usable_inventory) if self.usable_inventory else None,
             'insufficient_notice': self.insufficient_notice,
             'storage_quantity': float(self.storage_quantity) if self.storage_quantity else None,
-            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,
             'currency_id': str(self.currency_id) if self.currency_id else None,
             'material_structure': self.material_structure,
             'customer_requirements': self.customer_requirements,
@@ -397,7 +406,22 @@ class SalesOrderDetail(TenantModel):
             result['product'] = {
                 'id': str(self.product.id),
                 'product_code': self.product.product_code,
-                'product_name': self.product.product_name
+                'product_name': self.product.product_name,
+                'unit_id': str(self.product.unit_id) if self.product.unit_id else None,
+                'unit_name': self.product.unit.unit_name if self.product.unit else None
+            }
+        
+        # 添加单位信息
+        if hasattr(self, 'unit') and self.unit:
+            result['unit_info'] = {
+                'id': str(self.unit.id),
+                'unit_name': self.unit.unit_name
+            }
+        
+        if hasattr(self, 'sales_unit') and self.sales_unit:
+            result['sales_unit_info'] = {
+                'id': str(self.sales_unit.id),
+                'unit_name': self.sales_unit.unit_name
             }
         
         return result
@@ -424,9 +448,9 @@ class SalesOrderOtherFee(TenantModel):
     # 价格信息
     price = Column(Numeric(15, 4), comment='价格')  # 手工输入
     quantity = Column(Numeric(15, 4), comment='数量')  # 手工输入
-    unit_id = Column(UUID(as_uuid=True), comment='单位ID')  # 选择，根据单位表选择，外键
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='单位ID')  # 选择，根据单位表选择，外键
     amount = Column(Numeric(15, 4), comment='金额')  # 自动
-    tax_type_id = Column(UUID(as_uuid=True), comment='税收ID')  # 选择，根据税收表选择，外键
+    tax_rate_id = Column(UUID(as_uuid=True), ForeignKey('tax_rates.id'), comment='税收ID')  # 选择，根据税收表选择，外键
     untaxed_price = Column(Numeric(15, 4), comment='未税价格')  # 自动
     untaxed_amount = Column(Numeric(15, 4), comment='未税金额')  # 自动
     tax_amount = Column(Numeric(15, 4), comment='税额')  # 自动
@@ -434,7 +458,7 @@ class SalesOrderOtherFee(TenantModel):
     # 外币信息
     foreign_currency_unit_price = Column(Numeric(15, 4), comment='外币单价')  # 手工输入
     foreign_currency_amount = Column(Numeric(15, 4), comment='外币金额')  # 手工输入
-    foreign_currency_id = Column(UUID(as_uuid=True), comment='外币ID')  # 手工输入
+    foreign_currency_id = Column(UUID(as_uuid=True), ForeignKey('currencies.id'), comment='外币ID')  # 手工输入
     
     # 日期信息
     delivery_date = Column(DateTime, comment='交货日期')  # 选择
@@ -458,6 +482,9 @@ class SalesOrderOtherFee(TenantModel):
     # 关联关系
     sales_order = relationship("SalesOrder", back_populates="other_fees")
     product = relationship("Product")
+    unit = relationship("Unit", foreign_keys=[unit_id])
+    tax_rate = relationship("TaxRate", foreign_keys=[tax_rate_id])
+    foreign_currency = relationship("Currency", foreign_keys=[foreign_currency_id])
 
     def to_dict(self):
         """转换为字典"""
@@ -474,8 +501,9 @@ class SalesOrderOtherFee(TenantModel):
             'price': float(self.price) if self.price else None,
             'quantity': float(self.quantity) if self.quantity else None,
             'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'amount': float(self.amount) if self.amount else None,
-            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,
             'untaxed_price': float(self.untaxed_price) if self.untaxed_price else None,
             'untaxed_amount': float(self.untaxed_amount) if self.untaxed_amount else None,
             'tax_amount': float(self.tax_amount) if self.tax_amount else None,
@@ -523,7 +551,7 @@ class SalesOrderMaterial(TenantModel):
     positive_deviation_percentage = Column(Numeric(5, 2), comment='正偏差%')  # 手工输入
     gift_quantity = Column(Numeric(15, 4), comment='赠送数')  # 手工输入
     quantity = Column(Numeric(15, 4), nullable=False, comment='数量')  # 手工输入
-    unit_id = Column(UUID(as_uuid=True), comment='单位ID')  # 自动
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='单位ID')  # 自动
     auxiliary_quantity = Column(Numeric(15, 4), comment='辅助数')  # 手工输入
     auxiliary_unit_id = Column(UUID(as_uuid=True), comment='辅助单位ID')  # 自动
     
@@ -531,15 +559,15 @@ class SalesOrderMaterial(TenantModel):
     changed_price_before = Column(Numeric(15, 4), comment='变更前价格')  # 手工输入
     price = Column(Numeric(15, 4), comment='价格')  # 自动
     amount = Column(Numeric(15, 4), comment='金额')  # 自动
-    tax_type_id = Column(UUID(as_uuid=True), comment='税收ID')  # 根据税收表选择，外键
-    sales_unit_id = Column(UUID(as_uuid=True), comment='销售单位ID')  # 选择
+    tax_rate_id = Column(UUID(as_uuid=True), ForeignKey('tax_rates.id'), comment='税收ID')  # 根据税收表选择，外键
+    sales_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='销售单位ID')  # 选择
     untaxed_price = Column(Numeric(15, 4), comment='未税价格')  # 自动
     untaxed_amount = Column(Numeric(15, 4), comment='未税金额')  # 自动
     
     # 外币信息
     foreign_currency_unit_price = Column(Numeric(15, 4), comment='外币单价')  # 手工输入
     foreign_currency_amount = Column(Numeric(15, 4), comment='外币金额')  # 手工输入
-    foreign_currency_id = Column(UUID(as_uuid=True), comment='外币ID')  # 手工输入
+    foreign_currency_id = Column(UUID(as_uuid=True), ForeignKey('currencies.id'), comment='外币ID')  # 手工输入
     
     # 日期信息
     delivery_date = Column(DateTime, comment='交货日期')  # 选择
@@ -563,6 +591,10 @@ class SalesOrderMaterial(TenantModel):
     # 关联关系
     sales_order = relationship("SalesOrder", back_populates="material_details")
     material = relationship("Material")
+    unit = relationship("Unit", foreign_keys=[unit_id])
+    sales_unit = relationship("Unit", foreign_keys=[sales_unit_id])
+    tax_rate = relationship("TaxRate", foreign_keys=[tax_rate_id])
+    foreign_currency = relationship("Currency", foreign_keys=[foreign_currency_id])
 
     def to_dict(self):
         """转换为字典"""
@@ -575,12 +607,13 @@ class SalesOrderMaterial(TenantModel):
             'gift_quantity': float(self.gift_quantity) if self.gift_quantity else None,
             'quantity': float(self.quantity) if self.quantity else None,
             'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'auxiliary_quantity': float(self.auxiliary_quantity) if self.auxiliary_quantity else None,
             'auxiliary_unit_id': str(self.auxiliary_unit_id) if self.auxiliary_unit_id else None,
             'changed_price_before': float(self.changed_price_before) if self.changed_price_before else None,
             'price': float(self.price) if self.price else None,
             'amount': float(self.amount) if self.amount else None,
-            'tax_type_id': str(self.tax_type_id) if self.tax_type_id else None,
+            'tax_rate_id': str(self.tax_rate_id) if self.tax_rate_id else None,
             'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
             'untaxed_price': float(self.untaxed_price) if self.untaxed_price else None,
             'untaxed_amount': float(self.untaxed_amount) if self.untaxed_amount else None,
@@ -677,12 +710,14 @@ class DeliveryNoticeDetail(TenantModel):
     product_code = Column(String(50), comment='产品编号')
     specification = Column(Text, comment='规格')
     auxiliary_quantity = Column(Numeric(15, 4), comment='订单辅数')
-    sales_unit = Column(String(20), comment='销售单位')
+    sales_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='销售单位ID')
     order_quantity = Column(Numeric(15, 4), comment='订单数量')
     notice_quantity = Column(Numeric(15, 4), comment='通知数量')
+    already_outbound_quantity = Column(Numeric(15, 4), comment='已出库数量')
+    pending_outbound_quantity = Column(Numeric(15, 4), comment='待出库数量')
     gift_quantity = Column(Numeric(15, 4), comment='赠送数')
     inventory_quantity = Column(Numeric(15, 4), comment='库存数')
-    unit = Column(String(20), comment='单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='单位ID')
     price = Column(Numeric(15, 4), comment='价格')
     amount = Column(Numeric(15, 4), comment='金额')
     negative_deviation_percentage = Column(Numeric(5, 2), comment='负偏差%')
@@ -715,30 +750,104 @@ class DeliveryNoticeDetail(TenantModel):
     # 关联关系
     delivery_notice = relationship("DeliveryNotice", back_populates="details")
     product = relationship("Product", backref="delivery_notice_details")
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+    sales_unit = relationship("Unit", foreign_keys=[sales_unit_id], lazy='select')
 
     def to_dict(self):
-        """将模型对象转换为字典"""
-        data = {c.name: getattr(self, c.name) for c in self.__table__.columns}
-        # 格式化特殊字段
-        data['id'] = str(self.id)
-        data['delivery_notice_id'] = str(self.delivery_notice_id)
-        data['product_id'] = str(self.product_id) if self.product_id else None
-        data['order_delivery_date'] = self.order_delivery_date.isoformat() if self.order_delivery_date else None
-        data['internal_delivery_date'] = self.internal_delivery_date.isoformat() if self.internal_delivery_date else None
-        data['created_at'] = self.created_at.isoformat() if self.created_at else None
-        data['updated_at'] = self.updated_at.isoformat() if self.updated_at else None
-        data['created_by'] = str(self.created_by) if self.created_by else None
-        data['updated_by'] = str(self.updated_by) if self.updated_by else None
+        """转换为字典"""
+        result = {
+            # 基本信息
+            'id': str(self.id),
+            'delivery_notice_id': str(self.delivery_notice_id),
+            
+            # 产品信息
+            'product_id': str(self.product_id) if self.product_id else None,
+            'product_name': self.product_name,
+            'product_code': self.product_code,
+            'specification': self.specification,
+            'product_category': self.product_category,
+            
+            # 数量信息
+            'auxiliary_quantity': float(self.auxiliary_quantity) if self.auxiliary_quantity else None,
+            'order_quantity': float(self.order_quantity) if self.order_quantity else None,
+            'notice_quantity': float(self.notice_quantity) if self.notice_quantity else None,
+            'already_outbound_quantity': float(self.already_outbound_quantity) if self.already_outbound_quantity else None,
+            'pending_outbound_quantity': float(self.pending_outbound_quantity) if self.pending_outbound_quantity else None,
+            'gift_quantity': float(self.gift_quantity) if self.gift_quantity else None,
+            'inventory_quantity': float(self.inventory_quantity) if self.inventory_quantity else None,
+            'pcs': self.pcs,
+            'production_min_quantity': float(self.production_min_quantity) if self.production_min_quantity else None,
+            'production_max_quantity': float(self.production_max_quantity) if self.production_max_quantity else None,
+            'box_count': self.box_count,
+            
+            # 单位信息
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
+            'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'sales_unit_name': self.sales_unit.unit_name if self.sales_unit else None,
+            
+            # 价格信息
+            'price': float(self.price) if self.price else None,
+            'amount': float(self.amount) if self.amount else None,
+            'foreign_currency_unit_price': float(self.foreign_currency_unit_price) if self.foreign_currency_unit_price else None,
+            'foreign_currency_amount': float(self.foreign_currency_amount) if self.foreign_currency_amount else None,
+            'tax_amount': float(self.tax_amount) if self.tax_amount else None,
+            'discount_amount': float(self.discount_amount) if self.discount_amount else None,
+            'notify_undiscount_amount': float(self.notify_undiscount_amount) if self.notify_undiscount_amount else None,
+            
+            # 偏差信息
+            'negative_deviation_percentage': float(self.negative_deviation_percentage) if self.negative_deviation_percentage else None,
+            'positive_deviation_percentage': float(self.positive_deviation_percentage) if self.positive_deviation_percentage else None,
+            
+            # 日期信息
+            'order_delivery_date': self.order_delivery_date.isoformat() if self.order_delivery_date else None,
+            'internal_delivery_date': self.internal_delivery_date.isoformat() if self.internal_delivery_date else None,
+            
+            # 订单信息
+            'work_order_number': self.work_order_number,
+            'sales_order_number': self.sales_order_number,
+            'customer_order_number': self.customer_order_number,
+            'customer_code': self.customer_code,
+            
+            # 产品属性
+            'material_structure': self.material_structure,
+            'outer_box': self.outer_box,
+            'plate_type': self.plate_type,
+            'grade': self.grade,
+            
+            # 其他信息
+            'total_area': float(self.total_area) if self.total_area else None,
+            'sort_order': self.sort_order,
+            
+            # 审计字段
+            'created_by': str(self.created_by) if self.created_by else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
         
-        # 格式化数字字段
-        for key in ['auxiliary_quantity', 'order_quantity', 'notice_quantity', 'gift_quantity', 'inventory_quantity', 'price', 'amount', 'negative_deviation_percentage', 'positive_deviation_percentage', 'production_min_quantity', 'production_max_quantity', 'tax_amount', 'foreign_currency_unit_price', 'foreign_currency_amount', 'total_area', 'discount_amount', 'notify_undiscount_amount']:
-            if data.get(key) is not None:
-                data[key] = float(data[key])
-
+        # 添加产品详细信息
         if self.product:
-            data['product'] = {
+            result['product'] = {
                 'id': str(self.product.id),
                 'product_name': self.product.product_name,
-                'product_code': self.product.product_code
+                'product_code': self.product.product_code,
+                'specification': self.product.specification if hasattr(self.product, 'specification') else None,
+                'unit_id': str(self.product.unit_id) if self.product.unit_id else None,
+                'unit_name': self.product.unit.unit_name if self.product.unit else None
             }
-        return data 
+        
+        # 添加单位详细信息
+        if self.unit:
+            result['unit_info'] = {
+                'id': str(self.unit.id),
+                'unit_name': self.unit.unit_name
+            }
+        
+        if self.sales_unit:
+            result['sales_unit_info'] = {
+                'id': str(self.sales_unit.id),
+                'unit_name': self.sales_unit.unit_name
+            }
+        
+        return result 

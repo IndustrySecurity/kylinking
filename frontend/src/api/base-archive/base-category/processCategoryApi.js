@@ -5,7 +5,7 @@ export const processCategoryApi = {
   // 获取工序分类列表
   getProcessCategories: (params) => {
     return request({
-      url: '/tenant/base-archive/base-category/process-categories',
+      url: '/tenant/base-archive/base-category/process-categories/',
       method: 'get',
       params
     });
@@ -22,7 +22,7 @@ export const processCategoryApi = {
   // 创建工序分类
   createProcessCategory: (data) => {
     return request({
-      url: '/tenant/base-archive/base-category/process-categories',
+      url: '/tenant/base-archive/base-category/process-categories/',
       method: 'post',
       data
     });

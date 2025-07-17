@@ -114,37 +114,37 @@ class ProductManagementService(TenantAwareService):
             structures = self.session.query(ProductStructure).filter(
                 ProductStructure.product_id == product.id
             ).all()
-            product_dict['structures'] = [structure.to_dict() for structure in structures]
+            product_dict['structures'] = [structure.to_dict() for structure in structures] if structures else []
             
             # 获取客户需求
             requirements = self.session.query(ProductCustomerRequirement).filter(
                 ProductCustomerRequirement.product_id == product.id
             ).all()
-            product_dict['customer_requirements'] = [req.to_dict() for req in requirements]
+            product_dict['customer_requirements'] = [req.to_dict() for req in requirements] if requirements else []
             
             # 获取工序
             processes = self.session.query(ProductProcess).filter(
                 ProductProcess.product_id == product.id
             ).order_by(ProductProcess.sort_order).all()
-            product_dict['product_processes'] = [process.to_dict() for process in processes]
+            product_dict['product_processes'] = [process.to_dict() for process in processes] if processes else []
             
             # 获取材料
             materials = self.session.query(ProductMaterial).filter(
                 ProductMaterial.product_id == product.id
             ).order_by(ProductMaterial.sort_order).all()
-            product_dict['product_materials'] = [material.to_dict() for material in materials]
+            product_dict['product_materials'] = [material.to_dict() for material in materials] if materials else []
             
             # 获取理化指标
             quality_indicators = self.session.query(ProductQualityIndicator).filter(
                 ProductQualityIndicator.product_id == product.id
             ).all()
-            product_dict['quality_indicators'] = [qi.to_dict() for qi in quality_indicators]
+            product_dict['quality_indicators'] = [qi.to_dict() for qi in quality_indicators] if quality_indicators else []
             
             # 获取图片
             images = self.session.query(ProductImage).filter(
                 ProductImage.product_id == product.id
             ).order_by(ProductImage.sort_order).all()
-            product_dict['product_images'] = [image.to_dict() for image in images]
+            product_dict['product_images'] = [image.to_dict() for image in images] if images else []
             
             return product_dict
             
@@ -175,6 +175,7 @@ class ProductManagementService(TenantAwareService):
                 'brand': data.get('brand'),
                 'model': data.get('model'),
                 'specification': data.get('specification'),
+                'unit_id': uuid.UUID(data['unit_id']) if data.get('unit_id') else None,
                 
                 # 产品管理界面字段
                 'customer_id': uuid.UUID(data['customer_id']) if data.get('customer_id') else None,
@@ -206,8 +207,7 @@ class ProductManagementService(TenantAwareService):
                 'tensile_strength': data.get('tensile_strength'),
                 
                 # 包装信息
-                'base_unit': data.get('base_unit', 'm²'),
-                'package_unit': data.get('package_unit'),
+                'package_unit_id': data.get('package_unit_id'),
                 'conversion_rate': data.get('conversion_rate', 1),
                 'net_weight': data.get('net_weight'),
                 'gross_weight': data.get('gross_weight'),
@@ -293,8 +293,19 @@ class ProductManagementService(TenantAwareService):
             
             # 更新字段
             for key, value in data.items():
+                # 跳过子表关系字段，避免赋值给关系属性
+                if key in ['product_processes', 'product_materials', 'structure', 'customer_requirements', 'quality_indicators', 'product_images', 'structures']:
+                    continue
                 if hasattr(product, key):
-                    setattr(product, key, value)
+                    # 处理外键字段的UUID转换
+                    if key in ['category_id', 'unit_id', 'customer_id', 'bag_type_id', 'salesperson_id', 'package_unit_id'] and value:
+                        try:
+                            setattr(product, key, uuid.UUID(value))
+                        except (ValueError, TypeError):
+                            # 如果UUID转换失败，跳过这个字段
+                            continue
+                    else:
+                        setattr(product, key, value)
             
             product.updated_by = uuid.UUID(updated_by)
             
@@ -397,13 +408,16 @@ class ProductManagementService(TenantAwareService):
             # 删除现有结构
             self.session.query(ProductStructure).filter(ProductStructure.product_id == product_id).delete()
             
-            # 创建新结构
-            if structure_data:
-                new_structure_data = {
-                    'product_id': product_id,
-                    **structure_data
-                }
-                self.create_with_tenant(ProductStructure, **new_structure_data)
+            # 创建新结构 - 只有当structure_data不为空且包含有效数据时才创建
+            if structure_data and isinstance(structure_data, dict) and len(structure_data) > 0:
+                # 检查是否有任何非空值
+                has_valid_data = any(value is not None and value != '' for value in structure_data.values())
+                if has_valid_data:
+                    new_structure_data = {
+                        'product_id': product_id,
+                        **structure_data
+                    }
+                    self.create_with_tenant(ProductStructure, **new_structure_data)
                 
         except Exception as e:
             raise ValueError(f"保存产品结构失败: {str(e)}")
@@ -416,13 +430,16 @@ class ProductManagementService(TenantAwareService):
                 ProductCustomerRequirement.product_id == product_id
             ).delete()
             
-            # 创建新需求
-            if requirements_data:
-                new_requirement_data = {
-                    'product_id': product_id,
-                    **requirements_data
-                }
-                self.create_with_tenant(ProductCustomerRequirement, **new_requirement_data)
+            # 创建新需求 - 只有当requirements_data不为空且包含有效数据时才创建
+            if requirements_data and isinstance(requirements_data, dict) and len(requirements_data) > 0:
+                # 检查是否有任何非空值
+                has_valid_data = any(value is not None and value != '' for value in requirements_data.values())
+                if has_valid_data:
+                    new_requirement_data = {
+                        'product_id': product_id,
+                        **requirements_data
+                    }
+                    self.create_with_tenant(ProductCustomerRequirement, **new_requirement_data)
                 
         except Exception as e:
             raise ValueError(f"保存客户需求失败: {str(e)}")
@@ -433,18 +450,20 @@ class ProductManagementService(TenantAwareService):
             # 删除现有工序
             self.session.query(ProductProcess).filter(ProductProcess.product_id == product_id).delete()
             
-            # 创建新工序
-            for process_data in processes_data:
-                new_process_data = {
-                    'product_id': product_id,
-                    'process_id': uuid.UUID(process_data['process_id']),
-                    'sort_order': process_data.get('sort_order', 0),
-                    'is_required': process_data.get('is_required', True),
-                    'duration_hours': process_data.get('duration_hours'),
-                    'cost_per_unit': process_data.get('cost_per_unit'),
-                    'notes': process_data.get('notes')
-                }
-                self.create_with_tenant(ProductProcess, **new_process_data)
+            # 创建新工序 - 确保processes_data是列表
+            if processes_data and isinstance(processes_data, list):
+                for process_data in processes_data:
+                    if isinstance(process_data, dict) and 'process_id' in process_data:
+                        new_process_data = {
+                            'product_id': product_id,
+                            'process_id': uuid.UUID(process_data['process_id']),
+                            'sort_order': process_data.get('sort_order', 0),
+                            'is_required': process_data.get('is_required', True),
+                            'duration_hours': process_data.get('duration_hours'),
+                            'cost_per_unit': process_data.get('cost_per_unit'),
+                            'notes': process_data.get('notes')
+                        }
+                        self.create_with_tenant(ProductProcess, **new_process_data)
                 
         except Exception as e:
             raise ValueError(f"保存产品工序失败: {str(e)}")
@@ -455,20 +474,22 @@ class ProductManagementService(TenantAwareService):
             # 删除现有材料
             self.session.query(ProductMaterial).filter(ProductMaterial.product_id == product_id).delete()
             
-            # 创建新材料
-            for material_data in materials_data:
-                new_material_data = {
-                    'product_id': product_id,
-                    'material_id': uuid.UUID(material_data['material_id']),
-                    'usage_quantity': material_data.get('usage_quantity'),
-                    'usage_unit': material_data.get('usage_unit'),
-                    'sort_order': material_data.get('sort_order', 0),
-                    'is_main_material': material_data.get('is_main_material', False),
-                    'cost_per_unit': material_data.get('cost_per_unit'),
-                    'supplier_id': uuid.UUID(material_data['supplier_id']) if material_data.get('supplier_id') else None,
-                    'notes': material_data.get('notes')
-                }
-                self.create_with_tenant(ProductMaterial, **new_material_data)
+            # 创建新材料 - 确保materials_data是列表
+            if materials_data and isinstance(materials_data, list):
+                for material_data in materials_data:
+                    if isinstance(material_data, dict) and 'material_id' in material_data:
+                        new_material_data = {
+                            'product_id': product_id,
+                            'material_id': uuid.UUID(material_data['material_id']),
+                            'usage_quantity': material_data.get('usage_quantity'),
+                            'usage_unit': material_data.get('usage_unit'),
+                            'sort_order': material_data.get('sort_order', 0),
+                            'is_main_material': material_data.get('is_main_material', False),
+                            'cost_per_unit': material_data.get('cost_per_unit'),
+                            'supplier_id': uuid.UUID(material_data['supplier_id']) if material_data.get('supplier_id') else None,
+                            'notes': material_data.get('notes')
+                        }
+                        self.create_with_tenant(ProductMaterial, **new_material_data)
                 
         except Exception as e:
             raise ValueError(f"保存产品材料失败: {str(e)}")
@@ -591,12 +612,23 @@ class ProductManagementService(TenantAwareService):
             except Exception as e:
                 self.logger.error(f"获取工序失败: {str(e)}")
                 processes = []
+
+            # 获取单位
+            units = []
+            try:
+                from app.models.basic_data import Unit
+                units = self.session.query(Unit).filter(
+                    Unit.is_enabled == True
+                ).order_by(Unit.unit_name).all()
+            except Exception as e:
+                self.logger.error(f"获取单位失败: {str(e)}")
+                units = []
             
             SCHEDULING_METHODS = [
                 ('investment_m', '投产m'),
                 ('investment_kg', '投产kg'),
                 ('production_piece', '投产(个)'),
-                ('production_output', '产出m'),
+                ('production_m', '产出m'),
                 ('production_kg', '产出kg'),
                 ('production_piece_out', '产出(个)'),
                 ('production_set', '产出(套)'),
@@ -631,6 +663,10 @@ class ProductManagementService(TenantAwareService):
                 'materials': [
                     {'value': str(mat.id), 'label': mat.material_name,'material_code': mat.material_code, 'material_category_name': mat.material_category.material_name, 'material_attribute': mat.material_category.material_type}
                     for mat in materials
+                ],
+                'units': [
+                    {'value': str(unit.id), 'label': unit.unit_name}
+                    for unit in units
                 ],
                 'product_types': [
                     {'value': 'finished', 'label': '成品'},

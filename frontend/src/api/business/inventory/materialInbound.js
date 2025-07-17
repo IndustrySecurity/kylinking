@@ -6,7 +6,6 @@ const API_BASE = '/tenant/business/inventory/material-inbound';
 export const materialInboundService = {
   // 获取入库单列表
   getInboundOrderList: (params = {}) => {
-    console.log("params",params);
     return request.get(`${API_BASE}/inbound-orders`, { params });
   },
 
@@ -94,7 +93,7 @@ export const baseDataService = {
 
   // 获取材料选项
   getMaterials: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/material-management', { params });
+    return request.get('/tenant/base-archive/base-data/material-management/', { params });
   },
 
   // 获取部门选项
@@ -109,7 +108,7 @@ export const baseDataService = {
 
   // 获取供应商列表
   getSuppliers: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/suppliers', { params });
+    return request.get('/tenant/base-archive/base-data/suppliers/', { params });
   },
 
   // 获取单位选项
@@ -122,7 +121,7 @@ export const baseDataService = {
 export const inventoryService = {
   // 获取库存列表
   getInventoryList: (params = {}) => {
-    return request.get('/tenant/business/inventory/inventories', { params });
+    return request.get('/tenant/business/inventory/inventories/', { params });
   },
 
   // 获取库存详情
@@ -132,7 +131,7 @@ export const inventoryService = {
 
   // 获取库存事务记录
   getInventoryTransactions: (params = {}) => {
-    return request.get('/tenant/business/inventory/inventory-transactions', { params });
+    return request.get('/tenant/business/inventory/inventory-transactions/', { params });
   },
 
   // 预留库存

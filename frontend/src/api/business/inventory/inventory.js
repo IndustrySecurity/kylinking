@@ -21,7 +21,7 @@ export const inventoryService = {
 
   // 获取库存事务记录
   getInventoryTransactions: (params = {}) => {
-    return request.get(`${API_BASE}/inventory-transactions`, { params });
+    return request.get(`${API_BASE}/inventory-transactions/`, { params });
   },
 
   // 预留库存
@@ -41,7 +41,7 @@ export const inventoryService = {
 
   // 创建库存记录
   createInventory: (data) => {
-    return request.post(`${API_BASE}/inventories`, data);
+    return request.post(`${API_BASE}/inventories/`, data);
   },
 
   // 更新库存记录
@@ -69,7 +69,7 @@ export const baseDataService = {
 
   // 获取产品选项
   getProducts: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/product-management', { params });
+    return request.get('/tenant/base-archive/base-data/product-management/', { params });
   },
 
   // 获取部门选项
@@ -84,17 +84,17 @@ export const baseDataService = {
 
   // 获取供应商列表
   getSuppliers: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/suppliers', { params });
+    return request.get('/tenant/base-archive/base-data/suppliers/', { params });
   },
 
   // 获取客户列表
   getCustomers: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/customers', { params });
+    return request.get('/tenant/base-archive/base-data/customers/', { params });
   },
 
   // 获取材料列表
   getMaterials: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/material-management', { params });
+    return request.get('/tenant/base-archive/base-data/material-management/', { params });
   }
 };
 
@@ -102,12 +102,12 @@ export const baseDataService = {
 export const materialInboundService = {
   // 获取材料入库列表
   getMaterialInboundList: (params = {}) => {
-    return request.get(`${API_BASE}/material-inbound/material-inbound`, { params });
+    return request.get(`${API_BASE}/material-inbound/material-inbound/`, { params });
   },
 
   // 创建材料入库单
   createMaterialInbound: (data) => {
-    return request.post(`${API_BASE}/material-inbound/material-inbound`, data);
+    return request.post(`${API_BASE}/material-inbound/material-inbound/`, data);
   },
 
   // 更新材料入库单
@@ -125,12 +125,12 @@ export const materialInboundService = {
 export const materialOutboundService = {
   // 获取材料出库列表
   getMaterialOutboundList: (params = {}) => {
-    return request.get(`${API_BASE}/material-outbound/material-outbound`, { params });
+    return request.get(`${API_BASE}/material-outbound/material-outbound/`, { params });
   },
 
   // 创建材料出库单
   createMaterialOutbound: (data) => {
-    return request.post(`${API_BASE}/material-outbound/material-outbound`, data);
+    return request.post(`${API_BASE}/material-outbound/material-outbound/`, data);
   },
 
   // 更新材料出库单
@@ -148,12 +148,12 @@ export const materialOutboundService = {
 export const productCountService = {
   // 获取盘点列表
   getProductCountList: (params = {}) => {
-    return request.get(`${API_BASE}/product-count/product-count`, { params });
+    return request.get(`${API_BASE}/product-count/product-count/`, { params });
   },
 
   // 创建盘点单
   createProductCount: (data) => {
-    return request.post(`${API_BASE}/product-count/product-count`, data);
+    return request.post(`${API_BASE}/product-count/product-count/`, data);
   },
 
   // 更新盘点单

@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取报损类型列表
 export const getLossTypes = (params) => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/loss-types',
+    url: '/tenant/base-archive/production/production-archive/loss-types/',
     method: 'get',
     params
   });
@@ -28,7 +28,7 @@ export const getLossType = (id) => {
 // 创建报损类型
 export const createLossType = (data) => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/loss-types',
+    url: '/tenant/base-archive/production/production-archive/loss-types/',
     method: 'post',
     data
   });

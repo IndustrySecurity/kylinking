@@ -66,9 +66,7 @@ def create_delivery_notice():
         # 创建服务实例
         delivery_notice_service = DeliveryNoticeService()
         
-        data = request.get_json()
-        
-        # sales_order_id 可以为空，允许手工录入产品
+        data = request.get_json()      
         
         # 处理日期字段
         if data.get('delivery_date'):

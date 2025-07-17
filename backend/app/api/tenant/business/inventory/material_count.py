@@ -175,10 +175,10 @@ def complete_material_count_order(count_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/material-count-orders/plans/<plan_id>/adjust', methods=['POST'])
+@bp.route('/material-count-orders/<order_id>/adjust', methods=['POST'])
 @jwt_required()
 @tenant_required
-def adjust_material_count_inventory(plan_id):
+def adjust_material_count_inventory(order_id):
     """调整材料盘点库存"""
     try:
         current_user_id = get_jwt_identity()
@@ -186,7 +186,7 @@ def adjust_material_count_inventory(plan_id):
         
         from app.services.business.inventory.material_count_service import MaterialCountService
         service = MaterialCountService()
-        result = service.adjust_material_count_inventory(plan_id, current_user_id)
+        result = service.adjust_material_count_inventory(order_id, current_user_id)
         
         return jsonify({
             'success': True,

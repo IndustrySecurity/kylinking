@@ -47,10 +47,16 @@ import { materialOutboundService, baseDataService } from '../../../api/business/
 
 // 确保明细数据每一项都有唯一的key
 function ensureDetailKeys(details) {
-  return (details || []).map((item, idx) => ({
-    ...item,
-    key: item.key || item.id || `${item.material_id || 'row'}-${idx}-${Date.now()}-${Math.random()}`
-  }));
+  return (details || []).map((item, idx) => {
+    // 清理SQLAlchemy内部属性
+    const cleanItem = { ...item };
+    delete cleanItem._sa_instance_state;
+    
+    return {
+      ...cleanItem,
+      key: cleanItem.key || cleanItem.id || `${cleanItem.material_id || 'row'}-${idx}-${Date.now()}-${Math.random()}`
+    };
+  });
 }
 
 // 扩展dayjs插件
@@ -138,6 +144,7 @@ const MaterialOutbound = ({ onBack }) => {
   const [searchForm] = Form.useForm();
   const [warehouses, setWarehouses] = useState([]);
   const [materials, setMaterials] = useState([]);
+  const [units, setUnits] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [details, setDetails] = useState([]);
@@ -169,6 +176,7 @@ const MaterialOutbound = ({ onBack }) => {
       await Promise.all([
         fetchWarehouses(),
         fetchMaterials(), 
+        fetchUnits(),
         fetchEmployees(),
         fetchDepartments()
       ]);
@@ -268,6 +276,22 @@ const MaterialOutbound = ({ onBack }) => {
     }
   };
 
+  // 获取单位列表
+  const fetchUnits = async () => {
+    try {
+      const response = await baseDataService.getUnits();
+      if (response.data?.success) {
+        setUnits(response.data.data || []);
+      } else {
+        console.warn('单位API返回失败:', response.data);
+        setUnits([]);
+      }
+    } catch (error) {
+      console.error('获取单位列表失败:', error);
+      setUnits([]);
+    }
+  };
+
   // 获取员工列表
   const fetchEmployees = async () => {
     try {
@@ -347,7 +371,15 @@ const MaterialOutbound = ({ onBack }) => {
     try {
       const response = await materialOutboundService.getOutboundOrderById(orderId);
       if (response.data.success || response.data.code === 200) {
-        setDetails(ensureDetailKeys(response.data.data.details || []));
+        const rawDetails = response.data.data.details || [];
+        // 清理明细数据，移除SQLAlchemy的内部属性
+        const cleanDetails = rawDetails.map(detail => {
+          const cleanDetail = { ...detail };
+          // 删除SQLAlchemy的内部属性
+          delete cleanDetail._sa_instance_state;
+          return cleanDetail;
+        });
+        setDetails(ensureDetailKeys(cleanDetails));
       } else {
         message.error(response.data.message || '获取详情失败');
       }
@@ -362,6 +394,27 @@ const MaterialOutbound = ({ onBack }) => {
     try {
       const values = await form.validateFields();
       
+      // 清理明细数据，移除SQLAlchemy的内部属性
+      const cleanDetails = details.map(detail => {
+        const cleanDetail = { ...detail };
+        // 删除SQLAlchemy和React的内部属性
+        delete cleanDetail._sa_instance_state;
+        delete cleanDetail.key;
+        // 确保必要字段存在
+        return {
+          material_id: cleanDetail.material_id,
+          material_name: cleanDetail.material_name,
+          material_code: cleanDetail.material_code,
+          specification: cleanDetail.specification,
+          outbound_quantity: cleanDetail.outbound_quantity,
+          unit: cleanDetail.unit,
+          unit_id: cleanDetail.unit_id,
+          batch_number: cleanDetail.batch_number,
+          location_code: cleanDetail.location_code,
+          remarks: cleanDetail.remarks
+        };
+      });
+      
       // 构建订单数据，确保字段格式正确
       const orderData = {
         warehouse_id: values.warehouse_id,
@@ -372,17 +425,7 @@ const MaterialOutbound = ({ onBack }) => {
         source_order_type: values.source_order_type,
         source_order_number: values.source_order_number,
         remarks: values.remarks,
-        details: details.map(detail => ({
-          material_id: detail.material_id,
-          material_name: detail.material_name,
-          material_code: detail.material_code,
-          specification: detail.specification,
-          outbound_quantity: detail.outbound_quantity,
-          unit: detail.unit,
-          batch_number: detail.batch_number,
-          location_code: detail.location_code,
-          remarks: detail.remarks
-        }))
+        details: cleanDetails
       };
 
       let response;
@@ -516,7 +559,12 @@ const MaterialOutbound = ({ onBack }) => {
   // 编辑明细
   const editDetail = (record) => {
     setCurrentDetail(record);
-    detailForm.setFieldsValue(record);
+    // 确保unit_id字段正确设置
+    const formValues = {
+      ...record,
+      unit_id: record.unit_id || (record.unit ? units.find(u => u.unit_name === record.unit)?.id : null)
+    };
+    detailForm.setFieldsValue(formValues);
     setDetailModalVisible2(true);
   };
 
@@ -537,15 +585,21 @@ const MaterialOutbound = ({ onBack }) => {
   // 明细提交
   const handleDetailSubmit = async (values) => {
     if (currentDetail) {
-      // 编辑模式
+      // 编辑模式 - 清理currentDetail中的SQLAlchemy属性
+      const cleanCurrentDetail = { ...currentDetail };
+      delete cleanCurrentDetail._sa_instance_state;
+      delete cleanCurrentDetail.key;
+      
       const material = materials.find(m => m.id === values.material_id);
+      const unit = units.find(u => u.unit_name === (material?.unit_name || material?.unit || values.unit));
       const updatedDetail = {
-        ...currentDetail,
+        ...cleanCurrentDetail,
         ...values,
         material_name: material?.material_name || material?.name || values.material_name || '',
         material_code: material?.material_code || material?.code || values.material_code || '',
         specification: material?.specification_model || material?.specification || values.specification || '',
-        unit: material?.unit_name || material?.unit || values.unit || ''
+        unit: material?.unit_name || material?.unit || values.unit || '',
+        unit_id: unit?.id || values.unit_id || null
       };
       const response = await materialOutboundService.updateOutboundOrderDetail(currentRecord.id, currentDetail.id, updatedDetail);
       if (response.data.code === 200 || response.data.success) {
@@ -559,8 +613,23 @@ const MaterialOutbound = ({ onBack }) => {
     } else {
       // 新增模式
       if (currentRecord) {
-        const response = await materialOutboundService.createOutboundOrderDetail(currentRecord.id, values);
+        const material = materials.find(m => m.id === values.material_id);
+        const unit = units.find(u => u.unit_name === (material?.unit_name || material?.unit || values.unit));
+        const response = await materialOutboundService.createOutboundOrderDetail(currentRecord.id, {
+          ...values,
+          unit_id: unit?.id || values.unit_id || null
+        });
         if (response.data.code === 200 || response.data.success) {
+          const newDetail = {
+            ...values,
+            key: `${Date.now()}-${Math.random()}`,
+            material_id: values.material_id,
+            material_name: material?.material_name || material?.name || values.material_name || '',
+            material_code: material?.material_code || material?.code || values.material_code || '',
+            specification: material?.specification_model || material?.specification || values.specification || '',
+            unit: material?.unit_name || material?.unit || values.unit || '',
+            unit_id: unit?.id || values.unit_id || null
+          };
           message.success('新增成功');
           setDetails(prev => ensureDetailKeys([...prev, newDetail]));
         } else {
@@ -568,6 +637,7 @@ const MaterialOutbound = ({ onBack }) => {
         }
       } else {
         const material = materials.find(m => m.id === values.material_id);
+        const unit = units.find(u => u.unit_name === (material?.unit_name || material?.unit || values.unit));
         const newDetail = {
           ...values,
           key: `${Date.now()}-${Math.random()}`,
@@ -575,7 +645,8 @@ const MaterialOutbound = ({ onBack }) => {
           material_name: material?.material_name || material?.name || values.material_name || '',
           material_code: material?.material_code || material?.code || values.material_code || '',
           specification: material?.specification_model || material?.specification || values.specification || '',
-          unit: material?.unit_name || material?.unit || values.unit || ''
+          unit: material?.unit_name || material?.unit || values.unit || '',
+          unit_id: unit?.id || values.unit_id || null
         };
         setDetails(prev => ensureDetailKeys([...prev, newDetail]));
         message.success('新增成功');
@@ -1052,9 +1123,8 @@ const MaterialOutbound = ({ onBack }) => {
             </Col>
             <Col span={12}>
                   <Form.Item
-                name="outbound_person_id"
+                    name="outbound_person_id"
                     label="出库人"
-                    rules={[{ required: true, message: '请选择出库人' }]}
                   >
                     <Select
                       showSearch
@@ -1087,7 +1157,6 @@ const MaterialOutbound = ({ onBack }) => {
                   <Form.Item
                     name="department_id"
                     label="部门"
-                    rules={[{ required: true, message: '请选择部门' }]}
                   >
                     <Select
                       showSearch
@@ -1278,11 +1347,14 @@ const MaterialOutbound = ({ onBack }) => {
                   onChange={(value) => {
                     const material = materials.find(m => m.id === value);
                     if (material) {
+                      // 查找对应的单位ID
+                      const unit = units.find(u => u.unit_name === (material.unit_name || material.unit));
                       detailForm.setFieldsValue({
                         material_name: material.material_name || material.name,
                         material_code: material.material_code || material.code,
                         specification: material.specification_model || material.specification,
-                        unit: material.unit_name || material.unit || ''
+                        unit: material.unit_name || material.unit || '',
+                        unit_id: unit?.id || null
                       });
                     }
                   }}

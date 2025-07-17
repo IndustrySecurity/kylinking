@@ -19,6 +19,7 @@ from flask import g, current_app
 import logging
 import uuid
 from app.services.base_service import TenantAwareService
+from app.models.basic_data import Unit
 
 logger = logging.getLogger(__name__)
 
@@ -232,12 +233,27 @@ class MaterialInboundService(TenantAwareService):
         # 创建明细
         if details_data:
             for detail_data in details_data:
+                # 处理unit_id字段
+                unit_id = detail_data.get('unit_id')
+                if not unit_id and detail_data.get('unit'):
+                    # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+                    unit = self.get_session().query(Unit).filter(Unit.unit_name == detail_data['unit']).first()
+                    if unit:
+                        unit_id = unit.id
+                    else:
+                        # 如果找不到对应的单位，使用默认单位
+                        default_unit = self.get_session().query(Unit).filter(Unit.unit_name == '').first()
+                        unit_id = default_unit.id if default_unit else None
+                
+                if not unit_id:
+                    raise ValueError(f"明细缺少必需的unit_id参数")
+                
                 detail = MaterialInboundOrderDetail(
                     material_inbound_order_id=order.id,
                     inbound_quantity=Decimal(detail_data['inbound_quantity']),
-                    unit=detail_data['unit'],
+                    unit_id=uuid.UUID(unit_id) if isinstance(unit_id, str) else unit_id,
                     created_by=created_by_uuid,
-                    **{k: v for k, v in detail_data.items() if k not in ['inbound_quantity', 'unit']}
+                    **{k: v for k, v in detail_data.items() if k not in ['inbound_quantity', 'unit', 'unit_id']}
                 )
                 self.get_session().add(detail)
         
@@ -298,6 +314,21 @@ class MaterialInboundService(TenantAwareService):
             # 添加新明细
             for detail_data in details_data:
                 if detail_data.get('material_id') and detail_data.get('inbound_quantity'):
+                    # 处理unit_id字段
+                    unit_id = detail_data.get('unit_id')
+                    if not unit_id and detail_data.get('unit'):
+                        # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+                        unit = self.get_session().query(Unit).filter(Unit.unit_name == detail_data['unit']).first()
+                        if unit:
+                            unit_id = unit.id
+                        else:
+                            # 如果找不到对应的单位，使用默认单位
+                            default_unit = self.get_session().query(Unit).filter(Unit.unit_name == '个').first()
+                            unit_id = default_unit.id if default_unit else None
+                    
+                    if not unit_id:
+                        raise ValueError(f"明细缺少必需的unit_id参数")
+                    
                     detail = MaterialInboundOrderDetail(
                         material_inbound_order_id=order.id,
                         material_id=uuid.UUID(detail_data['material_id']),
@@ -308,7 +339,7 @@ class MaterialInboundService(TenantAwareService):
                         inbound_weight=Decimal(str(detail_data['inbound_weight'])) if detail_data.get('inbound_weight') else None,
                         inbound_length=Decimal(str(detail_data['inbound_length'])) if detail_data.get('inbound_length') else None,
                         inbound_rolls=int(detail_data['inbound_rolls']) if detail_data.get('inbound_rolls') else None,
-                        unit=detail_data.get('unit', '个'),
+                        unit_id=uuid.UUID(unit_id) if isinstance(unit_id, str) else unit_id,
                         batch_number=detail_data.get('batch_number'),
                         unit_price=Decimal(str(detail_data['unit_price'])) if detail_data.get('unit_price') else None,
                         notes=detail_data.get('notes'),
@@ -332,14 +363,29 @@ class MaterialInboundService(TenantAwareService):
     ) -> MaterialInboundOrderDetail:
         """添加材料入库单明细"""
         
+        # 处理unit_id字段
+        unit_id = kwargs.get('unit_id')
+        if not unit_id and unit:
+            # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+            unit_obj = self.get_session().query(Unit).filter(Unit.unit_name == unit).first()
+            if unit_obj:
+                unit_id = unit_obj.id
+            else:
+                # 如果找不到对应的单位，使用默认单位
+                default_unit = self.get_session().query(Unit).filter(Unit.unit_name == '个').first()
+                unit_id = default_unit.id if default_unit else None
+        
+        if not unit_id:
+            raise ValueError(f"明细缺少必需的unit_id参数")
+        
         detail = MaterialInboundOrderDetail(
             material_inbound_order_id=uuid.UUID(order_id),
             material_id=uuid.UUID(material_id) if material_id else None,
             material_name=material_name,
             inbound_quantity=inbound_quantity,
-            unit=unit,
+            unit_id=uuid.UUID(unit_id) if isinstance(unit_id, str) else unit_id,
             created_by=uuid.UUID(created_by) if isinstance(created_by, str) else created_by,
-            **kwargs
+            **{k: v for k, v in kwargs.items() if k != 'unit_id'}
         )
         
         self.get_session().add(detail)
@@ -422,6 +468,14 @@ class MaterialInboundService(TenantAwareService):
         if order.approval_status != 'pending':
             raise ValueError("材料入库单已经审核过")
         
+        # 检查是否有明细
+        details = self.get_session().query(MaterialInboundOrderDetail).filter(
+            MaterialInboundOrderDetail.material_inbound_order_id == order_id
+        ).all()
+        
+        if not details:
+            raise ValueError("材料入库单没有明细，无法审核")
+        
         order.approval_status = approval_status
         order.approved_by = uuid.UUID(approved_by) if isinstance(approved_by, str) else approved_by
         order.approved_at = datetime.now()
@@ -466,7 +520,7 @@ class MaterialInboundService(TenantAwareService):
                     Inventory.material_id == detail.material_id,
                     Inventory.batch_number == detail.batch_number,
                     Inventory.location_code == (detail.actual_location_code or detail.location_code),
-                    Inventory.unit == detail.unit,
+                    Inventory.unit_id == detail.unit_id,
                     Inventory.is_active == True
                 )
             ).first()
@@ -479,7 +533,7 @@ class MaterialInboundService(TenantAwareService):
                         Inventory.material_id == detail.material_id,
                         Inventory.batch_number == detail.batch_number,
                         Inventory.location_code.is_(None),  # 查找没有库位的记录
-                        Inventory.unit == detail.unit,
+                        Inventory.unit_id == detail.unit_id,
                         Inventory.is_active == True
                     )
                 ).first()
@@ -495,7 +549,7 @@ class MaterialInboundService(TenantAwareService):
                 inventory = Inventory(
                     warehouse_id=order.warehouse_id,
                     material_id=detail.material_id,
-                    unit=detail.unit,
+                    unit_id=detail.unit_id,
                     batch_number=detail.batch_number,
                     production_date=detail.production_date,
                     expiry_date=detail.expiry_date,
@@ -534,7 +588,7 @@ class MaterialInboundService(TenantAwareService):
                     quantity_change=detail.inbound_quantity,
                     quantity_before=quantity_before,
                     quantity_after=inventory.current_quantity,
-                    unit=detail.unit,
+                    unit_id=detail.unit_id,
                     unit_price=detail.unit_price,
                     source_document_type='material_inbound_order',
                     source_document_id=order.id,
@@ -569,6 +623,14 @@ class MaterialInboundService(TenantAwareService):
         
         if order.status != 'draft':
             raise ValueError("只能提交草稿状态的入库单")
+        
+        # 检查是否有明细
+        details = self.get_session().query(MaterialInboundOrderDetail).filter(
+            MaterialInboundOrderDetail.material_inbound_order_id == order_id
+        ).all()
+        
+        if not details:
+            raise ValueError("材料入库单没有明细，无法提交")
         
         # 简化流程：提交后自动审核通过
         order.status = 'confirmed'

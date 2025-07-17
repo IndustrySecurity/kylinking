@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取客户分类列表
 export const getCustomerCategories = (params) => {
   return request({
-    url: '/tenant/base-archive/base-category/customer-categories',
+    url: '/tenant/base-archive/base-category/customer-categories/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getCustomerCategories = (params) => {
 // 创建客户分类
 export const createCustomerCategory = (data) => {
   return request({
-    url: '/tenant/base-archive/base-category/customer-categories',
+    url: '/tenant/base-archive/base-category/customer-categories/',
     method: 'post',
     data
   });

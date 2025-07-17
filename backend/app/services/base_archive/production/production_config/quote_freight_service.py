@@ -37,7 +37,7 @@ class QuoteFreightService(TenantAwareService):
             freights = query.offset((page - 1) * per_page).limit(per_page).all()
             
             return {
-                'freights': [freight.to_dict() for freight in freights],
+                'freights': [freight.to_dict(include_user_info=True) for freight in freights],
                 'total': total,
                 'current_page': page,
                 'per_page': per_page,
@@ -55,7 +55,7 @@ class QuoteFreightService(TenantAwareService):
             freight = self.session.query(QuoteFreight).get(uuid.UUID(freight_id))
             if not freight:
                 raise ValueError("报价运费不存在")
-            return freight.to_dict()
+            return freight.to_dict(include_user_info=True)
         except Exception as e:
             raise ValueError(f"获取报价运费详情失败: {str(e)}")
     
@@ -86,7 +86,7 @@ class QuoteFreightService(TenantAwareService):
             )
             
             self.commit()
-            return freight.to_dict()
+            return freight.to_dict(include_user_info=True)
             
         except IntegrityError as e:
             self.rollback()
@@ -125,7 +125,7 @@ class QuoteFreightService(TenantAwareService):
             freight.updated_by = uuid.UUID(updated_by)
             
             self.commit()
-            return freight.to_dict()
+            return freight.to_dict(include_user_info=True)
             
         except IntegrityError as e:
             self.rollback()
@@ -178,7 +178,7 @@ class QuoteFreightService(TenantAwareService):
                 # 更新审计字段
                 freight.updated_by = uuid.UUID(updated_by)
                 
-                results.append(freight.to_dict())
+                results.append(freight.to_dict(include_user_info=True))
             
             self.commit()
             

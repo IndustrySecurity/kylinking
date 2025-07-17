@@ -64,10 +64,10 @@ const QuoteFreightManagement = () => {
 
       // 正确处理后端响应格式
       if (response.data.success) {
-        const { quote_freights, total, current_page } = response.data.data;
+        const { freights = [], total = 0, current_page = 1 } = response.data.data || {};
         
         // 为每行数据添加key
-        const dataWithKeys = quote_freights.map((item, index) => ({
+        const dataWithKeys = (freights || []).map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
@@ -77,6 +77,14 @@ const QuoteFreightManagement = () => {
           ...prev,
           total,
           current: current_page
+        }));
+      } else {
+        // 如果API返回失败，设置空数据
+        setData([]);
+        setPagination(prev => ({
+          ...prev,
+          total: 0,
+          current: 1
         }));
       }
     } catch (error) {
@@ -455,7 +463,7 @@ const QuoteFreightManagement = () => {
   ];
 
   // 合并列配置
-  const mergedColumns = columns.map((col) => {
+  const mergedColumns = (columns || []).map((col) => {
     if (!col.editable) {
       return col;
     }

@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取支付方式列表
 export const getPaymentMethods = (params) => {
   return request({
-    url: '/tenant/base-archive/financial-management/payment-methods',
+    url: '/tenant/base-archive/financial-management/payment-methods/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getPaymentMethods = (params) => {
 // 创建支付方式
 export const createPaymentMethod = (data) => {
   return request({
-    url: '/tenant/base-archive/financial-management/payment-methods',
+    url: '/tenant/base-archive/financial-management/payment-methods/',
     method: 'post',
     data
   });

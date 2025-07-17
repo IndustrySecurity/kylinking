@@ -50,6 +50,13 @@ class SalesOrderService {
   };
 
   /**
+   * 完成销售订单
+   */
+  finishSalesOrder = async (id) => {
+    return request.post(`${this.baseURL}/sales-orders/${id}/finish`);
+  };
+
+  /**
    * 取消销售订单
    */
   cancelSalesOrder = async (id) => {
@@ -187,12 +194,6 @@ class SalesOrderService {
     return request.get(`${this.baseURL}/products/${productId}/details`);
   };
 
-  /**
-   * 获取客户税率信息
-   */
-  getCustomerTaxRate = async (customerId) => {
-    return request.get(`${this.baseURL}/customers/${customerId}/tax-rate`);
-  };
 
   /**
    * 获取销售订单状态选项
@@ -220,6 +221,17 @@ class SalesOrderService {
    */
   getUnscheduledSalesOrders = async (customerId) => {
     return request.get(`${this.baseURL}/sales-orders/unscheduled-options`, { params: { customer_id: customerId } });
+  };
+
+  /**
+   * 获取未完成的销售订单选项（排除completed状态）
+   */
+  getActiveSalesOrderOptions = async (customerId = null, limit = 100) => {
+    const params = { limit };
+    if (customerId) {
+      params.customer_id = customerId;
+    }
+    return request.get(`${this.baseURL}/sales-orders/active-options`, { params });
   };
 }
 

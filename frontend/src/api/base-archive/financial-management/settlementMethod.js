@@ -5,7 +5,7 @@ export const settlementMethodApi = {
   // 获取结算方式列表
   getSettlementMethods: (params = {}) => {
     return request({
-      url: '/tenant/base-archive/financial-management/settlement-methods',
+      url: '/tenant/base-archive/financial-management/settlement-methods/',
       method: 'get',
       params
     });
@@ -22,7 +22,7 @@ export const settlementMethodApi = {
   // 创建结算方式
   createSettlementMethod: (data) => {
     return request({
-      url: '/tenant/base-archive/financial-management/settlement-methods',
+      url: '/tenant/base-archive/financial-management/settlement-methods/',
       method: 'post',
       data
     });

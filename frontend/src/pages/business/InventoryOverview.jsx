@@ -169,7 +169,7 @@ const InventoryOverview = () => {
   const fetchWarehouses = async () => {
     try {
       // 使用仓库基础档案API获取仓库数据
-      const response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options');
+      const response = await baseDataService.getWarehouses();
       
       if (response.data?.success) {
         const warehouseData = response.data.data;
@@ -233,7 +233,7 @@ const InventoryOverview = () => {
 
   const fetchMaterials = async () => {
     try {
-      const response = await request.get('/tenant/basic-data/material-management');
+      const response = await baseDataService.getMaterials();
       if (response.data?.success) {
         const materialData = response.data.data;
         let materials = [];
@@ -391,7 +391,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500, color: value > 0 ? '#52c41a' : '#f5222d' }}>
-          {(+value).toFixed(3)} {record.unit}
+          {(+value).toFixed(3)} {record.unit_name}
         </div>
       )
     },
@@ -403,7 +403,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500, color: value > 0 ? '#52c41a' : '#f5222d' }}>
-          {(+value).toFixed(3)} {record.unit}
+          {(+value).toFixed(3)} {record.unit_name}
         </div>
       )
     },
@@ -415,7 +415,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500 }}>
-          {(+value).toFixed(3)} {record.unit}
+          {(+value).toFixed(3)} {record.unit_name}
         </div>
       )
     },
@@ -427,7 +427,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500 }}>
-          {(+value).toFixed(3)} {record.unit}
+          {(+value).toFixed(3)} {record.unit_name}
         </div>
       )
     },

@@ -65,6 +65,8 @@ class ProductInboundService(TenantAwareService):
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         search: Optional[str] = None,
+        inbound_person_id: Optional[str] = None,
+        department_id: Optional[str] = None,
         page: int = 1,
         page_size: int = 20
     ) -> Dict[str, Any]:
@@ -104,10 +106,15 @@ class ProductInboundService(TenantAwareService):
             search_filter = or_(
                 InboundOrder.order_number.ilike(f'%{search}%'),
                 InboundOrder.warehouse_name.ilike(f'%{search}%'),
-                InboundOrder.supplier_name.ilike(f'%{search}%'),
-                InboundOrder.remark.ilike(f'%{search}%')
+                InboundOrder.notes.ilike(f'%{search}%')
             )
             query = query.filter(search_filter)
+        
+        if inbound_person_id:
+            query = query.filter(InboundOrder.inbound_person_id == inbound_person_id)
+        
+        if department_id:
+            query = query.filter(InboundOrder.department_id == department_id)
         
         # 获取总数
         total = query.count()
@@ -173,7 +180,7 @@ class ProductInboundService(TenantAwareService):
                 'supplier_name': data.get('supplier_name', ''),
                 'supplier_id': uuid.UUID(data['supplier_id']) if data.get('supplier_id') else None,
                 'pallet_count': data.get('pallet_count', 0),
-                'remark': data.get('remark', '')
+                'notes': data.get('notes', '')
             }
             
             # 使用继承的create_with_tenant方法
@@ -186,7 +193,7 @@ class ProductInboundService(TenantAwareService):
                     detail_params = {
                         'inbound_order_id': order.id,
                         'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
-                        'unit': detail_data.get('unit', '个')
+                        'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None
                     }
                     
                     # 设置其他明细字段
@@ -196,6 +203,8 @@ class ProductInboundService(TenantAwareService):
                         detail_params['product_name'] = detail_data['product_name']
                     if detail_data.get('product_code'):
                         detail_params['product_code'] = detail_data['product_code']
+                    if detail_data.get('product_spec'):
+                        detail_params['product_spec'] = detail_data['product_spec']
                     if detail_data.get('batch_number'):
                         detail_params['batch_number'] = detail_data['batch_number']
                     if detail_data.get('location_code'):
@@ -271,7 +280,7 @@ class ProductInboundService(TenantAwareService):
                     detail_params = {
                         'inbound_order_id': order.id,
                         'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
-                        'unit': detail_data.get('unit', '个'),
+                        'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None,
                         'created_by': updated_by_uuid
                     }
                     
@@ -282,6 +291,8 @@ class ProductInboundService(TenantAwareService):
                         detail_params['product_name'] = detail_data['product_name']
                     if detail_data.get('product_code'):
                         detail_params['product_code'] = detail_data['product_code']
+                    if detail_data.get('product_spec'):
+                        detail_params['product_spec'] = detail_data['product_spec']
                     if detail_data.get('batch_number'):
                         detail_params['batch_number'] = detail_data['batch_number']
                     if detail_data.get('location_code'):
@@ -342,6 +353,14 @@ class ProductInboundService(TenantAwareService):
             # 检查状态
             if order.status not in ['draft', 'confirmed']:
                 raise ValueError("只有草稿和已确认状态的产品入库单可以审核")
+            
+            # 检查是否有明细
+            details = self.session.query(InboundOrderDetail).filter(
+                InboundOrderDetail.inbound_order_id == order_id
+            ).all()
+            
+            if not details:
+                raise ValueError("产品入库单没有明细，无法审核")
             
             order.approval_status = approval_status
             order.approved_by = uuid.UUID(approved_by)
@@ -413,7 +432,7 @@ class ProductInboundService(TenantAwareService):
                         current_quantity=Decimal('0'),
                         available_quantity=Decimal('0'),
                         reserved_quantity=Decimal('0'),
-                        unit=detail.unit,
+                        unit_id=detail.unit_id,
                         unit_cost=detail.unit_cost or Decimal('0'),
                         total_cost=Decimal('0'),
                         last_inbound_date=datetime.now(),
@@ -455,7 +474,7 @@ class ProductInboundService(TenantAwareService):
                     quantity_change=inbound_quantity,
                     quantity_before=quantity_before,
                     quantity_after=inventory.current_quantity,
-                    unit=detail.unit,
+                    unit_id=detail.unit_id,
                     unit_price=detail.unit_cost or Decimal('0'),
                     source_document_type='inbound_order',
                     source_document_id=order.id,
@@ -564,7 +583,7 @@ class ProductInboundService(TenantAwareService):
             detail_params = {
                 'inbound_order_id': uuid.UUID(order_id),
                 'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
-                'unit': detail_data.get('unit', '个'),
+                'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None,
                 'created_by': created_by_uuid
             }
             
@@ -681,7 +700,7 @@ class ProductInboundService(TenantAwareService):
                 detail_params = {
                     'inbound_order_id': uuid.UUID(order_id),
                     'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
-                    'unit': detail_data.get('unit', '个'),
+                    'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None,
                     'created_by': created_by_uuid
                 }
                 
@@ -710,6 +729,30 @@ class ProductInboundService(TenantAwareService):
             self.rollback()
             current_app.logger.error(f"批量创建产品入库单明细失败: {str(e)}")
             raise ValueError(f"批量创建产品入库单明细失败: {str(e)}")
+
+    # ==================== 小程序更改入库单状态 ====================
+    def update_product_inbound_order_outbound_status(self, order_id: str) -> Dict[str, Any]:
+        """更新产品入库单状态"""
+        try:
+            order = self.session.query(InboundOrder).filter(
+                InboundOrder.order_number == order_id
+            ).first()
+
+            if not order:
+                raise ValueError(f"产品入库单不存在: {order_id}")
+            
+            order.is_outbound = True
+            self.commit()
+            
+            return order.to_dict()  
+
+        except Exception as e:
+            self.rollback()
+            current_app.logger.error(f"更新产品入库单状态失败: {str(e)}")
+            raise ValueError(f"更新产品入库单状态失败: {str(e)}")
+
+
+
 
     def batch_update_product_inbound_order_details(self, order_id: str, details_data: List[Dict[str, Any]], updated_by: str) -> List[Dict[str, Any]]:
         """批量更新产品入库单明细"""

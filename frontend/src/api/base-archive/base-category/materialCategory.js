@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取原料分类列表
 export const getMaterialCategories = (params) => {
   return request({
-    url: '/tenant/base-archive/base-category/material-categories',
+    url: '/tenant/base-archive/base-category/material-categories/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getMaterialCategories = (params) => {
 // 创建原料分类
 export const createMaterialCategory = (data) => {
   return request({
-    url: '/tenant/base-archive/base-category/material-categories',
+    url: '/tenant/base-archive/base-category/material-categories/',
     method: 'post',
     data
   });
@@ -59,6 +59,14 @@ export const getMaterialCategoryOptions = () => {
   });
 };
 
+// 获取材料分类表单选项（材料类型和单位）
+export const getMaterialCategoryFormOptions = () => {
+  return request({
+    url: '/tenant/base-archive/base-category/material-categories/form-options',
+    method: 'get'
+  });
+};
+
 // 统一导出API对象
 export const materialCategoryApi = {
   getMaterialCategories,
@@ -67,5 +75,6 @@ export const materialCategoryApi = {
   deleteMaterialCategory,
   getMaterialCategoryById,
   getEnabledMaterialCategories,
-  getMaterialCategoryOptions
+  getMaterialCategoryOptions,
+  getMaterialCategoryFormOptions
 }; 

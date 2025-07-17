@@ -3,7 +3,7 @@ import request from '../../../utils/request'
 // 获取班组列表
 export function getTeamGroups(params) {
   return request({
-    url: '/tenant/basic-data/team-groups',
+    url: '/tenant/basic-data/team-groups/',
     method: 'get',
     params
   })
@@ -20,7 +20,7 @@ export function getTeamGroup(id) {
 // 创建班组
 export function createTeamGroup(data) {
   return request({
-    url: '/tenant/basic-data/team-groups',
+    url: '/tenant/basic-data/team-groups/',
     method: 'post',
     data
   })

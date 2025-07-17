@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取报价辅材列表
 export const getQuoteAccessories = (params) => {
   return request({
-    url: '/tenant/basic-data/quote-accessories',
+    url: '/tenant/basic-data/quote-accessories/',
     method: 'get',
     params
   });
@@ -20,7 +20,7 @@ export const getQuoteAccessory = (id) => {
 // 创建报价辅材
 export const createQuoteAccessory = (data) => {
   return request({
-    url: '/tenant/basic-data/quote-accessories',
+    url: '/tenant/basic-data/quote-accessories/',
     method: 'post',
     data
   });

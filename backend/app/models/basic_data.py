@@ -806,8 +806,23 @@ class QuoteFreight(TenantModel):
         }
         
         if include_user_info:
-            # 这里可以添加用户信息的查询逻辑
-            pass
+            from app.models.user import User
+            try:
+                if self.created_by:
+                    created_user = User.query.get(self.created_by)
+                    data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+                else:
+                    data['created_by_name'] = '系统'
+                    
+                if self.updated_by:
+                    updated_user = User.query.get(self.updated_by)
+                    data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+                else:
+                    data['updated_by_name'] = ''
+            except Exception as e:
+                # 如果获取用户信息失败，使用默认值
+                data['created_by_name'] = '未知用户' if self.created_by else '系统'
+                data['updated_by_name'] = '未知用户' if self.updated_by else ''
             
         return data
     
@@ -2664,10 +2679,10 @@ class BagRelatedFormula(TenantModel):
     bag_type_id = db.Column(UUID(as_uuid=True), db.ForeignKey('bag_types.id'), nullable=False, comment='袋型ID')
     
     # 公式字段（关联计算方案）
-    meter_formula_id = db.Column(UUID(as_uuid=True), comment='米数公式ID')
-    square_formula_id = db.Column(UUID(as_uuid=True), comment='平方公式ID')
-    material_width_formula_id = db.Column(UUID(as_uuid=True), comment='料宽公式ID')
-    per_piece_formula_id = db.Column(UUID(as_uuid=True), comment='元/个公式ID')
+    meter_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='米数公式ID')
+    square_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='平方公式ID')
+    material_width_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='料宽公式ID')
+    per_piece_formula_id = db.Column(UUID(as_uuid=True), db.ForeignKey('calculation_schemes.id'), comment='元/个公式ID')
     
     # 尺寸维度（手工输入）
     dimension_description = db.Column(db.String(200), comment='尺寸维度')
@@ -2683,10 +2698,18 @@ class BagRelatedFormula(TenantModel):
     
     # 关联关系
     bag_type = db.relationship('BagType', backref='related_formulas', lazy='select')
+    meter_formula = db.relationship('CalculationScheme', foreign_keys=[meter_formula_id], backref='bag_related_formulas_as_meter', lazy='select')
+    square_formula = db.relationship('CalculationScheme', foreign_keys=[square_formula_id], backref='bag_related_formulas_as_square', lazy='select')
+    material_width_formula = db.relationship('CalculationScheme', foreign_keys=[material_width_formula_id], backref='bag_related_formulas_as_material_width', lazy='select')
+    per_piece_formula = db.relationship('CalculationScheme', foreign_keys=[per_piece_formula_id], backref='bag_related_formulas_as_per_piece', lazy='select')
     
     __table_args__ = (
         db.Index('idx_bag_related_formulas_bag_type_id', 'bag_type_id'),
         db.Index('idx_bag_related_formulas_sort_order', 'sort_order'),
+        db.Index('idx_bag_related_formulas_meter_formula_id', 'meter_formula_id'),
+        db.Index('idx_bag_related_formulas_square_formula_id', 'square_formula_id'),
+        db.Index('idx_bag_related_formulas_material_width_formula_id', 'material_width_formula_id'),
+        db.Index('idx_bag_related_formulas_per_piece_formula_id', 'per_piece_formula_id'),
     )
     
     def to_dict(self, include_user_info=False, include_formulas=False):
@@ -2710,17 +2733,32 @@ class BagRelatedFormula(TenantModel):
         
         if include_user_info:
             from app.models.user import User
-            if self.created_by:
-                created_user = User.query.get(self.created_by)
-                data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
-            else:
-                data['created_by_name'] = '系统'
-                
-            if self.updated_by:
-                updated_user = User.query.get(self.updated_by)
-                data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
-            else:
-                data['updated_by_name'] = ''
+            try:
+                if self.created_by:
+                    # 确保 created_by 是字符串格式的 UUID
+                    created_by_str = str(self.created_by) if self.created_by else None
+                    if created_by_str:
+                        created_user = User.query.get(created_by_str)
+                        data['created_by_name'] = created_user.get_full_name() if created_user else '未知用户'
+                    else:
+                        data['created_by_name'] = '系统'
+                else:
+                    data['created_by_name'] = '系统'
+                    
+                if self.updated_by:
+                    # 确保 updated_by 是字符串格式的 UUID
+                    updated_by_str = str(self.updated_by) if self.updated_by else None
+                    if updated_by_str:
+                        updated_user = User.query.get(updated_by_str)
+                        data['updated_by_name'] = updated_user.get_full_name() if updated_user else '未知用户'
+                    else:
+                        data['updated_by_name'] = ''
+                else:
+                    data['updated_by_name'] = ''
+            except Exception as e:
+                # 如果获取用户信息失败，使用默认值
+                data['created_by_name'] = '未知用户' if self.created_by else '系统'
+                data['updated_by_name'] = '未知用户' if self.updated_by else ''
         
         if include_formulas:
             # 获取袋型信息
@@ -3993,8 +4031,8 @@ class Material(TenantModel):
     material_name = db.Column(db.String(255), nullable=False, comment='材料名称')  # 手工输入
     material_category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('material_categories.id'), comment='材料分类ID')  # 选择
     material_attribute = db.Column(db.String(50), comment='材料属性')  # 自动根据材料分类填入
-    unit_id = db.Column(UUID(as_uuid=True), comment='单位ID')  # 自动根据材料分类填入
-    auxiliary_unit_id = db.Column(UUID(as_uuid=True), comment='辅助单位ID')  # 自动根据材料分类填入
+    unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='单位ID')  # 自动根据材料分类填入
+    auxiliary_unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='辅助单位ID')  # 自动根据材料分类填入
     
     # 布尔字段(勾选)
     is_blown_film = db.Column(db.Boolean, default=False, comment='是否吹膜')  # 勾选
@@ -4008,7 +4046,7 @@ class Material(TenantModel):
     
     # 手工输入字段
     conversion_factor = db.Column(db.Numeric(10, 4), default=1, comment='换算系数')  # 手工输入，默认1
-    sales_unit_id = db.Column(UUID(as_uuid=True), comment='销售单位ID')  # 选择
+    sales_unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='销售单位ID')  # 选择
     inspection_type = db.Column(db.String(20), default='spot_check', comment='检验类型')  # 选择：免检/抽检/全检，默认抽检
     
     # 自动填入的布尔字段
@@ -4081,6 +4119,9 @@ class Material(TenantModel):
     
     # 外键关联关系
     material_category = db.relationship('MaterialCategory', backref='materials', lazy='select')
+    unit = db.relationship('Unit', foreign_keys=[unit_id], backref='materials', lazy='select')
+    auxiliary_unit = db.relationship('Unit', foreign_keys=[auxiliary_unit_id], backref='auxiliary_materials', lazy='select')
+    sales_unit = db.relationship('Unit', foreign_keys=[sales_unit_id], backref='sales_materials', lazy='select')
     
     # 选项常量
     INSPECTION_TYPES = [
@@ -4105,7 +4146,9 @@ class Material(TenantModel):
             'material_category_id': str(self.material_category_id) if self.material_category_id else None,
             'material_attribute': self.material_attribute,
             'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'auxiliary_unit_id': str(self.auxiliary_unit_id) if self.auxiliary_unit_id else None,
+            'auxiliary_unit_name': self.auxiliary_unit.unit_name if self.auxiliary_unit else None,
             'is_blown_film': self.is_blown_film,
             'unit_no_conversion': self.unit_no_conversion,
             'width_mm': float(self.width_mm) if self.width_mm else None,
@@ -4114,6 +4157,7 @@ class Material(TenantModel):
             'density': float(self.density) if self.density else None,
             'conversion_factor': float(self.conversion_factor) if self.conversion_factor else 1,
             'sales_unit_id': str(self.sales_unit_id) if self.sales_unit_id else None,
+            'sales_unit_name': self.sales_unit.unit_name if self.sales_unit else None,
             'inspection_type': self.inspection_type,
             'is_paper': self.is_paper,
             'is_surface_printing_ink': self.is_surface_printing_ink,
@@ -4304,6 +4348,7 @@ class Product(TenantModel):
     brand = db.Column(db.String(100))
     model = db.Column(db.String(100))
     specification = db.Column(db.Text)
+    unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='单位ID')
     
     # 产品管理界面新增字段
     customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), comment='客户ID')
@@ -4343,8 +4388,7 @@ class Product(TenantModel):
     tensile_strength = db.Column(db.Numeric(8, 2))  # 拉伸强度(MPa)
     
     # 包装信息
-    base_unit = db.Column(db.String(20), default='m²')  # 基本单位
-    package_unit = db.Column(db.String(20))  # 包装单位
+    package_unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='包装单位ID')
     conversion_rate = db.Column(db.Numeric(10, 4), default=1)  # 换算率
     net_weight = db.Column(db.Numeric(10, 3))  # 净重(kg)
     gross_weight = db.Column(db.Numeric(10, 3))  # 毛重(kg)
@@ -4387,6 +4431,8 @@ class Product(TenantModel):
     category = db.relationship('ProductCategory', backref='products', lazy='select')
     customer = db.relationship('CustomerManagement', backref='products')
     bag_type = db.relationship('BagType', backref='products')
+    unit = db.relationship('Unit', foreign_keys=[unit_id], backref='products', lazy='select')
+    package_unit = db.relationship('Unit', foreign_keys=[package_unit_id], backref='product_package_units', lazy='select')
     
     __table_args__ = (
         db.CheckConstraint("status IN ('active', 'inactive', 'pending')", name='products_status_check'),
@@ -4400,7 +4446,8 @@ class Product(TenantModel):
             'product_code': self.product_code,
             'product_name': self.product_name,
             'product_type': self.product_type,
-            'category': self.category.to_dict() if self.category else None,
+            'category_id': str(self.category_id) if self.category_id else None,
+            'category_name': self.category.category_name if self.category else None,
             
             # 基本信息
             'short_name': self.short_name,
@@ -4408,6 +4455,8 @@ class Product(TenantModel):
             'brand': self.brand,
             'model': self.model,
             'specification': self.specification,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             
             # 产品管理界面新增字段
             'customer_id': str(self.customer_id) if self.customer_id else None,
@@ -4441,8 +4490,8 @@ class Product(TenantModel):
             'tensile_strength': float(self.tensile_strength) if self.tensile_strength else None,
             
             # 包装信息
-            'base_unit': self.base_unit,
-            'package_unit': self.package_unit,
+            'package_unit_id': str(self.package_unit_id) if self.package_unit_id else None,
+            'package_unit_name': self.package_unit.unit_name if self.package_unit else None,
             'conversion_rate': float(self.conversion_rate) if self.conversion_rate else 1,
             'net_weight': float(self.net_weight) if self.net_weight else None,
             'gross_weight': float(self.gross_weight) if self.gross_weight else None,

@@ -6,7 +6,7 @@ import request from '../../../utils/request';
 export const bagTypeApi = {
   // 获取袋型列表
   getBagTypes: (params = {}) => {
-    return request.get('/tenant/base-archive/production/production-archive/bag-types', { params });
+    return request.get('/tenant/base-archive/production/production-archive/bag-types/', { params });
   },
 
   // 获取袋型详情
@@ -16,7 +16,7 @@ export const bagTypeApi = {
 
   // 创建袋型
   createBagType: (data) => {
-    return request.post('/tenant/base-archive/production/production-archive/bag-types', data);
+    return request.post('/tenant/base-archive/production/production-archive/bag-types/', data);
   },
 
   // 更新袋型

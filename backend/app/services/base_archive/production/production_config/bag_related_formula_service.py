@@ -48,7 +48,7 @@ class BagRelatedFormulaService(TenantAwareService):
             # 构建返回数据
             result_data = []
             for formula in formulas:
-                formula_dict = formula.to_dict(include_formulas=True)
+                formula_dict = formula.to_dict(include_user_info=True, include_formulas=True)
                 # 添加袋型信息
                 if formula.bag_type:
                     formula_dict['bag_type_name'] = formula.bag_type.bag_type_name
@@ -69,11 +69,11 @@ class BagRelatedFormulaService(TenantAwareService):
         try:
             from app.models.basic_data import BagRelatedFormula
             
-            formula = self.session.query(BagRelatedFormula).get(uuid.UUID(formula_id))
+            formula = self.session.query(BagRelatedFormula).get(formula_id)
             if not formula:
                 raise ValueError("袋型相关公式不存在")
             
-            result = formula.to_dict(include_formulas=True)
+            result = formula.to_dict(include_user_info=True, include_formulas=True)
             if formula.bag_type:
                 result['bag_type_name'] = formula.bag_type.bag_type_name
             
@@ -101,7 +101,7 @@ class BagRelatedFormulaService(TenantAwareService):
             ).first()
             if existing:
                 raise ValueError("该袋型已存在相关公式配置")
-            
+
             # 创建袋型相关公式对象
             formula = self.create_with_tenant(BagRelatedFormula,
                 bag_type_id=uuid.UUID(data['bag_type_id']),
@@ -115,7 +115,6 @@ class BagRelatedFormulaService(TenantAwareService):
                 is_enabled=data.get('is_enabled', True),
                 created_by=uuid.UUID(created_by)
             )
-            
             self.commit()
             return self.get_bag_related_formula(formula.id)
             
@@ -224,7 +223,7 @@ class BagRelatedFormulaService(TenantAwareService):
             ).first()
             
             if formula:
-                return formula.to_dict(include_formulas=True)
+                return formula.to_dict(include_user_info=True, include_formulas=True)
             else:
                 return None
             

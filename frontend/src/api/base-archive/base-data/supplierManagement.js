@@ -9,7 +9,7 @@ import request from '../../../utils/request'
  */
 export function getSupplierManagementList(params) {
   return request({
-    url: '/tenant/base-archive/base-data/suppliers',
+    url: '/tenant/base-archive/base-data/suppliers/',
     method: 'get',
     params
   })
@@ -34,7 +34,7 @@ export function getSupplierManagementDetail(id) {
  */
 export function createSupplierManagement(data) {
   return request({
-    url: '/tenant/base-archive/base-data/suppliers',
+    url: '/tenant/base-archive/base-data/suppliers/',
     method: 'post',
     data
   })
@@ -106,7 +106,7 @@ export function getSupplierManagementFormOptions() {
 // 获取供应商列表
 export const getSuppliers = (params) => {
   return request({
-    url: '/tenant/base-archive/base-data/suppliers',
+    url: '/tenant/base-archive/base-data/suppliers/',
     method: 'get',
     params
   });
@@ -115,7 +115,7 @@ export const getSuppliers = (params) => {
 // 创建供应商
 export const createSupplier = (data) => {
   return request({
-    url: '/tenant/base-archive/base-data/suppliers',
+    url: '/tenant/base-archive/base-data/suppliers/',
     method: 'post',
     data
   });

@@ -275,22 +275,19 @@ class ProductTransferService(TenantAwareService):
                     from_inventory.available_quantity -= detail.transfer_quantity
                     from_inventory.updated_by = executed_by
                     
-                    # 创建调出流水
+                    # 创建出库交易记录
                     out_transaction = InventoryTransaction(
                         inventory_id=from_inventory.id,
-                        warehouse_id=transfer_order.from_warehouse_id,
-                        product_id=detail.product_id,
+                        warehouse_id=from_inventory.warehouse_id,
+                        product_id=from_inventory.product_id,
                         transaction_type='transfer_out',
                         quantity_change=-detail.transfer_quantity,
-                        quantity_before=from_inventory.current_quantity + detail.transfer_quantity,
-                        quantity_after=from_inventory.current_quantity,
-                        unit=detail.unit,
+                        quantity_before=from_inventory.current_quantity,
+                        quantity_after=from_inventory.current_quantity - detail.transfer_quantity,
+                        unit_id=from_inventory.unit_id,
                         source_document_type='transfer_order',
-                        source_document_id=transfer_order_id,
                         source_document_number=transfer_order.transfer_number,
-                        batch_number=detail.batch_number,
-                        from_location=detail.from_location_code,
-                        reason=f'成品调拨出库: {transfer_order.transfer_number}',
+                        reason=f'成品调拨出库到 {transfer_order.to_warehouse_name}',
                         created_by=executed_by
                     )
                     self.session.add(out_transaction)
@@ -330,7 +327,7 @@ class ProductTransferService(TenantAwareService):
                     quantity_change=detail.transfer_quantity,
                     quantity_before=to_inventory.current_quantity - detail.transfer_quantity,
                     quantity_after=to_inventory.current_quantity,
-                    unit=detail.unit,
+                    unit_id=to_inventory.unit_id,
                     source_document_type='transfer_order',
                     source_document_id=transfer_order_id,
                     source_document_number=transfer_order.transfer_number,

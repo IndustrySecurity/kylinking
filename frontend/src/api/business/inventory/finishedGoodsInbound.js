@@ -93,7 +93,7 @@ export const baseDataService = {
 
   // 获取产品选项
   getProducts: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/product-management', { params });
+    return request.get('/tenant/base-archive/base-data/product-management/', { params });
   },
 
   // 获取部门选项
@@ -108,12 +108,17 @@ export const baseDataService = {
 
   // 获取供应商列表
   getSuppliers: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/suppliers', { params });
+    return request.get('/tenant/base-archive/base-data/suppliers/', { params });
   },
 
   // 获取客户列表
   getCustomers: (params = {}) => {
-    return request.get('/tenant/base-archive/base-data/customers', { params });
+    return request.get('/tenant/base-archive/base-data/customers/', { params });
+  },
+
+  // 获取单位列表
+  getUnits: () => {
+    return request.get('/tenant/base-archive/production/production-archive/units/options');
   }
 };
 
@@ -121,7 +126,7 @@ export const baseDataService = {
 export const inventoryService = {
   // 获取库存列表
   getInventoryList: (params = {}) => {
-    return request.get('/tenant/business/inventory/inventories', { params });
+    return request.get('/tenant/business/inventory/inventories/', { params });
   },
 
   // 获取库存详情
@@ -131,7 +136,7 @@ export const inventoryService = {
 
   // 获取库存事务记录
   getInventoryTransactions: (params = {}) => {
-    return request.get('/tenant/business/inventory/inventory-transactions', { params });
+    return request.get('/tenant/business/inventory/inventory-transactions/', { params });
   },
 
   // 预留库存

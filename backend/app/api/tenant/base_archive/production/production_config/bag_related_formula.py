@@ -7,6 +7,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
 from app.services.base_archive.production.production_config.bag_related_formula_service import get_bag_related_formula_service
+from app.services.base_archive.production.production_archive.bag_type_service import BagTypeService
+from app.services.base_archive.production.production_config.calculation_scheme_service import CalculationSchemeService
 
 bp = Blueprint('bag_related_formula', __name__)
 
@@ -167,13 +169,18 @@ def batch_update_bag_related_formulas():
 def get_bag_related_formula_options():
     """获取袋型相关公式选项"""
     try:
-        service = get_bag_related_formula_service()
-        result = service.get_bag_related_formula_options()
+        bag_type_service = BagTypeService()
+        bag_type_options = bag_type_service.get_bag_type_options()
+        calculation_scheme_service = CalculationSchemeService()
+        calculation_scheme_options = calculation_scheme_service.get_calculation_scheme_options()
         
         return jsonify({
             'success': True,
-            'data': result
+            'data': {
+                'bag_type_options': bag_type_options,
+                'calculation_scheme_options': calculation_scheme_options
+            }
         })
-        
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

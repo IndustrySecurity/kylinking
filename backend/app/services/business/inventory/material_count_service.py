@@ -185,6 +185,7 @@ class MaterialCountService(TenantAwareService):
             # 准备盘点数据
             count_data = {
                 'warehouse_id': uuid.UUID(data['warehouse_id']),
+                'warehouse_code': data.get('warehouse_code', ''),
                 'warehouse_name': data.get('warehouse_name', ''),
                 'count_number': count_number,
                 'count_date': self._parse_date(data.get('count_date')) if data.get('count_date') else datetime.now(),
@@ -227,6 +228,9 @@ class MaterialCountService(TenantAwareService):
                     
                     # 创建明细记录
                     self.create_with_tenant(MaterialCountRecord, **detail_params)
+            else:
+                # 如果没有提供明细数据，自动从库存生成盘点记录
+                self._generate_count_records_from_inventory(count.id, count.warehouse_id, created_by_uuid)
             
             self.session.commit()
             
@@ -239,6 +243,64 @@ class MaterialCountService(TenantAwareService):
             self.session.rollback()
             current_app.logger.error(f"创建材料盘点失败: {str(e)}")
             raise ValueError(f"创建材料盘点失败: {str(e)}")
+
+    def _generate_count_records_from_inventory(self, count_plan_id: uuid.UUID, warehouse_id: uuid.UUID, created_by: uuid.UUID):
+        """
+        根据仓库库存自动生成盘点记录
+        
+        Args:
+            count_plan_id: 盘点计划ID
+            warehouse_id: 仓库ID
+            created_by: 创建人ID
+        """
+        try:
+            # 查询该仓库的所有材料库存
+            from app.models.business.inventory import Inventory
+            from app.models.basic_data import Material, Unit
+            
+            inventories = self.session.query(Inventory).filter(
+                and_(
+                    Inventory.warehouse_id == warehouse_id,
+                    Inventory.material_id.isnot(None),  # 只查询材料库存
+                    Inventory.current_quantity > 0,  # 只查询有库存的
+                    Inventory.is_active == True
+                )
+            ).all()
+            
+            for inventory in inventories:
+                # 获取材料信息
+                material = self.session.query(Material).filter(Material.id == inventory.material_id).first()
+                if not material:
+                    continue
+                
+                # 获取单位信息
+                unit = self.session.query(Unit).filter(Unit.id == inventory.unit_id).first()
+                
+                # 创建盘点记录
+                record_data = {
+                    'count_plan_id': count_plan_id,
+                    'inventory_id': inventory.id,
+                    'material_id': inventory.material_id,
+                    'material_code': material.material_code,
+                    'material_name': material.material_name,
+                    'material_spec': material.specification_model or '',
+                    'unit_id': inventory.unit_id,
+                    'book_quantity': inventory.current_quantity,
+                    'actual_quantity': inventory.current_quantity,  # 初始时实盘数量等于账面数量
+                    'variance_quantity': 0,
+                    'variance_rate': 0,
+                    'batch_number': inventory.batch_number,
+                    'location_code': inventory.location_code,
+                    'status': 'pending',
+                    'created_by': created_by
+                }
+                
+                # 创建盘点记录
+                self.create_with_tenant(MaterialCountRecord, **record_data)
+                
+        except Exception as e:
+            current_app.logger.error(f"生成盘点记录失败: {str(e)}")
+            raise ValueError(f"生成盘点记录失败: {str(e)}")
 
     def update_material_count(self, count_id: str, data: Dict[str, Any], updated_by: str) -> Dict[str, Any]:
         """更新材料盘点"""
@@ -451,7 +513,7 @@ class MaterialCountService(TenantAwareService):
                             'quantity_change': detail.variance_quantity,
                             'quantity_before': old_quantity,
                             'quantity_after': new_quantity,
-                            'unit': detail.unit,
+                            'unit_id': detail.unit_id,
                             'source_document_type': 'count_order',
                             'source_document_id': count.id,
                             'source_document_number': count.count_number,
@@ -607,6 +669,7 @@ class MaterialCountService(TenantAwareService):
             records = self.session.query(MaterialCountRecord).filter(MaterialCountRecord.count_plan_id == plan_id).all()
             
             transactions = []
+            adjusted_records = []
             
             for record in records:
                 if record.variance_quantity != 0 and record.material_id:
@@ -645,7 +708,7 @@ class MaterialCountService(TenantAwareService):
                             'quantity_change': record.variance_quantity,
                             'quantity_before': quantity_before,
                             'quantity_after': inventory.current_quantity,
-                            'unit': record.unit,
+                            'unit_id': record.unit_id,
                             'source_document_type': 'material_count_plan',
                             'source_document_id': count.id,
                             'source_document_number': count.count_number,
@@ -656,6 +719,11 @@ class MaterialCountService(TenantAwareService):
                         
                         transaction = self.create_with_tenant(InventoryTransaction, **transaction_data)
                         transactions.append(transaction)
+                        
+                        # 标记盘点记录为已调整
+                        record.is_adjusted = True
+                        record.status = 'adjusted'
+                        record.updated_by = adjusted_by_uuid
             
             # 更新盘点状态
             count.status = 'adjusted'
@@ -676,7 +744,11 @@ class MaterialCountService(TenantAwareService):
 
     def get_material_count_records(self, count_id: str) -> List[Dict[str, Any]]:
         """获取材料盘点记录"""
-        records = self.session.query(MaterialCountRecord).filter(
+        from sqlalchemy.orm import joinedload
+        
+        records = self.session.query(MaterialCountRecord).options(
+            joinedload(MaterialCountRecord.unit)
+        ).filter(
             MaterialCountRecord.count_plan_id == count_id
         ).all()
         

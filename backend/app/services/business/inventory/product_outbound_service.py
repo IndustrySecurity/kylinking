@@ -13,6 +13,7 @@ from decimal import Decimal
 from datetime import datetime, date
 from uuid import UUID
 from app.models.business.inventory import OutboundOrder, OutboundOrderDetail, Inventory, InventoryTransaction
+from app.models.basic_data import Unit
 from app.services.base_service import TenantAwareService
 from flask import g, current_app
 import logging
@@ -174,29 +175,20 @@ class ProductOutboundService(TenantAwareService):
             # 使用继承的create_with_tenant方法
             order = self.create_with_tenant(OutboundOrder, **order_data)
             self.session.flush()  # 获取order.id
-            
             # 创建明细
             if details_data:
                 for detail_data in details_data:
                     detail_params = {
                         'outbound_order_id': order.id,
                         'outbound_quantity': Decimal(str(detail_data.get('outbound_quantity', 0))),
-                        'unit': detail_data.get('unit', '个')
+                        'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None,
+                        'product_id': detail_data.get('product_id', None),
+                        'product_name': detail_data.get('product_name', None),
+                        'product_code': detail_data.get('product_code', None),
+                        'product_spec': detail_data.get('product_spec', None),
+                        'batch_number': detail_data.get('batch_number', None),
+                        'notes': detail_data.get('notes', None)
                     }
-                    
-                    # 设置其他明细字段
-                    if detail_data.get('product_id'):
-                        detail_params['product_id'] = uuid.UUID(detail_data['product_id'])
-                    if detail_data.get('material_id'):
-                        detail_params['material_id'] = uuid.UUID(detail_data['material_id'])
-                    if detail_data.get('product_name'):
-                        detail_params['product_name'] = detail_data['product_name']
-                    if detail_data.get('material_name'):
-                        detail_params['material_name'] = detail_data['material_name']
-                    if detail_data.get('batch_number'):
-                        detail_params['batch_number'] = detail_data['batch_number']
-                    if detail_data.get('notes'):
-                        detail_params['notes'] = detail_data['notes']
                     
                     # 创建明细
                     detail = self.create_with_tenant(OutboundOrderDetail, **detail_params)
@@ -260,10 +252,34 @@ class ProductOutboundService(TenantAwareService):
                 
                 # 创建新明细
                 for detail_data in details_data:
+                    # 处理单位字段：优先使用unit_id，如果没有则使用unit
+                    unit_id = None
+                    if detail_data.get('unit_id'):
+                        unit_id = uuid.UUID(detail_data['unit_id'])
+                    elif detail_data.get('unit'):
+                        unit_id = uuid.UUID(detail_data['unit'])
+                    
+                    # 如果仍然没有单位，尝试获取默认单位
+                    if not unit_id:
+                        # 查询默认单位（kg或个）
+                        default_unit = self.session.query(Unit).filter(
+                            Unit.unit_name.in_(['kg', '个', 'm²'])
+                        ).first()
+                        if default_unit:
+                            unit_id = default_unit.id
+                        else:
+                            # 如果连默认单位都没有，获取第一个可用单位
+                            first_unit = self.session.query(Unit).first()
+                            if first_unit:
+                                unit_id = first_unit.id
+                    
+                    if not unit_id:
+                        raise ValueError("无法确定单位，请检查单位配置")
+                    
                     detail = OutboundOrderDetail(
                         outbound_order_id=order.id,
                         outbound_quantity=Decimal(str(detail_data.get('outbound_quantity', 0))),
-                        unit=detail_data.get('unit', '个'),
+                        unit_id=unit_id,
                         created_by=updated_by_uuid
                     )
                     
@@ -334,6 +350,14 @@ class ProductOutboundService(TenantAwareService):
             # 检查状态
             if order.status not in ['draft', 'confirmed']:
                 raise ValueError("只有草稿和已确认状态的出库单可以审核")
+            
+            # 检查是否有明细
+            details = self.session.query(OutboundOrderDetail).filter(
+                OutboundOrderDetail.outbound_order_id == order_id
+            ).all()
+            
+            if not details:
+                raise ValueError("出库单没有明细，无法审核")
             
             approval_status = approval_data.get('approval_status', 'approved')
             
@@ -431,7 +455,7 @@ class ProductOutboundService(TenantAwareService):
                     quantity_change=-outbound_quantity,
                     quantity_before=quantity_before,
                     quantity_after=inventory.current_quantity,
-                    unit=detail.unit,
+                    unit_id=detail.unit_id,
                     unit_price=detail.unit_cost or Decimal('0'),
                     source_document_type='outbound_order',
                     source_document_id=order.id,
@@ -530,10 +554,20 @@ class ProductOutboundService(TenantAwareService):
             
             created_by_uuid = uuid.UUID(created_by)
             
+            # 处理单位字段：优先使用unit_id，如果没有则使用unit
+            unit_id = None
+            if detail_data.get('unit_id'):
+                unit_id = uuid.UUID(detail_data['unit_id'])
+            elif detail_data.get('unit'):
+                unit_id = uuid.UUID(detail_data['unit'])
+            
+            if not unit_id:
+                raise ValueError("单位字段不能为空")
+            
             detail = OutboundOrderDetail(
                 outbound_order_id=uuid.UUID(order_id),
                 outbound_quantity=Decimal(str(detail_data.get('outbound_quantity', 0))),
-                unit=detail_data.get('unit', '个'),
+                unit_id=unit_id,
                 created_by=created_by_uuid
             )
             
@@ -542,7 +576,7 @@ class ProductOutboundService(TenantAwareService):
                 detail.product_id = uuid.UUID(detail_data['product_id'])
             detail.product_name = detail_data.get('product_name', '')
             detail.product_code = detail_data.get('product_code', '')
-            detail.product_spec = detail_data.get('product_spec', '')
+            detail.product_spec = detail_data.get('product_spec', '')   
             detail.batch_number = detail_data.get('batch_number', '')
             detail.location_code = detail_data.get('location_code', '')
             
@@ -595,6 +629,9 @@ class ProductOutboundService(TenantAwareService):
                         setattr(detail, key, Decimal(str(value)))
                     elif key == 'product_id' and value:
                         setattr(detail, key, uuid.UUID(value))
+                    elif key == 'unit' and value:
+                        # 处理单位字段：将unit值转换为unit_id
+                        setattr(detail, 'unit_id', uuid.UUID(value))
                     else:
                         setattr(detail, key, value)
             

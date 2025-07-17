@@ -89,6 +89,8 @@ class DeliveryNoticeService(TenantAwareService):
             for detail_data in details_from_frontend:
                 detail_data['created_by'] = user_id
                 detail_data['delivery_notice_id'] = notice.id
+                detail_data['already_outbound_quantity'] = 0
+                detail_data['pending_outbound_quantity'] = detail_data.get('notice_quantity') or 0
                 valid_fields = {c.name for c in DeliveryNoticeDetail.__table__.columns}
                 clean_data = {k: v for k, v in detail_data.items() if k in valid_fields}
                 clean_data['delivery_notice_id'] = notice.id
@@ -115,6 +117,10 @@ class DeliveryNoticeService(TenantAwareService):
                             current_qty = Decimal(0)
 
                         sod.scheduled_delivery_quantity = current_qty + qty_decimal
+            
+            # 检查是否需要关闭销售订单
+            if notice.sales_order_id:
+                self._check_and_close_sales_order(notice.sales_order_id, user_id)
             
             self.commit()
             
@@ -431,8 +437,10 @@ class DeliveryNoticeService(TenantAwareService):
                 'specification': od.material_structure,
                 'order_quantity': od.order_quantity,
                 'notice_quantity': remaining_qty,  # 默认剩余全部安排，可前端修改
-                'unit': od.unit,
-                'sales_unit': od.unit,
+                'already_outbound_quantity': 0,
+                'pending_outbound_quantity': remaining_qty,
+                'unit_id': od.unit_id,
+                'sales_unit_id': od.sales_unit_id,
                 'negative_deviation_percentage': od.negative_deviation_percentage,
                 'positive_deviation_percentage': od.positive_deviation_percentage,
                 'production_min_quantity': od.production_small_quantity,
@@ -464,4 +472,43 @@ class DeliveryNoticeService(TenantAwareService):
                 'id': str(notice.sales_order.id),
                 'order_number': notice.sales_order.order_number
             }
-        return data 
+        return data
+
+    def _check_and_close_sales_order(self, sales_order_id: str, user_id: str) -> None:
+        """
+        检查销售订单的所有明细是否都已安排完毕，如果是则关闭订单
+        
+        Args:
+            sales_order_id: 销售订单ID
+            user_id: 用户ID
+        """
+        session = self.get_session()
+        
+        # 获取销售订单及其所有明细
+        sales_order = session.query(SalesOrder).options(
+            joinedload(SalesOrder.order_details)
+        ).get(sales_order_id)
+        
+        if not sales_order:
+            return
+        
+        # 检查是否所有明细的已安排数量都大于等于订单数量
+        all_details_fully_scheduled = True
+        
+        for detail in sales_order.order_details:
+            order_qty = Decimal(str(detail.order_quantity or 0))
+            scheduled_qty = Decimal(str(detail.scheduled_delivery_quantity or 0))
+            
+            # 如果任何一个明细的已安排数量小于订单数量，则不能关闭
+            if scheduled_qty < order_qty:
+                all_details_fully_scheduled = False
+                break
+        
+        # 如果所有明细都已安排完毕，则关闭销售订单
+        if all_details_fully_scheduled and sales_order.status not in ['completed', 'cancelled']:
+            sales_order.status = 'completed'
+            sales_order.updated_by = user_id
+            self.log_operation('auto_close_sales_order', {
+                'sales_order_id': sales_order_id,
+                'reason': '所有明细已安排完毕'
+            }) 

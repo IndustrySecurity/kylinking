@@ -58,8 +58,6 @@ const BagRelatedFormulaManagement = () => {
   const loadData = async (params = {}) => {
     setLoading(true);
     try {
-
-
       const response = await bagRelatedFormulaApi.getBagRelatedFormulas({
         page: pagination.current,
         per_page: pagination.pageSize,
@@ -71,23 +69,17 @@ const BagRelatedFormulaManagement = () => {
 
       if (response.data.success) {
         
-        // 修正数据路径：实际数据在 response.data.data.data 中
         const responseWrapper = response.data.data || {};
-        const actualData = responseWrapper.data || {};
-        
-        // 从正确的层级提取字段
-        const formulasArray = Array.isArray(actualData.formulas) ? actualData.formulas : [];
-        const total = actualData.total || 0;
-        const currentPage = actualData.current_page || 1;
-        
-        
-        
+
+        const formulasArray = responseWrapper.formulas || [];
+        const total = responseWrapper.total || 0;
+        const currentPage = responseWrapper.page || 1;
+          
         // 为每行数据添加key
         const dataWithKeys = formulasArray.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
-        
         
         
         setData(dataWithKeys);
@@ -117,28 +109,31 @@ const BagRelatedFormulaManagement = () => {
   const loadOptions = async () => {
     try {
       const response = await bagRelatedFormulaApi.getBagRelatedFormulaOptions();
-      
+
       if (response.data.success) {
-        // 修正选项数据路径：根据日志，实际数据可能在 response.data.data.data 中
-        const responseWrapper = response.data.data || {};
-        const actualOptionsData = responseWrapper.data || responseWrapper; // 备用方案
+        // 根据新的API结构，数据在 response.data.data 中
+        const optionsData = response.data.data || {};
         
         // 处理袋型选项
         let bagTypeOptions = [];
-        if (Array.isArray(actualOptionsData.bag_types)) {
-          bagTypeOptions = actualOptionsData.bag_types.map(item => ({
-            value: item.id || item.value,
-            label: item.name || item.label || item.bag_type_name,
+        if (Array.isArray(optionsData.bag_type_options)) {
+          bagTypeOptions = optionsData.bag_type_options.map(item => ({
+            value: item.value,
+            label: item.label,
+            spec_expression: item.spec_expression,
             ...item
           }));
         }
         
-        // 处理公式选项
+        // 处理计算方案选项
         let formulaOptions = [];
-        if (Array.isArray(actualOptionsData.formulas)) {
-          formulaOptions = actualOptionsData.formulas.map(item => ({
-            value: item.id || item.value,
-            label: item.name || item.label || item.scheme_name,
+        if (Array.isArray(optionsData.calculation_scheme_options)) {
+          formulaOptions = optionsData.calculation_scheme_options.map(item => ({
+            value: item.value,
+            label: item.label,
+            formula: item.formula,
+            category: item.category,
+            description: item.description,
             ...item
           }));
         }
@@ -161,13 +156,7 @@ const BagRelatedFormulaManagement = () => {
       // 使用默认选项作为后备
       const defaultOptions = {
         bag_types: [],
-        formulas: [
-          { id: 'area_formula', value: 'area_formula', label: '面积公式', name: '面积公式' },
-          { id: 'weight_formula', value: 'weight_formula', label: '重量公式', name: '重量公式' },
-          { id: 'material_formula', value: 'material_formula', label: '材料公式', name: '材料公式' },
-          { id: 'loss_formula', value: 'loss_formula', label: '损耗公式', name: '损耗公式' },
-          { id: 'cost_formula', value: 'cost_formula', label: '成本公式', name: '成本公式' }
-        ]
+        formulas: []
       };
       setFormOptions(defaultOptions);
     }
@@ -218,17 +207,24 @@ const BagRelatedFormulaManagement = () => {
   // 显示新增/编辑模态框
   const showModal = (record = null) => {
     setEditingFormula(record);
+    
     if (record) {
-      form.setFieldsValue({
+      // 编辑模式：显示所有袋型选项
+      const formData = {
         ...record,
-        sort_order: record.sort_order || 0
-      });
+        sort_order: record.sort_order || 0,
+        is_enabled: record.is_enabled !== undefined ? record.is_enabled : true
+      };
+      form.setFieldsValue(formData)
     } else {
+      // 新增模式：过滤掉已有公式配置的袋型
       form.resetFields();
-      form.setFieldsValue({
+      const defaultData = {
         is_enabled: true,
         sort_order: 0
-      });
+      };
+
+      form.setFieldsValue(defaultData);
     }
     setModalVisible(true);
   };
@@ -238,14 +234,40 @@ const BagRelatedFormulaManagement = () => {
     try {
       const values = await form.validateFields();
       
+      // 清理数据：移除undefined和null值，设置默认值
+      const cleanedValues = {
+        bag_type_id: values.bag_type_id,
+        meter_formula_id: values.meter_formula_id || null,
+        square_formula_id: values.square_formula_id || null,
+        material_width_formula_id: values.material_width_formula_id || null,
+        per_piece_formula_id: values.per_piece_formula_id || null,
+        dimension_description: values.dimension_description || '',
+        description: values.description || '',
+        sort_order: values.sort_order || 0,
+        is_enabled: values.is_enabled !== undefined ? values.is_enabled : true
+      };
+        
+      // 确保bag_type_id存在且有效
+      if (!cleanedValues.bag_type_id) {
+        message.error('请选择袋型');
+        return;
+      }
+      
+      // 验证袋型选项是否存在
+      const selectedBagType = formOptions.bag_types.find(b => b.value === cleanedValues.bag_type_id);
+      if (!selectedBagType) {
+        message.error('选择的袋型无效');
+        return;
+      }
+      
       let response;
       if (editingFormula) {
-        response = await bagRelatedFormulaApi.updateBagRelatedFormula(editingFormula.id, values);
+        response = await bagRelatedFormulaApi.updateBagRelatedFormula(editingFormula.id, cleanedValues);
         if (response.data.success) {
           message.success('更新成功');
         }
       } else {
-        response = await bagRelatedFormulaApi.createBagRelatedFormula(values);
+        response = await bagRelatedFormulaApi.createBagRelatedFormula(cleanedValues);
         if (response.data.success) {
           message.success('创建成功');
         }
@@ -254,10 +276,20 @@ const BagRelatedFormulaManagement = () => {
       setModalVisible(false);
       loadData();
     } catch (error) {
+      console.error('保存错误详情:', error);
       if (error.errorFields) {
         message.error('请检查输入内容');
       } else {
-        message.error('保存失败：' + (error.response?.data?.message || error.message));
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+        if (errorMessage.includes('已存在相关公式配置')) {
+          message.error('该袋型已存在公式配置，请选择其他袋型或编辑现有配置');
+        } else if (errorMessage.includes('袋型不能为空')) {
+          message.error('请选择袋型');
+        } else if (errorMessage.includes('数据完整性错误')) {
+          message.error('数据格式错误，请检查输入内容');
+        } else {
+          message.error('保存失败：' + errorMessage);
+        }
       }
     }
   };
@@ -288,62 +320,83 @@ const BagRelatedFormulaManagement = () => {
   const columns = [
     {
       title: '袋型',
-      dataIndex: 'bag_type_name',
-      key: 'bag_type_name',
+      dataIndex: 'bag_type_id',
+      key: 'bag_type_id',
       width: 150,
-      render: (text) => <Text>{text || '-'}</Text>
+      render: (bagTypeId) => {
+        const bagType = formOptions.bag_types.find(b => b.value === bagTypeId);
+        return (
+          <Tooltip title={bagType ? bagType.spec_expression : ''}>
+            <Text>
+              {bagType ? bagType.label : '-'}
+            </Text>
+          </Tooltip>
+        );
+      }
     },
     {
       title: '米数公式',
-      dataIndex: 'meter_formula',
-      key: 'meter_formula',
+      dataIndex: 'meter_formula_id',
+      key: 'meter_formula_id',
       width: 150,
-      render: (formula) => (
-        <Tooltip title={formula ? formula.formula : ''}>
-          <Text>
-            {formula ? formula.name : '-'}
-          </Text>
-        </Tooltip>
-      )
+      render: (formulaId) => {
+        const formula = formOptions.formulas.find(f => f.value === formulaId);
+        return (
+          <Tooltip title={formula ? formula.formula : ''}>
+            <Text>
+              {formula ? formula.label : '-'}
+            </Text>
+          </Tooltip>
+        );
+      }
     },
     {
       title: '平方公式',
-      dataIndex: 'square_formula',
-      key: 'square_formula',
+      dataIndex: 'square_formula_id',
+      key: 'square_formula_id',
       width: 150,
-      render: (formula) => (
-        <Tooltip title={formula ? formula.formula : ''}>
-          <Text>
-            {formula ? formula.name : '-'}
-          </Text>
-        </Tooltip>
-      )
+      render: (formulaId) => {
+        const formula = formOptions.formulas.find(f => f.value === formulaId);
+        return (
+          <Tooltip title={formula ? formula.formula : ''}>
+            <Text>
+              {formula ? formula.label : '-'}
+            </Text>
+          </Tooltip>
+        );
+      }
     },
     {
       title: '料宽公式',
-      dataIndex: 'material_width_formula',
-      key: 'material_width_formula',
+      dataIndex: 'material_width_formula_id',
+      key: 'material_width_formula_id',
       width: 150,
-      render: (formula) => (
-        <Tooltip title={formula ? formula.formula : ''}>
-          <Text>
-            {formula ? formula.name : '-'}
-          </Text>
-        </Tooltip>
-      )
+      render: (formulaId) => {
+        const formula = formOptions.formulas.find(f => f.value === formulaId);
+        return (
+          <Tooltip title={formula ? formula.formula : ''}>
+            <Text>
+              {formula ? formula.label : '-'}
+            </Text>
+          </Tooltip>
+        );
+      }
     },
     {
       title: '元/个公式',
-      dataIndex: 'per_piece_formula',
-      key: 'per_piece_formula',
+      dataIndex: 'per_piece_formula_id',
+      key: 'per_piece_formula_id',
       width: 150,
-      render: (formula) => (
-        <Tooltip title={formula ? formula.formula : ''}>
-          <Text>
-            {formula ? formula.name : '-'}
-          </Text>
-        </Tooltip>
-      )
+      render: (formulaId) => {
+        const formula = formOptions.formulas.find(f => f.value === formulaId);
+        return (
+          <Tooltip title={formula ? formula.formula : ''}>
+            <Text>
+              {formula ? formula.label : '-'}
+            </Text>
+          </Tooltip>
+        );
+      }
     },
     {
       title: '尺寸维度',
@@ -440,29 +493,6 @@ const BagRelatedFormulaManagement = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      {/* 调试信息 - 仅在开发环境显示 */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card style={{ marginBottom: 16, backgroundColor: '#f0f2f5' }}>
-          <Title level={5}>调试信息</Title>
-          <p><strong>表格数据:</strong> {data.length} 条记录</p>
-          <p><strong>袋型选项:</strong> {formOptions.bag_types?.length || 0} 个</p>
-          <p><strong>公式选项:</strong> {formOptions.formulas?.length || 0} 个</p>
-          <p><strong>加载状态:</strong> {loading ? '加载中' : '已完成'}</p>
-          <p><strong>分页信息:</strong> 总共 {pagination.total} 条，当前第 {pagination.current} 页</p>
-          {data.length > 0 && (
-            <details>
-              <summary>第一条数据预览</summary>
-              <pre>{JSON.stringify(data[0], null, 2)}</pre>
-            </details>
-          )}
-          {formOptions.bag_types && formOptions.bag_types.length > 0 && (
-            <details>
-              <summary>袋型选项预览</summary>
-              <pre>{JSON.stringify(formOptions.bag_types, null, 2)}</pre>
-            </details>
-          )}
-        </Card>
-      )}
       
       <Card>
         <div style={{ marginBottom: 16 }}>
@@ -552,13 +582,12 @@ const BagRelatedFormulaManagement = () => {
           onOk={handleSave}
           onCancel={() => setModalVisible(false)}
           width={800}
-          destroyOnClose
-          key={modalVisible ? (editingFormula?.id || 'new') : 'closed'}
+          destroyOnClose={false}
         >
           <Form
             form={form}
             layout="vertical"
-            preserve={false}
+            preserve={true}
           >
             <Row gutter={16}>
               <Col span={12}>
@@ -572,11 +601,20 @@ const BagRelatedFormulaManagement = () => {
                     showSearch
                     optionFilterProp="children"
                   >
-                    {(formOptions.bag_types || []).map(item => (
-                      <Option key={item.value} value={item.value}>
-                        {item.label}
-                      </Option>
-                    ))}
+                    {(formOptions.bag_types || []).map(item => {
+                      // 在新增模式下，过滤掉已有公式配置的袋型
+                      if (!editingFormula) {
+                        const existingFormula = data.find(formula => formula.bag_type_id === item.value);
+                        if (existingFormula) {
+                          return null; // 不显示已有配置的袋型
+                        }
+                      }
+                      return (
+                        <Option key={item.value} value={item.value}>
+                          {item.label}
+                        </Option>
+                      );
+                    }).filter(Boolean)}
                   </Select>
                 </Form.Item>
               </Col>
@@ -592,7 +630,7 @@ const BagRelatedFormulaManagement = () => {
                     optionFilterProp="children"
                   >
                     {(formOptions.formulas || []).map(item => (
-                      <Option key={item.value} value={item.value} title={item.formula}>
+                      <Option key={item.value} value={item.value} title={`${item.description} - ${item.formula}`}>
                         {item.label}
                       </Option>
                     ))}
@@ -633,7 +671,7 @@ const BagRelatedFormulaManagement = () => {
                     optionFilterProp="children"
                   >
                     {(formOptions.formulas || []).map(item => (
-                      <Option key={item.value} value={item.value} title={item.formula}>
+                      <Option key={item.value} value={item.value} title={`${item.description} - ${item.formula}`}>
                         {item.label}
                       </Option>
                     ))}
@@ -655,7 +693,7 @@ const BagRelatedFormulaManagement = () => {
                     optionFilterProp="children"
                   >
                     {(formOptions.formulas || []).map(item => (
-                      <Option key={item.value} value={item.value} title={item.formula}>
+                      <Option key={item.value} value={item.value} title={`${item.description} - ${item.formula}`}>
                         {item.label}
                       </Option>
                     ))}

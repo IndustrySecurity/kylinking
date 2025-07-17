@@ -12,6 +12,7 @@ from app.services import (
     SalesOrderService
 )
 from app.models.business.sales import SalesOrder
+from app.services.business.inventory.inventory_service import InventoryService
 from app.services.base_archive.base_data.product_management_service import ProductManagementService
 
 bp = Blueprint('sales_order', __name__)
@@ -84,8 +85,8 @@ def create_sales_order():
             return jsonify({'error': '客户ID不能为空'}), 400
 
         # 处理日期字段
-        if data.get('order_date'):
-            data['order_date'] = datetime.fromisoformat(data['order_date'].replace('Z', '+00:00'))
+        if data.get('delivery_date'):
+            data['delivery_date'] = datetime.fromisoformat(data['delivery_date'].replace('Z', '+00:00'))
         if data.get('internal_delivery_date'):
             data['internal_delivery_date'] = datetime.fromisoformat(data['internal_delivery_date'].replace('Z', '+00:00'))
         if data.get('contract_date'):
@@ -96,6 +97,7 @@ def create_sales_order():
             order_data=data,
             user_id=user_id
         )
+        
         
         return jsonify({
             'success': True,
@@ -143,8 +145,8 @@ def update_sales_order(order_id):
         data = request.get_json()
         
         # 处理日期字段
-        if data.get('order_date'):
-            data['order_date'] = datetime.fromisoformat(data['order_date'].replace('Z', '+00:00'))
+        if data.get('delivery_date'):
+            data['delivery_date'] = datetime.fromisoformat(data['delivery_date'].replace('Z', '+00:00'))
         if data.get('internal_delivery_date'):
             data['internal_delivery_date'] = datetime.fromisoformat(data['internal_delivery_date'].replace('Z', '+00:00'))
         if data.get('contract_date'):
@@ -225,6 +227,35 @@ def approve_sales_order(order_id):
         return jsonify({'error': f'审批失败: {str(e)}'}), 500
 
 
+@bp.route('/sales-orders/<order_id>/finish', methods=['POST'])
+@jwt_required()
+@tenant_required
+def finish_sales_order(order_id):
+    """完成销售订单"""
+    try:
+        # 创建服务实例
+        sales_order_service = SalesOrderService()
+        
+        user_id = get_jwt_identity()
+        result = sales_order_service.finish_sales_order(
+            order_id=order_id,
+            user_id=user_id
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '销售订单已完成'
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        return jsonify({'error': f'完成失败: {str(e)}'}), 500
+
+
+
+
+
 @bp.route('/sales-orders/<order_id>/cancel', methods=['POST'])
 @jwt_required()
 @tenant_required
@@ -255,6 +286,54 @@ def cancel_sales_order(order_id):
     except Exception as e:
         return jsonify({'error': f'取消失败: {str(e)}'}), 500
 
+
+# ==================== 获取未完成的销售订单选项 ====================
+
+@bp.route('/sales-orders/active-options', methods=['GET'])
+@jwt_required()
+@tenant_required
+def get_active_sales_order_options():
+    """获取未完成的销售订单选项（排除completed状态）"""
+    try:
+        from sqlalchemy.orm import joinedload
+        from app.models.business.sales import SalesOrder
+        from app.extensions import db
+
+        # 获取查询参数
+        customer_id = request.args.get('customer_id')
+        limit = int(request.args.get('limit', 100))  # 限制返回数量
+        
+        # 构建查询
+        query = db.session.query(SalesOrder).options(joinedload(SalesOrder.customer))\
+            .filter(SalesOrder.status != 'completed')\
+            .filter(SalesOrder.is_active.is_(True))
+        
+        # 如果指定了客户ID，则按客户筛选
+        if customer_id:
+            query = query.filter(SalesOrder.customer_id == customer_id)
+        
+        # 按创建时间倒序排列，限制数量
+        orders = query.order_by(SalesOrder.created_at.desc()).limit(limit).all()
+        
+        # 构建选项数据
+        options = []
+        for order in orders:
+            options.append({
+                'value': str(order.id),
+                'label': f"{order.order_number}",
+                'data': {
+                    'order_number': order.order_number,
+                    'customer_name': order.customer.customer_name if order.customer else '',
+                    'customer_id': str(order.customer_id) if order.customer_id else None,
+                    'delivery_date': order.delivery_date.isoformat() if order.delivery_date else None,
+                    'status': order.status
+                }
+            })
+        
+        return jsonify({'success': True, 'data': options})
+    except Exception as e:
+        print(f"获取未完成销售订单选项失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==================== 获取未全部安排发货的销售订单选项 ====================
@@ -342,7 +421,7 @@ def get_product_options():
                     'label': product['product_name'],
                     'code': product.get('product_code', ''),
                     'specification': product.get('specification_model', ''),
-                    'unit': product.get('unit_name', ''),
+                    'unit_id': product.get('unit_id', ''),
                     'price': product.get('base_price', 0)
                 })
         
@@ -417,7 +496,7 @@ def get_tax_options():
             for tax in taxes['tax_rates']:
                 options.append({
                     'value': str(tax['id']),
-                    'label': f"{tax['tax_name']} ({tax.get('tax_rate', 0)}%)",
+                    'label': str(tax['tax_name']),
                     'rate': tax.get('tax_rate', 0),
                     'type': tax.get('tax_type', '')
                 })
@@ -600,14 +679,10 @@ def get_delivery_method_options():
 def get_sales_order_stats():
     """获取销售订单统计"""
     try:
-        # 这里应该实现真实的统计逻辑，暂时返回模拟数据
-        stats = {
-            'total_orders': 120,
-            'total_amount': 1500000.00,
-            'draft_count': 15,
-            'confirmed_count': 45,
-            'completed_count': 60
-        }
+        # 创建服务实例
+        sales_order_service = SalesOrderService()
+        
+        stats = sales_order_service.get_order_statistics()  
         
         return jsonify({'success': True, 'data': stats})
     except Exception as e:
@@ -619,19 +694,10 @@ def get_sales_order_stats():
 def get_sales_order_report():
     """获取销售订单报表"""
     try:
-        # 这里应该实现真实的报表逻辑，暂时返回模拟数据
-        report = {
-            'period': request.args.get('period', '本月'),
-            'sales_trend': [
-                {'date': '2024-01-01', 'amount': 50000},
-                {'date': '2024-01-02', 'amount': 60000},
-                {'date': '2024-01-03', 'amount': 45000}
-            ],
-            'top_customers': [
-                {'name': '客户A', 'amount': 200000},
-                {'name': '客户B', 'amount': 150000}
-            ]
-        }
+        # 创建服务实例
+        sales_order_service = SalesOrderService()
+        
+        report = sales_order_service.get_sales_order_report(filters=request.args.to_dict())
         
         return jsonify({'success': True, 'data': report})
     except Exception as e:
@@ -643,17 +709,10 @@ def get_sales_order_report():
 def get_product_inventory(product_id):
     """获取产品库存信息"""
     try:
-        # 这里应该调用库存服务获取实际库存信息
-        # 暂时返回基础库存信息
-        inventory = {
-            'product_id': product_id,
-            'available_quantity': 100,
-            'total_quantity': 150,
-            'reserved_quantity': 50,
-            'safety_stock': 10
-        }
+        inventory_service = InventoryService()
+        total_available_inventory = inventory_service.get_product_inventory(product_id)
         
-        return jsonify({'success': True, 'data': inventory})
+        return jsonify({'success': True, 'data': total_available_inventory})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -699,20 +758,3 @@ def get_product_details(product_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@bp.route('/customers/<customer_id>/tax-rate', methods=['GET'])
-@jwt_required()
-@tenant_required
-def get_customer_tax_rate(customer_id):
-    """获取客户税率信息"""
-    try:
-        # 这里应该从客户表或税率配置获取数据，暂时返回模拟数据
-        tax_rate = {
-            'customer_id': customer_id,
-            'tax_rate': 13.0,
-            'tax_type': 'VAT',
-            'is_tax_inclusive': False
-        }
-        
-        return jsonify({'success': True, 'data': tax_rate})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500 

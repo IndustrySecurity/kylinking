@@ -140,8 +140,6 @@ def update_outbound_order(order_id):
     """更新产品出库单"""
     try:
         current_user_id = get_jwt_identity()
-        claims = get_jwt()
-        tenant_id = claims.get('tenant_id')
         data = request.get_json()
         
         if not data:
@@ -149,6 +147,7 @@ def update_outbound_order(order_id):
         
         from app.services.business.inventory.product_outbound_service import ProductOutboundService
         service = ProductOutboundService()
+        
         order = service.update_outbound_order(order_id, data, current_user_id)
         
         return jsonify({

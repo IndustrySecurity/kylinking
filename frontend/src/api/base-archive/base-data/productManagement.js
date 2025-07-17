@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取产品列表
 export const getProducts = (params) => {
   return request({
-    url: '/tenant/base-archive/base-data/products',
+    url: '/tenant/base-archive/base-data/products/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getProducts = (params) => {
 // 创建产品
 export const createProduct = (data) => {
   return request({
-    url: '/tenant/base-archive/base-data/products',
+    url: '/tenant/base-archive/base-data/products/',
     method: 'post',
     data
   });

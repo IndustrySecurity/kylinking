@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取职位列表
 export const getPositions = (params) => {
   return request({
-    url: '/tenant/base-archive/base-data/positions',
+    url: '/tenant/base-archive/base-data/positions/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getPositions = (params) => {
 // 创建职位
 export const createPosition = (data) => {
   return request({
-    url: '/tenant/base-archive/base-data/positions',
+    url: '/tenant/base-archive/base-data/positions/',
     method: 'post',
     data
   });

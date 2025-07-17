@@ -71,7 +71,8 @@ const ProductManagement = () => {
     bagTypes: [],
     processes: [],
     materials: [],
-    employees: []
+    employees: [],
+    units: []
   });
   
   // 表单实例
@@ -132,7 +133,8 @@ const ProductManagement = () => {
           bagTypes: [],
           processes: [],
           materials: [],
-          employees: []
+          employees: [],
+          units: []
         };
         
         setFormOptions(formData);
@@ -295,7 +297,8 @@ const ProductManagement = () => {
       salesperson_id: undefined, 
       status: 'active',
       product_type: 'finished',
-      base_unit: undefined,
+      unit_id: undefined,
+      package_unit_id: undefined,
       currency: undefined,
       conversion_rate: undefined,
       safety_stock: undefined,
@@ -321,6 +324,7 @@ const ProductManagement = () => {
       const response = await productManagementApi.getProductDetail(record.id);
       if (response.data.success) {
         const productDetail = response.data.data;
+        console.log('productDetail', productDetail);
         form.setFieldsValue(productDetail);
         
         // 加载产品图片
@@ -776,6 +780,17 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={8}>
+          <Form.Item name="unit_id" label="单位" rules={[{ required: true, message: '请选择单位' }]}>
+            <Select placeholder="请选择单位">
+              {(formOptions.units || []).map(unit => (
+                <Option key={unit.value || unit.id} value={unit.value || unit.id}>
+                  {unit.label || unit.unit_name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+        <Col span={8}>
           <Form.Item name="salesperson_id" label="业务员">
             <Select 
               placeholder={'根据客户自动填入'} 
@@ -789,15 +804,7 @@ const ProductManagement = () => {
             </Select>
           </Form.Item>
         </Col>
-        <Col span={8}>
-          <Form.Item name="product_type" label="产品类型" initialValue="finished">
-            <Select placeholder="成品" disabled>
-              <Option value="finished">成品</Option>
-              <Option value="semi">半成品</Option>
-              <Option value="material">原料</Option>
-            </Select>
-          </Form.Item>
-        </Col>
+        
       </Row>
 
       <Row gutter={16}>
@@ -836,6 +843,15 @@ const ProductManagement = () => {
             <Select placeholder="根据选择的袋型自动输入" disabled>
               <Option value="system1">系统1</Option>
               <Option value="system2">系统2</Option>
+            </Select>
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="product_type" label="产品类型" initialValue="finished">
+            <Select placeholder="成品" disabled>
+              <Option value="finished">成品</Option>
+              <Option value="semi">半成品</Option>
+              <Option value="material">原料</Option>
             </Select>
           </Form.Item>
         </Col>

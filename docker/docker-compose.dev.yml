@@ -17,6 +17,7 @@ services:
       - VITE_API_URL=/api
       - VITE_APP_TITLE=KylinKing云膜智能管理系统
       - VITE_APP_ENV=development
+      - TZ=Asia/Shanghai
     depends_on:
       - backend
     networks:
@@ -64,6 +65,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - CORS_ORIGINS=http://localhost:3000,http://localhost
+      - TZ=Asia/Shanghai
     networks:
       - saas-network
     restart: unless-stopped
@@ -82,6 +84,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=saas_platform
+      - TZ=Asia/Shanghai
     networks:
       - saas-network
     restart: unless-stopped
@@ -99,6 +102,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    environment:
+      - TZ=Asia/Shanghai
     networks:
       - saas-network
     restart: unless-stopped

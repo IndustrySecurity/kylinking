@@ -67,6 +67,7 @@ const DeliveryNotice = () => {
   const [customerOptions, setCustomerOptions] = useState([]);
   const [productOptions, setProductOptions] = useState([]);
   const [salesOrderOptions, setSalesOrderOptions] = useState([]);
+  const [unitOptions, setUnitOptions] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -91,22 +92,23 @@ const DeliveryNotice = () => {
 
   const fetchOptions = async () => {
     try {
-      const [customerRes, productRes, salesOrderRes] = await Promise.all([
+      const [customerRes, productRes, salesOrderRes, unitRes] = await Promise.all([
         salesOrderService.getCustomerOptions(),
         salesOrderService.getProductOptions(),
-        salesOrderService.getSalesOrders({ page: 1, per_page: 100 })
+        salesOrderService.getActiveSalesOrderOptions(null, 100), // 使用新的API，限制100条，排除completed状态
+        salesOrderService.getUnitOptions()
       ]);
       if (customerRes.data.success) setCustomerOptions(customerRes.data.data);
       if (productRes.data.success) setProductOptions(productRes.data.data);
       if (salesOrderRes.data.success) {
-        const list = salesOrderRes.data.data.items || salesOrderRes.data.data.orders || [];
-        const orderOptions = list.map(order => ({
-          value: order.id,
-          label: `${order.order_number} - ${order.customer?.customer_name || ''}`,
-          data: order
+        const orderOptions = salesOrderRes.data.data.map(order => ({
+          value: order.value,
+          label: order.label,
+          data: order.data
         }));
         setSalesOrderOptions(orderOptions);
       }
+      if (unitRes.data.success) setUnitOptions(unitRes.data.data);
     } catch (error) {
       console.error('获取选项数据失败:', error);
     }
@@ -167,6 +169,31 @@ const DeliveryNotice = () => {
         details: details,
       };
       
+      // 检查明细中notice_quantity是否大于remaining_quantity
+      const hasInvalidQuantity = details.some(detail => detail.notice_quantity > detail.remaining_quantity);
+      if (hasInvalidQuantity) {
+        // 使用Modal.confirm显示警告，但允许继续
+        Modal.confirm({
+          title: '数量警告',
+          content: '通知数量大于未安排数量，是否继续保存？',
+          okText: '继续保存',
+          cancelText: '取消',
+          onOk: async () => {
+            await saveDeliveryNotice(payload);
+          }
+        });
+        return;
+      }
+      
+      // 如果没有数量问题，直接保存
+      await saveDeliveryNotice(payload);
+    } catch (error) {
+      message.error('保存失败');
+    }
+  };
+
+  const saveDeliveryNotice = async (payload) => {
+    try {
       if (currentRecord) {
         await deliveryNoticeService.updateDeliveryNotice(currentRecord.id, payload);
       } else {
@@ -178,6 +205,7 @@ const DeliveryNotice = () => {
       fetchData();
     } catch (error) {
       message.error('保存失败');
+      throw error; // 重新抛出错误，让调用方处理
     }
   };
 
@@ -207,31 +235,6 @@ const DeliveryNotice = () => {
     }
   };
 
-  const addDetail = () => {
-    const newDetail = {
-      id: Date.now(),
-      delivery_notice_id: currentRecord?.id,
-      work_order_number: '',
-      product_id: null,
-      product_name: '',
-      product_code: '',
-      specification: '',
-      order_quantity: 0,
-      notice_quantity: 0,
-      gift_quantity: 0,
-      inventory_quantity: 0,
-      unit: '',
-      price: 0,
-      amount: 0,
-      sales_order_number: '',
-      customer_order_number: '',
-      customer_code: '',
-      material_structure: '',
-      outer_box: '',
-      sort_order: details.length + 1
-    };
-    setDetails([...details, newDetail]);
-  };
 
   const updateDetail = (index, field, value) => {
     const newDetails = [...details];
@@ -404,15 +407,17 @@ const DeliveryNotice = () => {
 
   const detailColumns = [
     {
-      title: '工单号',
-      dataIndex: 'work_order_number',
-      key: 'work_order_number',
-      width: 120,
+      title: '销售单号',
+      dataIndex: 'sales_order_number',
+      key: 'sales_order_number',
+      width: 100,
       render: (text, record, index) => (
         <Input
           value={text}
-          onChange={(e) => updateDetail(index, 'work_order_number', e.target.value)}
+          onChange={(e) => updateDetail(index, 'sales_order_number', e.target.value)}
           size="small"
+          readOnly
+          style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
         />
       ),
     },
@@ -420,42 +425,29 @@ const DeliveryNotice = () => {
       title: '产品名称',
       dataIndex: 'product_name',
       key: 'product_name',
-      width: 150,
+      width: 100,
       render: (text, record, index) => (
-        <Select
-          value={record.product_id}
-          onChange={(value) => {
-            const product = productOptions.find(p => p.value === value);
-            if (product) {
-              updateDetail(index, 'product_id', value);
-              updateDetail(index, 'product_name', product.label);
-              updateDetail(index, 'product_code', product.code || '');
-            }
-          }}
-          placeholder="选择产品"
+        <Input
+          value={text}
+          placeholder="从销售订单自动加载"
+          readOnly
           size="small"
-          style={{ width: '100%' }}
-          showSearch
-          optionFilterProp="children"
-        >
-          {productOptions.map(option => (
-            <Option key={option.value} value={option.value}>
-              {option.label}
-            </Option>
-          ))}
-        </Select>
+          style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+        />
       ),
     },
     {
       title: '产品编号',
       dataIndex: 'product_code',
       key: 'product_code',
-      width: 120,
+      width: 100,
       render: (text, record, index) => (
         <Input
           value={text}
           onChange={(e) => updateDetail(index, 'product_code', e.target.value)}
           size="small"
+          readOnly
+          style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
         />
       ),
     },
@@ -463,12 +455,14 @@ const DeliveryNotice = () => {
       title: '规格',
       dataIndex: 'specification',
       key: 'specification',
-      width: 150,
+      width: 130,
       render: (text, record, index) => (
         <Input
           value={text}
           onChange={(e) => updateDetail(index, 'specification', e.target.value)}
           size="small"
+          readOnly
+          style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
         />
       ),
     },
@@ -476,14 +470,31 @@ const DeliveryNotice = () => {
       title: '订单数量',
       dataIndex: 'order_quantity',
       key: 'order_quantity',
-      width: 100,
+      width: 70,
       render: (text, record, index) => (
         <InputNumber
           value={text}
           onChange={(value) => updateDetail(index, 'order_quantity', value)}
           size="small"
-          style={{ width: '100%' }}
-          precision={4}
+          precision={2}
+          readOnly
+          style={{ width: '100%', backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+        />
+      ),
+    },
+    {
+      title: '未安排数量',
+      dataIndex: 'remaining_quantity',
+      key: 'remaining_quantity',
+      width: 70,
+      render: (text) => (
+        <InputNumber
+          value={text}
+          onChange={(value) => updateDetail(index, 'remaining_quantity', value)}
+          size="small"
+          precision={2}
+          readOnly
+          style={{ width: '100%', backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
         />
       ),
     },
@@ -491,44 +502,37 @@ const DeliveryNotice = () => {
       title: '通知数量',
       dataIndex: 'notice_quantity',
       key: 'notice_quantity',
-      width: 100,
+      width: 70,
       render: (text, record, index) => (
         <InputNumber
           value={text}
           onChange={(value) => updateDetail(index, 'notice_quantity', value)}
           size="small"
           style={{ width: '100%' }}
-          precision={4}
-        />
-      ),
-    },
-    {
-      title: '赠送数',
-      dataIndex: 'gift_quantity',
-      key: 'gift_quantity',
-      width: 80,
-      render: (text, record, index) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateDetail(index, 'gift_quantity', value)}
-          size="small"
-          style={{ width: '100%' }}
-          precision={4}
+          precision={2}
         />
       ),
     },
     {
       title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 80,
-      render: (text, record, index) => (
-        <Input
-          value={text}
-          onChange={(e) => updateDetail(index, 'unit', e.target.value)}
-          size="small"
-        />
-      ),
+      dataIndex: 'unit_id',
+      key: 'unit_id',
+      width: 50,
+      render: (value, record, index) => {
+        // 根据unit_id找到对应的单位名称
+        const unitOption = unitOptions.find(opt => opt.value === value);
+        const unitName = unitOption ? unitOption.label : record.unit_name || '';
+        
+        return (
+          <Input
+            value={unitName}
+            placeholder="从销售订单自动加载"
+            readOnly
+            size="small"
+            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+          />
+        );
+      },
     },
     {
       title: '价格',
@@ -541,7 +545,7 @@ const DeliveryNotice = () => {
           onChange={(value) => updateDetail(index, 'price', value)}
           size="small"
           style={{ width: '100%' }}
-          precision={4}
+          precision={2}
         />
       ),
     },
@@ -557,14 +561,29 @@ const DeliveryNotice = () => {
       },
     },
     {
-      title: '销售单号',
-      dataIndex: 'sales_order_number',
-      key: 'sales_order_number',
+      title: '赠送数',
+      dataIndex: 'gift_quantity',
+      key: 'gift_quantity',
+      width: 70,
+      render: (text, record, index) => (
+        <InputNumber
+          value={text}
+          onChange={(value) => updateDetail(index, 'gift_quantity', value)}
+          size="small"
+          style={{ width: '100%' }}
+          precision={2}
+        />
+      ),
+    },
+    {
+      title: '工单号',
+      dataIndex: 'work_order_number',
+      key: 'work_order_number',
       width: 120,
       render: (text, record, index) => (
         <Input
           value={text}
-          onChange={(e) => updateDetail(index, 'sales_order_number', e.target.value)}
+          onChange={(e) => updateDetail(index, 'work_order_number', e.target.value)}
           size="small"
         />
       ),
@@ -605,14 +624,13 @@ const DeliveryNotice = () => {
       return;
     }
     try {
-      const res = await salesOrderService.getUnscheduledSalesOrders(custId);
+      // 使用新的API获取该客户未完成的销售订单
+      const res = await salesOrderService.getActiveSalesOrderOptions(custId, 50);
       if (res.data.success) {
-        const list = res.data.data || [];
-        console.log(res);
-        const opts = list.map(order => ({
-          value: order.value || order.id,
-          label: order.label || order.order_number,
-          data: order
+        const opts = res.data.data.map(order => ({
+          value: order.value,
+          label: order.label,
+          data: order.data
         }));
         setSalesOrderOptions(opts);
       }
@@ -636,7 +654,12 @@ const DeliveryNotice = () => {
     try {
       const res = await deliveryNoticeService.getDetailsFromSalesOrder(orderId);
       if (res.data.success) {
-        setDetails(res.data.data);
+        // 为每个明细添加初始通知数量字段
+        const detailsWithInitialQuantity = res.data.data.map(detail => ({
+          ...detail,
+          remaining_quantity: detail.notice_quantity || 0
+        }));
+        setDetails(detailsWithInitialQuantity);
       }
     } catch (e) {
       console.error('获取销售订单明细失败', e);
@@ -669,7 +692,8 @@ const DeliveryNotice = () => {
       ${notice.details.map(d=>{
         const pname = d.product_name || (d.product?.product_name ?? '');
         const pcode = d.product_code || (d.product?.product_code ?? '');
-        return `<tr><td>${pcode}</td><td>${pname}</td><td>${d.specification||''}</td><td>${d.notice_quantity||0}</td><td>${d.unit||''}</td></tr>`;
+        const unitName = d.unit_name || (d.unit?.unit_name ?? '');
+        return `<tr><td>${pcode}</td><td>${pname}</td><td>${d.specification||''}</td><td>${d.notice_quantity||0}</td><td>${unitName}</td></tr>`;
       }).join('')}
       </tbody></table>
       </body></html>`;
@@ -871,16 +895,6 @@ const DeliveryNotice = () => {
           
           <Divider>送货明细</Divider>
           
-          <div style={{ marginBottom: 16 }}>
-            <Button
-              type="dashed"
-              icon={<PlusOutlined />}
-              onClick={addDetail}
-              block
-            >
-              添加明细
-            </Button>
-          </div>
           
           <Table
             columns={detailColumns}
@@ -947,9 +961,27 @@ const DeliveryNotice = () => {
                     { title: '产品名称', dataIndex: 'product_name', key: 'product_name' },
                     { title: '产品编号', dataIndex: 'product_code', key: 'product_code' },
                     { title: '规格', dataIndex: 'specification', key: 'specification' },
-                    { title: '订单数量', dataIndex: 'order_quantity', key: 'order_quantity' },
-                    { title: '通知数量', dataIndex: 'notice_quantity', key: 'notice_quantity' },
-                    { title: '单位', dataIndex: 'unit', key: 'unit' },
+                    { 
+                      title: '订单数量', 
+                      dataIndex: 'order_quantity', 
+                      key: 'order_quantity',
+                      render: (text) => text ? parseFloat(text).toFixed(2) : '0.00'
+                    },
+                    { 
+                      title: '通知数量', 
+                      dataIndex: 'notice_quantity', 
+                      key: 'notice_quantity',
+                      render: (text) => text ? parseFloat(text).toFixed(2) : '0.00'
+                    },
+                    { 
+                      title: '单位', 
+                      dataIndex: 'unit_id', 
+                      key: 'unit_id',
+                      render: (value, record) => {
+                        const unitOption = unitOptions.find(opt => opt.value === value);
+                        return unitOption ? unitOption.label : record.unit_name || '-';
+                      }
+                    },
                     { title: '价格', dataIndex: 'price', key: 'price', render: (text) => text?.toFixed(2) || '0.00' },
                     { title: '金额', dataIndex: 'amount', key: 'amount', render: (text) => text?.toFixed(2) || '0.00' },
                   ]}

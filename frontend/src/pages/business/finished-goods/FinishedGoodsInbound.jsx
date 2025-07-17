@@ -132,6 +132,7 @@ const FinishedGoodsInbound = () => {
   const [customers, setCustomers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [units, setUnits] = useState([]);
   const [baseDataLoading, setBaseDataLoading] = useState(false);
 
   // 分页和筛选状态
@@ -149,12 +150,13 @@ const FinishedGoodsInbound = () => {
     
     setBaseDataLoading(true);
     try {
-      const [warehousesRes, productsRes, departmentsRes, employeesRes, customersRes] = await Promise.all([
+      const [warehousesRes, productsRes, departmentsRes, employeesRes, customersRes, unitsRes] = await Promise.all([
         baseDataService.getWarehouses({ warehouse_type: 'finished_goods' }),
         baseDataService.getProducts(),
         baseDataService.getDepartments(),
         baseDataService.getEmployees(),
-        baseDataService.getCustomers()
+        baseDataService.getCustomers(),
+        baseDataService.getUnits()
       ]);
 
       // 处理仓库数据
@@ -233,6 +235,14 @@ const FinishedGoodsInbound = () => {
       } else {
         setCustomers([]);
       }
+
+      // 处理单位数据
+      if (unitsRes.data?.success) {
+        const unitData = unitsRes.data.data;
+        setUnits(unitData);
+      } else {
+        setUnits([]);
+      }
     } catch (error) {
       console.error('获取基础数据失败:', error);
       message.error('获取基础数据失败，请检查网络连接');
@@ -242,6 +252,7 @@ const FinishedGoodsInbound = () => {
       setCustomers([]);
       setDepartments([]);
       setEmployees([]);
+      setUnits([]);
     } finally {
       setBaseDataLoading(false);
     }
@@ -561,7 +572,10 @@ const FinishedGoodsInbound = () => {
       dataIndex: 'inbound_quantity',
       key: 'inbound_quantity',
       width: 100,
-      render: (text, record) => `${text} ${record.unit || ''}`
+      render: (text, record) => {
+        const unit = units.find(unit => unit.value === record.unit_id);
+        return `${text} ${unit?.label || ''}`;
+      }
     },
     {
       title: '入库kg数',
@@ -869,7 +883,7 @@ const FinishedGoodsInbound = () => {
       product_name: product.product_name || product.name || product.product_name,
       product_spec: product.specification || product.spec || product.product_spec || product.specifications,
       inbound_quantity: 1, // 默认数量为1
-      unit: product.unit || product.base_unit || '个',
+      unit_id: product.unit_id,
       unit_cost: product.standard_cost || product.unit_cost || 0,
       inbound_kg_quantity: 0,
       inbound_m_quantity: 0,
@@ -878,7 +892,7 @@ const FinishedGoodsInbound = () => {
       batch_number: '',
       location_code: product.default_location || ''
     }));
-    
+
     setOrderDetails([...orderDetails, ...newDetails]);
     setSelectedProducts([]);
     setProductSelectVisible(false);
@@ -1480,10 +1494,11 @@ const FinishedGoodsInbound = () => {
                         product_code: product.product_code || product.code || product.product_code,
                         product_name: product.product_name || product.name || product.product_name,
                         product_spec: product.specification || product.spec || product.product_spec || product.specifications,
-                        unit: product.unit || product.base_unit || detailForm.getFieldValue('unit') || '个',
+                        unit_id: product.unit_id || detailForm.getFieldValue('unit_id'),
                         unit_cost: product.standard_cost || product.unit_cost || detailForm.getFieldValue('unit_cost') || 0,
                         location_code: product.default_location || detailForm.getFieldValue('location_code') || ''
                       });
+                      console.log(detailForm.getFieldsValue());
                     }
                   }}
                 >
@@ -1540,11 +1555,15 @@ const FinishedGoodsInbound = () => {
             </Col>
             <Col span={8}>
               <Form.Item
-                name="unit"
+                name="unit_id"
                 label="单位"
-                rules={[{ required: true, message: '请输入单位' }]}
+                rules={[{ required: true, message: '请选择单位' }]}
               >
-                <Input placeholder="请输入单位" />
+                <Select placeholder="请选择单位" allowClear>
+                  {units.map(unit => (
+                    <Option key={unit.value} value={unit.value}>{unit.label}</Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -1702,7 +1721,7 @@ const FinishedGoodsInbound = () => {
               title: '单位',
               dataIndex: 'unit',
               key: 'unit',
-              render: (text) => text || '个'
+              render: (text) => text
             }
           ]}
           dataSource={(() => {

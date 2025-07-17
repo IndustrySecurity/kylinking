@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取原料列表
 export const getMaterials = (params) => {
   return request({
-    url: '/tenant/base-archive/base-data/materials',
+    url: '/tenant/base-archive/base-data/materials/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getMaterials = (params) => {
 // 创建原料
 export const createMaterial = (data) => {
   return request({
-    url: '/tenant/base-archive/base-data/materials',
+    url: '/tenant/base-archive/base-data/materials/',
     method: 'post',
     data
   });

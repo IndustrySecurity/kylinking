@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取油墨选项列表
 export const getInkOptions = (params) => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options',
+    url: '/tenant/base-archive/production/production-config/ink-options/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getInkOptions = (params) => {
 // 创建油墨选项
 export const createInkOption = (data) => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options',
+    url: '/tenant/base-archive/production/production-config/ink-options/',
     method: 'post',
     data
   });

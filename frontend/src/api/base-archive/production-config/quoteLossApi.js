@@ -5,7 +5,7 @@ const BASE_URL = '/tenant/basic-data/quote-losses';
 export const quoteLossApi = {
   // 获取报价损耗列表
   getQuoteLosses: (params) => {
-    return request.get(BASE_URL, { params });
+    return request.get(`${BASE_URL}/`, { params });
   },
 
   // 获取报价损耗详情
@@ -15,7 +15,7 @@ export const quoteLossApi = {
 
   // 创建报价损耗
   createQuoteLoss: (data) => {
-    return request.post(BASE_URL, data);
+    return request.post(`${BASE_URL}/`, data);
   },
 
   // 更新报价损耗

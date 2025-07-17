@@ -166,13 +166,12 @@ def get_unit_options():
     try:
         unit_service = UnitService()
         
-        # 获取单位列表
-        units = unit_service.get_units(page=1, per_page=1000, enabled_only=True)
+        # 直接获取启用的单位列表
+        units = unit_service.get_enabled_units()
         
         # 转换为选项格式
         options = []
-        if units and 'units' in units:
-            for unit in units['units']:
+        for unit in units:
                 options.append({
                     'value': str(unit['id']),
                     'label': unit['unit_name'],
@@ -181,10 +180,6 @@ def get_unit_options():
                     'description': unit.get('description', ''),
                     'sort_order': unit.get('sort_order', 0)
                 })
-        
-        # 如果没有数据，返回默认单位
-        if not options:
-            options = []
         
         return jsonify({
             'success': True,

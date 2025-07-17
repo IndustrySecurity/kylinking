@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取报价油墨列表
 export const getQuoteInks = (params) => {
   return request({
-    url: '/tenant/basic-data/quote-inks',
+    url: '/tenant/basic-data/quote-inks/',
     method: 'get',
     params
   });
@@ -20,7 +20,7 @@ export const getQuoteInk = (id) => {
 // 创建报价油墨
 export const createQuoteInk = (data) => {
   return request({
-    url: '/tenant/basic-data/quote-inks',
+    url: '/tenant/basic-data/quote-inks/',
     method: 'post',
     data
   });

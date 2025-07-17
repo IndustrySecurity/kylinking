@@ -7,7 +7,7 @@ import request from '../../../utils/request';
 // 获取部门列表
 export const getDepartments = (params) => {
   return request({
-    url: '/tenant/base-archive/base-data/departments',
+    url: '/tenant/base-archive/base-data/departments/',
     method: 'get',
     params
   });
@@ -24,7 +24,7 @@ export const getDepartmentById = (id) => {
 // 创建部门
 export const createDepartment = (data) => {
   return request({
-    url: '/tenant/base-archive/base-data/departments',
+    url: '/tenant/base-archive/base-data/departments/',
     method: 'post',
     data
   });

@@ -11,6 +11,7 @@ from uuid import UUID
 from app.services.base_service import TenantAwareService
 from app.models.business.sales import SalesOrder, SalesOrderDetail, SalesOrderOtherFee, SalesOrderMaterial
 from app.models.basic_data import CustomerManagement, CustomerContact, Employee, TaxRate
+from app.models.business.inventory import Inventory
 from flask import current_app
 
 
@@ -33,19 +34,19 @@ class SalesOrderService(TenantAwareService):
             sales_order.customer_id = order_data.get('customer_id')
             sales_order.customer_order_number = order_data.get('customer_order_number')
             sales_order.contact_person_id = order_data.get('contact_person_id')
-            sales_order.tax_type_id = order_data.get('tax_type_id')
+            sales_order.tax_rate_id = order_data.get('tax_rate_id')
             sales_order.order_amount = order_data.get('order_amount', 0)
             sales_order.deposit = order_data.get('deposit', 0)
             sales_order.plate_fee = order_data.get('plate_fee', 0)
             sales_order.plate_fee_percentage = order_data.get('plate_fee_percentage', 0)
-            # 处理交货日期/订单日期
-            order_date_value = order_data.get('order_date') or order_data.get('delivery_date')
-            if order_date_value and isinstance(order_date_value, str):
+            # 处理交货日期
+            delivery_date_value = order_data.get('delivery_date')
+            if delivery_date_value and isinstance(delivery_date_value, str):
                 try:
-                    order_date_value = datetime.fromisoformat(order_date_value.replace('Z', '+00:00'))
+                    delivery_date_value = datetime.fromisoformat(delivery_date_value.replace('Z', '+00:00'))
                 except:
-                    order_date_value = None
-            sales_order.order_date = order_date_value
+                    delivery_date_value = None
+            sales_order.delivery_date = delivery_date_value
             # 处理内部交期
             internal_date_value = order_data.get('internal_delivery_date')
             if internal_date_value and isinstance(internal_date_value, str):
@@ -69,7 +70,10 @@ class SalesOrderService(TenantAwareService):
             sales_order.warehouse_id = order_data.get('warehouse_id')
             sales_order.production_requirements = order_data.get('production_requirements')
             sales_order.order_requirements = order_data.get('order_requirements')
-            sales_order.status = order_data.get('status', 'draft')
+            # sales_order.status = order_data.get('status', 'draft')
+            # 暂时将销售订单的状态设为已确认
+            sales_order.status = 'confirmed'
+
             sales_order.created_by = user_id
             
             current_app.logger.info(f"销售订单主对象创建完成，准备添加到session")
@@ -89,7 +93,7 @@ class SalesOrderService(TenantAwareService):
                     detail.order_quantity=detail_data.get('order_quantity')
                     detail.unit_price=detail_data.get('unit_price', 0)
                     detail.amount=detail_data.get('amount', 0)
-                    detail.unit=detail_data.get('unit')
+                    detail.unit_id=detail_data.get('unit_id')
                     detail.created_by=user_id
                     self.get_session().add(detail)
             
@@ -145,13 +149,13 @@ class SalesOrderService(TenantAwareService):
             
             # 更新主订单字段
             for field in ['order_type', 'customer_id', 'customer_order_number', 'contact_person_id',
-                         'tax_type_id', 'order_amount', 'deposit', 'plate_fee', 'plate_fee_percentage',
-                         'order_date', 'internal_delivery_date', 'salesperson_id', 'contract_date',
+                         'tax_rate_id', 'order_amount', 'deposit', 'plate_fee', 'plate_fee_percentage',
+                         'delivery_date', 'internal_delivery_date', 'salesperson_id', 'contract_date',
                          'delivery_address', 'logistics_info', 'tracking_number', 'warehouse_id',
                          'production_requirements', 'order_requirements', 'status']:
                 if field in order_data:
                     # 特殊处理日期字段
-                    if field in ['order_date', 'internal_delivery_date', 'contract_date']:
+                    if field in ['delivery_date', 'internal_delivery_date', 'contract_date']:
                         date_value = order_data[field]
                         if date_value:
                             if isinstance(date_value, str):
@@ -163,16 +167,6 @@ class SalesOrderService(TenantAwareService):
                         setattr(sales_order, field, date_value)
                     else:
                         setattr(sales_order, field, order_data[field])
-            
-            # 如果只传了 delivery_date 也要更新 order_date
-            if 'delivery_date' in order_data and 'order_date' not in order_data:
-                delivery_date_value = order_data['delivery_date']
-                if delivery_date_value and isinstance(delivery_date_value, str):
-                    try:
-                        delivery_date_value = datetime.fromisoformat(delivery_date_value.replace('Z', '+00:00'))
-                    except:
-                        delivery_date_value = None
-                sales_order.order_date = delivery_date_value
             
             sales_order.updated_by = user_id
             
@@ -306,9 +300,9 @@ class SalesOrderService(TenantAwareService):
             if filters.get('salesperson_id'):
                 query = query.filter(SalesOrder.salesperson_id == filters['salesperson_id'])
             if filters.get('start_date'):
-                query = query.filter(SalesOrder.order_date >= filters['start_date'])
+                query = query.filter(SalesOrder.delivery_date >= filters['start_date'])
             if filters.get('end_date'):
-                query = query.filter(SalesOrder.order_date <= filters['end_date'])
+                query = query.filter(SalesOrder.delivery_date <= filters['end_date'])
         
         # 排序
         query = query.order_by(desc(SalesOrder.created_at))
@@ -331,7 +325,7 @@ class SalesOrderService(TenantAwareService):
                 'contact_person_id': str(order.contact_person_id) if order.contact_person_id else None,
                 'order_amount': float(order.order_amount) if order.order_amount else 0,
                 'deposit': float(order.deposit) if order.deposit else 0,
-                'order_date': order.order_date.isoformat() if order.order_date else None,
+                'delivery_date': order.delivery_date.isoformat() if order.delivery_date else None,
                 'internal_delivery_date': order.internal_delivery_date.isoformat() if order.internal_delivery_date else None,
                 'status': order.status,
                 'created_at': order.created_at.isoformat() if order.created_at else None,
@@ -395,9 +389,9 @@ class SalesOrderService(TenantAwareService):
             order_data['delivery_method'] = ''  # 需要从客户信息中获取，暂时留空
             
             # 获取税收信息
-            if order.tax_type_id:
+            if order.tax_rate_id:
                 try:
-                    tax_rate = self.get_session().query(TaxRate).filter_by(id=order.tax_type_id).first()
+                    tax_rate = self.get_session().query(TaxRate).filter_by(id=order.tax_rate_id).first()
                     if tax_rate:
                         order_data['tax_name'] = tax_rate.tax_name
                         order_data['tax_rate'] = float(tax_rate.tax_rate) if tax_rate.tax_rate else 0
@@ -433,6 +427,12 @@ class SalesOrderService(TenantAwareService):
             if sales_order.status != 'draft':
                 raise ValueError("只有草稿状态的订单可以审批")
             
+            # 检查是否有明细
+            details = self.get_session().query(SalesOrderDetail).filter_by(sales_order_id=order_id).all()
+            
+            if not details:
+                raise ValueError("销售订单没有明细，无法审核")
+            
             sales_order.status = 'confirmed'
             sales_order.updated_by = user_id
             
@@ -443,6 +443,26 @@ class SalesOrderService(TenantAwareService):
         except Exception as e:
             raise Exception(f"审批销售订单失败: {str(e)}")
     
+    def finish_sales_order(self, order_id: str, user_id: str) -> Dict[str, Any]:
+        """完成销售订单"""
+        try:
+            sales_order = self.get_session().query(SalesOrder).filter_by(id=order_id).first()
+            
+            if not sales_order:
+                raise ValueError("销售订单不存在")
+
+            sales_order.status = 'completed'
+            sales_order.updated_by = user_id
+
+            self.commit()
+
+            return self.get_sales_order_detail(order_id)
+
+        except Exception as e:
+            raise Exception(f"完成销售订单失败: {str(e)}")
+
+
+
     def cancel_sales_order(self, order_id: str, user_id: str, reason: str = None) -> Dict[str, Any]:
         """取消销售订单"""
         try:
@@ -503,9 +523,9 @@ class SalesOrderService(TenantAwareService):
         # 应用过滤条件
         if filters:
             if filters.get('start_date'):
-                base_query = base_query.filter(SalesOrder.order_date >= filters['start_date'])
+                base_query = base_query.filter(SalesOrder.delivery_date >= filters['start_date'])
             if filters.get('end_date'):
-                base_query = base_query.filter(SalesOrder.order_date <= filters['end_date'])
+                base_query = base_query.filter(SalesOrder.delivery_date <= filters['end_date'])
             if filters.get('status'):
                 base_query = base_query.filter(SalesOrder.status == filters['status'])
         
@@ -535,8 +555,8 @@ class SalesOrderService(TenantAwareService):
                 raise ValueError("销售订单不存在")
             
             # 检查订单状态，只有草稿状态的订单可以删除
-            if sales_order.status != 'draft':
-                raise ValueError("只有草稿状态的订单可以删除")
+            # if sales_order.status != 'draft':
+            #    raise ValueError("只有草稿状态的订单可以删除")
             
             # 删除关联的子表数据（由于使用了cascade="all, delete-orphan"，这些会自动删除）
             # 但为了安全起见，我们手动删除
@@ -562,3 +582,71 @@ class SalesOrderService(TenantAwareService):
             return True
         except Exception:
             return False 
+
+
+
+    def get_sales_order_report(self, filters: Dict[str, Any] = None) -> Dict[str, Any]:
+        """获取销售订单报表"""
+        try:
+            # 创建查询
+            query = self.get_session().query(SalesOrder)
+            
+            # 应用过滤条件
+            if filters:
+                if filters.get('start_date'):
+                    query = query.filter(SalesOrder.delivery_date >= filters['start_date'])
+                if filters.get('end_date'):
+                    query = query.filter(SalesOrder.delivery_date <= filters['end_date'])
+                if filters.get('status'):
+                    query = query.filter(SalesOrder.status == filters['status'])
+                    
+            # 获取报表数据
+            report_data = query.all()
+            
+            # 构建报表结果
+            report = {
+                'period': filters.get('period', '本月'),    
+                'sales_trend': [],
+                'top_customers': []
+            }
+            
+            # 计算销售趋势
+            if report_data:
+                for order in report_data:
+                    delivery_date = order.delivery_date.strftime('%Y-%m-%d')
+                    if delivery_date not in report['sales_trend']:
+                        report['sales_trend'].append({
+                            'date': delivery_date,
+                            'amount': order.order_amount
+                        })
+                    else:
+                        report['sales_trend'][-1]['amount'] += order.order_amount
+                        
+            # 计算Top客户
+            if report_data:
+                customer_sales = {  }
+                for order in report_data:
+                    customer_id = str(order.customer_id)
+                    amount = order.order_amount or 0
+                    
+                    if customer_id not in customer_sales:
+                        customer_sales[customer_id] = amount
+                    else:
+                        customer_sales[customer_id] += amount
+                        
+            # 排序Top客户   
+            if customer_sales:
+                sorted_customers = sorted(customer_sales.items(), key=lambda x: x[1], reverse=True)
+                for customer_id, amount in sorted_customers[:10]:
+                    customer = self.get_session().query(CustomerManagement).filter_by(id=customer_id).first()
+                    if customer:
+                        report['top_customers'].append({
+                            'name': customer.customer_name,
+                            'amount': amount
+                        })
+
+            return report
+            
+        except Exception as e:
+            current_app.logger.error(f"获取销售订单报表失败: {str(e)}", exc_info=True)
+            raise Exception(f"获取销售订单报表失败: {str(e)}")

@@ -5,7 +5,7 @@ const API_BASE = '/tenant/base-archive/base-data'
 // 获取员工列表
 export const getEmployees = (params) => {
   return request({
-    url: `${API_BASE}/employees`,
+    url: `${API_BASE}/employees/`,
     method: 'get',
     params
   })
@@ -22,7 +22,7 @@ export const getEmployeeById = (id) => {
 // 创建员工
 export const createEmployee = (data) => {
   return request({
-    url: `${API_BASE}/employees`,
+    url: `${API_BASE}/employees/`,
     method: 'post',
     data
   })

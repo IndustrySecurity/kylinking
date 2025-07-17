@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.models.basic_data import Employee, Department
+    from app.models.basic_data import Employee, Department, Unit
 
 
 class Inventory(TenantModel):
@@ -33,7 +33,7 @@ class Inventory(TenantModel):
     in_transit_quantity = Column(Numeric(15, 3), default=0, nullable=False, comment='在途数量')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='单位ID')
     
     # 成本信息
     unit_cost = Column(Numeric(15, 4), comment='单位成本')
@@ -87,6 +87,9 @@ class Inventory(TenantModel):
         ('pending', '待检')
     ]
     
+    # 关联关系
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+    
     # 索引
     __table_args__ = (
         Index('ix_inventory_warehouse_product', 'warehouse_id', 'product_id'),
@@ -94,9 +97,10 @@ class Inventory(TenantModel):
         Index('ix_inventory_batch', 'batch_number'),
         Index('ix_inventory_location', 'warehouse_id', 'location_code'),
         Index('ix_inventory_status', 'inventory_status', 'quality_status'),
+        Index('ix_inventory_unit', 'unit_id'),
     )
     
-    def __init__(self, warehouse_id, unit, created_by, product_id=None, material_id=None, 
+    def __init__(self, warehouse_id, unit_id, created_by, product_id=None, material_id=None, 
                  current_quantity=0, available_quantity=0, **kwargs):
         """
         初始化库存记录
@@ -106,7 +110,7 @@ class Inventory(TenantModel):
         self.material_id = material_id
         self.current_quantity = current_quantity
         self.available_quantity = available_quantity
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 设置其他可选参数
@@ -185,7 +189,8 @@ class Inventory(TenantModel):
             'available_quantity': float(self.available_quantity) if self.available_quantity else 0,
             'reserved_quantity': float(self.reserved_quantity) if self.reserved_quantity else 0,
             'in_transit_quantity': float(self.in_transit_quantity) if self.in_transit_quantity else 0,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'unit_cost': float(self.unit_cost) if self.unit_cost else None,
             'total_cost': float(self.total_cost) if self.total_cost else None,
             'batch_number': self.batch_number,
@@ -237,7 +242,7 @@ class InventoryTransaction(TenantModel):
     quantity_change = Column(Numeric(15, 3), nullable=False, comment='数量变动')
     quantity_before = Column(Numeric(15, 3), nullable=False, comment='变动前数量')
     quantity_after = Column(Numeric(15, 3), nullable=False, comment='变动后数量')
-    unit = Column(String(20), nullable=False, comment='单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='单位ID')
     
     # 成本信息
     unit_price = Column(Numeric(15, 4), comment='单价')
@@ -316,6 +321,9 @@ class InventoryTransaction(TenantModel):
         ('rejected', '已拒绝')
     ]
     
+    # 关联关系
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+    
     # 索引
     __table_args__ = (
         Index('ix_inventory_transaction_inventory', 'inventory_id'),
@@ -325,10 +333,11 @@ class InventoryTransaction(TenantModel):
         Index('ix_inventory_transaction_number', 'transaction_number'),
         Index('ix_inventory_transaction_batch', 'batch_number'),
         Index('ix_inventory_transaction_status', 'approval_status', 'is_cancelled'),
+        Index('ix_inventory_transaction_unit', 'unit_id'),
     )
     
     def __init__(self, inventory_id, warehouse_id, transaction_type, quantity_change, 
-                 quantity_before, quantity_after, unit, created_by, **kwargs):
+                 quantity_before, quantity_after, unit_id, created_by, **kwargs):
         """
         初始化库存交易记录
         """
@@ -338,7 +347,7 @@ class InventoryTransaction(TenantModel):
         self.quantity_change = quantity_change
         self.quantity_before = quantity_before
         self.quantity_after = quantity_after
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 生成流水号
@@ -414,7 +423,8 @@ class InventoryTransaction(TenantModel):
             'quantity_change': float(self.quantity_change),
             'quantity_before': float(self.quantity_before),
             'quantity_after': float(self.quantity_after),
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'unit_price': float(self.unit_price) if self.unit_price else None,
             'total_amount': float(self.total_amount) if self.total_amount else None,
             'source_document_type': self.source_document_type,
@@ -590,7 +600,7 @@ class InventoryCountRecord(TenantModel):
     # 盘点详情
     batch_number = Column(String(100), comment='批次号')
     location_code = Column(String(100), comment='库位编码')
-    unit = Column(String(20), nullable=False, comment='单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='单位ID')
     
     # 盘点人员和时间
     count_by = Column(UUID(as_uuid=True), comment='盘点人')
@@ -615,6 +625,7 @@ class InventoryCountRecord(TenantModel):
     
     # 关联关系
     count_plan = relationship("InventoryCountPlan", back_populates="count_records")
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
     
     # 状态常量
     STATUS_CHOICES = [
@@ -624,7 +635,7 @@ class InventoryCountRecord(TenantModel):
         ('adjusted', '已调整')
     ]
     
-    def __init__(self, count_plan_id, inventory_id, warehouse_id, book_quantity, unit, created_by, **kwargs):
+    def __init__(self, count_plan_id, inventory_id, warehouse_id, book_quantity, unit_id, created_by, **kwargs):
         """
         初始化盘点记录
         """
@@ -632,7 +643,7 @@ class InventoryCountRecord(TenantModel):
         self.inventory_id = inventory_id
         self.warehouse_id = warehouse_id
         self.book_quantity = book_quantity
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 设置其他可选参数
@@ -668,7 +679,8 @@ class InventoryCountRecord(TenantModel):
             'variance_rate': float(self.variance_rate) if self.variance_rate is not None else None,
             'batch_number': self.batch_number,
             'location_code': self.location_code,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'count_by': str(self.count_by) if self.count_by else None,
             'count_date': self.count_date.isoformat() if self.count_date else None,
             'recount_by': str(self.recount_by) if self.recount_by else None,
@@ -714,6 +726,7 @@ class InboundOrder(TenantModel):
     
     # 单据状态
     status = Column(String(20), default='draft', comment='单据状态')  # draft/confirmed/in_progress/completed/cancelled
+    is_outbound = Column(Boolean, default=False, comment='是否已出库')
     
     # 审核信息
     approval_status = Column(String(20), default='pending', comment='审核状态')  # pending/approved/rejected
@@ -839,6 +852,7 @@ class InboundOrder(TenantModel):
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,
+            'is_outbound': self.is_outbound,
             'approval_status': self.approval_status,
             'approved_by': str(self.approved_by) if self.approved_by else None,
             'approved_at': self.approved_at.isoformat() if self.approved_at else None,
@@ -885,7 +899,7 @@ class InboundOrderDetail(TenantModel):
     case_quantity = Column(Integer, comment='箱数')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
     kg_unit = Column(String(20), default='kg', comment='重量单位')
     m_unit = Column(String(20), default='m', comment='长度单位')
     
@@ -908,7 +922,7 @@ class InboundOrderDetail(TenantModel):
     
     # 包装信息
     package_quantity = Column(Numeric(15, 3), comment='包装数量')
-    package_unit = Column(String(20), comment='包装单位')
+    package_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='包装单位ID')
     
     # 行号和排序
     line_number = Column(Integer, comment='行号')
@@ -924,6 +938,8 @@ class InboundOrderDetail(TenantModel):
     
     # 关联关系
     inbound_order = relationship("InboundOrder", back_populates="details")
+    package_unit = relationship("Unit", foreign_keys=[package_unit_id], lazy='select')
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
     
     # 质量状态常量
     QUALITY_STATUS_CHOICES = [
@@ -940,13 +956,13 @@ class InboundOrderDetail(TenantModel):
         Index('ix_inbound_detail_location', 'location_code'),
     )
     
-    def __init__(self, inbound_order_id, inbound_quantity, unit, created_by, **kwargs):
+    def __init__(self, inbound_order_id, inbound_quantity, unit_id, created_by, **kwargs):
         """
         初始化入库单明细
         """
         self.inbound_order_id = inbound_order_id
         self.inbound_quantity = inbound_quantity
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 设置其他可选参数
@@ -981,7 +997,7 @@ class InboundOrderDetail(TenantModel):
             'inbound_roll_quantity': float(self.inbound_roll_quantity) if self.inbound_roll_quantity else None,
             'box_quantity': float(self.box_quantity) if self.box_quantity else None,
             'case_quantity': self.case_quantity,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
             'kg_unit': self.kg_unit,
             'm_unit': self.m_unit,
             'batch_number': self.batch_number,
@@ -993,6 +1009,9 @@ class InboundOrderDetail(TenantModel):
             'total_cost': float(self.total_cost) if self.total_cost else None,
             'location_code': self.location_code,
             'actual_location_code': self.actual_location_code,
+            'package_quantity': float(self.package_quantity) if self.package_quantity else None,
+            'package_unit_id': str(self.package_unit_id) if self.package_unit_id else None,
+            'package_unit_name': self.package_unit.unit_name if self.package_unit else None,
             'line_number': self.line_number,
             'sort_order': self.sort_order,
             'notes': self.notes,
@@ -1217,7 +1236,7 @@ class OutboundOrderDetail(TenantModel):
     case_quantity = Column(Integer, comment='箱数')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
     kg_unit = Column(String(20), default='kg', comment='重量单位')
     m_unit = Column(String(20), default='m', comment='长度单位')
     
@@ -1240,7 +1259,7 @@ class OutboundOrderDetail(TenantModel):
 
         # 包装信息
     package_quantity = Column(Numeric(15, 3), comment='包装数量')
-    package_unit = Column(String(20), comment='包装单位')
+    package_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='包装单位ID')
     
     # 库存关联
     inventory_id = Column(UUID(as_uuid=True), comment='库存ID')
@@ -1260,7 +1279,9 @@ class OutboundOrderDetail(TenantModel):
     
     # 关联关系
     outbound_order = relationship("OutboundOrder", back_populates="details")
-    
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+    package_unit = relationship("Unit", foreign_keys=[package_unit_id], lazy='select')
+
     # 质量状态常量
     QUALITY_STATUS_CHOICES = [
         ('qualified', '合格'),
@@ -1277,13 +1298,13 @@ class OutboundOrderDetail(TenantModel):
         Index('ix_outbound_detail_inventory', 'inventory_id'),
     )
     
-    def __init__(self, outbound_order_id, outbound_quantity, unit, created_by, **kwargs):
+    def __init__(self, outbound_order_id, outbound_quantity, unit_id, created_by, **kwargs):
         """
         初始化出库单明细
         """
         self.outbound_order_id = outbound_order_id
         self.outbound_quantity = outbound_quantity
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 设置其他可选参数
@@ -1318,7 +1339,8 @@ class OutboundOrderDetail(TenantModel):
             'outbound_roll_quantity': float(self.outbound_roll_quantity) if self.outbound_roll_quantity else None,
             'box_quantity': float(self.box_quantity) if self.box_quantity else None,
             'case_quantity': self.case_quantity,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'kg_unit': self.kg_unit,
             'm_unit': self.m_unit,
             'batch_number': self.batch_number,
@@ -1333,7 +1355,8 @@ class OutboundOrderDetail(TenantModel):
             'inventory_id': str(self.inventory_id) if self.inventory_id else None,
             'available_quantity': float(self.available_quantity) if self.available_quantity else None,
             'package_quantity': float(self.package_quantity) if self.package_quantity else None,
-            'package_unit': self.package_unit,
+            'package_unit_id': str(self.package_unit_id) if self.package_unit_id else None,
+            'package_unit_name': self.package_unit.unit_name if self.package_unit else None,
             'line_number': self.line_number,
             'sort_order': self.sort_order,
             'notes': self.notes,
@@ -1374,6 +1397,7 @@ class MaterialInboundOrder(TenantModel):
     
     # 单据状态
     status = Column(String(20), default='draft', comment='单据状态')  # draft/confirmed/in_progress/completed/cancelled
+    is_outbound = Column(Boolean, default=False, comment='是否已出库')
     
     # 审核信息
     approval_status = Column(String(20), default='pending', comment='审核状态')  # pending/approved/rejected
@@ -1509,6 +1533,7 @@ class MaterialInboundOrder(TenantModel):
             'pallet_barcode': self.pallet_barcode,
             'pallet_count': self.pallet_count,
             'status': self.status,
+            'is_outbound': self.is_outbound,
             'approval_status': self.approval_status,
             'approved_by': str(self.approved_by) if self.approved_by else None,
             'approved_at': self.approved_at.isoformat() if self.approved_at else None,
@@ -1553,7 +1578,7 @@ class MaterialInboundOrderDetail(TenantModel):
     inbound_rolls = Column(Numeric(15, 3), comment='入库卷数')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
     weight_unit = Column(String(20), default='kg', comment='重量单位')
     length_unit = Column(String(20), default='m', comment='长度单位')
     
@@ -1588,6 +1613,7 @@ class MaterialInboundOrderDetail(TenantModel):
     
     # 关联关系
     material_inbound_order = relationship("MaterialInboundOrder", back_populates="details")
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
     
     # 质量状态常量
     QUALITY_STATUS_CHOICES = [
@@ -1604,13 +1630,13 @@ class MaterialInboundOrderDetail(TenantModel):
         Index('ix_material_inbound_detail_location', 'location_code'),
     )
     
-    def __init__(self, material_inbound_order_id, inbound_quantity, unit, created_by, **kwargs):
+    def __init__(self, material_inbound_order_id, inbound_quantity, unit_id, created_by, **kwargs):
         """
         初始化材料入库单明细
         """
         self.material_inbound_order_id = material_inbound_order_id
         self.inbound_quantity = inbound_quantity
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 设置其他可选参数
@@ -1647,7 +1673,8 @@ class MaterialInboundOrderDetail(TenantModel):
             'inbound_weight': float(self.inbound_weight) if self.inbound_weight else None,
             'inbound_length': float(self.inbound_length) if self.inbound_length else None,
             'inbound_rolls': float(self.inbound_rolls) if self.inbound_rolls else None,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit': self.unit.unit_name if self.unit else None,  # 添加单位名称
             'weight_unit': self.weight_unit,
             'length_unit': self.length_unit,
             'batch_number': self.batch_number,
@@ -1874,7 +1901,7 @@ class MaterialOutboundOrderDetail(TenantModel):
     outbound_rolls = Column(Numeric(15, 3), comment='出库卷数')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
     weight_unit = Column(String(20), default='kg', comment='重量单位')
     length_unit = Column(String(20), default='m', comment='长度单位')
     
@@ -1913,7 +1940,8 @@ class MaterialOutboundOrderDetail(TenantModel):
     
     # 关联关系
     material_outbound_order = relationship("MaterialOutboundOrder", back_populates="details")
-    
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+
     # 质量状态常量
     QUALITY_STATUS_CHOICES = [
         ('qualified', '合格'),
@@ -1930,13 +1958,13 @@ class MaterialOutboundOrderDetail(TenantModel):
         Index('ix_material_outbound_detail_inventory', 'inventory_id'),
     )
     
-    def __init__(self, material_outbound_order_id, outbound_quantity, unit, created_by, **kwargs):
+    def __init__(self, material_outbound_order_id, outbound_quantity, unit_id, created_by, **kwargs):
         """
         初始化材料出库单明细
         """
         self.material_outbound_order_id = material_outbound_order_id
         self.outbound_quantity = outbound_quantity
-        self.unit = unit
+        self.unit_id = unit_id
         self.created_by = created_by
         
         # 设置其他可选参数
@@ -1969,7 +1997,8 @@ class MaterialOutboundOrderDetail(TenantModel):
             'outbound_weight': float(self.outbound_weight) if self.outbound_weight else None,
             'outbound_length': float(self.outbound_length) if self.outbound_length else None,
             'outbound_rolls': float(self.outbound_rolls) if self.outbound_rolls else None,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit': self.unit.unit_name if self.unit else None,  # 添加单位名称
             'weight_unit': self.weight_unit,
             'length_unit': self.length_unit,
             'batch_number': self.batch_number,
@@ -2131,7 +2160,7 @@ class MaterialCountRecord(TenantModel):
     material_code = Column(String(100), comment='材料编码')
     material_name = Column(String(200), nullable=False, comment='材料名称')
     material_spec = Column(String(200), comment='规格')
-    unit = Column(String(20), nullable=False, comment='单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='单位ID')
     
     # 盘点数据
     book_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='账面数量')
@@ -2159,6 +2188,7 @@ class MaterialCountRecord(TenantModel):
     
     # 关联关系
     count_plan = relationship("MaterialCountPlan", back_populates="count_records")
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
     
     # 状态常量
     STATUS_CHOICES = [
@@ -2174,14 +2204,14 @@ class MaterialCountRecord(TenantModel):
         Index('ix_material_count_records_status', 'status'),
     )
     
-    def __init__(self, count_plan_id, material_id, material_name, unit, book_quantity, created_by, **kwargs):
+    def __init__(self, count_plan_id, material_id, material_name, unit_id, book_quantity, created_by, **kwargs):
         """
         初始化材料盘点记录
         """
         self.count_plan_id = count_plan_id
         self.material_id = material_id
         self.material_name = material_name
-        self.unit = unit
+        self.unit_id = unit_id
         self.book_quantity = book_quantity
         self.created_by = created_by
         
@@ -2213,7 +2243,8 @@ class MaterialCountRecord(TenantModel):
             'material_code': self.material_code,
             'material_name': self.material_name,
             'material_spec': self.material_spec,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit': self.unit.unit_name if self.unit else None,
             'book_quantity': float(self.book_quantity),
             'actual_quantity': float(self.actual_quantity) if self.actual_quantity is not None else None,
             'variance_quantity': float(self.variance_quantity) if self.variance_quantity is not None else None,
@@ -2452,7 +2483,9 @@ class MaterialTransferOrderDetail(TenantModel):
     received_quantity = Column(Numeric(15, 3), comment='已收货数量')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
+    weight_unit = Column(String(20), default='kg', comment='重量单位')
+    length_unit = Column(String(20), default='m', comment='长度单位')
     
     # 批次信息
     batch_number = Column(String(100), comment='批次号')
@@ -2512,14 +2545,14 @@ class MaterialTransferOrderDetail(TenantModel):
         Index('ix_material_transfer_detail_status', 'detail_status'),
     )
     
-    def __init__(self, transfer_order_id, material_id, material_name, unit, transfer_quantity, created_by, **kwargs):
+    def __init__(self, transfer_order_id, material_id, material_name, unit_id, transfer_quantity, created_by, **kwargs):
         """
         初始化材料调拨明细
         """
         self.transfer_order_id = transfer_order_id
         self.material_id = material_id
         self.material_name = material_name
-        self.unit = unit
+        self.unit_id = unit_id
         self.transfer_quantity = transfer_quantity
         self.created_by = created_by
         
@@ -2552,7 +2585,9 @@ class MaterialTransferOrderDetail(TenantModel):
             'transfer_quantity': float(self.transfer_quantity),
             'actual_transfer_quantity': float(self.actual_transfer_quantity) if self.actual_transfer_quantity else None,
             'received_quantity': float(self.received_quantity) if self.received_quantity else None,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'weight_unit': self.weight_unit,
+            'length_unit': self.length_unit,
             'batch_number': self.batch_number,
             'production_date': self.production_date.isoformat() if self.production_date else None,
             'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
@@ -2572,7 +2607,7 @@ class MaterialTransferOrderDetail(TenantModel):
         }
     
     def __repr__(self):
-        return f'<MaterialTransferOrderDetail {self.material_name} {self.transfer_quantity}{self.unit}>'
+        return f'<MaterialTransferOrderDetail {self.material_name} {self.transfer_quantity}{self.unit_id}>'
 
 
 # 在文件末尾添加成品盘点功能
@@ -2708,7 +2743,7 @@ class ProductCountRecord(TenantModel):
     product_code = Column(String(100), comment='产品编码')
     product_name = Column(String(200), nullable=False, comment='产品名称')
     product_spec = Column(String(200), comment='产品规格')
-    base_unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
     
     # 盘点数据
     book_quantity = Column(Numeric(15, 3), nullable=False, default=0, comment='账面数量')
@@ -2729,7 +2764,7 @@ class ProductCountRecord(TenantModel):
     bag_type_name = Column(String(100), comment='袋型名称')
     
     # 包装信息
-    package_unit = Column(String(20), comment='包装单位')
+    package_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='包装单位ID')
     package_quantity = Column(Numeric(15, 3), comment='包装数量')
     net_weight = Column(Numeric(10, 3), comment='净重(kg)')
     gross_weight = Column(Numeric(10, 3), comment='毛重(kg)')
@@ -2750,6 +2785,8 @@ class ProductCountRecord(TenantModel):
     
     # 关联关系
     count_plan = relationship("ProductCountPlan", back_populates="count_records")
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+    package_unit = relationship("Unit", foreign_keys=[package_unit_id], lazy='select')
     
     # 状态常量
     STATUS_CHOICES = [
@@ -2766,11 +2803,11 @@ class ProductCountRecord(TenantModel):
         {'schema': None}  # 使用租户模式
     )
     
-    def __init__(self, count_plan_id, product_id, product_name, base_unit, book_quantity, created_by, **kwargs):
+    def __init__(self, count_plan_id, product_id, product_name, unit_id, book_quantity, created_by, **kwargs):
         self.count_plan_id = count_plan_id
         self.product_id = product_id
         self.product_name = product_name
-        self.base_unit = base_unit
+        self.unit_id = unit_id
         self.book_quantity = book_quantity
         self.created_by = created_by
         
@@ -2798,7 +2835,8 @@ class ProductCountRecord(TenantModel):
             'product_code': self.product_code,
             'product_name': self.product_name,
             'product_spec': self.product_spec,
-            'base_unit': self.base_unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'book_quantity': float(self.book_quantity) if self.book_quantity else 0,
             'actual_quantity': float(self.actual_quantity) if self.actual_quantity else None,
             'variance_quantity': float(self.variance_quantity) if self.variance_quantity else None,
@@ -2811,7 +2849,8 @@ class ProductCountRecord(TenantModel):
             'customer_name': self.customer_name,
             'bag_type_id': str(self.bag_type_id) if self.bag_type_id else None,
             'bag_type_name': self.bag_type_name,
-            'package_unit': self.package_unit,
+            'package_unit_id': str(self.package_unit_id) if self.package_unit_id else None,
+            'package_unit_name': self.package_unit.unit_name if self.package_unit else None,
             'package_quantity': float(self.package_quantity) if self.package_quantity else None,
             'net_weight': float(self.net_weight) if self.net_weight else None,
             'gross_weight': float(self.gross_weight) if self.gross_weight else None,
@@ -3049,7 +3088,9 @@ class ProductTransferOrderDetail(TenantModel):
     received_quantity = Column(Numeric(15, 3), comment='已收货数量')
     
     # 单位信息
-    unit = Column(String(20), nullable=False, comment='基本单位')
+    unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
+    weight_unit = Column(String(20), default='kg', comment='重量单位')
+    length_unit = Column(String(20), default='m', comment='长度单位')
     
     # 批次信息
     batch_number = Column(String(100), comment='批次号')
@@ -3076,7 +3117,7 @@ class ProductTransferOrderDetail(TenantModel):
     bag_type_name = Column(String(100), comment='袋型名称')
     
     # 包装信息
-    package_unit = Column(String(20), comment='包装单位')
+    package_unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), comment='包装单位ID')
     package_quantity = Column(Numeric(15, 3), comment='包装数量')
     net_weight = Column(Numeric(10, 3), comment='净重(kg)')
     gross_weight = Column(Numeric(10, 3), comment='毛重(kg)')
@@ -3098,7 +3139,8 @@ class ProductTransferOrderDetail(TenantModel):
     
     # 关联关系
     transfer_order = relationship("ProductTransferOrder", back_populates="details")
-    
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
+    package_unit = relationship("Unit", foreign_keys=[package_unit_id], lazy='select')
     # 状态常量
     DETAIL_STATUS_CHOICES = [
         ('pending', '待调拨'),
@@ -3122,14 +3164,14 @@ class ProductTransferOrderDetail(TenantModel):
         Index('ix_product_transfer_detail_status', 'detail_status'),
     )
     
-    def __init__(self, transfer_order_id, product_id, product_name, unit, transfer_quantity, created_by, **kwargs):
+    def __init__(self, transfer_order_id, product_id, product_name, unit_id, transfer_quantity, created_by, **kwargs):
         """
         初始化成品调拨单明细
         """
         self.transfer_order_id = transfer_order_id
         self.product_id = product_id
         self.product_name = product_name
-        self.unit = unit
+        self.unit_id = unit_id
         self.transfer_quantity = transfer_quantity
         self.created_by = created_by
         
@@ -3162,7 +3204,9 @@ class ProductTransferOrderDetail(TenantModel):
             'transfer_quantity': float(self.transfer_quantity),
             'actual_transfer_quantity': float(self.actual_transfer_quantity) if self.actual_transfer_quantity else None,
             'received_quantity': float(self.received_quantity) if self.received_quantity else 0,
-            'unit': self.unit,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'weight_unit': self.weight_unit,
+            'length_unit': self.length_unit,
             'batch_number': self.batch_number,
             'production_date': self.production_date.isoformat() if self.production_date else None,
             'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,
@@ -3177,7 +3221,8 @@ class ProductTransferOrderDetail(TenantModel):
             'customer_name': self.customer_name,
             'bag_type_id': str(self.bag_type_id) if self.bag_type_id else None,
             'bag_type_name': self.bag_type_name,
-            'package_unit': self.package_unit,
+            'package_unit_id': str(self.package_unit_id) if self.package_unit_id else None,
+            'package_unit_name': self.package_unit.unit_name if self.package_unit else None,
             'package_quantity': float(self.package_quantity) if self.package_quantity else None,
             'net_weight': float(self.net_weight) if self.net_weight else None,
             'gross_weight': float(self.gross_weight) if self.gross_weight else None,
@@ -3190,4 +3235,4 @@ class ProductTransferOrderDetail(TenantModel):
         }
     
     def __repr__(self):
-        return f'<ProductTransferOrderDetail {self.product_name}: {self.transfer_quantity}{self.unit}>'
+        return f'<ProductTransferOrderDetail {self.product_name}: {self.transfer_quantity}{self.unit_id}>'

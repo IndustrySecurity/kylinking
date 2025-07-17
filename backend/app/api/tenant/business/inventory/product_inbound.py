@@ -30,14 +30,15 @@ def get_product_inbound_orders():
         # 获取查询参数
         page = int(request.args.get('page', 1))
         page_size = min(int(request.args.get('page_size', 20)), 100)
-        order_number = request.args.get('order_number')
+        search = request.args.get('search')  # 修复：使用search参数而不是order_number
         warehouse_id = request.args.get('warehouse_id')
         supplier_id = request.args.get('supplier_id')
         status = request.args.get('status')
         approval_status = request.args.get('approval_status')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
-        
+        inbound_person_id = request.args.get('inbound_person_id')  # 添加入库人参数
+        department_id = request.args.get('department_id')  # 添加部门参数
         
         # 获取产品入库单列表
         service = ProductInboundService()
@@ -47,7 +48,9 @@ def get_product_inbound_orders():
             approval_status=approval_status,
             start_date=start_date,
             end_date=end_date,
-            search=order_number,
+            search=search,  # 修复：传递正确的search参数
+            inbound_person_id=inbound_person_id,
+            department_id=department_id,
             page=page,
             page_size=page_size
         )
@@ -341,6 +344,29 @@ def execute_product_inbound_order(order_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         logger.error(f"执行产品入库单失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== 小程序更改入库单状态 ====================
+@bp.route('/product-inbound-orders/<order_id>/set-is-outbound', methods=['POST'])
+@jwt_required()
+@tenant_required
+def update_product_inbound_order_outbound_status(order_id):
+    """更新产品入库单状态"""
+    try:
+
+        service = ProductInboundService()
+        result = service.update_product_inbound_order_outbound_status(order_id)
+
+        return jsonify({
+            'success': True,
+            'data': result,
+            'message': '产品入库单状态更新成功'
+        })
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"更新产品入库单状态失败: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 

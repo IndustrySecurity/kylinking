@@ -6,7 +6,7 @@ import request from '../../../utils/request';
 export const warehouseApi = {
   // 获取仓库列表
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/base-archive/production/production-archive/warehouses', { params });
+    return request.get('/tenant/base-archive/production/production-archive/warehouses/', { params });
   },
 
   // 获取仓库详情
@@ -16,7 +16,7 @@ export const warehouseApi = {
 
   // 创建仓库
   createWarehouse: (data) => {
-    return request.post('/tenant/base-archive/production/production-archive/warehouses', data);
+    return request.post('/tenant/base-archive/production/production-archive/warehouses/', data);
   },
 
   // 更新仓库

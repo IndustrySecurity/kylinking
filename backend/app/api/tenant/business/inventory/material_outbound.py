@@ -19,6 +19,7 @@ from app.services.business.inventory.material_outbound_service import MaterialOu
 from app.models.business.inventory import (
     MaterialOutboundOrder, MaterialOutboundOrderDetail, Inventory, InventoryTransaction
 )
+from app.models.basic_data import Unit
 from datetime import datetime
 from decimal import Decimal
 from app import db
@@ -97,15 +98,15 @@ def create_material_outbound_order():
         # 如果没有warehouse_name，根据warehouse_id获取
         if not data.get('warehouse_name') and data.get('warehouse_id'):
             try:
-                # 从仓库API获取仓库名称
-                warehouses_response = get_warehouses()
-                if warehouses_response[1] == 200:  # 检查状态码
-                    warehouses_data = warehouses_response[0].get_json()
-                    if warehouses_data.get('code') == 200:
-                        warehouses = warehouses_data.get('data', [])
-                        warehouse = next((w for w in warehouses if str(w.get('id')) == str(data.get('warehouse_id'))), None)
-                        if warehouse:
-                            data['warehouse_name'] = warehouse.get('warehouse_name', f"仓库{data.get('warehouse_id')}")
+                # 从仓库服务获取仓库名称
+                from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+                warehouse_service = WarehouseService()
+                warehouses = warehouse_service.get_warehouses(page=1, per_page=1000)
+                warehouse = next((w for w in warehouses.get('items', []) if str(w.get('id')) == str(data.get('warehouse_id'))), None)
+                if warehouse:
+                    data['warehouse_name'] = warehouse.get('warehouse_name', f"仓库{data.get('warehouse_id')}")
+                else:
+                    data['warehouse_name'] = f"仓库{data.get('warehouse_id')}"
             except Exception as e:
                 logger.warning(f"获取仓库名称失败: {e}")
                 data['warehouse_name'] = f"仓库{data.get('warehouse_id')}"
@@ -217,6 +218,46 @@ def update_material_outbound_order(order_id):
         order.updated_by = current_user
         order.updated_at = datetime.now()
         
+        # 处理明细数据
+        if 'details' in data:
+            details_data = data['details']
+            
+            # 删除现有明细
+            MaterialOutboundOrderDetail.query.filter_by(material_outbound_order_id=order_id).delete()
+            
+            # 添加新明细
+            for detail_data in details_data:
+                if detail_data.get('material_id') and detail_data.get('outbound_quantity'):
+                    # 处理unit_id字段
+                    unit_id = detail_data.get('unit_id')
+                    if not unit_id and detail_data.get('unit'):
+                        # 如果没有unit_id但有unit字段，尝试从units表中查找对应的unit_id
+                        unit = db.session.query(Unit).filter(Unit.unit_name == detail_data['unit']).first()
+                        if unit:
+                            unit_id = unit.id
+                        else:
+                            # 如果找不到对应的单位，抛出错误
+                            raise ValueError(f"明细缺少必需的unit_id参数")
+                    
+                    if not unit_id:
+                        raise ValueError(f"明细缺少必需的unit_id参数")
+                    
+                    # 创建明细
+                    detail = MaterialOutboundOrderDetail(
+                        material_outbound_order_id=order_id,
+                        outbound_quantity=Decimal(detail_data.get('outbound_quantity', 0)),
+                        unit_id=unit_id,
+                        created_by=current_user,
+                        material_id=detail_data.get('material_id'),
+                        material_name=detail_data.get('material_name'),
+                        material_code=detail_data.get('material_code'),
+                        material_spec=detail_data.get('specification'),
+                        batch_number=detail_data.get('batch_number'),
+                        location_code=detail_data.get('location_code'),
+                        notes=detail_data.get('remarks')
+                    )
+                    db.session.add(detail)
+        
         db.session.commit()
         
         # 转换为前端期望的格式
@@ -280,6 +321,14 @@ def submit_material_outbound_order(order_id):
 
         if order.status != 'draft':
             return jsonify({'code': 400, 'message': '只能提交草稿状态的出库单'}), 400
+
+        # 检查是否有明细
+        details = MaterialOutboundOrderDetail.query.filter_by(
+            material_outbound_order_id=order_id
+        ).all()
+        
+        if not details:
+            return jsonify({'code': 400, 'message': '出库单没有明细，无法提交'}), 400
 
         # 直接设置为已审核状态
         order.status = 'approved'
@@ -421,12 +470,12 @@ def execute_material_outbound_order(order_id):
                 inventory_id=inventory.id,
                 warehouse_id=inventory.warehouse_id,
                 material_id=inventory.material_id,
-                transaction_number=InventoryTransaction.generate_transaction_number(),
                 transaction_type='out',
                 quantity_change=-outbound_qty,
                 quantity_before=quantity_before,
                 quantity_after=inventory.current_quantity,
-                unit=detail.unit,
+                unit_id=detail.unit_id,
+                created_by=current_user,
                 unit_price=detail.unit_price,
                 total_amount=detail.total_amount,
                 source_document_type='material_outbound_order',
@@ -437,8 +486,7 @@ def execute_material_outbound_order(order_id):
                 reason=f'材料出库单 {order.order_number} 执行',
                 approval_status='approved',
                 approved_by=current_user,
-                approved_at=datetime.now(),
-                created_by=current_user
+                approved_at=datetime.now()
             )
             
             # 计算流水总金额
@@ -526,8 +574,15 @@ def update_material_outbound_order_detail(order_id, detail_id):
     try:
         current_user_id = get_jwt_identity()
         data = request.get_json()
+        
+        # 清理数据，移除SQLAlchemy内部属性
+        clean_data = {}
+        for key, value in data.items():
+            if not key.startswith('_') and key not in ['_sa_instance_state']:
+                clean_data[key] = value
+        
         service = MaterialOutboundService()
-        service.update_material_outbound_order_detail(detail_id, data, current_user_id)
+        service.update_material_outbound_order_detail(detail_id, clean_data, current_user_id)
 
         return jsonify({
             'code': 200,
@@ -537,3 +592,30 @@ def update_material_outbound_order_detail(order_id, detail_id):
         db.session.rollback()
         logger.error(f"更新材料出库单明细失败: {str(e)}")
         return jsonify({'code': 500, 'message': f'更新失败: {str(e)}'}), 500
+
+@bp.route('/outbound-orders/<order_id>/details', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_material_outbound_order_detail(order_id):
+    """创建材料出库单明细"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        # 清理数据，移除SQLAlchemy内部属性
+        clean_data = {}
+        for key, value in data.items():
+            if not key.startswith('_') and key not in ['_sa_instance_state']:
+                clean_data[key] = value
+        
+        service = MaterialOutboundService()
+        service.create_material_outbound_order_detail(order_id, clean_data, current_user_id)
+
+        return jsonify({
+            'code': 200,
+            'message': '创建成功'
+        })
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"创建材料出库单明细失败: {str(e)}")
+        return jsonify({'code': 500, 'message': f'创建失败: {str(e)}'}), 500

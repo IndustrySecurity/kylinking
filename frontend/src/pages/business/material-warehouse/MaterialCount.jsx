@@ -32,7 +32,7 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
   
   // 如果没有实盘数量，自动填入账面数量作为默认值
   const defaultValue = value !== null && value !== undefined ? value : record.book_quantity;
-  const isDefaultValue = value === null || value === undefined || Number(value).toFixed(3) === Number(record.book_quantity || 0).toFixed(3);
+  const isDefaultValue = value === null || value === undefined || Number(value).toFixed(2) === Number(record.book_quantity || 0).toFixed(2);
 
   const handleSave = async () => {
     // 将输入值转换为数字进行比较
@@ -60,10 +60,10 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
 
   useEffect(() => {
     // 如果没有实盘数量，自动设置为账面数量
-    if ((value === null || value === undefined) && record.book_quantity) {
-      setInputValue(Number(record.book_quantity).toFixed(3));
+    if (value === null || value === undefined) {
+      setInputValue(record.book_quantity ? Number(record.book_quantity).toFixed(2) : '0.00');
     } else {
-      setInputValue(value);
+      setInputValue(Number(value).toFixed(2));
     }
   }, [value, record.book_quantity]);
 
@@ -73,7 +73,7 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
         color: isDefaultValue ? '#1890ff' : '#000',
         fontWeight: isDefaultValue ? 'bold' : 'normal'
       }}>
-        {defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(3) : '0.000'}
+        {defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(2) : Number(record.book_quantity || 0).toFixed(2)}
       </span>
     );
   }
@@ -86,14 +86,14 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
         onBlur={handleSave}
         onPressEnter={handleKeyPress}
         style={{ width: '100%' }}
-        precision={3}
+        precision={2}
         min={0}
         autoFocus
       />
     );
   }
 
-  const displayValue = defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(3) : Number(record.book_quantity || 0).toFixed(3);
+  const displayValue = defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(2) : Number(record.book_quantity || 0).toFixed(2);
 
   return (
     <div
@@ -180,7 +180,6 @@ const MaterialCount = () => {
               type: item.warehouse_type || item.type
             }));
         }
-        
         setWarehouses(warehouses);
       } else {
         message.error('获取仓库列表失败');
@@ -199,6 +198,7 @@ const MaterialCount = () => {
       if (response.data.success) {
         setRecords(response.data.data || []);
       }
+      console.log(response.data.data);
     } catch (error) {
       message.error('获取盘点记录失败');
     } finally {
@@ -275,7 +275,7 @@ const MaterialCount = () => {
       };
 
       const response = await materialCountService.createCountOrder(planData);
-      
+
       if (response.data) {
         message.success('盘点计划创建成功');
         setCreateModalVisible(false);
@@ -293,7 +293,8 @@ const MaterialCount = () => {
   // 开始盘点
   const handleStart = async (planId) => {
     try {
-      const response = await materialCountService.startMaterialCountPlan(planId);
+      const response = await materialCountService.startCountOrder(planId);
+
       if (response.data.success) {
         message.success('盘点已开始');
         fetchPlans();
@@ -308,7 +309,7 @@ const MaterialCount = () => {
   // 完成盘点
   const handleComplete = async (planId) => {
     try {
-      const response = await materialCountService.completeMaterialCountPlan(planId);
+      const response = await materialCountService.completeCountOrder(planId);
       if (response.data.success) {
         message.success('盘点已完成');
         fetchPlans();
@@ -323,7 +324,7 @@ const MaterialCount = () => {
   // 调整库存
   const handleAdjust = async (planId) => {
     try {
-      const response = await materialCountService.adjustMaterialCountInventory(planId, {});
+      const response = await materialCountService.adjustInventory(planId, {});
       if (response.data.success) {
         message.success(response.data.message || '库存调整完成');
         fetchPlans(); // 刷新计划列表，更新状态
@@ -533,19 +534,12 @@ const MaterialCount = () => {
       width: 150
     },
     {
-      title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 80,
-      align: 'center'
-    },
-    {
       title: '账面数量',
       dataIndex: 'book_quantity',
       key: 'book_quantity',
       width: 120,
       align: 'right',
-      render: (value) => value ? Number(value).toFixed(3) : '0.000'
+      render: (value) => value ? Number(value).toFixed(2) : '0.00'
     },
     {
       title: (
@@ -555,7 +549,7 @@ const MaterialCount = () => {
       ),
       dataIndex: 'actual_quantity',
       key: 'actual_quantity',
-      width: 140,
+      width: 120,
       align: 'right',
       render: (value, record) => (
         <EditableCell
@@ -574,9 +568,16 @@ const MaterialCount = () => {
       align: 'right',
       render: (value) => (
         <span style={getVarianceStyle(value)}>
-          {value ? Number(value).toFixed(3) : '0.000'}
+          {value ? Number(value).toFixed(2) : '0.00'}
         </span>
       )
+    },
+    {
+      title: '单位',
+      dataIndex: 'unit',
+      key: 'unit',
+      width: 80,
+      align: 'center'
     },
     {
       title: '差异率(%)',

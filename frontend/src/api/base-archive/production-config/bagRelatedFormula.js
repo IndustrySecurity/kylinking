@@ -6,7 +6,7 @@ import request from '../../../utils/request';
 export const bagRelatedFormulaApi = {
   // 获取袋型相关公式列表
   getBagRelatedFormulas: (params = {}) => {
-    return request.get('/tenant/base-archive/production/production-config/bag-related-formulas', { params });
+    return request.get('/tenant/base-archive/production/production-config/bag-related-formulas/', { params });
   },
 
   // 获取袋型相关公式详情
@@ -16,7 +16,7 @@ export const bagRelatedFormulaApi = {
 
   // 创建袋型相关公式
   createBagRelatedFormula: (data) => {
-    return request.post('/tenant/base-archive/production/production-config/bag-related-formulas', data);
+    return request.post('/tenant/base-archive/production/production-config/bag-related-formulas/', data);
   },
 
   // 更新袋型相关公式

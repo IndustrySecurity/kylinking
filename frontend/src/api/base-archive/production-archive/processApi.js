@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取工序列表
 export const getProcesses = (params) => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/processes',
+    url: '/tenant/base-archive/production/production-archive/processes/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getProcesses = (params) => {
 // 创建工序
 export const createProcess = (data) => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/processes',
+    url: '/tenant/base-archive/production/production-archive/processes/',
     method: 'post',
     data
   });

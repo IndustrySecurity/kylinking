@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取币别列表
 export const getCurrencies = (params) => {
   return request({
-    url: '/tenant/base-archive/financial-management/currencies',
+    url: '/tenant/base-archive/financial-management/currencies/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getCurrencies = (params) => {
 // 创建币别
 export const createCurrency = (data) => {
   return request({
-    url: '/tenant/base-archive/financial-management/currencies',
+    url: '/tenant/base-archive/financial-management/currencies/',
     method: 'post',
     data
   });

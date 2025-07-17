@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -73,6 +73,7 @@ const SalesOrder = () => {
   const [productOptions, setProductOptions] = useState([]);
   const [materialOptions, setMaterialOptions] = useState([]);
   const [taxOptions, setTaxOptions] = useState([]);
+  const [unitOptions, setUnitOptions] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [contactOptions, setContactOptions] = useState([]);
 
@@ -119,11 +120,12 @@ const SalesOrder = () => {
 
   const fetchOptions = async () => {
     try {
-      const [customerRes, productRes, materialRes, taxRes, employeeRes] = await Promise.all([
+      const [customerRes, productRes, materialRes, taxRes, unitRes, employeeRes] = await Promise.all([
         salesOrderService.getCustomerOptions(),
         salesOrderService.getProductOptions(),
         salesOrderService.getMaterialOptions(),
         salesOrderService.getTaxOptions(),
+        salesOrderService.getUnitOptions(),
         salesOrderService.getEmployeeOptions()
       ]);
 
@@ -138,6 +140,9 @@ const SalesOrder = () => {
       }
       if (taxRes.data.success) {
         setTaxOptions(taxRes.data.data);
+      }
+      if (unitRes.data.success) {
+        setUnitOptions(unitRes.data.data);
       }
       if (employeeRes?.data?.success) {
         setEmployees(employeeRes.data.data);
@@ -161,8 +166,8 @@ const SalesOrder = () => {
     setCurrentRecord(null);
     form.resetFields();
     form.setFieldsValue({
-      order_date: dayjs(),
       delivery_date: dayjs(),
+      internal_delivery_date: dayjs().subtract(1, 'day'), // 设置为当前日期的前一天
       status: 'draft',
       order_type: 'normal',
       tax_id: null,
@@ -180,21 +185,20 @@ const SalesOrder = () => {
   };
 
   const handleEdit = async (record) => {
-    setCurrentRecord(record);
     try {
       const response = await salesOrderService.getSalesOrderById(record.id);
       if (response.data.success) {
         const orderData = response.data.data;
+        setCurrentRecord(orderData); // 设置完整的订单数据
         
         // 先设置基本字段（不包括联系人相关字段）
         const basicFields = {
           ...orderData,
-          order_date: orderData.order_date ? dayjs(orderData.order_date) : null,
-          delivery_date: orderData.order_date ? dayjs(orderData.order_date) : dayjs(), // 使用order_date作为delivery_date
+          delivery_date: orderData.delivery_date ? dayjs(orderData.delivery_date) : null,
           internal_delivery_date: orderData.internal_delivery_date ? dayjs(orderData.internal_delivery_date) : null,
           contract_date: orderData.contract_date ? dayjs(orderData.contract_date) : null,
           // 映射税收字段名
-          tax_id: orderData.tax_type_id
+          tax_id: orderData.tax_rate_id
         };
         
         // 如果订单有客户ID，先获取联系人列表
@@ -214,8 +218,8 @@ const SalesOrder = () => {
               if (currentContact) {
                 // 使用当前订单的联系人信息
                 basicFields.contact_person_id = currentContact.value;
-                basicFields.contact_phone = currentContact.mobile || '';
-                basicFields.contact_mobile = currentContact.mobile || '';
+                basicFields.phone = currentContact.mobile || '';
+                basicFields.mobile = currentContact.mobile || '';
                 basicFields.contact_method = currentContact.mobile || '';
               }
             }
@@ -234,6 +238,20 @@ const SalesOrder = () => {
       }
     } catch (error) {
       message.error('获取订单详情失败');
+    }
+  };
+
+  const handleFinish = async (record) => {
+    try {
+      const response = await salesOrderService.finishSalesOrder(record.id);
+      if (response.data?.success) {
+        message.success('订单已完成');
+        fetchData(); // 刷新数据
+      } else {
+        message.error(response.data?.message || '完成失败');
+      }
+    } catch (error) {
+      message.error('完成失败');
     }
   };
 
@@ -272,10 +290,10 @@ const SalesOrder = () => {
 
       // 判断销售材料中每一项的数量是否为0或为空，如果为空或0，则提示用户填写材料数量
       for (let i = 0; i < filteredMaterials.length; i++) {
-        console.log('filteredMaterials',filteredMaterials);
+
         const item = filteredMaterials[i];
         if (!item.quantity || item.quantity === 0 || item.quantity === null) {
-          console.log('item',item);
+
           message.error('请填写材料明细中的数量：' + item.material.material_name);
           return; // 直接终止整个handleSave函数
         }
@@ -283,7 +301,6 @@ const SalesOrder = () => {
 
       const orderData = {
         ...values,
-        order_date: values.order_date ? values.order_date.format('YYYY-MM-DD') : null,
         delivery_date: values.delivery_date ? values.delivery_date.format('YYYY-MM-DD') : null,
         internal_delivery_date: values.internal_delivery_date ? values.internal_delivery_date.format('YYYY-MM-DD') : null,
         contract_date: values.contract_date ? values.contract_date.format('YYYY-MM-DD') : null,
@@ -291,7 +308,7 @@ const SalesOrder = () => {
         other_fees: filteredOtherFees,
         material_details: filteredMaterials,
         // 映射税收字段名
-        tax_type_id: values.tax_id
+        tax_rate_id: values.tax_id
       };
 
       let response;
@@ -335,8 +352,22 @@ const SalesOrder = () => {
     }
   };
 
-  const handleViewDetail = (record) => {
-    setCurrentRecord(record);
+  const handleViewDetail = async (record) => {
+    try {
+      // 获取完整的订单详情，包括订单明细
+      const response = await salesOrderService.getSalesOrderById(record.id);
+      if (response.data.success) {
+        const orderData = response.data.data;
+        setCurrentRecord(orderData);
+      } else {
+        message.error('获取订单详情失败');
+        return;
+      }
+    } catch (error) {
+      console.error('获取订单详情失败:', error);
+      message.error('获取订单详情失败');
+      return;
+    }
     setDetailDrawerVisible(true);
   };
 
@@ -349,8 +380,8 @@ const SalesOrder = () => {
     fetchData();
   };
 
-  // 处理税收选择变化
-  const handleTaxChange = (value) => {
+  // 缓存 handleTaxChange 函数
+  const handleTaxChange = useCallback((value) => {
     if (value) {
       const selectedTax = taxOptions.find(option => option.value === value);
       if (selectedTax) {
@@ -363,10 +394,10 @@ const SalesOrder = () => {
         tax_rate: 0
       });
     }
-  };
+  }, [taxOptions, form]);
 
-  // 处理客户选择变化，自动加载客户信息
-  const handleCustomerChange = async (customerId) => {
+  // 缓存 handleCustomerChange 函数
+  const handleCustomerChange = useCallback(async (customerId) => {
     if (customerId) {
       try {
         // 并行加载客户详情和联系人列表
@@ -399,15 +430,14 @@ const SalesOrder = () => {
             const firstContact = formattedContacts[0];
             form.setFieldsValue({
               contact_person_id: firstContact.value,
-              contact_phone: firstContact.mobile,
-              contact_mobile: firstContact.mobile,
-              contact_method: firstContact.mobile
+              phone: firstContact.mobile,
+              mobile: firstContact.mobile,
             });
           }else{
             form.setFieldsValue({
               contact_person_id: undefined,
-              contact_phone: '',
-              contact_mobile: '',
+              phone: '',
+              mobile: '',
               contact_method: null
             });
           }
@@ -439,10 +469,10 @@ const SalesOrder = () => {
       });
       setContactOptions([]);
     }
-  };
+  }, [form, setContactOptions]);
 
-  // 处理交货日期变化，自动设置内部交期为前一天
-  const handleDeliveryDateChange = (date) => {
+  // 缓存 handleDeliveryDateChange 函数
+  const handleDeliveryDateChange = useCallback((date) => {
     if (date) {
       // 设置内部交期为交货日期的前一天
       const internalDeliveryDate = date.subtract(1, 'day');
@@ -455,16 +485,16 @@ const SalesOrder = () => {
         internal_delivery_date: null
       });
     }
-  };
+  }, [form]);
 
-  // 处理联系人选择变化，自动填充联系人信息
-  const handleContactChange = (contactId) => {
+  // 缓存 handleContactChange 函数
+  const handleContactChange = useCallback((contactId) => {
     if (contactId) {
       const selectedContact = contactOptions.find(option => option.value === contactId);
       if (selectedContact) {
         form.setFieldsValue({
-          phone: selectedContact.phone,
-          mobile: selectedContact.mobile
+          phone: selectedContact.mobile,
+          mobile: selectedContact.mobile,
         });
       }
     } else {
@@ -474,9 +504,10 @@ const SalesOrder = () => {
         mobile: ''
       });
     }
-  };
+  }, [contactOptions, form]);
 
-  const handleTabChange = (key) => {
+  // 缓存 handleTabChange 函数
+  const handleTabChange = useCallback((key) => {
     if (['details', 'fees', 'materials'].includes(key)) {
       const deliveryDate = form.getFieldValue('delivery_date');
       if (!deliveryDate) {
@@ -485,57 +516,61 @@ const SalesOrder = () => {
       }
     }
     setActiveTab(key);
-  };
+  }, [form]);
 
-  const addOrderDetail = () => {
+  // 缓存 addOrderDetail 函数
+  const addOrderDetail = useCallback(() => {
     const deliveryDate = form.getFieldValue('delivery_date');
     const internalDeliveryDate = form.getFieldValue('internal_delivery_date');
-    setOrderDetails([
-      ...orderDetails,
-      {
-        id: Date.now(),
-        product_id: null,
-        product_code: '',
-        product_name: '',
-        order_quantity: undefined, // 这里改为 undefined
-        unit_price: undefined,
-        amount: 0,
-        unit: '',
-        negative_deviation_percentage: undefined,
-        positive_deviation_percentage: undefined,
-        production_small_quantity: undefined,
-        production_large_quantity: undefined,
-        shipping_quantity: undefined,
-        production_quantity: undefined,
-        usable_inventory: undefined,
-        storage_quantity: undefined,
-        estimated_thickness_m: undefined,
-        estimated_weight_kg: undefined,
-        customer_code: '',
-        customer_requirements: '',
-        material_structure: '',
-        printing_requirements: '',
-        internal_delivery_date: internalDeliveryDate || null,
-        delivery_date: deliveryDate || null
+    const newDetail = {
+      id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 使用更稳定的唯一ID
+      product_id: null,
+      product_code: '',
+      product_name: '',
+      order_quantity: undefined,
+      unit_price: undefined,
+      amount: 0,
+      unit: '',
+      unit_id: null,
+      negative_deviation_percentage: undefined,
+      positive_deviation_percentage: undefined,
+      production_small_quantity: undefined,
+      production_large_quantity: undefined,
+      shipping_quantity: undefined,
+      production_quantity: undefined,
+      usable_inventory: undefined,
+      storage_quantity: undefined,
+      estimated_thickness_m: undefined,
+      estimated_weight_kg: undefined,
+      customer_code: '',
+      customer_requirements: '',
+      material_structure: '',
+      printing_requirements: '',
+      internal_delivery_date: internalDeliveryDate || null,
+      delivery_date: deliveryDate || null
+    };
+    setOrderDetails(prev => [...prev, newDetail]);
+  }, [form]);
+
+  // 缓存 removeOrderDetail 函数
+  const removeOrderDetail = useCallback((index) => {
+    setOrderDetails(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // 缓存 updateOrderDetail 函数
+  const updateOrderDetail = useCallback(async (index, field, value) => {
+    setOrderDetails(prev => {
+      const newDetails = [...prev];
+
+      newDetails[index] = { ...newDetails[index], [field]: value };
+      
+      // 自动计算金额
+      if (field === 'order_quantity' || field === 'unit_price') {
+        newDetails[index].amount = (newDetails[index].order_quantity || 0) * (newDetails[index].unit_price || 0);
       }
-    ]);
-  };
-
-  // 删除订单明细
-  const removeOrderDetail = (index) => {
-    const newDetails = orderDetails.filter((_, i) => i !== index);
-    setOrderDetails(newDetails);
-  };
-
-  // 更新订单明细
-  const updateOrderDetail = async (index, field, value) => {
-    const newDetails = [...orderDetails];
-    newDetails[index][field] = value;
-    
-    // 自动计算金额
-    if (field === 'order_quantity' || field === 'unit_price') {
-      newDetails[index].amount = (newDetails[index].order_quantity || 0) * (newDetails[index].unit_price || 0);
-    }
+      
+      return newDetails;
+    });
     
     // 根据产品选择自动填充信息
     if (field === 'product_id' && value) {
@@ -544,69 +579,76 @@ const SalesOrder = () => {
         const response = await salesOrderService.getProductDetails(value);
         if (response.data.success) {
           const productData = response.data.data;
-          console.log(productData);
-          // 自动填充产品相关字段
-          newDetails[index] = {
-            ...newDetails[index],
-            // 基本产品信息
-            product_code: productData.product_code,
-            product_name: productData.product_name,
-            unit: productData.unit,
-            sales_unit_id: productData.sales_unit_id,
-            
-            // 价格信息
-            unit_price: productData.unit_price || 0,
-            currency_id: productData.currency_id,
-            
-            // 库存信息
-            usable_inventory: productData.usable_inventory || 0,
-            
-            // 生产信息
-            production_small_quantity: productData.production_small_quantity || 0,
-            production_large_quantity: productData.production_large_quantity || 0,
-            
-            // 技术参数
-            estimated_thickness_m: productData.thickness,
-            estimated_weight_kg: productData.net_weight,
-            
-            // 业务字段
-            material_structure: productData.material_info || productData.specification,
-            storage_requirements: productData.storage_condition,
-            customer_requirements: productData.quality_standard,
-            printing_requirements: productData.inspection_method,
-            
-            // 袋型信息
-            bag_type_id: productData.bag_type_id,
-            
-            // 其他字段
-            color_count: productData.is_compound_needed ? 1 : 0,
-            outer_box: productData.is_packaging_needed ? '是' : '否',
-            
-            // 税收信息 - 如果产品有关联的税收信息
-            tax_type_id: productData.tax_type_id
-          };
           
-          // 重新计算金额
-          const quantity = newDetails[index].order_quantity || 0;
-          const price = newDetails[index].unit_price || 0;
-          newDetails[index].amount = quantity * price;
+          // 使用函数式更新，确保状态更新的一致性
+          setOrderDetails(prev => {
+            const updatedDetails = [...prev];
+            updatedDetails[index] = {
+              ...updatedDetails[index],
+              // 基本产品信息
+              product_code: productData.product_code,
+              product_name: productData.product_name,
+              unit: productData.unit,
+              unit_id: productData.unit_id || productData.sales_unit_id,
+              sales_unit_id: productData.sales_unit_id,
+              
+              // 价格信息
+              unit_price: productData.unit_price || 0,
+              currency_id: productData.currency_id,
+              
+              // 库存信息
+              usable_inventory: productData.usable_inventory || 0,
+              
+              // 生产信息
+              production_small_quantity: productData.production_small_quantity || 0,
+              production_large_quantity: productData.production_large_quantity || 0,
+              
+              // 技术参数
+              estimated_thickness_m: productData.thickness,
+              estimated_weight_kg: productData.net_weight,
+              
+              // 业务字段
+              material_structure: productData.material_info || productData.specification,
+              storage_requirements: productData.storage_condition,
+              customer_requirements: productData.quality_standard,
+              printing_requirements: productData.inspection_method,
+              
+              // 袋型信息
+              bag_type_id: productData.bag_type_id,
+              
+              // 其他字段
+              color_count: productData.is_compound_needed ? 1 : 0,
+              outer_box: productData.is_packaging_needed ? '是' : '否',
+              
+              // 税收信息 - 如果产品有关联的税收信息
+              tax_rate_id: productData.tax_rate_id
+            };
+            
+            // 重新计算金额
+            const quantity = updatedDetails[index].order_quantity || 0;
+            const price = updatedDetails[index].unit_price || 0;
+            updatedDetails[index].amount = quantity * price;
+            
+            return updatedDetails;
+          });
           
-          // 尝试同时获取库存信息，合并到一次状态更新中
+          // 尝试同时获取库存信息
           try {
             const inventoryResponse = await salesOrderService.getProductInventory(value);
             if (inventoryResponse.data.success) {
               const inventory = inventoryResponse.data.data;
-              newDetails[index].usable_inventory = inventory.available_quantity || 0;
+              setOrderDetails(prev => {
+                const updatedDetails = [...prev];
+                updatedDetails[index].usable_inventory = inventory.available_quantity || 0;
+                return updatedDetails;
+              });
             }
           } catch (error) {
             console.error('获取库存信息失败:', error);
-            // 库存获取失败不影响产品信息填充
           }
           
-          // 一次性更新所有数据，避免多次渲染
-          setOrderDetails([...newDetails]);
           message.success('产品信息已自动填充');
-          return; // 提前返回，避免执行后面的setOrderDetails
+          return; // 提前返回，避免执行后面的逻辑
         }
       } catch (error) {
         console.error('获取产品详情失败:', error);
@@ -615,16 +657,19 @@ const SalesOrder = () => {
         // 回退到基本的产品选项信息
         const product = productOptions.find(p => p.value === value);
         if (product) {
-          newDetails[index].product_name = product.product_name || product.label?.split(' - ')[1];
-          newDetails[index].product_code = product.product_code || product.label?.split(' - ')[0];
-          newDetails[index].unit = product.unit || product.unit_name;
-          
-          if (product.specification) {
-            newDetails[index].material_structure = product.specification;
-          }
-          if (product.unit_price) {
-            newDetails[index].unit_price = product.unit_price;
-          }
+          setOrderDetails(prev => {
+            const updatedDetails = [...prev];
+            updatedDetails[index] = {
+              ...updatedDetails[index],
+              product_name: product.product_name || product.label?.split(' - ')[1],
+              product_code: product.product_code || product.label?.split(' - ')[0],
+              unit: product.unit || product.unit_name,
+              unit_id: product.unit_id,
+              material_structure: product.specification || '',
+              unit_price: product.unit_price || 0
+            };
+            return updatedDetails;
+          });
         }
       }
       
@@ -633,18 +678,20 @@ const SalesOrder = () => {
         const inventoryResponse = await salesOrderService.getProductInventory(value);
         if (inventoryResponse.data.success) {
           const inventory = inventoryResponse.data.data;
-          newDetails[index].usable_inventory = inventory.available_quantity || 0;
+          setOrderDetails(prev => {
+            const updatedDetails = [...prev];
+            updatedDetails[index].usable_inventory = inventory.available_quantity || 0;
+            return updatedDetails;
+          });
         }
       } catch (error) {
         console.error('获取库存信息失败:', error);
       }
     }
-    
-    setOrderDetails(newDetails);
-  };
+  }, [productOptions]);
 
-  // 加载产品库存信息
-  const loadInventoryForProduct = async (productId, index, existingDetails = null) => {
+  // 缓存 loadInventoryForProduct 函数
+  const loadInventoryForProduct = useCallback(async (productId, index, existingDetails = null) => {
     if (!productId) return;
     
     try {
@@ -659,12 +706,14 @@ const SalesOrder = () => {
       console.error('获取库存信息失败:', error);
       message.warning('获取库存信息失败');
     }
-  };
+  }, [orderDetails]);
 
-  // 添加其他费用
-  const addOtherFee = () => {
-    setOtherFees([...otherFees, {
-      id: Date.now(),
+  // 缓存 addOtherFee 函数
+  const addOtherFee = useCallback(() => {
+    const deliveryDate = form.getFieldValue('delivery_date');
+    const internalDeliveryDate = form.getFieldValue('internal_delivery_date');
+    const newFee = {
+      id: `temp_fee_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       fee_type: '',
       product_id: null,
       product_name: '',
@@ -675,35 +724,39 @@ const SalesOrder = () => {
       amount: 0,
       customer_order_number: '',
       customer_code: '',
-      delivery_date: null,
-      internal_delivery_date: null,
+      delivery_date: deliveryDate || null,
+      internal_delivery_date: internalDeliveryDate || null,
       customer_requirements: '',
       notes: ''
-    }]);
-  };
+    };
+    setOtherFees(prev => [...prev, newFee]);
+  }, [form]);
 
-  // 删除其他费用
-  const removeOtherFee = (index) => {
-    const newFees = otherFees.filter((_, i) => i !== index);
-    setOtherFees(newFees);
-  };
+  // 缓存 removeOtherFee 函数
+  const removeOtherFee = useCallback((index) => {
+    setOtherFees(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
-  // 更新其他费用
-  const updateOtherFee = (index, field, value) => {
-    const newFees = [...otherFees];
-    newFees[index][field] = value;
-    
-    if (field === 'price' || field === 'quantity') {
-      newFees[index].amount = newFees[index].price * newFees[index].quantity;
-    }
-    
-    setOtherFees(newFees);
-  };
+  // 缓存 updateOtherFee 函数
+  const updateOtherFee = useCallback((index, field, value) => {
+    setOtherFees(prev => {
+      const newFees = [...prev];
+      newFees[index] = { ...newFees[index], [field]: value };
+      
+      if (field === 'price' || field === 'quantity') {
+        newFees[index].amount = (newFees[index].price || 0) * (newFees[index].quantity || 0);
+      }
+      
+      return newFees;
+    });
+  }, []);
 
-  // 添加销售材料
-  const addMaterial = () => {
-    setMaterials([...materials, {
-      id: Date.now(),
+  // 缓存 addMaterial 函数
+  const addMaterial = useCallback(() => {
+    const deliveryDate = form.getFieldValue('delivery_date');
+    const internalDeliveryDate = form.getFieldValue('internal_delivery_date');
+    const newMaterial = {
+      id: `temp_material_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       material_id: null,
       negative_deviation_percentage: undefined,
       positive_deviation_percentage: undefined,
@@ -712,30 +765,32 @@ const SalesOrder = () => {
       auxiliary_quantity: undefined,
       price: undefined,
       amount: 0,
-      delivery_date: null,
-      internal_delivery_date: null,
+      delivery_date: deliveryDate || null,
+      internal_delivery_date: internalDeliveryDate || null,
       customer_requirements: '',
       notes: ''
-    }]);
-  };
+    };
+    setMaterials(prev => [...prev, newMaterial]);
+  }, [form]);
 
-  // 删除销售材料
-  const removeMaterial = (index) => {
-    const newMaterials = materials.filter((_, i) => i !== index);
-    setMaterials(newMaterials);
-  };
+  // 缓存 removeMaterial 函数
+  const removeMaterial = useCallback((index) => {
+    setMaterials(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
-  // 更新销售材料
-  const updateMaterial = (index, field, value) => {
-    const newMaterials = [...materials];
-    newMaterials[index][field] = value;
-    
-    if (field === 'price' || field === 'quantity') {
-      newMaterials[index].amount = newMaterials[index].price * newMaterials[index].quantity;
-    }
-    
-    setMaterials(newMaterials);
-  };
+  // 缓存 updateMaterial 函数
+  const updateMaterial = useCallback((index, field, value) => {
+    setMaterials(prev => {
+      const newMaterials = [...prev];
+      newMaterials[index] = { ...newMaterials[index], [field]: value };
+      
+      if (field === 'price' || field === 'quantity') {
+        newMaterials[index].amount = (newMaterials[index].price || 0) * (newMaterials[index].quantity || 0);
+      }
+      
+      return newMaterials;
+    });
+  }, []);
 
   const statusConfig = {
     draft: { color: 'default', text: '草稿' },
@@ -774,6 +829,30 @@ const SalesOrder = () => {
       dataIndex: 'customer_order_number',
       key: 'customer_order_number',
       width: 120
+    },
+    {
+      title: '交货日期',
+      dataIndex: 'delivery_date',
+      key: 'delivery_date',
+      width: 120,
+      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+    },
+    {
+      title: '内部交期',
+      dataIndex: 'internal_delivery_date',
+      key: 'internal_delivery_date',
+      width: 140,
+      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 80,
+      render: (status) => {
+        const config = statusConfig[status] || { color: 'default', text: status };
+        return <Tag color={config.color}>{config.text}</Tag>;
+      }
     },
     {
       title: '联系人',
@@ -834,13 +913,6 @@ const SalesOrder = () => {
       render: (rate) => rate ? `${rate}%` : '0%'
     },
     {
-      title: '交货日期',
-      dataIndex: 'delivery_date',
-      key: 'delivery_date',
-      width: 120,
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
-    },
-    {
       title: '客户简称',
       dataIndex: 'customer_short_name',
       key: 'customer_short_name',
@@ -871,13 +943,6 @@ const SalesOrder = () => {
       key: 'plate_deposit',
       width: 100,
       render: (amount) => `¥${amount?.toFixed(2) || '0.00'}`
-    },
-    {
-      title: '内部交期',
-      dataIndex: 'internal_delivery_date',
-      key: 'internal_delivery_date',
-      width: 140,
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
     },
     {
       title: '业务员',
@@ -923,16 +988,6 @@ const SalesOrder = () => {
       width: 120
     },
     {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      render: (status) => {
-        const config = statusConfig[status] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
-      }
-    },
-    {
       title: '送货地址',
       dataIndex: 'delivery_address',
       key: 'delivery_address',
@@ -967,7 +1022,7 @@ const SalesOrder = () => {
           >
             详情
           </Button>
-          {record.status === 'draft' && (
+          {(record.status === 'draft'  || record.status === 'confirmed') && (
             <>
               <Button 
                 type="link" 
@@ -976,6 +1031,14 @@ const SalesOrder = () => {
                 onClick={() => handleEdit(record)}
               >
                 编辑
+              </Button>
+              <Button 
+                type="link" 
+                size="small" 
+                icon={<CheckOutlined />}
+                onClick={() => handleFinish(record)}
+              >
+                完成
               </Button>
               <Popconfirm
                 title="确定要删除这条记录吗？"
@@ -1000,7 +1063,8 @@ const SalesOrder = () => {
   ];
 
   // 订单明细表格列
-  const getOrderDetailColumns = () => [
+  // 缓存订单明细列定义
+  const orderDetailColumns = useMemo(() => [
     {
       title: '产品',
       dataIndex: 'product_id',
@@ -1066,6 +1130,26 @@ const SalesOrder = () => {
       )
     },
     {
+      title: '单位',
+      dataIndex: 'unit_id',
+      key: 'unit_id',
+      width: 80,
+      render: (value, record, index) => {
+        // 根据unit_id找到对应的单位名称
+        const unitOption = unitOptions.find(opt => opt.value === value);
+        const unitName = unitOption ? unitOption.label : record.unit || '';
+        
+        return (
+          <Input
+            value={unitName}
+            placeholder="选择产品后自动填入"
+            readOnly
+            style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
+          />
+        );
+      }
+    },
+    {
       title: '单价',
       dataIndex: 'unit_price',
       key: 'unit_price',
@@ -1088,23 +1172,10 @@ const SalesOrder = () => {
       render: (value) => `¥${(value || 0).toLocaleString()}`
     },
     {
-      title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 80,
-      render: (value, record, index) => (
-        <Input
-          value={value}
-          onChange={(e) => updateOrderDetail(index, 'unit', e.target.value)}
-          placeholder="单位"
-        />
-      )
-    },
-    {
       title: '可用库存',
       dataIndex: 'usable_inventory',
       key: 'usable_inventory',
-      width: 100,
+      width: 150,
       render: (value, record, index) => (
         <Tooltip title="点击刷新库存">
           <InputNumber
@@ -1349,10 +1420,10 @@ const SalesOrder = () => {
         </Button>
       )
     }
-  ];
+  ], [updateOrderDetail, removeOrderDetail, loadInventoryForProduct, productOptions, unitOptions]);
 
-  // 其他费用表格列
-  const getOtherFeeColumns = () => [
+  // 缓存其他费用列定义
+  const otherFeeColumns = useMemo(() => [
     {
       title: '费用类型',
       dataIndex: 'fee_type',
@@ -1505,10 +1576,10 @@ const SalesOrder = () => {
         </Button>
       )
     }
-  ];
+  ], [updateOtherFee, removeOtherFee, productOptions]);
 
-  // 销售材料表格列
-  const getMaterialColumns = () => [
+  // 缓存材料列定义
+  const materialColumns = useMemo(() => [
     {
       title: '材料',
       dataIndex: 'material_id',
@@ -1670,6 +1741,130 @@ const SalesOrder = () => {
           删除
         </Button>
       )
+    }
+  ], [updateMaterial, removeMaterial, materialOptions]);
+
+  // 详情抽屉中使用的列定义
+  const getDetailViewColumns = () => [
+    {
+      title: '产品名称',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 200,
+    },
+    {
+      title: '产品编号',
+      dataIndex: 'product_code',
+      key: 'product_code',
+      width: 120,
+    },
+    {
+      title: '订单数量',
+      dataIndex: 'order_quantity',
+      key: 'order_quantity',
+      width: 100,
+    },
+    {
+      title: '单位',
+      dataIndex: 'unit_id',
+      key: 'unit_id',
+      width: 80,
+      render: (value, record) => {
+        // 根据unit_id找到对应的单位名称
+        const unitOption = unitOptions.find(opt => opt.value === value);
+        return unitOption ? unitOption.label : record.unit || '-';
+      }
+    },
+    {
+      title: '单价',
+      dataIndex: 'unit_price',
+      key: 'unit_price',
+      width: 100,
+    },
+    {
+      title: '金额',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 100,
+    },
+    {
+      title: '交货日期',
+      dataIndex: 'delivery_date',
+      key: 'delivery_date',
+      width: 120,
+      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+    }
+  ];
+
+  const getFeeViewColumns = () => [
+    {
+      title: '费用类型',
+      dataIndex: 'fee_type',
+      key: 'fee_type',
+      width: 120,
+    },
+    {
+      title: '产品',
+      dataIndex: 'product_name',
+      key: 'product_name',
+      width: 150,
+    },
+    {
+      title: '价格',
+      dataIndex: 'price',
+      key: 'price',
+      width: 100,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 80,
+    },
+    {
+      title: '金额',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 100,
+    },
+    {
+      title: '备注',
+      dataIndex: 'notes',
+      key: 'notes',
+      width: 150,
+    }
+  ];
+
+  const getMaterialViewColumns = () => [
+    {
+      title: '材料',
+      dataIndex: ['material', 'material_name'],
+      key: 'material_name',
+      width: 200,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 100,
+    },
+    {
+      title: '价格',
+      dataIndex: 'price',
+      key: 'price',
+      width: 100,
+    },
+    {
+      title: '金额',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 100,
+    },
+    {
+      title: '备注',
+      dataIndex: 'notes',
+      key: 'notes',
+      width: 150,
     }
   ];
 
@@ -1921,8 +2116,8 @@ const SalesOrder = () => {
                   <Form.Item name="salesperson_id" label="业务员">
                   <Select placeholder="请选择业务员" allowClear>
                   {employees.map((employee, index) => (
-                    <Option key={employee.id || `sales-employee-${index}`} value={employee.id}>
-                      {employee.employee_name || employee.name || employee.label}
+                    <Option key={employee.value || `sales-employee-${index}`} value={employee.value}>
+                      {employee.label}
                     </Option>
                   ))}
                 </Select>
@@ -1947,8 +2142,8 @@ const SalesOrder = () => {
                   <Form.Item name="tracking_person" label="跟单员">
                     <Select placeholder="请选择跟单员" allowClear showSearch optionFilterProp="children">
                     {employees.map((employee, index) => (
-                    <Option key={employee.id || `sales-employee-${index}`} value={employee.id}>
-                      {employee.employee_name || employee.name || employee.label}
+                    <Option key={employee.value || `sales-employee-${index}`} value={employee.value}>
+                      {employee.label}
                     </Option>
                   ))}
                     </Select>
@@ -2023,21 +2218,12 @@ const SalesOrder = () => {
               </Button>
             </div>
             <Table
-              columns={getOrderDetailColumns()}
+              columns={orderDetailColumns}
               dataSource={orderDetails}
-              rowKey={(record, index) => record.id || `detail-${index}`}
+              rowKey="id"
               pagination={false}
               size="small"
               scroll={{ x: 2400 }}
-              components={{
-                body: {
-                  cell: ({ children, ...restProps }) => (
-                    <td {...restProps} style={{ ...restProps.style, verticalAlign: 'top' }}>
-                      {children}
-                    </td>
-                  )
-                }
-              }}
             />
           </TabPane>
 
@@ -2048,7 +2234,7 @@ const SalesOrder = () => {
               </Button>
             </div>
             <Table
-              columns={getOtherFeeColumns()}
+              columns={otherFeeColumns}
               dataSource={otherFees}
               rowKey="id"
               pagination={false}
@@ -2064,7 +2250,7 @@ const SalesOrder = () => {
               </Button>
             </div>
             <Table
-              columns={getMaterialColumns()}
+              columns={materialColumns}
               dataSource={materials}
               rowKey="id"
               pagination={false}
@@ -2081,7 +2267,7 @@ const SalesOrder = () => {
         placement="right"
         onClose={() => setDetailDrawerVisible(false)}
         open={detailDrawerVisible}
-        width={900}
+        width={1200}
       >
         {currentRecord && (
           <div>
@@ -2097,15 +2283,15 @@ const SalesOrder = () => {
               </Col>
               <Col span={12}>
                 <Text strong>客户名称：</Text>
-                <Text>{currentRecord.customer_name}</Text>
+                <Text>{currentRecord.customer?.customer_name || currentRecord.customer_name || '-'}</Text>
               </Col>
               <Col span={12}>
                 <Text strong>客户订单号：</Text>
                 <Text>{currentRecord.customer_order_number || '-'}</Text>
               </Col>
               <Col span={12}>
-                <Text strong>订单日期：</Text>
-                <Text>{currentRecord.order_date ? dayjs(currentRecord.order_date).format('YYYY-MM-DD') : '-'}</Text>
+                <Text strong>交货日期：</Text>
+                <Text>{currentRecord.delivery_date ? dayjs(currentRecord.delivery_date).format('YYYY-MM-DD') : '-'}</Text>
               </Col>
               <Col span={12}>
                 <Text strong>内部交期：</Text>
@@ -2137,6 +2323,54 @@ const SalesOrder = () => {
                 <Divider />
                 <Title level={5}>订单要求</Title>
                 <Text>{currentRecord.order_requirements}</Text>
+              </>
+            )}
+
+            {/* 订单明细 */}
+            {currentRecord.order_details && currentRecord.order_details.length > 0 && (
+              <>
+                <Divider />
+                <Title level={5}>订单明细 ({currentRecord.order_details.length}条)</Title>
+                <Table
+                  columns={getDetailViewColumns()}
+                  dataSource={currentRecord.order_details}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  scroll={{ x: 800 }}
+                />
+              </>
+            )}
+
+            {/* 其他费用 */}
+            {currentRecord.other_fees && currentRecord.other_fees.length > 0 && (
+              <>
+                <Divider />
+                <Title level={5}>其他费用 ({currentRecord.other_fees.length}条)</Title>
+                <Table
+                  columns={getFeeViewColumns()}
+                  dataSource={currentRecord.other_fees}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  scroll={{ x: 800 }}
+                />
+              </>
+            )}
+
+            {/* 材料明细 */}
+            {currentRecord.material_details && currentRecord.material_details.length > 0 && (
+              <>
+                <Divider />
+                <Title level={5}>材料明细 ({currentRecord.material_details.length}条)</Title>
+                <Table
+                  columns={getMaterialViewColumns()}
+                  dataSource={currentRecord.material_details}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  scroll={{ x: 800 }}
+                />
               </>
             )}
           </div>

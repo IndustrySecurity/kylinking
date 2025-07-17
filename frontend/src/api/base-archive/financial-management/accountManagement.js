@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取账户列表
 export const getAccounts = (params) => {
   return request({
-    url: '/tenant/base-archive/financial-management/account-management',
+    url: '/tenant/base-archive/financial-management/account-management/',
     method: 'get',
     params
   });
@@ -28,7 +28,7 @@ export const getAccountById = (id) => {
 // 创建账户
 export const createAccount = (data) => {
   return request({
-    url: '/tenant/base-archive/financial-management/account-management',
+    url: '/tenant/base-archive/financial-management/account-management/',
     method: 'post',
     data
   });
