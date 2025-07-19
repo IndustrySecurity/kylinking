@@ -83,30 +83,127 @@ except Exception as e:
     print(f"❌ MaterialService导入失败: {e}")
     MaterialService = None
 
-# 生产档案服务 - 大部分有语法错误，暂时跳过
+# 生产档案服务
 try:
-    from .base_archive.production.production_archive.color_card_service import ColorCardService
+    from .base_archive.production_archive.color_card_service import ColorCardService
 except Exception as e:
     print(f"❌ ColorCardService导入失败: {e}")
     ColorCardService = None
 
 try:
-    from .base_archive.production.production_archive.delivery_method_service import DeliveryMethodService
+    from .base_archive.production_archive.delivery_method_service import DeliveryMethodService
 except Exception as e:
     print(f"❌ DeliveryMethodService导入失败: {e}")
     DeliveryMethodService = None
 
 try:
-    from .base_archive.production.production_archive.unit_service import UnitService
+    from .base_archive.production_archive.unit_service import UnitService
 except Exception as e:
     print(f"❌ UnitService导入失败: {e}")
     UnitService = None
 
 try:
-    from .base_archive.production.production_archive.specification_service import SpecificationService
+    from .base_archive.production_archive.specification_service import SpecificationService
 except Exception as e:
     print(f"❌ SpecificationService导入失败: {e}")
     SpecificationService = None
+
+try:
+    from .base_archive.production_archive.bag_type_service import BagTypeService
+except Exception as e:
+    print(f"❌ BagTypeService导入失败: {e}")
+    BagTypeService = None
+
+try:
+    from .base_archive.production_archive.loss_type_service import LossTypeService
+except Exception as e:
+    print(f"❌ LossTypeService导入失败: {e}")
+    LossTypeService = None
+
+try:
+    from .base_archive.production_archive.machine_service import MachineService
+except Exception as e:
+    print(f"❌ MachineService导入失败: {e}")
+    MachineService = None
+
+try:
+    from .base_archive.production_archive.warehouse_service import WarehouseService
+except Exception as e:
+    print(f"❌ WarehouseService导入失败: {e}")
+    WarehouseService = None
+
+try:
+    from .base_archive.production_archive.package_method_service import PackageMethodService
+except Exception as e:
+    print(f"❌ PackageMethodService导入失败: {e}")
+    PackageMethodService = None
+
+try:
+    from .base_archive.production_archive.process_service import ProcessService
+except Exception as e:
+    print(f"❌ ProcessService导入失败: {e}")
+    ProcessService = None
+
+try:
+    from .base_archive.production_archive.team_group_service import TeamGroupService
+except Exception as e:
+    print(f"❌ TeamGroupService导入失败: {e}")
+    TeamGroupService = None
+
+# 生产配置服务
+try:
+    from .base_archive.production_config.bag_related_formula_service import BagRelatedFormulaService
+except Exception as e:
+    print(f"❌ BagRelatedFormulaService导入失败: {e}")
+    BagRelatedFormulaService = None
+
+try:
+    from .base_archive.production_config.calculation_scheme_service import CalculationSchemeService
+except Exception as e:
+    print(f"❌ CalculationSchemeService导入失败: {e}")
+    CalculationSchemeService = None
+
+try:
+    from .base_archive.production_config.calculation_parameter_service import CalculationParameterService
+except Exception as e:
+    print(f"❌ CalculationParameterService导入失败: {e}")
+    CalculationParameterService = None
+
+try:
+    from .base_archive.production_config.quote_freight_service import QuoteFreightService
+except Exception as e:
+    print(f"❌ QuoteFreightService导入失败: {e}")
+    QuoteFreightService = None
+
+try:
+    from .base_archive.production_config.quote_ink_service import QuoteInkService
+except Exception as e:
+    print(f"❌ QuoteInkService导入失败: {e}")
+    QuoteInkService = None
+
+try:
+    from .base_archive.production_config.quote_material_service import QuoteMaterialService
+except Exception as e:
+    print(f"❌ QuoteMaterialService导入失败: {e}")
+    QuoteMaterialService = None
+
+try:
+    from .base_archive.production_config.quote_accessory_service import QuoteAccessoryService
+except Exception as e:
+    print(f"❌ QuoteAccessoryService导入失败: {e}")
+    QuoteAccessoryService = None
+
+try:
+    from .base_archive.production_config.quote_loss_service import QuoteLossService
+except Exception as e:
+    print(f"❌ QuoteLossService导入失败: {e}")
+    QuoteLossService = None
+
+try:
+    from .base_archive.production_config.ink_option_service import InkOptionService
+except Exception as e:
+    print(f"❌ InkOptionService导入失败: {e}")
+    InkOptionService = None
 
 # 财务管理服务
 try:
@@ -185,6 +282,11 @@ services_to_check = [
     'SupplierService', 'DepartmentService', 'PositionService', 'EmployeeService',
     'ProductManagementService', 'MaterialService', 'ColorCardService',
     'DeliveryMethodService', 'UnitService', 'SpecificationService',
+    'BagTypeService', 'LossTypeService', 'MachineService', 'WarehouseService',
+    'PackageMethodService', 'ProcessService', 'TeamGroupService',
+    'BagRelatedFormulaService', 'CalculationSchemeService', 'CalculationParameterService',
+    'QuoteFreightService', 'QuoteInkService', 'QuoteMaterialService',
+    'QuoteAccessoryService', 'QuoteLossService', 'InkOptionService',
     'CurrencyService', 'SalesOrderService', 'DeliveryNoticeService', 'InventoryService',
     'MaterialInboundService', 'MaterialOutboundService', 'ProductOutboundService',
     'ProductInboundService', 'MaterialCountService', 'ModuleService'
@@ -253,6 +355,40 @@ def get_available_services():
         available['unit'] = UnitService
     if SpecificationService:
         available['specification'] = SpecificationService
+    if BagTypeService:
+        available['bag_type'] = BagTypeService
+    if LossTypeService:
+        available['loss_type'] = LossTypeService
+    if MachineService:
+        available['machine'] = MachineService
+    if WarehouseService:
+        available['warehouse'] = WarehouseService
+    if PackageMethodService:
+        available['package_method'] = PackageMethodService
+    if ProcessService:
+        available['process'] = ProcessService
+    if TeamGroupService:
+        available['team_group'] = TeamGroupService
+    
+    # 生产配置服务
+    if BagRelatedFormulaService:
+        available['bag_related_formula'] = BagRelatedFormulaService
+    if CalculationSchemeService:
+        available['calculation_scheme'] = CalculationSchemeService
+    if CalculationParameterService:
+        available['calculation_parameter'] = CalculationParameterService
+    if QuoteFreightService:
+        available['quote_freight'] = QuoteFreightService
+    if QuoteInkService:
+        available['quote_ink'] = QuoteInkService
+    if QuoteMaterialService:
+        available['quote_material'] = QuoteMaterialService
+    if QuoteAccessoryService:
+        available['quote_accessory'] = QuoteAccessoryService
+    if QuoteLossService:
+        available['quote_loss'] = QuoteLossService
+    if InkOptionService:
+        available['ink_option'] = InkOptionService
     
     # 财务管理服务
     if CurrencyService:

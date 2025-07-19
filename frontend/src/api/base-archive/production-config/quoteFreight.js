@@ -5,7 +5,7 @@ export const quoteFreightApi = {
   // 获取报价运费列表
   getQuoteFreights: (params = {}) => {
     return request({
-      url: '/tenant/basic-data/quote-freights/',
+      url: '/tenant/base-archive/production-config/quote-freights/',
       method: 'get',
       params
     });
@@ -14,7 +14,7 @@ export const quoteFreightApi = {
   // 获取报价运费详情
   getQuoteFreight: (id) => {
     return request({
-      url: `/tenant/basic-data/quote-freights/${id}`,
+      url: `/tenant/base-archive/production-config/quote-freights/${id}`,
       method: 'get'
     });
   },
@@ -22,7 +22,7 @@ export const quoteFreightApi = {
   // 创建报价运费
   createQuoteFreight: (data) => {
     return request({
-      url: '/tenant/basic-data/quote-freights/',
+      url: '/tenant/base-archive/production-config/quote-freights/',
       method: 'post',
       data
     });
@@ -31,7 +31,7 @@ export const quoteFreightApi = {
   // 更新报价运费
   updateQuoteFreight: (id, data) => {
     return request({
-      url: `/tenant/basic-data/quote-freights/${id}`,
+      url: `/tenant/base-archive/production-config/quote-freights/${id}`,
       method: 'put',
       data
     });
@@ -40,7 +40,7 @@ export const quoteFreightApi = {
   // 删除报价运费
   deleteQuoteFreight: (id) => {
     return request({
-      url: `/tenant/basic-data/quote-freights/${id}`,
+      url: `/tenant/base-archive/production-config/quote-freights/${id}`,
       method: 'delete'
     });
   },
@@ -48,7 +48,7 @@ export const quoteFreightApi = {
   // 批量更新报价运费
   batchUpdateQuoteFreights: (data) => {
     return request({
-      url: '/tenant/basic-data/quote-freights/batch',
+      url: '/tenant/base-archive/production-config/quote-freights/batch',
       method: 'put',
       data
     });
@@ -57,7 +57,7 @@ export const quoteFreightApi = {
   // 获取启用的报价运费列表（用于下拉选择）
   getEnabledQuoteFreights: () => {
     return request({
-      url: '/tenant/basic-data/quote-freights',
+      url: '/tenant/base-archive/production-config/quote-freights',
       method: 'get',
       params: { enabled_only: true, per_page: 1000 }
     });

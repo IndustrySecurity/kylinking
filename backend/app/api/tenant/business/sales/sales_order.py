@@ -448,7 +448,7 @@ def get_material_options():
                     'label': material['material_name'],
                     'code': material.get('material_code', ''),
                     'specification': material.get('specification_model', ''),
-                    'unit': material.get('unit_name', '')
+                    'unit_id': material.get('unit_id', '')
                 })
         
         return jsonify({'success': True, 'data': options})
@@ -462,7 +462,7 @@ def get_unit_options():
     """获取单位选项"""
     try:
         # 调用单位服务获取选项
-        from app.services.base_archive.production.production_archive.unit_service import UnitService
+        from app.services.base_archive.production_archive.unit_service import UnitService
         unit_service = UnitService()
         units = unit_service.get_units(page=1, per_page=1000)
         
@@ -538,7 +538,7 @@ def get_warehouse_options():
     """获取仓库选项"""
     try:
         # 调用仓库服务获取选项
-        from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+        from app.services.base_archive.production_archive.warehouse_service import WarehouseService
         warehouse_service = WarehouseService()
         warehouses = warehouse_service.get_warehouses(page=1, per_page=1000)
         
@@ -655,7 +655,7 @@ def get_delivery_method_options():
     """获取配送方式选项"""
     try:
         # 调用配送方式服务获取选项
-        from app.services.base_archive.production.production_archive.delivery_method_service import DeliveryMethodService
+        from app.services.base_archive.production_archive.delivery_method_service import DeliveryMethodService
         delivery_service = DeliveryMethodService()
         methods = delivery_service.get_delivery_methods(page=1, per_page=1000)
         

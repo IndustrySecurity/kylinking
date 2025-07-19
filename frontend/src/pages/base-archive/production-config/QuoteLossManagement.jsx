@@ -294,7 +294,7 @@ const QuoteLossManagement = () => {
     const getInputNode = () => {
       switch (inputType) {
         case 'number':
-          return <InputNumber style={{ width: '100%' }} precision={4} />;
+          return <InputNumber style={{ width: '100%' }} precision={2} />;
         case 'integer':
           return <InputNumber style={{ width: '100%' }} precision={0} min={1} />;
         case 'switch':
@@ -374,7 +374,7 @@ const QuoteLossManagement = () => {
       width: 100,
       editable: true,
       inputType: 'number',
-      render: (value) => value ? `${Number(value).toFixed(4)}` : '-',
+      render: (value) => value ? `${Number(value).toFixed(2)}` : '-',
     },
     {
       title: '费用',
@@ -383,7 +383,7 @@ const QuoteLossManagement = () => {
       width: 120,
       editable: true,
       inputType: 'number',
-      render: (value) => value ? `¥${Number(value).toFixed(4)}` : '-',
+      render: (value) => value ? `¥${Number(value).toFixed(2)}` : '-',
     },
     {
       title: '排序',

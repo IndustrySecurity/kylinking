@@ -244,7 +244,7 @@ const QuoteMaterialManagement = () => {
     
     switch (inputType) {
       case 'number':
-        inputNode = <InputNumber style={{ width: '100%' }} precision={4} />;
+        inputNode = <InputNumber style={{ width: '100%' }} precision={2} />;
         break;
       case 'switch':
         inputNode = <Switch />;

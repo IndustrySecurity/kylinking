@@ -741,7 +741,7 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name="customer_id" label="客户" rules={[{ required: true, message: '请选择客户' }]}>
+          <Form.Item name="customer_id" label="客户">
             <Select
               placeholder="请选择客户"
               showSearch

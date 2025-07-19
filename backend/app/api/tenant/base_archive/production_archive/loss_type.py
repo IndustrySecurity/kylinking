@@ -1,29 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-规格管理API路由
+损耗类型管理API路由
 """
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from app.services.base_archive.production.production_archive.specification_service import SpecificationService
+from app.services.base_archive.production_archive.loss_type_service import LossTypeService
 
-bp = Blueprint('specification', __name__)
+bp = Blueprint('loss_type', __name__)
 
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
-def get_specifications():
-    """获取规格列表"""
+def get_loss_types():
+    """获取损耗类型列表"""
     try:
-        specification_service = SpecificationService()
+        loss_type_service = LossTypeService()
         # 获取查询参数
         page = int(request.args.get('page', 1))
         per_page = min(int(request.args.get('per_page', 20)), 100)
         search = request.args.get('search')
         enabled_only = request.args.get('enabled_only', 'false').lower() == 'true'
         
-        # 获取规格列表
-        result = specification_service.get_specifications(
+        # 获取损耗类型列表
+        result = loss_type_service.get_loss_types(
             page=page,
             per_page=per_page,
             search=search,
@@ -39,17 +39,34 @@ def get_specifications():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/<spec_id>', methods=['GET'])
+@bp.route('/enabled', methods=['GET'])
 @jwt_required()
-def get_specification(spec_id):
-    """获取规格详情"""
+def get_enabled_loss_types():
+    """获取启用的损耗类型列表"""
     try:
-        specification_service = SpecificationService()
-        specification = specification_service.get_specification(spec_id)
+        loss_type_service = LossTypeService()
+        result = loss_type_service.get_enabled_loss_types()
         
         return jsonify({
             'success': True,
-            'data': specification
+            'data': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/<loss_type_id>', methods=['GET'])
+@jwt_required()
+def get_loss_type(loss_type_id):
+    """获取损耗类型详情"""
+    try:
+        loss_type_service = LossTypeService()
+        loss_type = loss_type_service.get_loss_type(loss_type_id)
+        
+        return jsonify({
+            'success': True,
+            'data': loss_type
         })
         
     except ValueError as e:
@@ -60,10 +77,10 @@ def get_specification(spec_id):
 
 @bp.route('/', methods=['POST'])
 @jwt_required()
-def create_specification():
-    """创建规格"""
+def create_loss_type():
+    """创建损耗类型"""
     try:
-        specification_service = SpecificationService()
+        loss_type_service = LossTypeService()
         current_user_id = get_jwt_identity()
         data = request.get_json()
         
@@ -71,15 +88,15 @@ def create_specification():
             return jsonify({'error': '请求数据不能为空'}), 400
         
         # 验证必填字段
-        if not data.get('spec_name'):
-            return jsonify({'error': '规格名称不能为空'}), 400
+        if not data.get('loss_type_name'):
+            return jsonify({'error': '损耗类型名称不能为空'}), 400
         
-        specification = specification_service.create_specification(data, current_user_id)
+        loss_type = loss_type_service.create_loss_type(data, current_user_id)
         
         return jsonify({
             'success': True,
-            'data': specification,
-            'message': '规格创建成功'
+            'data': loss_type,
+            'message': '损耗类型创建成功'
         }), 201
         
     except ValueError as e:
@@ -88,24 +105,24 @@ def create_specification():
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/<spec_id>', methods=['PUT'])
+@bp.route('/<loss_type_id>', methods=['PUT'])
 @jwt_required()
-def update_specification(spec_id):
-    """更新规格"""
+def update_loss_type(loss_type_id):
+    """更新损耗类型"""
     try:
-        specification_service = SpecificationService()
+        loss_type_service = LossTypeService()
         current_user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
-        specification = specification_service.update_specification(spec_id, data, current_user_id)
+        loss_type = loss_type_service.update_loss_type(loss_type_id, data, current_user_id)
         
         return jsonify({
             'success': True,
-            'data': specification,
-            'message': '规格更新成功'
+            'data': loss_type,
+            'message': '损耗类型更新成功'
         })
         
     except ValueError as e:
@@ -114,17 +131,17 @@ def update_specification(spec_id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/<spec_id>', methods=['DELETE'])
+@bp.route('/<loss_type_id>', methods=['DELETE'])
 @jwt_required()
-def delete_specification(spec_id):
-    """删除规格"""
+def delete_loss_type(loss_type_id):
+    """删除损耗类型"""
     try:
-        specification_service = SpecificationService()
-        specification_service.delete_specification(spec_id)
+        loss_type_service = LossTypeService()
+        loss_type_service.delete_loss_type(loss_type_id)
         
         return jsonify({
             'success': True,
-            'message': '规格删除成功'
+            'message': '损耗类型删除成功'
         })
         
     except ValueError as e:
@@ -135,17 +152,17 @@ def delete_specification(spec_id):
 
 @bp.route('/batch', methods=['PUT'])
 @jwt_required()
-def batch_update_specifications():
-    """批量更新规格"""
+def batch_update_loss_types():
+    """批量更新损耗类型"""
     try:
-        specification_service = SpecificationService()
+        loss_type_service = LossTypeService()
         current_user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data or 'data' not in data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
-        results = specification_service.batch_update_specifications(data['data'], current_user_id)
+        results = loss_type_service.batch_update_loss_types(data['data'], current_user_id)
         
         return jsonify({
             'success': True,

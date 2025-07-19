@@ -111,7 +111,7 @@ export const materialCountService = {
 export const baseDataService = {
   // 获取仓库选项（只获取材料仓库）
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/base-archive/production/production-archive/warehouses/options', { 
+    return request.get('/tenant/base-archive/production-archive/warehouses/options', { 
       params: { ...params, warehouse_type: 'material' }
     });
   },
@@ -133,7 +133,7 @@ export const baseDataService = {
 
   // 获取单位选项
   getUnits: () => {
-    return request.get('/tenant/base-archive/production/production-archive/units/options');
+    return request.get('/tenant/base-archive/production-archive/units/options');
   }
 };
 

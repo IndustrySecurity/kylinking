@@ -57,32 +57,30 @@ backend/
 │   │           │   ├── material_category.py # 材料分类API
 │   │           │   ├── product_category.py  # 产品分类API
 │   │           │   └── process_category.py  # 工艺分类API
-│   │           ├── production/  # 生产档案 API
+│   │           ├── production_archive/ # 生产档案 API
 │   │           │   ├── __init__.py
-│   │           │   ├── production_archive/ # 生产档案子模块
-│   │           │   │   ├── __init__.py
-│   │           │   │   ├── machine.py       # 机台管理API
-│   │           │   │   ├── warehouse.py     # 仓库管理API
-│   │           │   │   ├── bag_type.py      # 袋型管理API
-│   │           │   │   ├── color_card.py    # 色卡管理API
-│   │           │   │   ├── delivery_method.py # 送货方式API
-│   │           │   │   ├── loss_type.py     # 损耗类型API
-│   │           │   │   ├── package_method.py # 包装方式API
-│   │           │   │   ├── process.py       # 工艺管理API
-│   │           │   │   ├── specification.py # 规格管理API
-│   │           │   │   ├── team_group.py    # 班组管理API
-│   │           │   │   └── unit.py          # 单位管理API
-│   │           │   └── production_config/ # 生产配置子模块
-│   │           │       ├── __init__.py
-│   │           │       ├── calculation_parameter.py # 计算参数API
-│   │           │       ├── calculation_scheme.py    # 计算方案API
-│   │           │       ├── ink_option.py            # 油墨选项API
-│   │           │       ├── bag_related_formula.py   # 袋相关公式API
-│   │           │       ├── quote_accessory.py       # 报价配件API
-│   │           │       ├── quote_freight.py         # 报价运费API
-│   │           │       ├── quote_ink.py             # 报价油墨API
-│   │           │       ├── quote_loss.py            # 报价损耗API
-│   │           │       └── quote_material.py        # 报价材料API
+│   │           │   ├── machine.py       # 机台管理API
+│   │           │   ├── warehouse.py     # 仓库管理API
+│   │           │   ├── bag_type.py      # 袋型管理API
+│   │           │   ├── color_card.py    # 色卡管理API
+│   │           │   ├── delivery_method.py # 送货方式API
+│   │           │   ├── loss_type.py     # 损耗类型API
+│   │           │   ├── package_method.py # 包装方式API
+│   │           │   ├── process.py       # 工艺管理API
+│   │           │   ├── specification.py # 规格管理API
+│   │           │   ├── team_group.py    # 班组管理API
+│   │           │   └── unit.py          # 单位管理API
+│   │           ├── production_config/ # 生产配置 API
+│   │           │   ├── __init__.py
+│   │           │   ├── calculation_parameter.py # 计算参数API
+│   │           │   ├── calculation_scheme.py    # 计算方案API
+│   │           │   ├── ink_option.py            # 油墨选项API
+│   │           │   ├── bag_related_formula.py   # 袋相关公式API
+│   │           │   ├── quote_accessory.py       # 报价配件API
+│   │           │   ├── quote_freight.py         # 报价运费API
+│   │           │   ├── quote_ink.py             # 报价油墨API
+│   │           │   ├── quote_loss.py            # 报价损耗API
+│   │           │   └── quote_material.py        # 报价材料API
 │   │           └── financial_management/ # 财务管理 API
 │   │               ├── __init__.py
 │   │               ├── tax_rate.py          # 税率管理API
@@ -148,32 +146,30 @@ backend/
 │   │       │   ├── material_category_service.py # 材料分类服务
 │   │       │   ├── product_category_service.py  # 产品分类服务
 │   │       │   └── process_category_service.py  # 工艺分类服务
-│   │       ├── production/      # 生产档案服务
+│   │       ├── production_archive/ # 生产档案服务
 │   │       │   ├── __init__.py
-│   │       │   ├── production_archive/ # 生产档案子服务
-│   │       │   │   ├── __init__.py
-│   │       │   │   ├── machine_service.py       # 机台管理服务
-│   │       │   │   ├── warehouse_service.py     # 仓库管理服务
-│   │       │   │   ├── bag_type_service.py      # 袋型管理服务
-│   │       │   │   ├── color_card_service.py    # 色卡管理服务
-│   │       │   │   ├── delivery_method_service.py # 送货方式服务
-│   │       │   │   ├── loss_type_service.py     # 损耗类型服务
-│   │       │   │   ├── package_method_service.py # 包装方式服务
-│   │       │   │   ├── process_service.py       # 工艺管理服务
-│   │       │   │   ├── specification_service.py # 规格管理服务
-│   │       │   │   ├── team_group_service.py    # 班组管理服务
-│   │       │   │   └── unit_service.py          # 单位管理服务
-│   │       │   └── production_config/ # 生产配置子服务
-│   │       │       ├── __init__.py
-│   │       │       ├── calculation_parameter_service.py # 计算参数服务
-│   │       │       ├── calculation_scheme_service.py    # 计算方案服务
-│   │       │       ├── ink_option_service.py            # 油墨选项服务
-│   │       │       ├── bag_related_formula_service.py   # 袋相关公式服务
-│   │       │       ├── quote_accessory_service.py       # 报价配件服务
-│   │       │       ├── quote_freight_service.py         # 报价运费服务
-│   │       │       ├── quote_ink_service.py             # 报价油墨服务
-│   │       │       ├── quote_loss_service.py            # 报价损耗服务
-│   │       │       └── quote_material_service.py        # 报价材料服务
+│   │       │   ├── machine_service.py       # 机台管理服务
+│   │       │   ├── warehouse_service.py     # 仓库管理服务
+│   │       │   ├── bag_type_service.py      # 袋型管理服务
+│   │       │   ├── color_card_service.py    # 色卡管理服务
+│   │       │   ├── delivery_method_service.py # 送货方式服务
+│   │       │   ├── loss_type_service.py     # 损耗类型服务
+│   │       │   ├── package_method_service.py # 包装方式服务
+│   │       │   ├── process_service.py       # 工艺管理服务
+│   │       │   ├── specification_service.py # 规格管理服务
+│   │       │   ├── team_group_service.py    # 班组管理服务
+│   │       │   └── unit_service.py          # 单位管理服务
+│   │       ├── production_config/ # 生产配置服务
+│   │       │   ├── __init__.py
+│   │       │   ├── calculation_parameter_service.py # 计算参数服务
+│   │       │   ├── calculation_scheme_service.py    # 计算方案服务
+│   │       │   ├── ink_option_service.py            # 油墨选项服务
+│   │       │   ├── bag_related_formula_service.py   # 袋相关公式服务
+│   │       │   ├── quote_accessory_service.py       # 报价配件服务
+│   │       │   ├── quote_freight_service.py         # 报价运费服务
+│   │       │   ├── quote_ink_service.py             # 报价油墨服务
+│   │       │   ├── quote_loss_service.py            # 报价损耗服务
+│   │       │   └── quote_material_service.py        # 报价材料服务
 │   │       └── financial_management/ # 财务管理服务
 │   │           ├── __init__.py
 │   │           ├── tax_rate_service.py          # 税率管理服务
@@ -334,29 +330,28 @@ frontend/
 │   │   │   │   ├── PaymentMethod.jsx              # 付款方式
 │   │   │   │   ├── SettlementMethod.jsx           # 结算方式
 │   │   │   │   └── TaxRate.jsx                    # 税率管理
-│   │   │   └── production/              # 生产相关
-│   │   │       ├── production-archive/          # 生产档案
-│   │   │       │   ├── BagTypeManagement.jsx    # 袋型管理
-│   │   │       │   ├── ColorCardManagement.jsx  # 色卡管理
-│   │   │       │   ├── DeliveryMethodManagement.jsx # 送货方式
-│   │   │       │   ├── LossTypeManagement.jsx   # 损耗类型
-│   │   │       │   ├── MachineManagement.jsx    # 机台管理
-│   │   │       │   ├── PackageMethodManagement.jsx # 包装方式
-│   │   │       │   ├── ProcessManagement.jsx    # 工艺管理
-│   │   │       │   ├── SpecificationManagement.jsx # 规格管理
-│   │   │       │   ├── TeamGroupManagement.jsx  # 班组管理
-│   │   │       │   ├── UnitManagement.jsx       # 单位管理
-│   │   │       │   └── WarehouseManagement.jsx  # 仓库管理
-│   │   │       └── production-config/           # 生产配置
-│   │   │           ├── BagRelatedFormulaManagement.jsx    # 袋相关公式
-│   │   │           ├── CalculationParameterManagement.jsx # 计算参数
-│   │   │           ├── CalculationSchemeManagement.jsx    # 计算方案
-│   │   │           ├── InkOptionManagement.jsx           # 油墨选项
-│   │   │           ├── QuoteAccessoryManagement.jsx      # 报价配件
-│   │   │           ├── QuoteFreightManagement.jsx        # 报价运费
-│   │   │           ├── QuoteInkManagement.jsx            # 报价油墨
-│   │   │           ├── QuoteLossManagement.jsx           # 报价损耗
-│   │   │           └── QuoteMaterialManagement.jsx       # 报价材料
+│   │   │   ├── production-archive/      # 生产档案
+│   │   │   │   ├── BagTypeManagement.jsx    # 袋型管理
+│   │   │   │   ├── ColorCardManagement.jsx  # 色卡管理
+│   │   │   │   ├── DeliveryMethodManagement.jsx # 送货方式
+│   │   │   │   ├── LossTypeManagement.jsx   # 损耗类型
+│   │   │   │   ├── MachineManagement.jsx    # 机台管理
+│   │   │   │   ├── PackageMethodManagement.jsx # 包装方式
+│   │   │   │   ├── ProcessManagement.jsx    # 工艺管理
+│   │   │   │   ├── SpecificationManagement.jsx # 规格管理
+│   │   │   │   ├── TeamGroupManagement.jsx  # 班组管理
+│   │   │   │   ├── UnitManagement.jsx       # 单位管理
+│   │   │   │   └── WarehouseManagement.jsx  # 仓库管理
+│   │   │   └── production-config/           # 生产配置
+│   │   │       ├── BagRelatedFormulaManagement.jsx    # 袋相关公式
+│   │   │       ├── CalculationParameterManagement.jsx # 计算参数
+│   │   │       ├── CalculationSchemeManagement.jsx    # 计算方案
+│   │   │       ├── InkOptionManagement.jsx           # 油墨选项
+│   │   │       ├── QuoteAccessoryManagement.jsx      # 报价配件
+│   │   │       ├── QuoteFreightManagement.jsx        # 报价运费
+│   │   │       ├── QuoteInkManagement.jsx            # 报价油墨
+│   │   │       ├── QuoteLossManagement.jsx           # 报价损耗
+│   │   │       └── QuoteMaterialManagement.jsx       # 报价材料
 │   │   └── business/            # 业务操作
 │   │       ├── FinishedGoodsWarehouse.jsx   # 成品仓库
 │   │       ├── InventoryOverview.jsx        # 库存总览
@@ -470,4 +465,23 @@ kylinking/
 ├── package.json                 # 根目录依赖配置
 ├── package-lock.json           # 根目录依赖锁定
 └── project_structure.md         # 项目结构说明 (本文件)
+
+## 最近更新 (v1.3.0)
+
+### 🔧 生产模块重构
+- **生产档案与配置分离**: 将生产相关模块拆分为两个独立模块
+  - 生产档案: `api/base_archive/production_archive/` (后端) / `api/base-archive/production-archive/` (前端)
+  - 生产配置: `api/base_archive/production_config/` (后端) / `api/base-archive/production-config/` (前端)
+- **服务层结构优化**: 后端服务层同步重构
+  - 生产档案服务: `services/base_archive/production_archive/`
+  - 生产配置服务: `services/base_archive/production_config/`
+
+### 📁 目录结构变化
+- 移除了 `production/` 中间目录，直接使用 `production_archive/` 和 `production_config/`
+- 前端页面结构同步调整，生产档案和配置页面分别位于对应目录
+- 所有导入路径已更新，确保模块间依赖关系正确
+
+### ✅ 模块职责
+- **生产档案模块**: 负责袋型、色卡、规格、单位、包装方式、送货方式、机台、班组、仓库、损耗类型、工艺等基础档案管理
+- **生产配置模块**: 负责计算参数、计算方案、油墨选项、袋相关公式、报价配件、报价材料、报价油墨、报价损耗、报价运费等配置管理
 ``` 

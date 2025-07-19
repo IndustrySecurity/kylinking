@@ -315,7 +315,7 @@ const SpecificationManagement = () => {
       editable: true,
       inputType: 'number',
       align: 'center',
-      render: (text) => text ? Number(text).toFixed(3) : ''
+      render: (text) => text ? Number(text).toFixed(2) : ''
     },
     {
       title: '宽(mm)',
@@ -325,7 +325,7 @@ const SpecificationManagement = () => {
       editable: true,
       inputType: 'number',
       align: 'center',
-      render: (text) => text ? Number(text).toFixed(3) : ''
+      render: (text) => text ? Number(text).toFixed(2) : ''
     },
     {
       title: '卷',
@@ -335,7 +335,7 @@ const SpecificationManagement = () => {
       editable: true,
       inputType: 'number',
       align: 'center',
-      render: (text) => text ? Number(text).toFixed(3) : ''
+      render: (text) => text ? Number(text).toFixed(2) : ''
     },
     {
       title: '面积(m²)',
@@ -343,7 +343,7 @@ const SpecificationManagement = () => {
       key: 'area_sqm',
       width: 120,
       align: 'center',
-      render: (text) => text ? Number(text).toFixed(6) : ''
+      render: (text) => text ? Number(text).toFixed(2) : ''
     },
     {
       title: '规格格式',

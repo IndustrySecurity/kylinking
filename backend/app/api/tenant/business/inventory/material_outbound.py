@@ -99,7 +99,7 @@ def create_material_outbound_order():
         if not data.get('warehouse_name') and data.get('warehouse_id'):
             try:
                 # 从仓库服务获取仓库名称
-                from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+                from app.services.base_archive.production_archive.warehouse_service import WarehouseService
                 warehouse_service = WarehouseService()
                 warehouses = warehouse_service.get_warehouses(page=1, per_page=1000)
                 warehouse = next((w for w in warehouses.get('items', []) if str(w.get('id')) == str(data.get('warehouse_id'))), None)

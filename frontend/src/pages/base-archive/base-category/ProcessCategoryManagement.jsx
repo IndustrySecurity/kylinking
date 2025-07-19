@@ -974,7 +974,7 @@ const ProcessCategoryManagement = () => {
                         <InputNumber 
                           placeholder={`请输入${field.label}`} 
                           style={{ width: '100%' }}
-                          precision={4}
+                          precision={2}
                         />
                       </Form.Item>
                     </Col>

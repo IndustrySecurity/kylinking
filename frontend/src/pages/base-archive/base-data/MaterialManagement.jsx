@@ -105,10 +105,21 @@ const MaterialManagement = () => {
     },
     {
       title: '材料分类',
-      dataIndex: 'material_category_name',
-      key: 'material_category_name',
+      dataIndex: 'material_category_id',
+      key: 'material_category_id',
       width: 150,
-      ellipsis: true
+      ellipsis: true,
+      render: (categoryId) => {
+        if (!categoryId) return '-';
+        const category = options.material_categories?.find(cat => cat.id === categoryId);
+        return category ? (
+          <Tooltip placement="topLeft" title={category.material_name || category.name}>
+            <Text>{category.material_name || category.name}</Text>
+          </Tooltip>
+        ) : (
+          <Text type="secondary">{categoryId}</Text>
+        );
+      }
     },
     {
       title: '材料属性',

@@ -1,6 +1,6 @@
 import request from '../../../utils/request';
 
-const BASE_URL = '/tenant/base-archive/production/production-archive/package-methods/';
+const BASE_URL = '/tenant/base-archive/production-archive/package-methods/';
 
 export const packageMethodApi = {
   // 获取包装方式列表

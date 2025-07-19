@@ -343,7 +343,6 @@ const MaterialInbound = ({ onBack }) => {
   const fetchUnits = async () => {
     try {
       const response = await baseDataService.getUnits();
-      console.log(response);
       if (response.data?.success) {
         const unitData = response.data.data;
         const units = Array.isArray(unitData) ? unitData.map(item => ({
@@ -398,7 +397,7 @@ const MaterialInbound = ({ onBack }) => {
       form.resetFields();
       form.setFieldsValue({
         order_date: dayjs(),
-        order_type: 'material'
+        order_type: 'purchase'
       });
       setDetails([]);
     }
@@ -655,7 +654,6 @@ const MaterialInbound = ({ onBack }) => {
         const typeMap = {
           purchase: '采购入库',
           return: '退货入库',
-          transfer: '调拨入库',
           other: '其他入库'
         };
         return typeMap[type] || type;
@@ -981,9 +979,8 @@ const MaterialInbound = ({ onBack }) => {
                 <Col span={6}>
                   <Form.Item name="order_type" label="入库类型">
                     <Select placeholder="选择入库类型" allowClear>
-                      <Option key="search-order-type-material" value="material">材料入库</Option>
-                      <Option key="search-order-type-auxiliary" value="auxiliary">辅料入库</Option>
-                      <Option key="search-order-type-packaging" value="packaging">包装入库</Option>
+                      <Option key="search-order-type-purchase" value="purchase">采购入库</Option>
+                      <Option key="search-order-type-return" value="return">退货入库</Option>
                       <Option key="search-order-type-other" value="other">其他入库</Option>
                     </Select>
                   </Form.Item>
@@ -1123,9 +1120,8 @@ const MaterialInbound = ({ onBack }) => {
                     rules={[{ required: true, message: '请选择入库类型' }]}
                   >
                     <Select placeholder="请选择入库类型">
-                      <Option key="form-order-type-material" value="material">材料入库</Option>
-                      <Option key="form-order-type-auxiliary" value="auxiliary">辅料入库</Option>
-                      <Option key="form-order-type-packaging" value="packaging">包装入库</Option>
+                      <Option key="form-order-type-purchase" value="purchase">采购入库</Option>
+                      <Option key="form-order-type-return" value="return">退货入库</Option>
                       <Option key="form-order-type-other" value="other">其他入库</Option>
                     </Select>
                   </Form.Item>
@@ -1518,7 +1514,7 @@ const MaterialInbound = ({ onBack }) => {
                   placeholder="请输入重量" 
                   style={{ width: '100%' }}
                   min={0}
-                  precision={3}
+                  precision={2}
                 />
               </Form.Item>
             </Col>
@@ -1531,7 +1527,7 @@ const MaterialInbound = ({ onBack }) => {
                   placeholder="请输入长度" 
                   style={{ width: '100%' }}
                   min={0}
-                  precision={3}
+                  precision={2}
                 />
               </Form.Item>
             </Col>

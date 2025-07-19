@@ -5,7 +5,7 @@
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from app.services.base_archive.production.production_archive.delivery_method_service import DeliveryMethodService
+from app.services.base_archive.production_archive.delivery_method_service import DeliveryMethodService
 
 bp = Blueprint('delivery_method', __name__)
 

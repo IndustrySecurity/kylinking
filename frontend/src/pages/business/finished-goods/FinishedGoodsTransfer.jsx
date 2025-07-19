@@ -1157,7 +1157,7 @@ const FinishedGoodsTransfer = () => {
               <Form.Item name="current_stock" label="当前库存">
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={3}
+                  precision={2}
                   disabled
                 />
               </Form.Item>
@@ -1166,7 +1166,7 @@ const FinishedGoodsTransfer = () => {
               <Form.Item name="available_quantity" label="可用库存">
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={3}
+                  precision={2}
                   disabled
                 />
               </Form.Item>
@@ -1185,8 +1185,8 @@ const FinishedGoodsTransfer = () => {
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={3}
-                  min={0.001}
+                  precision={2}
+                  min={0.01}
                 />
               </Form.Item>
             </Col>

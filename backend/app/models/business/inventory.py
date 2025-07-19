@@ -1428,9 +1428,8 @@ class MaterialInboundOrder(TenantModel):
     
     # 入库类型常量
     ORDER_TYPES = [
-        ('material', '材料入库'),
-        ('auxiliary', '辅料入库'),
-        ('packaging', '包装入库'),
+        ('purchase', '采购入库'),
+        ('return', '退货入库'),
         ('other', '其他入库')
     ]
     
@@ -2484,8 +2483,6 @@ class MaterialTransferOrderDetail(TenantModel):
     
     # 单位信息
     unit_id = Column(UUID(as_uuid=True), ForeignKey('units.id'), nullable=False, comment='基本单位ID')
-    weight_unit = Column(String(20), default='kg', comment='重量单位')
-    length_unit = Column(String(20), default='m', comment='长度单位')
     
     # 批次信息
     batch_number = Column(String(100), comment='批次号')
@@ -2522,6 +2519,7 @@ class MaterialTransferOrderDetail(TenantModel):
     
     # 关联关系
     transfer_order = relationship("MaterialTransferOrder", back_populates="details")
+    unit = relationship("Unit", foreign_keys=[unit_id], lazy='select')
     
     # 状态常量
     DETAIL_STATUS_CHOICES = [
@@ -2586,8 +2584,7 @@ class MaterialTransferOrderDetail(TenantModel):
             'actual_transfer_quantity': float(self.actual_transfer_quantity) if self.actual_transfer_quantity else None,
             'received_quantity': float(self.received_quantity) if self.received_quantity else None,
             'unit_id': str(self.unit_id) if self.unit_id else None,
-            'weight_unit': self.weight_unit,
-            'length_unit': self.length_unit,
+            'unit_name': self.unit.unit_name if self.unit else None,
             'batch_number': self.batch_number,
             'production_date': self.production_date.isoformat() if self.production_date else None,
             'expiry_date': self.expiry_date.isoformat() if self.expiry_date else None,

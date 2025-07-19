@@ -309,7 +309,7 @@ def update_material_transfer_order_detail(order_id, detail_id):
             return jsonify({'success': False, 'error': '请求数据不能为空'}), 400
         
         # 更新字段
-        updateable_fields = ['transfer_quantity', 'unit', 'notes']
+        updateable_fields = ['transfer_quantity', 'unit_id', 'notes']
         for field in updateable_fields:
             if field in data:
                 if field == 'transfer_quantity':
@@ -471,20 +471,28 @@ def cancel_material_transfer_order(order_id):
 def get_warehouse_transfer_materials(warehouse_id):
     """获取仓库可调拨材料"""
     try:
-        # 获取仓库中有库存的材料
-        inventories = Inventory.query.filter(
+        from app.models.basic_data import Material
+        
+        # 获取仓库中有库存的材料，关联查询材料信息
+        inventories = db.session.query(
+            Inventory, Material
+        ).join(
+            Material, Inventory.material_id == Material.id
+        ).filter(
             Inventory.warehouse_id == warehouse_id,
-            Inventory.available_quantity > 0
+            Inventory.available_quantity > 0,
+            Inventory.material_id.isnot(None)
         ).all()
         
         materials = []
-        for inventory in inventories:
+        for inventory, material in inventories:
             material_data = {
                 'inventory_id': str(inventory.id),
                 'material_id': str(inventory.material_id),
-                'material_name': inventory.material_name,
-                'material_code': inventory.material_code,
-                'unit': inventory.unit,
+                'material_name': material.material_name,
+                'material_code': material.material_code,
+                'unit_id': str(inventory.unit_id),
+                'unit_name': inventory.unit.unit_name if inventory.unit else None,
                 'current_quantity': float(inventory.current_quantity),
                 'available_quantity': float(inventory.available_quantity),
                 'unit_cost': float(inventory.unit_cost) if inventory.unit_cost else 0

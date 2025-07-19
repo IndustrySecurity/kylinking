@@ -253,11 +253,11 @@ def add_material_inbound_order_detail(order_id):
         detail = service.add_material_inbound_order_detail(
             order_id=order_id,
             inbound_quantity=Decimal(str(data['inbound_quantity'])),
-            unit=data.get('unit', '个'),
+            unit_id=data.get('unit_id'),
             created_by=current_user_id,
             material_id=data.get('material_id'),
             material_name=data.get('material_name'),
-            **{k: v for k, v in data.items() if k not in ['inbound_quantity', 'unit', 'material_id', 'material_name']}
+            **{k: v for k, v in data.items() if k not in ['inbound_quantity', 'unit_id', 'material_id', 'material_name']}
         )
         
         return jsonify({

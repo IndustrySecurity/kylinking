@@ -21,20 +21,6 @@ from .employee import bp as employee_bp
 from .product_management import bp as product_management_bp
 from .material_management import bp as material_management_bp
 
-# ==================== 生产配置相关 ====================
-from ..production.production_config.quote_accessory import bp as quote_accessory_bp
-
-# ==================== 生产配置模块别名 ====================
-# 为了兼容前端现有路径，添加生产配置模块的别名
-from ..production.production_config.calculation_parameter import bp as calculation_parameter_bp
-from ..production.production_config.calculation_scheme import bp as calculation_scheme_bp
-from ..production.production_config.ink_option import bp as ink_option_bp
-from ..production.production_config.quote_freight import bp as quote_freight_bp
-from ..production.production_config.quote_ink import bp as quote_ink_bp
-from ..production.production_config.quote_material import bp as quote_material_bp
-from ..production.production_config.quote_loss import bp as quote_loss_bp
-from ..production.production_config.bag_related_formula import bp as bag_related_formula_bp
-
 # 注册各个API蓝图
 base_data_bp.register_blueprint(customer_bp, url_prefix='/customers')
 base_data_bp.register_blueprint(supplier_bp, url_prefix='/suppliers')
@@ -43,26 +29,12 @@ base_data_bp.register_blueprint(position_bp, url_prefix='/positions')
 base_data_bp.register_blueprint(employee_bp, url_prefix='/employees')
 base_data_bp.register_blueprint(product_management_bp, url_prefix='/product-management')
 base_data_bp.register_blueprint(material_management_bp, url_prefix='/material-management')
-base_data_bp.register_blueprint(quote_accessory_bp, url_prefix='/quote-accessories')
 
 # 为了兼容现有前端路径，添加别名（使用不同的name避免重复）
 base_data_bp.register_blueprint(customer_bp, url_prefix='/customer-management', name='customer_management_alias')
 base_data_bp.register_blueprint(supplier_bp, url_prefix='/supplier-management', name='supplier_management_alias')
 base_data_bp.register_blueprint(product_management_bp, url_prefix='/products', name='products_alias')
 base_data_bp.register_blueprint(material_management_bp, url_prefix='/materials', name='materials_alias')
-
-# ==================== 生产配置模块路由别名 ====================
-# 为了兼容前端期望的路径，注册生产配置模块的别名
-base_data_bp.register_blueprint(calculation_parameter_bp, url_prefix='/calculation-parameters', name='calculation_parameter_alias')
-base_data_bp.register_blueprint(calculation_scheme_bp, url_prefix='/calculation-schemes', name='calculation_scheme_alias')
-base_data_bp.register_blueprint(ink_option_bp, url_prefix='/ink-options', name='ink_option_alias')
-base_data_bp.register_blueprint(quote_freight_bp, url_prefix='/quote-freights', name='quote_freight_alias')
-base_data_bp.register_blueprint(quote_ink_bp, url_prefix='/quote-inks', name='quote_ink_alias')
-base_data_bp.register_blueprint(quote_material_bp, url_prefix='/quote-materials', name='quote_material_alias')
-base_data_bp.register_blueprint(quote_loss_bp, url_prefix='/quote-losses', name='quote_loss_alias')
-base_data_bp.register_blueprint(bag_related_formula_bp, url_prefix='/bag-related-formulas', name='bag_related_formula_alias')
-
-# 注意：选项端点已在对应的子模块API文件中定义，无需在此重复定义
 
 # 添加设备管理API
 @base_data_bp.route('/machines', methods=['GET'])
@@ -153,15 +125,6 @@ def health_check():
             'positions',              # 职位管理
             'employees',              # 员工管理
             'product_management',     # 产品管理
-            'material_management',    # 材料管理
-            'quote_accessories',      # 报价配件
-            'calculation_parameters', # 计算参数（别名）
-            'calculation_schemes',    # 计算方案（别名）
-            'ink_options',           # 油墨选项（别名）
-            'quote_freights',        # 报价运费（别名）
-            'quote_inks',            # 报价油墨（别名）
-            'quote_materials',       # 报价材料（别名）
-            'quote_losses',          # 报价损耗（别名）
-            'bag_related_formulas'   # 袋型相关公式（别名）
+            'material_management'     # 材料管理
         ]
     } 

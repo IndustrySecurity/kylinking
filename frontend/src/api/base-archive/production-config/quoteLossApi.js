@@ -1,6 +1,6 @@
 import request from '../../../utils/request';
 
-const BASE_URL = '/tenant/basic-data/quote-losses';
+const BASE_URL = '/tenant/base-archive/production-config/quote-losses';
 
 export const quoteLossApi = {
   // 获取报价损耗列表

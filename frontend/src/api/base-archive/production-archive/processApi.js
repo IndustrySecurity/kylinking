@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取工序列表
 export const getProcesses = (params) => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/processes/',
+    url: '/tenant/base-archive/production-archive/processes/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getProcesses = (params) => {
 // 创建工序
 export const createProcess = (data) => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/processes/',
+    url: '/tenant/base-archive/production-archive/processes/',
     method: 'post',
     data
   });
@@ -21,7 +21,7 @@ export const createProcess = (data) => {
 // 更新工序
 export const updateProcess = (id, data) => {
   return request({
-    url: `/tenant/base-archive/production/production-archive/processes/${id}`,
+    url: `/tenant/base-archive/production-archive/processes/${id}`,
     method: 'put',
     data
   });
@@ -30,7 +30,7 @@ export const updateProcess = (id, data) => {
 // 删除工序
 export const deleteProcess = (id) => {
   return request({
-    url: `/tenant/base-archive/production/production-archive/processes/${id}`,
+    url: `/tenant/base-archive/production-archive/processes/${id}`,
     method: 'delete'
   });
 };
@@ -38,7 +38,7 @@ export const deleteProcess = (id) => {
 // 获取工序详情
 export const getProcessById = (id) => {
   return request({
-    url: `/tenant/base-archive/production/production-archive/processes/${id}`,
+    url: `/tenant/base-archive/production-archive/processes/${id}`,
     method: 'get'
   });
 };
@@ -46,7 +46,7 @@ export const getProcessById = (id) => {
 // 获取启用的工序选项
 export const getEnabledProcesses = () => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/processes/enabled',
+    url: '/tenant/base-archive/production-archive/processes/enabled',
     method: 'get'
   });
 };
@@ -54,7 +54,7 @@ export const getEnabledProcesses = () => {
 // 获取工序选项（用于下拉框）
 export const getProcessOptions = () => {
   return request({
-    url: '/tenant/base-archive/production/production-archive/processes/options',
+    url: '/tenant/base-archive/production-archive/processes/options',
     method: 'get'
   });
 };
@@ -70,20 +70,20 @@ export const processApi = {
   
   // 批量更新工序
   batchUpdateProcesses: (data) => {
-    return request.post('/tenant/base-archive/production/production-archive/processes/batch', data);
+    return request.post('/tenant/base-archive/production-archive/processes/batch', data);
   },
 
   // 获取排程方式选项
   getSchedulingMethodOptions: () => {
-    return request.get('/tenant/base-archive/production/production-archive/processes/scheduling-method-options');
+    return request.get('/tenant/base-archive/production-archive/processes/scheduling-method-options');
   },
 
   // 获取计算方案选项
   getCalculationSchemeOptions: (category) => {
     if (category) {
-      return request.get(`/tenant/base-archive/production/production-config/calculation-schemes/options/by-category?category=${category}`);
+      return request.get(`/tenant/base-archive/production-config/calculation-schemes/options/by-category?category=${category}`);
     }
-    return request.get('/tenant/base-archive/production/production-config/calculation-schemes/options/by-category');
+    return request.get('/tenant/base-archive/production-config/calculation-schemes/options/by-category');
   }
 };
 

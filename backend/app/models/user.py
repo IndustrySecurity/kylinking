@@ -10,8 +10,8 @@ import uuid
 organization_users = Table(
     'organization_users',
     db.metadata,
-    Column('organization_id', UUID(as_uuid=True), ForeignKey('organizations.id'), primary_key=True),
-    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id'), primary_key=True),
+    Column('organization_id', UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), primary_key=True),
+    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
     Column('created_at', DateTime, default=db.func.now())
 )
 
@@ -19,8 +19,8 @@ organization_users = Table(
 user_roles = Table(
     'user_roles',
     db.metadata,
-    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id'), primary_key=True),
-    Column('role_id', UUID(as_uuid=True), ForeignKey('roles.id'), primary_key=True),
+    Column('user_id', UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', UUID(as_uuid=True), ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True),
     Column('created_at', DateTime, default=db.func.now())
 )
 

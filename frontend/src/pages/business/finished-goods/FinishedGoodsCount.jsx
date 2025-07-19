@@ -62,7 +62,7 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
   
   // 如果没有实盘数量，自动填入账面数量作为默认值
   const defaultValue = value !== null && value !== undefined ? value : record.book_quantity;
-  const isDefaultValue = value === null || value === undefined || Number(value).toFixed(3) === Number(record.book_quantity || 0).toFixed(3);
+  const isDefaultValue = value === null || value === undefined || Number(value).toFixed(2) === Number(record.book_quantity || 0).toFixed(2);
 
   const handleSave = async () => {
     // 将输入值转换为数字进行比较
@@ -90,7 +90,7 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
   useEffect(() => {
     // 如果没有实盘数量，自动设置为账面数量
     if ((value === null || value === undefined) && record.book_quantity) {
-      setInputValue(Number(record.book_quantity).toFixed(3));
+      setInputValue(Number(record.book_quantity).toFixed(2));
     } else {
       setInputValue(value);
     }
@@ -102,7 +102,7 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
         color: isDefaultValue ? '#1890ff' : '#000',
         fontWeight: isDefaultValue ? 'bold' : 'normal'
       }}>
-        {defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(3) : '0.000'}
+        {defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(2) : '0.00'}
       </span>
     );
   }
@@ -115,14 +115,14 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
         onBlur={handleSave}
         onPressEnter={handleKeyPress}
         style={{ width: '100%' }}
-        precision={3}
+        precision={2}
         min={0}
         autoFocus
       />
     );
   }
 
-  const displayValue = defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(3) : Number(record.book_quantity || 0).toFixed(3);
+  const displayValue = defaultValue !== null && defaultValue !== undefined ? Number(defaultValue).toFixed(2) : Number(record.book_quantity || 0).toFixed(2);
 
   return (
     <div
@@ -647,7 +647,7 @@ const FinishedGoodsCount = () => {
       key: 'book_quantity',
       width: 100,
       align: 'right',
-      render: (value) => Number(value).toFixed(3)
+      render: (value) => Number(value).toFixed(2)
     },
     {
       title: '实盘数量',
@@ -675,7 +675,7 @@ const FinishedGoodsCount = () => {
         const num = Number(value);
         return (
           <span style={{ color: num > 0 ? '#52c41a' : num < 0 ? '#ff4d4f' : '#000' }}>
-            {num > 0 ? '+' : ''}{num.toFixed(3)}
+            {num > 0 ? '+' : ''}{num.toFixed(2)}
           </span>
         );
       }

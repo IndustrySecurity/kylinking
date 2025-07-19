@@ -71,7 +71,7 @@ Page({
       
       // 获取仓库列表 - 使用正确的API路径
       const warehousePromise = app.request({
-        url: '/api/tenant/base-archive/production/production-archive/warehouses/options',
+        url: '/api/tenant/base-archive/production-archive/warehouses/options',
         method: 'GET',
         data: {
           page: 1,

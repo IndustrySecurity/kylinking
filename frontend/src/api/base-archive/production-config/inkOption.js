@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取油墨选项列表
 export const getInkOptions = (params) => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options/',
+    url: '/tenant/base-archive/production-config/ink-options/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getInkOptions = (params) => {
 // 创建油墨选项
 export const createInkOption = (data) => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options/',
+    url: '/tenant/base-archive/production-config/ink-options/',
     method: 'post',
     data
   });
@@ -21,7 +21,7 @@ export const createInkOption = (data) => {
 // 更新油墨选项
 export const updateInkOption = (id, data) => {
   return request({
-    url: `/tenant/base-archive/production/production-config/ink-options/${id}`,
+    url: `/tenant/base-archive/production-config/ink-options/${id}`,
     method: 'put',
     data
   });
@@ -30,7 +30,7 @@ export const updateInkOption = (id, data) => {
 // 删除油墨选项
 export const deleteInkOption = (id) => {
   return request({
-    url: `/tenant/base-archive/production/production-config/ink-options/${id}`,
+    url: `/tenant/base-archive/production-config/ink-options/${id}`,
     method: 'delete'
   });
 };
@@ -38,7 +38,7 @@ export const deleteInkOption = (id) => {
 // 获取油墨选项详情
 export const getInkOptionById = (id) => {
   return request({
-    url: `/tenant/base-archive/production/production-config/ink-options/${id}`,
+    url: `/tenant/base-archive/production-config/ink-options/${id}`,
     method: 'get'
   });
 };
@@ -46,7 +46,7 @@ export const getInkOptionById = (id) => {
 // 获取启用的油墨选项
 export const getEnabledInkOptions = () => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options/enabled',
+    url: '/tenant/base-archive/production-config/ink-options/enabled',
     method: 'get'
   });
 };
@@ -54,7 +54,7 @@ export const getEnabledInkOptions = () => {
 // 批量更新油墨选项
 export const batchUpdateInkOptions = (data) => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options/batch-update',
+    url: '/tenant/base-archive/production-config/ink-options/batch-update',
     method: 'post',
     data
   });
@@ -63,7 +63,7 @@ export const batchUpdateInkOptions = (data) => {
 // 获取油墨选项下拉列表
 export const getInkOptionsList = () => {
   return request({
-    url: '/tenant/base-archive/production/production-config/ink-options/options',
+    url: '/tenant/base-archive/production-config/ink-options/options',
     method: 'get'
   });
 };

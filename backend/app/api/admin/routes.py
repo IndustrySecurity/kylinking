@@ -473,6 +473,13 @@ def update_tenant_user(tenant_id, user_id):
     data = request.json
     
     # 更新用户信息
+    if data.get('email') is not None and data['email'] != user.email:
+        # 检查新邮箱是否已被其他用户使用
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user and existing_user.id != user_id:
+            return jsonify({"message": "Email already registered by another user"}), 400
+        user.email = data['email']
+    
     if data.get('first_name') is not None:
         user.first_name = data['first_name']
     
@@ -530,6 +537,39 @@ def toggle_user_status(tenant_id, user_id):
         "message": f"User status changed to {'active' if user.is_active else 'inactive'}",
         "is_active": user.is_active
     }), 200
+
+@admin_bp.route('/tenants/<uuid:tenant_id>/users/<uuid:user_id>/delete', methods=['DELETE'])
+@admin_required
+def delete_user(tenant_id, user_id):
+    """
+    删除用户
+    """
+    try:
+        # 验证租户
+        tenant = Tenant.query.get_or_404(tenant_id)
+        
+        # 查询用户
+        user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
+        if not user:
+            return jsonify({"message": "User not found in this tenant"}), 404
+        
+        # 检查是否是最后一个管理员用户
+        if user.is_admin:
+            admin_count = User.query.filter_by(tenant_id=tenant_id, is_admin=True).count()
+            if admin_count <= 1:
+                return jsonify({"message": "Cannot delete the last admin user"}), 400
+        
+        # 删除用户（SQLAlchemy会自动处理关联关系，如果有CASCADE设置）
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({"message": "User deleted successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting user {user_id}: {str(e)}")
+        return jsonify({"message": "Failed to delete user", "error": str(e)}), 500
+
 
 
 @admin_bp.route('/tenants/<uuid:tenant_id>/users/<uuid:user_id>/reset-password', methods=['POST'])

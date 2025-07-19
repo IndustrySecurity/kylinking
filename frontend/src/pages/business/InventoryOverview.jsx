@@ -391,7 +391,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500, color: value > 0 ? '#52c41a' : '#f5222d' }}>
-          {(+value).toFixed(3)} {record.unit_name}
+          {(+value).toFixed(2)} {record.unit_name}
         </div>
       )
     },
@@ -403,7 +403,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500, color: value > 0 ? '#52c41a' : '#f5222d' }}>
-          {(+value).toFixed(3)} {record.unit_name}
+          {(+value).toFixed(2)} {record.unit_name}
         </div>
       )
     },
@@ -415,7 +415,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500 }}>
-          {(+value).toFixed(3)} {record.unit_name}
+          {(+value).toFixed(2)} {record.unit_name}
         </div>
       )
     },
@@ -427,7 +427,7 @@ const InventoryOverview = () => {
       align: 'right',
       render: (value, record) => (
         <div style={{ textAlign: 'right', fontWeight: 500 }}>
-          {(+value).toFixed(3)} {record.unit_name}
+          {(+value).toFixed(2)} {record.unit_name}
         </div>
       )
     },
@@ -472,7 +472,7 @@ const InventoryOverview = () => {
       key: 'unit_cost',
       width: 120,
       align: 'right',
-      render: value => value ? `¥${(+value).toFixed(4)}` : '-'
+      render: value => value ? `¥${(+value).toFixed(2)}` : '-'
     },
     {
       title: '总成本',
@@ -491,7 +491,7 @@ const InventoryOverview = () => {
       render: (value, record) => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           {getWarningIcon(+record.current_quantity, +value, +record.min_stock)}
-          <span>{(+value).toFixed(3)}</span>
+          <span>{(+value).toFixed(2)}</span>
         </div>
       )
     },
@@ -501,7 +501,7 @@ const InventoryOverview = () => {
       key: 'min_stock',
       width: 120,
       align: 'right',
-      render: value => (+(value || 0)).toFixed(3)
+      render: value => (+(value || 0)).toFixed(2)
     },
     {
       title: '最大库存',
@@ -509,7 +509,7 @@ const InventoryOverview = () => {
       key: 'max_stock',
       width: 120,
       align: 'right',
-      render: value => value ? (+value).toFixed(3) : '-'
+      render: value => value ? (+value).toFixed(2) : '-'
     },
     {
       title: '生产日期',
@@ -558,7 +558,7 @@ const InventoryOverview = () => {
             textAlign: 'right',
             color: val > 0 ? '#52c41a' : val < 0 ? '#f5222d' : 'inherit'
           }}>
-            {val.toFixed(3)}
+            {val.toFixed(2)}
           </div>
         );
       }

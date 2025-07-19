@@ -140,7 +140,7 @@ class MaterialTransferService(TenantAwareService):
                 'transfer_order_id': transfer_order_id,
                 'material_id': material_id,
                 'material_name': material.material_name,
-                'unit': inventory.unit or '件',  # 使用库存记录中的单位
+                'unit_id': inventory.unit_id,
                 'transfer_quantity': transfer_quantity,
                 'material_code': material.material_code,
                 'material_spec': material.specification_model,
@@ -299,7 +299,7 @@ class MaterialTransferService(TenantAwareService):
                     to_inventory = Inventory(
                         warehouse_id=transfer_order.to_warehouse_id,
                         material_id=detail.material_id,
-                        unit=detail.unit,
+                        unit_id=detail.unit_id,
                         created_by=received_by_uuid,
                         current_quantity=0,
                         available_quantity=0

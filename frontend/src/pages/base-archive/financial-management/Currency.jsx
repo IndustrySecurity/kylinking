@@ -215,7 +215,7 @@ const Currency = () => {
         inputNode = <InputNumber min={0} style={{ width: '100%' }} />;
         break;
       case 'decimal':
-        inputNode = <InputNumber min={0.0001} precision={4} style={{ width: '100%' }} />;
+        inputNode = <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />;
         break;
       case 'integer':
         inputNode = <InputNumber min={0} max={6} style={{ width: '100%' }} />;
@@ -306,7 +306,7 @@ const Currency = () => {
       align: 'right',
       render: (value, record) => {
         const editable = isEditing(record);
-        return editable ? value : parseFloat(value).toFixed(4);
+        return editable ? value : parseFloat(value).toFixed(2);
       }
     },
     {

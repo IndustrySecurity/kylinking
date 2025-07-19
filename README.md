@@ -75,7 +75,7 @@ KylinKing云膜智能管理系统是一个基于SaaS架构的智能薄膜制造�
 
 ### 🏭 生产数据管理
 
-#### 生产档案
+#### 生产档案 (Production Archive)
 - **袋型管理**: 产品袋型规格定义
 - **色卡管理**: 颜色标准和配色方案
 - **规格管理**: 产品规格参数管理
@@ -86,8 +86,9 @@ KylinKing云膜智能管理系统是一个基于SaaS架构的智能薄膜制造�
 - **班组管理**: 生产班组、人员配置
 - **仓库管理**: 仓库布局、库位管理
 - **损耗类型**: 生产损耗分类管理
+- **工艺管理**: 生产工艺流程定义
 
-#### 生产配置
+#### 生产配置 (Production Config)
 - **计算参数**: 生产计算关键参数
 - **计算方案**: 成本核算方案配置
 - **油墨选项**: 油墨类型和配比管理
@@ -258,7 +259,8 @@ kylinking/
 │   │   │   │   └── base_archive/       # 基础档案API
 │   │   │   │       ├── base_data/      # 基础数据API
 │   │   │   │       ├── base_category/  # 基础分类API
-│   │   │   │       ├── production/     # 生产档案API
+│   │   │   │       ├── production_archive/ # 生产档案API
+│   │   │   │       ├── production_config/  # 生产配置API
 │   │   │   │       └── financial_management/ # 财务管理API
 │   │   │   └── ...
 │   │   ├── models/         # 数据模型层
@@ -270,7 +272,8 @@ kylinking/
 │   │   │   └── base_archive/          # 基础档案服务
 │   │   │       ├── base_data/         # 基础数据服务
 │   │   │       ├── base_category/     # 基础分类服务
-│   │   │       ├── production/        # 生产档案服务
+│   │   │       ├── production_archive/ # 生产档案服务
+│   │   │       ├── production_config/  # 生产配置服务
 │   │   │       └── financial_management/ # 财务管理服务
 │   │   ├── schemas/        # 数据验证层
 │   │   ├── utils/          # 工具函数
@@ -346,6 +349,12 @@ def get_item_service(tenant_id: str = None, schema_name: str = None) -> ItemServ
     return ItemService(tenant_id=tenant_id, schema_name=schema_name)
 ```
 
+#### 模块结构规范
+- **基础档案服务**: 放置在 `services/base_archive/` 对应子目录下
+- **业务服务**: 放置在 `services/business/` 对应子目录下
+- **生产档案服务**: 放置在 `services/base_archive/production_archive/`
+- **生产配置服务**: 放置在 `services/base_archive/production_config/`
+
 ### 热更新机制
 系统采用Docker容器部署，支持代码热更新，**无需手动重启容器**：
 
@@ -366,7 +375,7 @@ class Example(BaseModel):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
 
-# 2. 创建服务层 (app/services/example_service.py)
+# 2. 创建服务层 (app/services/business/example_service.py)
 class ExampleService(TenantAwareService):  # 继承TenantAwareService
     def create_example(self, data, created_by):
         example = self.create_with_tenant(Example, **data)
@@ -377,13 +386,38 @@ class ExampleService(TenantAwareService):  # 继承TenantAwareService
 def get_example_service(tenant_id=None, schema_name=None):
     return ExampleService(tenant_id=tenant_id, schema_name=schema_name)
 
-# 4. 添加API路由 (app/api/tenant/example.py)
+# 4. 添加API路由 (app/api/tenant/business/example.py)
 @bp.route('/examples', methods=['POST'])
 @jwt_required()
 @tenant_required
 def create_example():
     service = get_example_service()
     result = service.create_example(data, current_user_id)
+    return jsonify({'success': True, 'data': result})
+```
+
+2. **创建基础档案模块**
+```python
+# 1. 添加数据模型 (app/models/basic_data.py)
+class ExampleArchive(BaseModel):
+    __tablename__ = 'example_archives'
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+
+# 2. 创建服务层 (app/services/base_archive/example_service.py)
+class ExampleArchiveService(TenantAwareService):
+    def create_example_archive(self, data, created_by):
+        example = self.create_with_tenant(ExampleArchive, **data)
+        self.commit()
+        return example.to_dict()
+
+# 3. 添加API路由 (app/api/tenant/base_archive/example.py)
+@bp.route('/example-archives', methods=['POST'])
+@jwt_required()
+@tenant_required
+def create_example_archive():
+    service = get_example_archive_service()
+    result = service.create_example_archive(data, current_user_id)
     return jsonify({'success': True, 'data': result})
 ```
 
@@ -430,14 +464,27 @@ export default ExampleManagement;
 
 2. **添加API服务**
 ```javascript
-// src/api/exampleApi.js
-import { request } from '../utils/request';
+// src/api/business/exampleApi.js (业务API)
+import { request } from '../../utils/request';
 
 export const exampleApi = {
-  getList: () => request.get('/api/examples'),
-  create: (data) => request.post('/api/examples', data),
-  update: (id, data) => request.put(`/api/examples/${id}`, data),
-  delete: (id) => request.delete(`/api/examples/${id}`)
+  getList: () => request.get('/api/business/examples'),
+  create: (data) => request.post('/api/business/examples', data),
+  update: (id, data) => request.put(`/api/business/examples/${id}`, data),
+  delete: (id) => request.delete(`/api/business/examples/${id}`)
+};
+```
+
+3. **添加基础档案API服务**
+```javascript
+// src/api/base-archive/exampleArchive.js (基础档案API)
+import { request } from '../../utils/request';
+
+export const exampleArchiveApi = {
+  getList: () => request.get('/api/base-archive/example-archives'),
+  create: (data) => request.post('/api/base-archive/example-archives', data),
+  update: (id, data) => request.put(`/api/base-archive/example-archives/${id}`, data),
+  delete: (id) => request.delete(`/api/base-archive/example-archives/${id}`)
 };
 ```
 
@@ -550,9 +597,41 @@ chmod -R 755 backend/
 - 业务API路径应使用 `../../../api/business/`
 - 检查文件扩展名和路径大小写
 
+5. **服务导入错误**
+如果遇到后端服务导入错误，检查以下内容：
+- 确保服务文件在正确的目录结构中
+- 生产档案服务应放在 `services/base_archive/production_archive/`
+- 生产配置服务应放在 `services/base_archive/production_config/`
+- 检查 `services/__init__.py` 中是否正确导入了服务类
+- 确保API文件中的导入路径与实际的目录结构匹配
+
 ## 最近更新
 
-### v1.2.0 (2024年最新版本)
+### v1.3.0 (2024年最新版本)
+
+#### 🔧 生产模块重构
+- **生产档案与配置分离**: 将生产相关模块拆分为两个独立模块
+  - 生产档案: `api/base-archive/production_archive/` (后端) / `api/base-archive/production-archive/` (前端)
+  - 生产配置: `api/base-archive/production_config/` (后端) / `api/base-archive/production-config/` (前端)
+- **服务层结构优化**: 后端服务层同步重构
+  - 生产档案服务: `services/base_archive/production_archive/`
+  - 生产配置服务: `services/base_archive/production_config/`
+
+#### 🐛 导入路径修复
+- 修复了所有后端API文件中的服务导入路径
+- 更新了 `services/__init__.py` 文件，添加了所有缺失的服务导入
+- 解决了模块移动后的导入错误问题
+
+#### 📱 模块职责清晰化
+- **生产档案模块**: 负责袋型、色卡、规格、单位、包装方式、送货方式、机台、班组、仓库、损耗类型等基础档案管理
+- **生产配置模块**: 负责计算参数、计算方案、油墨选项、袋相关公式、报价配件、报价材料、报价油墨、报价损耗、报价运费等配置管理
+
+#### ✅ 系统架构优化
+- 模块职责更加清晰，便于维护和扩展
+- 所有导入路径已标准化，确保系统稳定运行
+- 提升了代码的可读性和可维护性
+
+### v1.2.0 (2024年)
 
 #### 🔧 API路径标准化
 - **前端API结构重组**: 将所有基础档案API统一到 `base-archive/` 目录下

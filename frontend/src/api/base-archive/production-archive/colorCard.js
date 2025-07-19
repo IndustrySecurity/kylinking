@@ -1,6 +1,6 @@
 import request from '../../../utils/request';
 
-const BASE_URL = '/tenant/base-archive/production/production-archive/color-cards/';
+const BASE_URL = '/tenant/base-archive/production-archive/color-cards/';
 
 export const colorCardApi = {
   // 获取色卡列表

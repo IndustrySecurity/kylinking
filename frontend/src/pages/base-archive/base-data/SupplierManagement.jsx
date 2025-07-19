@@ -987,7 +987,7 @@ const SupplierManagement = () => {
                     <InputNumber
                       style={{ width: '100%' }}
                       min={0}
-                      precision={4}
+                      precision={2}
                       placeholder="默认0"
                       disabled={modalType === 'detail'}
                     />
@@ -1008,7 +1008,7 @@ const SupplierManagement = () => {
                     <InputNumber
                       style={{ width: '100%' }}
                       min={0}
-                      precision={4}
+                      precision={2}
                       placeholder="默认0"
                       disabled={modalType === 'detail'}
                     />
@@ -1065,7 +1065,7 @@ const SupplierManagement = () => {
                     <InputNumber
                       style={{ width: '100%' }}
                       min={0}
-                      precision={4}
+                      precision={2}
                       placeholder="默认0"
                       disabled={modalType === 'detail'}
                     />

@@ -6,7 +6,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
-from app.services.base_archive.production.production_config.quote_accessory_service import QuoteAccessoryService
+from app.services.base_archive.production_config.quote_accessory_service import QuoteAccessoryService
 
 bp = Blueprint('quote_accessory', __name__)
 
@@ -262,7 +262,7 @@ def batch_update_quote_accessories():
 def get_calculation_schemes():
     """获取材料报价分类的计算方案选项"""
     try:
-        from app.services.base_archive.production.production_config.calculation_scheme_service import get_calculation_scheme_service
+        from app.services.base_archive.production_config.calculation_scheme_service import get_calculation_scheme_service
         
         scheme_service = get_calculation_scheme_service()
         schemes = scheme_service.get_calculation_schemes_by_category('material_quote')

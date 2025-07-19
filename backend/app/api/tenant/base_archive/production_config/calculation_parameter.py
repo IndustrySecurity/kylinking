@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-报价损耗管理API
+计算参数管理API
 """
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
-from app.services.base_archive.production.production_config.quote_loss_service import get_quote_loss_service
+from app.services.base_archive.production_config.calculation_parameter_service import get_calculation_parameter_service
 
-bp = Blueprint('quote_loss', __name__)
+bp = Blueprint('calculation_parameter', __name__)
 
 @bp.route('/', methods=['GET'])
 @jwt_required()
 @tenant_required
-def get_quote_losses():
-    """获取报价损耗列表"""
+def get_calculation_parameters():
+    """获取计算参数列表"""
     try:
         page = int(request.args.get('page', 1))
         page_size = int(request.args.get('page_size', 20))
         search = request.args.get('search', '')
         
-        service = get_quote_loss_service()
-        result = service.get_quote_losses(page=page, per_page=page_size, search=search)
+        service = get_calculation_parameter_service()
+        result = service.get_calculation_parameters(page=page, per_page=page_size, search=search)
         
         return jsonify({
             'success': True,
@@ -34,21 +34,21 @@ def get_quote_losses():
 @bp.route('/', methods=['POST'])
 @jwt_required()
 @tenant_required
-def create_quote_loss():
-    """创建报价损耗"""
+def create_calculation_parameter():
+    """创建计算参数"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
         user_id = get_jwt_identity()
-        service = get_quote_loss_service()
-        result = service.create_quote_loss(data, user_id)
+        service = get_calculation_parameter_service()
+        result = service.create_calculation_parameter(data, user_id)
         
         return jsonify({
             'success': True,
             'data': result,
-            'message': '报价损耗创建成功'
+            'message': '计算参数创建成功'
         }), 201
         
     except ValueError as e:
@@ -56,14 +56,14 @@ def create_quote_loss():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/<loss_id>', methods=['GET'])
+@bp.route('/<parameter_id>', methods=['GET'])
 @jwt_required()
 @tenant_required
-def get_quote_loss(loss_id):
-    """获取报价损耗详情"""
+def get_calculation_parameter(parameter_id):
+    """获取计算参数详情"""
     try:
-        service = get_quote_loss_service()
-        result = service.get_quote_loss(loss_id)
+        service = get_calculation_parameter_service()
+        result = service.get_calculation_parameter(parameter_id)
         
         return jsonify({
             'success': True,
@@ -75,24 +75,24 @@ def get_quote_loss(loss_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/<loss_id>', methods=['PUT'])
+@bp.route('/<parameter_id>', methods=['PUT'])
 @jwt_required()
 @tenant_required
-def update_quote_loss(loss_id):
-    """更新报价损耗"""
+def update_calculation_parameter(parameter_id):
+    """更新计算参数"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': '请求数据不能为空'}), 400
         
         user_id = get_jwt_identity()
-        service = get_quote_loss_service()
-        result = service.update_quote_loss(loss_id, data, user_id)
+        service = get_calculation_parameter_service()
+        result = service.update_calculation_parameter(parameter_id, data, user_id)
         
         return jsonify({
             'success': True,
             'data': result,
-            'message': '报价损耗更新成功'
+            'message': '计算参数更新成功'
         })
         
     except ValueError as e:
@@ -100,18 +100,18 @@ def update_quote_loss(loss_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/<loss_id>', methods=['DELETE'])
+@bp.route('/<parameter_id>', methods=['DELETE'])
 @jwt_required()
 @tenant_required
-def delete_quote_loss(loss_id):
-    """删除报价损耗"""
+def delete_calculation_parameter(parameter_id):
+    """删除计算参数"""
     try:
-        service = get_quote_loss_service()
-        service.delete_quote_loss(loss_id)
+        service = get_calculation_parameter_service()
+        service.delete_calculation_parameter(parameter_id)
         
         return jsonify({
             'success': True,
-            'message': '报价损耗删除成功'
+            'message': '计算参数删除成功'
         })
         
     except ValueError as e:
@@ -119,44 +119,19 @@ def delete_quote_loss(loss_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/enabled', methods=['GET'])
+@bp.route('/options', methods=['GET'])
 @jwt_required()
 @tenant_required
-def get_enabled_quote_losses():
-    """获取启用的报价损耗列表"""
+def get_calculation_parameter_options():
+    """获取计算参数选项"""
     try:
-        service = get_quote_loss_service()
-        result = service.get_enabled_quote_losses()
+        service = get_calculation_parameter_service()
+        result = service.get_calculation_parameter_options()
         
         return jsonify({
             'success': True,
             'data': result
         })
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@bp.route('/batch-update', methods=['POST'])
-@jwt_required()
-@tenant_required
-def batch_update_quote_losses():
-    """批量更新报价损耗"""
-    try:
-        data = request.get_json()
-        if not data or not isinstance(data, list):
-            return jsonify({'error': '请求数据必须是数组'}), 400
-        
-        user_id = get_jwt_identity()
-        service = get_quote_loss_service()
-        result = service.batch_update_quote_losses(data, user_id)
-        
-        return jsonify({
-            'success': True,
-            'data': result,
-            'message': f'成功更新{len(result)}个报价损耗'
-        })
-        
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

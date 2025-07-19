@@ -829,55 +829,6 @@ const AppRoot = () => {
               </ProtectedRoute>
             } />
             
-            {/* 兼容旧路径重定向 */}
-            <Route path="/base-archive/customer-management" element={
-              <Navigate to="/base-archive/base-data/customer-management" replace />
-            } />
-            <Route path="/base-archive/product-management" element={
-              <Navigate to="/base-archive/base-data/product-management" replace />
-            } />
-            <Route path="/base-archive/supplier-management" element={
-              <Navigate to="/base-archive/base-data/supplier-management" replace />
-            } />
-            <Route path="/base-archive/material-management" element={
-              <Navigate to="/base-archive/base-data/material-management" replace />
-            } />
-            <Route path="/base-archive/departments" element={
-              <Navigate to="/base-archive/base-data/department-management" replace />
-            } />
-            <Route path="/base-archive/positions" element={
-              <Navigate to="/base-archive/base-data/position-management" replace />
-            } />
-            <Route path="/base-archive/employees" element={
-              <Navigate to="/base-archive/base-data/employee-management" replace />
-            } />
-            <Route path="/base-archive/units" element={
-              <Navigate to="/base-archive/production/production-archive/unit-management" replace />
-            } />
-            <Route path="/base-archive/customer-category-management" element={
-              <Navigate to="/base-archive/base-category/customer-category-management" replace />
-            } />
-            <Route path="/base-archive/product-categories" element={
-              <Navigate to="/base-archive/base-category/product-category-management" replace />
-            } />
-            <Route path="/base-archive/supplier-category-management" element={
-              <Navigate to="/base-archive/base-category/supplier-category-management" replace />
-            } />
-            <Route path="/base-archive/material-category-management" element={
-              <Navigate to="/base-archive/base-category/material-category-management" replace />
-            } />
-            <Route path="/base-archive/process-categories" element={
-              <Navigate to="/base-archive/base-category/process-category-management" replace />
-            } />
-            <Route path="/base-archive/color-cards" element={
-              <Navigate to="/base-archive/production/production-archive/color-card-management" replace />
-            } />
-            <Route path="/production/config/bag-formula" element={
-              <Navigate to="/base-archive/production/production-config/bag-related-formula-management" replace />
-            } />
-            <Route path="/production/archive/process" element={
-              <Navigate to="/base-archive/production/production-archive/process-management" replace />
-            } />
             
             {/* Redirect all other routes to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

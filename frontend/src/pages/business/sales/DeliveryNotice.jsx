@@ -535,32 +535,6 @@ const DeliveryNotice = () => {
       },
     },
     {
-      title: '价格',
-      dataIndex: 'price',
-      key: 'price',
-      width: 100,
-      render: (text, record, index) => (
-        <InputNumber
-          value={text}
-          onChange={(value) => updateDetail(index, 'price', value)}
-          size="small"
-          style={{ width: '100%' }}
-          precision={2}
-        />
-      ),
-    },
-    {
-      title: '金额',
-      dataIndex: 'amount',
-      key: 'amount',
-      width: 100,
-      render: (text) => {
-        const num = typeof text === 'number' ? text : parseFloat(text);
-        const display = isNaN(num) ? 0 : num;
-        return <span>{display.toFixed(2)}</span>;
-      },
-    },
-    {
       title: '赠送数',
       dataIndex: 'gift_quantity',
       key: 'gift_quantity',
@@ -981,9 +955,7 @@ const DeliveryNotice = () => {
                         const unitOption = unitOptions.find(opt => opt.value === value);
                         return unitOption ? unitOption.label : record.unit_name || '-';
                       }
-                    },
-                    { title: '价格', dataIndex: 'price', key: 'price', render: (text) => text?.toFixed(2) || '0.00' },
-                    { title: '金额', dataIndex: 'amount', key: 'amount', render: (text) => text?.toFixed(2) || '0.00' },
+                    }
                   ]}
                   dataSource={currentRecord.details}
                   rowKey="id"

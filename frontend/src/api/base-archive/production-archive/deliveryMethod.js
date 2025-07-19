@@ -1,6 +1,6 @@
 import request from '../../../utils/request';
 
-const BASE_URL = '/tenant/base-archive/production/production-archive/delivery-methods/';
+const BASE_URL = '/tenant/base-archive/production-archive/delivery-methods/';
 
 export const deliveryMethodApi = {
   // 获取送货方式列表

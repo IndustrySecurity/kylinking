@@ -90,6 +90,7 @@ def create_delivery_notice():
         return jsonify({'error': f'创建失败: {str(e)}'}), 500
 
 
+
 @bp.route('/delivery-notices/<notice_id>', methods=['GET'])
 @jwt_required()
 @tenant_required

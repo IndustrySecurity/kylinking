@@ -86,7 +86,7 @@ export const finishedGoodsInboundService = {
 export const baseDataService = {
   // 获取仓库选项（只获取成品仓）
   getWarehouses: (params = {}) => {
-    return request.get('/tenant/base-archive/production/production-archive/warehouses/options', { 
+    return request.get('/tenant/base-archive/production-archive/warehouses/options', { 
       params: { ...params, warehouse_type: 'finished_goods' }
     });
   },
@@ -118,7 +118,7 @@ export const baseDataService = {
 
   // 获取单位列表
   getUnits: () => {
-    return request.get('/tenant/base-archive/production/production-archive/units/options');
+    return request.get('/tenant/base-archive/production-archive/units/options');
   }
 };
 

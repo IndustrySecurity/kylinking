@@ -7,7 +7,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
-from app.services.base_archive.production.production_archive.machine_service import MachineService
+from app.services.base_archive.production_archive.machine_service import MachineService
 
 machine_bp = Blueprint('machine', __name__)
 

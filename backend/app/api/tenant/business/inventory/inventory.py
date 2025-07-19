@@ -88,11 +88,11 @@ def create_inventory():
         service = InventoryService()
         inventory = service.create_inventory(
             warehouse_id=data.get('warehouse_id'),
-            unit=data.get('unit'),
+            unit_id=data.get('unit_id'),
             created_by=current_user_id,
             product_id=data.get('product_id'),
             material_id=data.get('material_id'),
-            **{k: v for k, v in data.items() if k not in ['warehouse_id', 'unit', 'product_id', 'material_id']}
+            **{k: v for k, v in data.items() if k not in ['warehouse_id', 'unit_id', 'product_id', 'material_id']}
         )
         
         return jsonify({

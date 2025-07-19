@@ -5,7 +5,7 @@
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from app.services.base_archive.production.production_archive.warehouse_service import WarehouseService
+from app.services.base_archive.production_archive.warehouse_service import WarehouseService
 from app.api.tenant.routes import tenant_required
 
 bp = Blueprint('warehouse', __name__)

@@ -3,7 +3,7 @@ import request from '../../../utils/request';
 // 获取报价辅材列表
 export const getQuoteAccessories = (params) => {
   return request({
-    url: '/tenant/basic-data/quote-accessories/',
+    url: '/tenant/base-archive/production-config/quote-accessories/',
     method: 'get',
     params
   });
@@ -12,7 +12,7 @@ export const getQuoteAccessories = (params) => {
 // 获取单个报价辅材
 export const getQuoteAccessory = (id) => {
   return request({
-    url: `/tenant/basic-data/quote-accessories/${id}`,
+    url: `/tenant/base-archive/production-config/quote-accessories/${id}`,
     method: 'get'
   });
 };
@@ -20,7 +20,7 @@ export const getQuoteAccessory = (id) => {
 // 创建报价辅材
 export const createQuoteAccessory = (data) => {
   return request({
-    url: '/tenant/basic-data/quote-accessories/',
+    url: '/tenant/base-archive/production-config/quote-accessories/',
     method: 'post',
     data
   });
@@ -29,7 +29,7 @@ export const createQuoteAccessory = (data) => {
 // 更新报价辅材
 export const updateQuoteAccessory = (id, data) => {
   return request({
-    url: `/tenant/basic-data/quote-accessories/${id}`,
+    url: `/tenant/base-archive/production-config/quote-accessories/${id}`,
     method: 'put',
     data
   });
@@ -38,7 +38,7 @@ export const updateQuoteAccessory = (id, data) => {
 // 删除报价辅材
 export const deleteQuoteAccessory = (id) => {
   return request({
-    url: `/tenant/basic-data/quote-accessories/${id}`,
+    url: `/tenant/base-archive/production-config/quote-accessories/${id}`,
     method: 'delete'
   });
 };
@@ -46,7 +46,7 @@ export const deleteQuoteAccessory = (id) => {
 // 批量更新报价辅材
 export const batchUpdateQuoteAccessories = (data) => {
   return request({
-    url: '/tenant/basic-data/quote-accessories/batch',
+    url: '/tenant/base-archive/production-config/quote-accessories/batch',
     method: 'put',
     data
   });
@@ -55,7 +55,7 @@ export const batchUpdateQuoteAccessories = (data) => {
 // 获取启用的报价辅材列表
 export const getEnabledQuoteAccessories = () => {
   return request({
-    url: '/tenant/basic-data/quote-accessories/enabled',
+    url: '/tenant/base-archive/production-config/quote-accessories/enabled',
     method: 'get'
   });
 };
@@ -63,7 +63,7 @@ export const getEnabledQuoteAccessories = () => {
 // 获取材料报价分类的计算方案选项
 export const getMaterialQuoteCalculationSchemes = () => {
   return request({
-    url: '/tenant/basic-data/quote-accessories/calculation-schemes',
+    url: '/tenant/base-archive/production-config/quote-accessories/calculation-schemes',
     method: 'get'
   });
 };

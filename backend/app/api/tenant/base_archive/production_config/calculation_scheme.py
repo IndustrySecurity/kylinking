@@ -6,7 +6,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.api.tenant.routes import tenant_required
-from app.services.base_archive.production.production_config.calculation_scheme_service import get_calculation_scheme_service
+from app.services.base_archive.production_config.calculation_scheme_service import get_calculation_scheme_service
 
 bp = Blueprint('calculation_scheme', __name__)
 

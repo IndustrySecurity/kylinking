@@ -119,17 +119,8 @@ const MaterialTransfer = () => {
   // 获取仓库列表（只获取材料仓库）
   const fetchWarehouses = async () => {
     try {
-      // 优先使用材料仓库专用API，确保只获取材料仓库
-      let response;
-      try {
-        // 直接使用正确的仓库基础档案API
-        response = await request.get('/tenant/base-archive/production/production-archive/warehouses/options');
-      } catch (warehouseApiError) {
-        console.warn('仓库基础档案API失败，尝试通用仓库API:', warehouseApiError);
-        // 备用方案：使用通用仓库API
-        const generalResponse = await warehouseApi.getWarehouseOptions();
-        response = generalResponse;
-      }
+      // 确保只获取材料仓库
+      const response = await warehouseApi.getWarehouseOptions();
       
       if (response.data && (response.data.success || response.data.code === 200)) {
         // 处理返回的数据格式
@@ -484,7 +475,7 @@ const MaterialTransfer = () => {
       key: 'total_quantity',
       width: 100,
       align: 'right',
-      render: (value) => value ? Number(value).toFixed(3) : '0.000'
+      render: (value) => value ? Number(value).toFixed(2) : '0.00'
     },
     {
       title: '总金额',
@@ -590,19 +581,12 @@ const MaterialTransfer = () => {
       width: 150
     },
     {
-      title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 80,
-      align: 'center'
-    },
-    {
       title: '库存数量',
       dataIndex: 'current_stock',
       key: 'current_stock',
       width: 100,
       align: 'right',
-      render: (value) => value ? Number(value).toFixed(3) : '0.000'
+      render: (value) => value ? Number(value).toFixed(2) : '0.00'
     },
     {
       title: '调拨数量',
@@ -610,7 +594,14 @@ const MaterialTransfer = () => {
       key: 'transfer_quantity',
       width: 100,
       align: 'right',
-      render: (value) => Number(value).toFixed(3)
+      render: (value) => Number(value).toFixed(2)
+    },
+    {
+      title: '单位',
+      dataIndex: 'unit_name',
+      key: 'unit_name',
+      width: 80,
+      align: 'center'
     },
     {
       title: '单价',
@@ -819,10 +810,25 @@ const MaterialTransfer = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="transfer_person_id" label="调拨人">
-                <Select placeholder="请选择调拨人" allowClear>
+                <Select placeholder="请选择调拨人" allowClear
+                  onChange={(value) => {
+                    const selectedEmployee = employees.find(emp => emp.value === value);
+                    if (selectedEmployee) {
+                    form.setFieldsValue({
+                        department_id: selectedEmployee.department_id,
+                        department_name: selectedEmployee.department
+                      });
+                    } else {
+                      form.setFieldsValue({
+                        department_id: undefined,
+                        department_name: undefined
+                      });
+                    }
+                  }}
+                >
                   {Array.isArray(employees) && employees.map(emp => (
-                    <Option key={`transfer-employee-${emp.id}`} value={emp.id}>
-                      {emp.employee_name || emp.name}
+                    <Option key={`transfer-employee-${emp.value}`} value={emp.value}>
+                      {emp.label}
                     </Option>
                   ))}
                 </Select>
@@ -832,8 +838,8 @@ const MaterialTransfer = () => {
               <Form.Item name="department_id" label="部门">
                 <Select placeholder="请选择部门" allowClear>
                   {Array.isArray(departments) && departments.map(dept => (
-                    <Option key={`transfer-department-${dept.id}`} value={dept.id}>
-                      {dept.department_name || dept.name}
+                    <Option key={`transfer-department-${dept.value}`} value={dept.value}>
+                      {dept.label}
                     </Option>
                   ))}
                 </Select>
@@ -928,10 +934,25 @@ const MaterialTransfer = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="transfer_person_id" label="调拨人">
-                <Select placeholder="请选择调拨人" allowClear>
+                <Select placeholder="请选择调拨人" allowClear
+                  onChange={(value) => {
+                    const selectedEmployee = employees.find(emp => emp.value === value);
+                    if (selectedEmployee) {
+                      editForm.setFieldsValue({
+                        department_id: selectedEmployee.department_id,
+                        department_name: selectedEmployee.department
+                      });
+                    } else {
+                      editForm.setFieldsValue({
+                        department_id: undefined,
+                        department_name: undefined
+                      });
+                    }
+                  }}
+                >
                   {Array.isArray(employees) && employees.map(emp => (
-                    <Option key={`edit-employee-${emp.id}`} value={emp.id}>
-                      {emp.employee_name || emp.name}
+                    <Option key={`edit-employee-${emp.value}`} value={emp.value}>
+                      {emp.label}
                     </Option>
                   ))}
                 </Select>
@@ -941,8 +962,8 @@ const MaterialTransfer = () => {
               <Form.Item name="department_id" label="部门">
                 <Select placeholder="请选择部门" allowClear>
                   {Array.isArray(departments) && departments.map(dept => (
-                    <Option key={`edit-department-${dept.id}`} value={dept.id}>
-                      {dept.department_name || dept.name}
+                    <Option key={`edit-department-${dept.value}`} value={dept.value}>
+                      {dept.label}
                     </Option>
                   ))}
                 </Select>
@@ -1031,7 +1052,7 @@ const MaterialTransfer = () => {
                 {selectedOrder.transporter || '-'}
               </Descriptions.Item>
               <Descriptions.Item label="总数量">
-                {selectedOrder.total_quantity ? Number(selectedOrder.total_quantity).toFixed(3) : '0.000'}
+                {selectedOrder.total_quantity ? Number(selectedOrder.total_quantity).toFixed(2) : '0.00'}
               </Descriptions.Item>
               <Descriptions.Item label="总金额">
                 {selectedOrder.total_amount ? `¥${Number(selectedOrder.total_amount).toFixed(2)}` : '¥0.00'}
@@ -1107,7 +1128,7 @@ const MaterialTransfer = () => {
                 <Option key={`material-${material.material_id}`} value={material.material_id}>
                   {material.material_code} - {material.material_name}
                   {material.material_spec && ` (${material.material_spec})`}
-                  - 库存: {Number(material.current_quantity).toFixed(3)}
+                  - 库存: {Number(material.current_quantity).toFixed(2)}{material.unit_name}
                 </Option>
               ))}
             </Select>
@@ -1118,7 +1139,7 @@ const MaterialTransfer = () => {
               <Form.Item name="current_stock" label="当前库存">
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={3}
+                  precision={2}
                   disabled
                 />
               </Form.Item>
@@ -1127,7 +1148,7 @@ const MaterialTransfer = () => {
               <Form.Item name="available_quantity" label="可用库存">
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={3}
+                  precision={2}
                   disabled
                 />
               </Form.Item>
@@ -1141,13 +1162,13 @@ const MaterialTransfer = () => {
                 label="调拨数量"
                 rules={[
                   { required: true, message: '请输入调拨数量' },
-                  { type: 'number', min: 0.001, message: '调拨数量必须大于0' }
+                  { type: 'number', min: 0.01, message: '调拨数量必须大于0' }
                 ]}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={3}
-                  min={0.001}
+                  precision={2}
+                  min={0.01}
                 />
               </Form.Item>
             </Col>
@@ -1155,7 +1176,7 @@ const MaterialTransfer = () => {
               <Form.Item name="unit_price" label="单价">
                 <InputNumber
                   style={{ width: '100%' }}
-                  precision={4}
+                  precision={2}
                   min={0}
                 />
               </Form.Item>

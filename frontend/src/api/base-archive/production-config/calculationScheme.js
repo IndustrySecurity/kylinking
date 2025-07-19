@@ -1,6 +1,6 @@
 import request from '../../../utils/request';
 
-const BASE_URL = '/tenant/basic-data/calculation-schemes';
+const BASE_URL = '/tenant/base-archive/production-config/calculation-schemes';
 
 // 计算方案管理API
 export const calculationSchemeApi = {

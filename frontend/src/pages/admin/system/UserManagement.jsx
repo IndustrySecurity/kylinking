@@ -209,6 +209,24 @@ const UserManagement = ({ tenant, userRole }) => {
     }
   };
 
+  // Delete user
+  const deleteUser = async (user_id) => {
+    try {
+      await sleep(300); // 添加延迟
+      
+      await api.delete(`/admin/tenants/${tenant.id}/users/${user_id}/delete`);
+      message.success('用户删除成功');
+      
+      // 延迟重新加载数据
+      setTimeout(() => {
+        fetchUsers(pagination.current, pagination.pageSize);
+      }, 500);
+    } catch (error) {
+      message.error('删除用户失败: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+
   // Table columns definition
   const columns = [
     {
@@ -282,10 +300,26 @@ const UserManagement = ({ tenant, userRole }) => {
               cancelText="取消"
             >
               <Button 
-                icon={record.is_active ? <DeleteOutlined /> : <SyncOutlined />} 
+                icon={record.is_active ? <SyncOutlined /> : <SyncOutlined />} 
                 type="link" 
                 size="small"
                 danger={record.is_active}
+              />
+            </Popconfirm>
+          </Tooltip>
+
+          <Tooltip title="删除用户">
+            <Popconfirm
+              title="确定要删除该用户吗？"
+              onConfirm={() => deleteUser(record.id)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button
+                icon={<DeleteOutlined />}
+                type="link"
+                size="small"
+                danger
               />
             </Popconfirm>
           </Tooltip>
@@ -350,7 +384,7 @@ const UserManagement = ({ tenant, userRole }) => {
               { type: 'email', message: '请输入有效的邮箱地址' }
             ]}
           >
-            <Input disabled={!!currentUser} placeholder="请输入邮箱" />
+            <Input placeholder="请输入邮箱" />
           </Form.Item>
           
           {!currentUser && (

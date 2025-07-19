@@ -171,7 +171,7 @@ def get_material_options():
                     'label': material['material_name'],
                     'code': material.get('material_code', ''),
                     'specification': material.get('specification', ''),
-                    'unit': material.get('unit', ''),
+                    'unit_id': material.get('unit_id', ''),
                     'price': material.get('price', 0),
                     'material_type': material.get('material_type', ''),
                     'category_name': material.get('category_name', ''),

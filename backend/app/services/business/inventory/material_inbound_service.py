@@ -355,7 +355,7 @@ class MaterialInboundService(TenantAwareService):
         self,
         order_id: str,
         inbound_quantity: Decimal,
-        unit: str,
+        unit_id: str,
         created_by: str,
         material_id: str = None,
         material_name: str = None,
@@ -518,32 +518,11 @@ class MaterialInboundService(TenantAwareService):
                 and_(
                     Inventory.warehouse_id == order.warehouse_id,
                     Inventory.material_id == detail.material_id,
-                    Inventory.batch_number == detail.batch_number,
-                    Inventory.location_code == (detail.actual_location_code or detail.location_code),
-                    Inventory.unit_id == detail.unit_id,
                     Inventory.is_active == True
                 )
             ).first()
             
-            # 如果没有找到精确匹配，尝试忽略库位进行匹配
-            if not inventory:
-                inventory = self.get_session().query(Inventory).filter(
-                    and_(
-                        Inventory.warehouse_id == order.warehouse_id,
-                        Inventory.material_id == detail.material_id,
-                        Inventory.batch_number == detail.batch_number,
-                        Inventory.location_code.is_(None),  # 查找没有库位的记录
-                        Inventory.unit_id == detail.unit_id,
-                        Inventory.is_active == True
-                    )
-                ).first()
-                
-                if inventory:
-                    # 设置库位信息
-                    new_location = detail.actual_location_code or detail.location_code
-                    if new_location:
-                        inventory.location_code = new_location
-            
+
             if not inventory and auto_create_inventory:
                 # 创建新的库存记录
                 inventory = Inventory(

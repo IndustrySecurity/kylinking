@@ -1591,7 +1591,7 @@ const FinishedGoodsInbound = () => {
                   placeholder="请输入kg数" 
                   style={{ width: '100%' }}
                   min={0}
-                  precision={3}
+                  precision={2}
                 />
               </Form.Item>
             </Col>
@@ -1604,7 +1604,7 @@ const FinishedGoodsInbound = () => {
                   placeholder="请输入m数" 
                   style={{ width: '100%' }}
                   min={0}
-                  precision={3}
+                  precision={2}
                 />
               </Form.Item>
             </Col>
@@ -1617,7 +1617,7 @@ const FinishedGoodsInbound = () => {
                   placeholder="请输入卷数" 
                   style={{ width: '100%' }}
                   min={0}
-                  precision={3}
+                  precision={2}
                 />
               </Form.Item>
             </Col>
@@ -1633,7 +1633,7 @@ const FinishedGoodsInbound = () => {
                   placeholder="请输入装箱数" 
                   style={{ width: '100%' }}
                   min={0}
-                  precision={3}
+                  precision={2}
                 />
               </Form.Item>
             </Col>
