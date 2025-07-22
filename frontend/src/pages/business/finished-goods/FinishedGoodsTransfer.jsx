@@ -226,7 +226,7 @@ const FinishedGoodsTransfer = () => {
               product_spec: product.specification || item.product_spec || '',
               current_quantity: item.current_quantity || item.quantity || 0,
               available_quantity: item.available_quantity || item.current_quantity || item.quantity || 0,
-              unit: product.base_unit || item.unit || '个',
+              unit: product.unit_name || item.unit,
               unit_cost: item.unit_cost || item.cost || 0,
               warehouse_id: item.warehouse_id || warehouseId,
               warehouse_name: item.warehouse_name,
@@ -244,7 +244,7 @@ const FinishedGoodsTransfer = () => {
               product_spec: item.product_spec || '',
               current_quantity: item.current_quantity || item.quantity || 0,
               available_quantity: item.available_quantity || item.current_quantity || item.quantity || 0,
-              unit: item.unit || '个',
+              unit: item.unit,
               unit_cost: item.unit_cost || item.cost || 0,
               warehouse_id: item.warehouse_id || warehouseId,
               warehouse_name: item.warehouse_name,
@@ -672,16 +672,16 @@ const FinishedGoodsTransfer = () => {
       width: 100
     },
     {
-      title: '单位',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 60
-    },
-    {
       title: '库存数量',
       dataIndex: 'available_quantity',
       key: 'available_quantity',
       width: 100
+    },
+    {
+      title: '单位',
+      dataIndex: 'unit',
+      key: 'unit',
+      width: 60
     },
     {
       title: '调出库位',
@@ -1138,7 +1138,7 @@ const FinishedGoodsTransfer = () => {
                   productForm.setFieldsValue({
                     current_stock: product.current_quantity,
                     available_quantity: product.available_quantity,
-                    unit: product.unit,
+                    unit: product.unit || product.unit_name,
                     unit_cost: product.unit_cost
                   });
                 }

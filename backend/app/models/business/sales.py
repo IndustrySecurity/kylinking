@@ -190,6 +190,10 @@ class SalesOrderDetail(TenantModel):
     product_id = Column(UUID(as_uuid=True), ForeignKey('products.id'), comment='产品ID')  # 外键
     product_code = Column(String(50), comment='产品编号')  # 选择（是/否）手工输入
     product_name = Column(String(200), comment='产品名称')  # 选择
+    product_specification = Column(String(200), comment='产品规格')  # 手工输入
+    planned_meters = Column(Numeric(15, 4), comment='计划米数')  # 手工输入
+    planned_weight = Column(Numeric(15, 4), comment='计划重量')  # 手工输入
+    corona = Column(String(100), comment='电晕')  # 手工输入
     
     # 规格信息
     negative_deviation_percentage = Column(Numeric(5, 2), comment='负偏差%')  # 手工输入
@@ -237,10 +241,7 @@ class SalesOrderDetail(TenantModel):
     product_condition = Column(String(50), comment='产品条件')  # 选择
     color_count = Column(Integer, comment='色数')  # 自动
     bag_type_id = Column(UUID(as_uuid=True), comment='袋型ID')  # 自动
-    material_structure_auto = Column(Text, comment='材质结构')  # 自动
-    storage_requirements_auto = Column(Text, comment='存库要求')  # 自动
-    storage_requirements_input = Column(Text, comment='存库要求')  # 自动
-    printing_requirements_auto = Column(Text, comment='印刷要求')  # 自动
+
     
     # 测试信息
     estimated_thickness_count = Column(Numeric(10, 4), comment='预测厚计数')  # 自动
@@ -317,6 +318,10 @@ class SalesOrderDetail(TenantModel):
             'product_id': str(self.product_id) if self.product_id else None,
             'product_code': self.product_code,
             'product_name': self.product_name,
+            'product_specification': self.product_specification,
+            'planned_meters': float(self.planned_meters) if self.planned_meters else None,
+            'planned_weight': float(self.planned_weight) if self.planned_weight else None,
+            'corona': self.corona,
             'negative_deviation_percentage': float(self.negative_deviation_percentage) if self.negative_deviation_percentage else None,
             'positive_deviation_percentage': float(self.positive_deviation_percentage) if self.positive_deviation_percentage else None,
             'production_small_quantity': float(self.production_small_quantity) if self.production_small_quantity else None,
@@ -353,10 +358,7 @@ class SalesOrderDetail(TenantModel):
             'product_condition': self.product_condition,
             'color_count': self.color_count,
             'bag_type_id': str(self.bag_type_id) if self.bag_type_id else None,
-            'material_structure_auto': self.material_structure_auto,
-            'storage_requirements_auto': self.storage_requirements_auto,
-            'storage_requirements_input': self.storage_requirements_input,
-            'printing_requirements_auto': self.printing_requirements_auto,
+
             'estimated_thickness_count': float(self.estimated_thickness_count) if self.estimated_thickness_count else None,
             'packaging_count': float(self.packaging_count) if self.packaging_count else None,
             'square_meters_per_piece': float(self.square_meters_per_piece) if self.square_meters_per_piece else None,

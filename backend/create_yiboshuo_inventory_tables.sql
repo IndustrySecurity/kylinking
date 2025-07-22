@@ -970,7 +970,7 @@ CREATE TABLE IF NOT EXISTS product_count_plans (
     warehouse_code VARCHAR(100),
     
     -- 盘点人员信息
-    count_person_id UUID NOT NULL REFERENCES employees(id),
+    count_person_id UUID REFERENCES employees(id),
     department_id UUID REFERENCES departments(id),
     
     -- 盘点时间

@@ -71,7 +71,7 @@ def create_product_count_plan():
         data = request.get_json()
         
         # 验证必需字段
-        required_fields = ['warehouse_id', 'count_person_id', 'count_date']
+        required_fields = ['warehouse_id', 'count_date']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({

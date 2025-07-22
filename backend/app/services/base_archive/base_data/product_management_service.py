@@ -56,16 +56,26 @@ class ProductManagementService(TenantAwareService):
             
             # 获取用户信息
             user_ids = set()
+            salesperson_ids = set()
             for product in products:
                 if product.created_by:
                     user_ids.add(product.created_by)
                 if product.updated_by:
                     user_ids.add(product.updated_by)
+                if product.salesperson_id:
+                    salesperson_ids.add(product.salesperson_id)
             
             users = {}
             if user_ids:
                 user_list = self.session.query(User).filter(User.id.in_(user_ids)).all()
                 users = {str(user.id): user.get_full_name() for user in user_list}
+            
+            # 获取业务员信息
+            salespersons = {}
+            if salesperson_ids:
+                from app.models.basic_data import Employee
+                salesperson_list = self.session.query(Employee).filter(Employee.id.in_(salesperson_ids)).all()
+                salespersons = {str(sp.id): sp.employee_name for sp in salesperson_list}
             
             # 转换为字典并添加用户信息
             result_products = []
@@ -73,6 +83,7 @@ class ProductManagementService(TenantAwareService):
                 product_dict = product.to_dict()
                 product_dict['created_by_name'] = users.get(str(product.created_by), '')
                 product_dict['updated_by_name'] = users.get(str(product.updated_by), '')
+                product_dict['salesperson_name'] = salespersons.get(str(product.salesperson_id), '')
                 result_products.append(product_dict)
             
             return {
@@ -363,20 +374,23 @@ class ProductManagementService(TenantAwareService):
 
     def _generate_product_code(self):
         """生成产品编码"""
-        # 查找最新的产品编码
+        # 查找当前租户schema中最新的产品编码
         last_product = self.session.query(Product).filter(
             Product.product_code.like('P%')
         ).order_by(desc(Product.product_code)).first()
         
         if last_product:
             try:
+                # 提取数字部分并转换为整数
                 last_num = int(last_product.product_code[1:])
                 new_num = last_num + 1
-            except:
+            except (ValueError, IndexError):
+                # 如果解析失败，从1开始
                 new_num = 1
         else:
             new_num = 1
         
+        # 生成8位数字的产品编码
         return f'P{new_num:08d}'
 
     def _create_product_structure_from_bag_type(self, product_id, bag_type_id):
@@ -502,17 +516,16 @@ class ProductManagementService(TenantAwareService):
                 ProductQualityIndicator.product_id == product_id
             ).delete()
             
-            # 创建新指标
-            for indicator_data in indicators_data:
-                new_indicator_data = {
-                    'product_id': product_id,
-                    'indicator_name': indicator_data.get('indicator_name'),
-                    'standard_value': indicator_data.get('standard_value'),
-                    'tolerance': indicator_data.get('tolerance'),
-                    'unit': indicator_data.get('unit'),
-                    'test_method': indicator_data.get('test_method')
-                }
-                self.create_with_tenant(ProductQualityIndicator, **new_indicator_data)
+            # 创建新指标 - 确保indicators_data是字典
+            if indicators_data and isinstance(indicators_data, dict) and len(indicators_data) > 0:
+                # 检查是否有任何非空值
+                has_valid_data = any(value is not None and value != '' for value in indicators_data.values())
+                if has_valid_data:
+                    new_indicator_data = {
+                        'product_id': product_id,
+                        **indicators_data
+                    }
+                    self.create_with_tenant(ProductQualityIndicator, **new_indicator_data)
                 
         except Exception as e:
             raise ValueError(f"保存理化指标失败: {str(e)}")
@@ -523,17 +536,19 @@ class ProductManagementService(TenantAwareService):
             # 删除现有图片
             self.session.query(ProductImage).filter(ProductImage.product_id == product_id).delete()
             
-            # 创建新图片
-            for image_data in images_data:
-                new_image_data = {
-                    'product_id': product_id,
-                    'image_url': image_data.get('image_url'),
-                    'image_name': image_data.get('image_name'),
-                    'sort_order': image_data.get('sort_order', 0),
-                    'is_main_image': image_data.get('is_main_image', False),
-                    'description': image_data.get('description')
-                }
-                self.create_with_tenant(ProductImage, **new_image_data)
+            # 创建新图片 - 确保images_data是列表
+            if images_data and isinstance(images_data, list):
+                for image_data in images_data:
+                    if isinstance(image_data, dict):
+                        new_image_data = {
+                            'product_id': product_id,
+                            'image_url': image_data.get('image_url'),
+                            'image_name': image_data.get('image_name'),
+                            'image_type': image_data.get('image_type'),
+                            'file_size': image_data.get('file_size'),
+                            'sort_order': image_data.get('sort_order', 0)
+                        }
+                        self.create_with_tenant(ProductImage, **new_image_data)
                 
         except Exception as e:
             raise ValueError(f"保存产品图片失败: {str(e)}")

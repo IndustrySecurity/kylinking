@@ -245,7 +245,7 @@ const FinishedGoodsCount = () => {
       };
       
       const response = await getProductCountPlans(queryParams);
-      
+
       // 处理响应数据结构
       const result = response.data || response;
       
@@ -276,11 +276,6 @@ const FinishedGoodsCount = () => {
       // 验证必填字段
       if (!values.warehouse_id) {
         message.error('请选择盘点仓库');
-        return;
-      }
-      
-      if (!values.count_person_id) {
-        message.error('请选择盘点人');
         return;
       }
       
@@ -411,7 +406,7 @@ const FinishedGoodsCount = () => {
         page: 1,
         page_size: 50
       });
-      
+      console.log(recordsResponse);
       const recordsResult = recordsResponse.data || recordsResponse;
       
       if (recordsResult.success) {
@@ -612,6 +607,35 @@ const FinishedGoodsCount = () => {
       ellipsis: true
     },
     {
+      title: '账面数量',
+      dataIndex: 'book_quantity',
+      key: 'book_quantity',
+      width: 100,
+      align: 'right',
+      render: (value) => Number(value).toFixed(2)
+    },
+    {
+      title: '实盘数量',
+      dataIndex: 'actual_quantity',
+      key: 'actual_quantity',
+      width: 120,
+      align: 'center',
+      render: (value, record) => (
+        <EditableCell
+          value={value}
+          record={record}
+          onSave={handleSaveActualQuantity}
+          disabled={currentPlan?.status !== 'in_progress'}
+        />
+      )
+    },
+    {
+      title: '单位',
+      dataIndex: 'unit_name',
+      key: 'unit_name',
+      width: 80
+    },
+    {
       title: '客户',
       dataIndex: 'customer_name',
       key: 'customer_name',
@@ -634,35 +658,6 @@ const FinishedGoodsCount = () => {
       dataIndex: 'location_code',
       key: 'location_code',
       width: 100
-    },
-    {
-      title: '单位',
-      dataIndex: 'base_unit',
-      key: 'base_unit',
-      width: 80
-    },
-    {
-      title: '账面数量',
-      dataIndex: 'book_quantity',
-      key: 'book_quantity',
-      width: 100,
-      align: 'right',
-      render: (value) => Number(value).toFixed(2)
-    },
-    {
-      title: '实盘数量',
-      dataIndex: 'actual_quantity',
-      key: 'actual_quantity',
-      width: 120,
-      align: 'center',
-      render: (value, record) => (
-        <EditableCell
-          value={value}
-          record={record}
-          onSave={handleSaveActualQuantity}
-          disabled={currentPlan?.status !== 'in_progress'}
-        />
-      )
     },
     {
       title: '差异数量',
@@ -799,7 +794,6 @@ const FinishedGoodsCount = () => {
               <Form.Item
                 name="count_person_id"
                 label="盘点人"
-                rules={[{ required: true, message: '请选择盘点人' }]}
               >
                 <Select 
                   placeholder="请选择盘点人"

@@ -141,7 +141,8 @@ class ProductTransferService(TenantAwareService):
                 'product_name': product.product_name,
                 'product_code': product.product_code,
                 'product_spec': getattr(product, 'specification', ''),
-                'unit': product.base_unit,
+                'unit_id': product.unit.id if product.unit else None,
+                'unit_name': product.unit.unit_name if product.unit else None,
                 'transfer_quantity': product_data['transfer_quantity'],
                 'from_inventory_id': inventory.id if inventory else None,
                 'current_stock': inventory.current_quantity if inventory else 0,
@@ -205,6 +206,20 @@ class ProductTransferService(TenantAwareService):
             self.rollback()
             current_app.logger.error(f"更新调拨明细失败: {str(e)}")
             return {'success': False, 'message': f'更新失败: {str(e)}'}
+    
+    def get_transfer_order_details(self, transfer_order_id):
+        """获取调拨单明细列表"""
+        try:
+            details = self.session.query(ProductTransferOrderDetail).filter_by(
+                transfer_order_id=transfer_order_id
+            ).all()
+            
+            return [detail.to_dict() for detail in details]
+            
+        except Exception as e:
+            current_app.logger.error(f"获取调拨单明细失败: {str(e)}")
+            return []
+
 
     def confirm_transfer_order(self, transfer_order_id, confirmed_by):
         """确认调拨单"""
@@ -309,7 +324,7 @@ class ProductTransferService(TenantAwareService):
                         product_id=detail.product_id,
                         current_quantity=detail.transfer_quantity,
                         available_quantity=detail.transfer_quantity,
-                        unit=detail.unit,
+                        unit_id=detail.unit_id,
                         unit_cost=detail.unit_cost,
                         batch_number=detail.batch_number,
                         location_code=detail.to_location_code,
@@ -467,7 +482,7 @@ class ProductTransferService(TenantAwareService):
         """获取仓库成品库存"""
         try:
             # 直接联合查询Inventory和Product表，避免使用inventory.product属性
-            from app.models.basic_data import Product
+            from app.models.basic_data import Product, Unit
             
             results = self.session.query(
                 Inventory.id.label('inventory_id'),
@@ -478,9 +493,12 @@ class ProductTransferService(TenantAwareService):
                 Product.product_code,
                 Product.product_name,
                 Product.specification,
-                Product.base_unit
+                Product.unit_id,
+                Unit.unit_name
             ).join(
                 Product, Inventory.product_id == Product.id
+            ).outerjoin(
+                Unit, Product.unit_id == Unit.id
             ).filter(
                 Inventory.warehouse_id == warehouse_id,
                 Inventory.product_id.isnot(None),
@@ -497,7 +515,8 @@ class ProductTransferService(TenantAwareService):
                     'product_spec': item.specification,
                     'current_quantity': float(item.current_quantity or 0),
                     'available_quantity': float(item.available_quantity or 0),
-                    'unit': item.base_unit,
+                    'unit_id': str(item.unit_id),
+                    'unit_name': item.unit_name,
                     'unit_cost': float(item.unit_cost or 0)
                 })
             

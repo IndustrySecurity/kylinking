@@ -25,6 +25,7 @@ from app.models.basic_data import (
     Currency,
     LossType
 )
+from app.models.column_configuration import ColumnConfiguration
 
 # 添加其他可能的模型导入
 
@@ -53,5 +54,6 @@ __all__ = [
     'Unit',
     'Specification',
     'Currency',
-    'LossType'
+    'LossType',
+    'ColumnConfiguration'
 ] 

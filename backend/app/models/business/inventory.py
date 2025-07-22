@@ -362,13 +362,41 @@ class InventoryTransaction(TenantModel):
     @staticmethod
     def generate_transaction_number():
         """
-        生成流水号
+        生成流水号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
-        return f"TXN{timestamp}{random_suffix}"
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(InventoryTransaction.transaction_number, -4), func.Integer)
+            )).filter(
+                InventoryTransaction.created_at >= today_start,
+                InventoryTransaction.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(InventoryTransaction).filter(
+                InventoryTransaction.created_at >= today_start,
+                InventoryTransaction.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
+        
+        return f"TXN{timestamp}{sequence_str}"
     
     def approve(self, approved_by):
         """
@@ -535,13 +563,41 @@ class InventoryCountPlan(TenantModel):
     @staticmethod
     def generate_plan_number():
         """
-        生成盘点计划号
+        生成盘点计划号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(100, 999))
-        return f"CNT{timestamp}{random_suffix}"
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(InventoryCountPlan.plan_number, -3), func.Integer)
+            )).filter(
+                InventoryCountPlan.created_at >= today_start,
+                InventoryCountPlan.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(InventoryCountPlan).filter(
+                InventoryCountPlan.created_at >= today_start,
+                InventoryCountPlan.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为3位数字，不足补0
+        sequence_str = f"{next_sequence:03d}"
+        
+        return f"CNT{timestamp}{sequence_str}"
     
     def to_dict(self):
         """
@@ -806,12 +862,13 @@ class InboundOrder(TenantModel):
     @staticmethod
     def generate_order_number(order_type='finished_goods'):
         """
-        生成入库单号
+        生成入库单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
         
         prefix_map = {
             'finished_goods': 'FIN',
@@ -821,7 +878,36 @@ class InboundOrder(TenantModel):
         }
         prefix = prefix_map.get(order_type, 'INB')
         
-        return f"{prefix}{timestamp}{random_suffix}"
+        # 查询当天该类型的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天该类型的最大序号
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(InboundOrder.order_number, -4), func.Integer)
+            )).filter(
+                InboundOrder.order_type == order_type,
+                InboundOrder.created_at >= today_start,
+                InboundOrder.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(InboundOrder).filter(
+                InboundOrder.order_type == order_type,
+                InboundOrder.created_at >= today_start,
+                InboundOrder.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
+        
+        return f"{prefix}{timestamp}{sequence_str}"
     
     def calculate_totals(self):
         """
@@ -1139,12 +1225,13 @@ class OutboundOrder(TenantModel):
     @staticmethod
     def generate_order_number(order_type='finished_goods'):
         """
-        生成出库单号
+        生成出库单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
         
         prefix_map = {
             'finished_goods': 'OUT',
@@ -1154,7 +1241,36 @@ class OutboundOrder(TenantModel):
         }
         prefix = prefix_map.get(order_type, 'OUT')
         
-        return f"{prefix}{timestamp}{random_suffix}"
+        # 查询当天该类型的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天该类型的最大序号
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(OutboundOrder.order_number, -4), func.Integer)
+            )).filter(
+                OutboundOrder.order_type == order_type,
+                OutboundOrder.created_at >= today_start,
+                OutboundOrder.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(OutboundOrder).filter(
+                OutboundOrder.order_type == order_type,
+                OutboundOrder.created_at >= today_start,
+                OutboundOrder.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
+        
+        return f"{prefix}{timestamp}{sequence_str}"
     
     def calculate_totals(self):
         """
@@ -1477,12 +1593,39 @@ class MaterialInboundOrder(TenantModel):
     @staticmethod
     def generate_order_number(order_type='material'):
         """
-        生成材料入库单号
+        生成材料入库单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(MaterialInboundOrder.order_number, -4), func.Integer)
+            )).filter(
+                MaterialInboundOrder.created_at >= today_start,
+                MaterialInboundOrder.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(MaterialInboundOrder).filter(
+                MaterialInboundOrder.created_at >= today_start,
+                MaterialInboundOrder.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
         
         prefix_map = {
             'material': 'MIN',
@@ -1492,7 +1635,7 @@ class MaterialInboundOrder(TenantModel):
         }
         prefix = prefix_map.get(order_type, 'MIN')
         
-        return f"{prefix}{timestamp}{random_suffix}"
+        return f"{prefix}{timestamp}{sequence_str}"
     
     def calculate_totals(self):
         """
@@ -1809,12 +1952,39 @@ class MaterialOutboundOrder(TenantModel):
     @staticmethod
     def generate_order_number(order_type='material'):
         """
-        生成材料出库单号
+        生成材料出库单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(MaterialOutboundOrder.order_number, -4), func.Integer)
+            )).filter(
+                MaterialOutboundOrder.created_at >= today_start,
+                MaterialOutboundOrder.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(MaterialOutboundOrder).filter(
+                MaterialOutboundOrder.created_at >= today_start,
+                MaterialOutboundOrder.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
         
         prefix_map = {
             'material': 'MOUT',
@@ -1824,7 +1994,7 @@ class MaterialOutboundOrder(TenantModel):
         }
         prefix = prefix_map.get(order_type, 'MOUT')
         
-        return f"{prefix}{timestamp}{random_suffix}"
+        return f"{prefix}{timestamp}{sequence_str}"
     
     def calculate_totals(self):
         """
@@ -2106,13 +2276,42 @@ class MaterialCountPlan(TenantModel):
     @staticmethod
     def generate_count_number():
         """
-        生成盘点单号
+        生成盘点单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
-        return f"PD{timestamp}{random_suffix}"
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(MaterialCountPlan.count_number, -4), func.Integer)
+            )).filter(
+                MaterialCountPlan.created_at >= today_start,
+                MaterialCountPlan.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(MaterialCountPlan).filter(
+                MaterialCountPlan.created_at >= today_start,
+                MaterialCountPlan.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
+        
+        return f"PD{timestamp}{sequence_str}"
     
     def to_dict(self):
         """
@@ -2393,13 +2592,42 @@ class MaterialTransferOrder(TenantModel):
     @staticmethod
     def generate_transfer_number():
         """
-        生成调拨单号
+        生成调拨单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
-        return f"DB{timestamp}{random_suffix}"
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(MaterialTransferOrder.transfer_number, -4), func.Integer)
+            )).filter(
+                MaterialTransferOrder.created_at >= today_start,
+                MaterialTransferOrder.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(MaterialTransferOrder).filter(
+                MaterialTransferOrder.created_at >= today_start,
+                MaterialTransferOrder.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
+        
+        return f"DB{timestamp}{sequence_str}"
     
     def calculate_totals(self):
         """
@@ -2625,7 +2853,7 @@ class ProductCountPlan(TenantModel):
     warehouse_code = Column(String(100), comment='仓库编号')
     
     # 盘点人员信息 - 改为外键关联
-    count_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), nullable=False, comment='盘点人ID')
+    count_person_id = Column(UUID(as_uuid=True), ForeignKey('employees.id'), nullable=True, comment='盘点人ID')
     department_id = Column(UUID(as_uuid=True), ForeignKey('departments.id'), comment='部门ID')
     
     # 盘点时间
@@ -2996,13 +3224,42 @@ class ProductTransferOrder(TenantModel):
     @staticmethod
     def generate_transfer_number():
         """
-        生成调拨单号
+        生成调拨单号 - 按顺序生成
         """
         from datetime import datetime
+        from sqlalchemy import func, text
+        from app.extensions import db
+        
         timestamp = datetime.now().strftime('%Y%m%d')
-        import random
-        random_suffix = str(random.randint(1000, 9999))
-        return f"PT{timestamp}{random_suffix}"
+        
+        # 查询当天的最大序号
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 获取当天的最大序号
+        # 获取当天的最大序号 - 修复查询语法
+        try:
+            max_order = db.session.query(func.max(
+                func.cast(func.substring(ProductTransferOrder.transfer_number, -4), func.Integer)
+            )).filter(
+                ProductTransferOrder.created_at >= today_start,
+                ProductTransferOrder.created_at <= today_end
+            ).scalar()
+        except Exception as e:
+            # 如果查询失败，使用简单的计数方法
+            count = db.session.query(ProductTransferOrder).filter(
+                ProductTransferOrder.created_at >= today_start,
+                ProductTransferOrder.created_at <= today_end
+            ).count()
+            max_order = count
+        
+        # 序号从1开始，如果没有记录则为0，所以下一个序号为max_order + 1
+        next_sequence = (max_order or 0) + 1
+        
+        # 格式化为4位数字，不足补0
+        sequence_str = f"{next_sequence:04d}"
+        
+        return f"PT{timestamp}{sequence_str}"
     
     def calculate_totals(self):
         """
@@ -3202,6 +3459,8 @@ class ProductTransferOrderDetail(TenantModel):
             'actual_transfer_quantity': float(self.actual_transfer_quantity) if self.actual_transfer_quantity else None,
             'received_quantity': float(self.received_quantity) if self.received_quantity else 0,
             'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit': self.unit.unit_name if self.unit else None,
+            'unit_name': self.unit.unit_name if self.unit else None,  # 为了兼容性，同时提供 unit 和 unit_name
             'weight_unit': self.weight_unit,
             'length_unit': self.length_unit,
             'batch_number': self.batch_number,

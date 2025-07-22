@@ -144,8 +144,9 @@ class ProductOutboundService(TenantAwareService):
     def create_outbound_order(self, data: Dict[str, Any], created_by: str) -> Dict[str, Any]:
         """创建出库单（支持同时创建明细）"""
         try:
-            # 生成出库单号
-            order_number = f"OUT{datetime.now().strftime('%Y%m%d')}{datetime.now().microsecond:06d}"
+            # 生成出库单号 - 使用顺序生成
+            from app.models.business.inventory import OutboundOrder
+            order_number = OutboundOrder.generate_order_number('finished_goods')
             
             # 转换created_by为UUID
             try:

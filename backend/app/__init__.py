@@ -68,6 +68,7 @@ def register_blueprints(app):
     from app.api.auth import auth_bp
     from app.api.admin import admin_bp
     from app.api.tenant import tenant_bp
+    from app.api.system import system_bp
     
     # 简化注册，让各个蓝图内部自己处理子蓝图
     try:
@@ -75,6 +76,7 @@ def register_blueprints(app):
         app.register_blueprint(auth_bp, url_prefix='/api/auth')
         app.register_blueprint(admin_bp, url_prefix='/api/admin')
         app.register_blueprint(tenant_bp, url_prefix='/api/tenant')
+        app.register_blueprint(system_bp, url_prefix='/api/system')
         
         print("✅ 主要蓝图注册成功")
         

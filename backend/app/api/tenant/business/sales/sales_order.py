@@ -420,9 +420,9 @@ def get_product_options():
                     'value': str(product['id']),
                     'label': product['product_name'],
                     'code': product.get('product_code', ''),
-                    'specification': product.get('specification_model', ''),
+                    'specification': product.get('specification', ''),
                     'unit_id': product.get('unit_id', ''),
-                    'price': product.get('base_price', 0)
+                    'price': product.get('standard_price', 0)
                 })
         
         return jsonify({'success': True, 'data': options})

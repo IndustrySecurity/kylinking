@@ -238,11 +238,9 @@ def get_product_transfer_order_details(order_id):
         if not order:
             return jsonify({'success': False, 'error': '调拨单不存在'}), 404
         
-        details = ProductTransferOrderDetail.query.filter_by(transfer_order_id=order_id).all()
-        
-        details_data = []
-        for detail in details:
-            details_data.append(detail.to_dict())
+        # 使用服务层获取明细，确保租户模式正确
+        product_transfer_service = ProductTransferService()
+        details_data = product_transfer_service.get_transfer_order_details(order_id)
         
         return jsonify({
             'success': True,

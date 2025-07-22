@@ -170,8 +170,9 @@ class MaterialCountService(TenantAwareService):
     def create_material_count(self, data: Dict[str, Any], created_by: str) -> Dict[str, Any]:
         """创建材料盘点（支持同时创建明细）"""
         try:
-            # 生成盘点单号
-            count_number = f"MC{datetime.now().strftime('%Y%m%d')}{datetime.now().microsecond:06d}"
+            # 生成盘点单号 - 使用顺序生成
+            from app.models.business.inventory import MaterialCountPlan
+            count_number = MaterialCountPlan.generate_count_number()
             
             # 转换created_by为UUID
             try:

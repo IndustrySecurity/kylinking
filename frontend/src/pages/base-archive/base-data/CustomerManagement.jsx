@@ -941,7 +941,7 @@ const CustomerManagement = () => {
           <TabPane tab={<span><UserOutlined />基本信息</span>} key="basic">
             <Form form={form} layout="vertical">
               <Row gutter={16}>
-                <Col span={12}>
+                <Col span={8}>
                   <Form.Item
                     label="客户编号"
                     name="customer_code"
@@ -949,13 +949,21 @@ const CustomerManagement = () => {
                     <Input disabled placeholder={modalType === 'create' ? '自动生成' : ''} />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col span={8}>
                   <Form.Item
                     label="客户名称"
                     name="customer_name"
                     rules={[{ required: true, message: '请输入客户名称' }]}
                   >
-                    <Input />
+                    <Input placeholder="请输入客户名称" />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    label="客户简称"
+                    name="customer_abbreviation"
+                  >
+                    <Input placeholder="请输入客户简称" />
                   </Form.Item>
                 </Col>
               </Row>

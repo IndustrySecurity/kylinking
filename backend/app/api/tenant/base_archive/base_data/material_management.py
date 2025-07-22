@@ -164,13 +164,13 @@ def get_material_options():
         
         # 转换为选项格式
         options = []
-        if materials and 'materials' in materials:
-            for material in materials['materials']:
+        if materials and 'items' in materials:
+            for material in materials['items']:
                 options.append({
                     'value': str(material['id']),
                     'label': material['material_name'],
                     'code': material.get('material_code', ''),
-                    'specification': material.get('specification', ''),
+                    'specification': material.get('specification_model', ''),
                     'unit_id': material.get('unit_id', ''),
                     'price': material.get('price', 0),
                     'material_type': material.get('material_type', ''),

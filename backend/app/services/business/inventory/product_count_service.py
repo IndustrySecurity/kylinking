@@ -16,7 +16,7 @@ import uuid
 from sqlalchemy import and_, or_, func, text
 from sqlalchemy.orm import joinedload
 from app.models.business.inventory import ProductCountPlan, ProductCountRecord, Inventory, InventoryTransaction
-from app.models.basic_data import Product, Warehouse, Employee, Department
+from app.models.basic_data import Product, Warehouse, Employee, Department, Unit
 from app.services.base_service import TenantAwareService
 
 
@@ -37,7 +37,7 @@ class ProductCountService(TenantAwareService):
         try:
             # 转换UUID字段
             warehouse_id = uuid.UUID(data['warehouse_id'])
-            count_person_id = uuid.UUID(data['count_person_id'])
+            count_person_id = uuid.UUID(data['count_person_id']) if data.get('count_person_id') else None
             created_by_uuid = uuid.UUID(created_by)
             department_id = uuid.UUID(data['department_id']) if data.get('department_id') else None
             
@@ -46,10 +46,12 @@ class ProductCountService(TenantAwareService):
             if not warehouse:
                 raise ValueError("仓库不存在")
             
-            # 获取盘点人信息
-            count_person = self.session.query(Employee).filter(Employee.id == count_person_id).first()
-            if not count_person:
-                raise ValueError("盘点人不存在")
+            # 获取盘点人信息（如果提供了盘点人ID）
+            count_person = None
+            if count_person_id:
+                count_person = self.session.query(Employee).filter(Employee.id == count_person_id).first()
+                if not count_person:
+                    raise ValueError("盘点人不存在")
             
             # 准备盘点计划数据
             count_data = {
@@ -105,16 +107,18 @@ class ProductCountService(TenantAwareService):
             if not product:
                 continue
             
+            # 获取产品的基本单位ID
+            unit_id = None
+            if product.unit_id:
+                unit_id = product.unit_id
+            else:
+                raise ValueError(f"产品 {product.product_name} 缺少单位信息，且系统中没有可用的单位")
+            
             # 创建盘点记录
             record_data = {
-                'count_plan_id': count_plan_id,
                 'inventory_id': inventory.id,
-                'product_id': inventory.product_id,
                 'product_code': product.product_code,
-                'product_name': product.product_name,
                 'product_spec': product.specification or '',
-                'base_unit': inventory.unit or product.base_unit,
-                'book_quantity': inventory.current_quantity,
                 'batch_number': inventory.batch_number,
                 'production_date': inventory.production_date,
                 'expiry_date': inventory.expiry_date,
@@ -138,8 +142,18 @@ class ProductCountService(TenantAwareService):
             if hasattr(product, 'gross_weight'):
                 record_data['gross_weight'] = product.gross_weight
             
-            # 使用继承的create_with_tenant方法
-            count_record = self.create_with_tenant(ProductCountRecord, **record_data)
+            # 使用继承的create_with_tenant方法，确保传递所有必需的参数
+            count_record = self.create_with_tenant(
+                ProductCountRecord,
+                count_plan_id=count_plan_id,
+                product_id=inventory.product_id,
+                product_name=product.product_name,
+                unit_id=unit_id,
+                book_quantity=inventory.current_quantity,
+                created_by=created_by,
+                **record_data
+            )
+        return count_record
     
     def get_count_plans(self, page: int = 1, page_size: int = 20, **filters) -> Dict[str, Any]:
         """
@@ -526,7 +540,7 @@ class ProductCountService(TenantAwareService):
                         'product_code': product.product_code,
                         'product_name': product.product_name,
                         'product_spec': product.specification or '',
-                        'base_unit': product.base_unit,
+                        'unit': product.unit.unit_name if product.unit else None,
                         'customer_name': getattr(product, 'customer_name', ''),
                         'bag_type_name': getattr(product, 'bag_type_name', ''),
                         'net_weight': float(getattr(product, 'net_weight', 0)) if getattr(product, 'net_weight', None) else None,

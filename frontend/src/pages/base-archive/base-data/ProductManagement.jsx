@@ -149,14 +149,25 @@ const ProductManagement = () => {
 
   // 处理客户选择变化 - 自动填充功能
   const handleCustomerChange = async (customerId) => {
-    if (!customerId) return;
-    
     try {
+      if (!customerId) {
+        // 如果没有选择客户，清空业务员字段
+        form.setFieldsValue({
+          salesperson_id: undefined,
+        });
+        return;
+      }
+      
       // 根据客户ID获取相关信息并自动填充
       const customer = formOptions.customers.find(c => c.value === customerId);
-      if (customer) {
+      if (customer && customer.sales_person_id) {
         form.setFieldsValue({
           salesperson_id: customer.sales_person_id, // 自动填充业务员
+        });
+      } else {
+        // 如果客户没有关联的业务员，清空业务员字段
+        form.setFieldsValue({
+          salesperson_id: undefined,
         });
       }
     } catch (error) {
@@ -172,20 +183,32 @@ const ProductManagement = () => {
       // 根据袋型ID获取相关结构信息并自动填充
       const bagType = formOptions.bagTypes.find(b => b.value === bagTypeId);
       if (bagType) {
-        // 自动填充产品结构相关字段，使用默认值0处理不存在的字段
-        form.setFieldsValue({
-          film_structure: bagType.bag_type_name || '', // 理膜结构自动填入袋型名称
-          product_specification: bagType.width || 0, // 产品规格自动填入宽度
-          bag_system: 'system1', // 袋型系统默认值
-          width: bagType.width || 0,
-          length: bagType.length || 0,
-          thickness: bagType.thickness || 0,
-          ['product_structures']: {
+        // 只在新建产品时自动填充产品结构字段
+        if (modalType === 'create') {
+          form.setFieldsValue({
+            film_structure: bagType.bag_type_name || '', // 理膜结构自动填入袋型名称
+            specification: '', // 产品规格自动填入宽度
+            bag_system: 'system1', // 袋型系统默认值
+            width: bagType.width || 0,
+            length: bagType.length || 0,
+            thickness: bagType.thickness || 0,
+            ['product_structures']: {
+              width: bagType.width || 0,
+              length: bagType.length || 0,
+              thickness: bagType.thickness || 0
+            }
+          });
+        } else {
+          // 编辑时只填充基础信息，不覆盖产品结构数据
+          form.setFieldsValue({
+            film_structure: bagType.bag_type_name || '', // 理膜结构自动填入袋型名称
+            specification: '', // 产品规格自动填入宽度
+            bag_system: 'system1', // 袋型系统默认值
             width: bagType.width || 0,
             length: bagType.length || 0,
             thickness: bagType.thickness || 0
-          }
-        });
+          });
+        }
       }
     } catch (error) {
       console.error('自动填充袋型信息失败:', error);
@@ -294,6 +317,7 @@ const ProductManagement = () => {
     
     // 设置默认值
     form.setFieldsValue({
+      customer_id: undefined,
       salesperson_id: undefined, 
       status: 'active',
       product_type: 'finished',
@@ -316,16 +340,155 @@ const ProductManagement = () => {
       setModalType('edit');
       setEditingRecord(record);
       setActiveTabKey('basic');
-      setProductImages([]);
-      setProductProcesses([]);
-      setProductMaterials([]);
+      setModalVisible(true);
       
       // 获取产品详情
       const response = await productManagementApi.getProductDetail(record.id);
       if (response.data.success) {
         const productDetail = response.data.data;
         console.log('productDetail', productDetail);
-        form.setFieldsValue(productDetail);
+        
+        // 处理产品结构数据
+        const formData = { ...productDetail };
+        // 初始化产品结构数据，确保所有字段都有默认值
+        formData.product_structures = {
+          length: undefined,
+          width: undefined,
+          height: undefined,
+          side_width: undefined,
+          bottom_width: undefined,
+          thickness: undefined,
+          total_thickness: undefined,
+          volume: undefined,
+          weight: undefined,
+          expand_length: undefined,
+          expand_width: undefined,
+          expand_height: undefined,
+          material_length: undefined,
+          material_width: undefined,
+          material_height: undefined,
+          single_length: undefined,
+          single_width: undefined,
+          single_height: undefined,
+          blue_color: undefined,
+          red_color: undefined,
+          other_color: undefined,
+          // 新增字段
+          cut_length: undefined,
+          cut_width: undefined,
+          cut_thickness: undefined,
+          cut_area: undefined,
+          light_eye_length: undefined,
+          light_eye_width: undefined,
+          light_eye_distance: undefined,
+          edge_sealing_width: undefined,
+          bag_making_fee: undefined,
+          container_fee: undefined,
+          cuff_fee: undefined,
+          pallet_length: undefined,
+          pallet_width: undefined,
+          pallet_height: undefined,
+          pallet_1: undefined,
+          pallet_2: undefined,
+          pallet_3: undefined,
+          winding_diameter: undefined,
+          density: undefined,
+          seal_top: undefined,
+          seal_left: undefined,
+          seal_right: undefined,
+          seal_middle: undefined,
+          sealing_temperature: undefined,
+          sealing_width: undefined,
+          sealing_strength: undefined,
+          sealing_method: undefined,
+          power: undefined
+        };
+        
+        if (productDetail.structures && productDetail.structures.length > 0) {
+          // 将第一个结构数据展开到product_structures字段
+          const structure = productDetail.structures[0];
+          formData.product_structures = {
+            ...formData.product_structures, // 保持默认值
+            length: structure.length || 0,
+            width: structure.width || 0,
+            height: structure.height || 0,
+            side_width: structure.side_width || 0,
+            bottom_width: structure.bottom_width || 0,
+            thickness: structure.thickness || 0,
+            total_thickness: structure.total_thickness || 0,
+            volume: structure.volume || 0,
+            weight: structure.weight || 0,
+            expand_length: structure.expand_length || 0,
+            expand_width: structure.expand_width || 0,
+            expand_height: structure.expand_height || 0,
+            material_length: structure.material_length || 0,
+            material_width: structure.material_width || 0,
+            material_height: structure.material_height || 0,
+            single_length: structure.single_length || 0,
+            single_width: structure.single_width || 0,
+            single_height: structure.single_height || 0,
+            blue_color: structure.blue_color || '',
+            red_color: structure.red_color || '',
+            other_color: structure.other_color || '',
+            // 新增字段
+            cut_length: structure.cut_length || 0,
+            cut_width: structure.cut_width || 0,
+            cut_thickness: structure.cut_thickness || 0,
+            cut_area: structure.cut_area || 0,
+            light_eye_length: structure.light_eye_length || 0,
+            light_eye_width: structure.light_eye_width || 0,
+            light_eye_distance: structure.light_eye_distance || 0,
+            edge_sealing_width: structure.edge_sealing_width || 0,
+            bag_making_fee: structure.bag_making_fee || 0,
+            container_fee: structure.container_fee || 0,
+            cuff_fee: structure.cuff_fee || 0,
+            pallet_length: structure.pallet_length || 0,
+            pallet_width: structure.pallet_width || 0,
+            pallet_height: structure.pallet_height || 0,
+            pallet_1: structure.pallet_1 || 0,
+            pallet_2: structure.pallet_2 || 0,
+            pallet_3: structure.pallet_3 || 0,
+            winding_diameter: structure.winding_diameter || 0,
+            density: structure.density || 0,
+            seal_top: structure.seal_top || 0,
+            seal_left: structure.seal_left || 0,
+            seal_right: structure.seal_right || 0,
+            seal_middle: structure.seal_middle || 0,
+            sealing_temperature: structure.sealing_temperature || 0,
+            sealing_width: structure.sealing_width || 0,
+            sealing_strength: structure.sealing_strength || 0,
+            sealing_method: structure.sealing_method || '',
+            power: structure.power || 0
+          };
+        }
+        
+        // 处理理化指标数据
+        if (productDetail.quality_indicators && productDetail.quality_indicators.length > 0) {
+          // 将第一个理化指标数据展开到product_quality_indicators字段
+          const qualityIndicator = productDetail.quality_indicators[0];
+          formData.product_quality_indicators = {
+            packaging_requirement: qualityIndicator.packaging_requirement,
+            tensile_requirement: qualityIndicator.tensile_requirement,
+            opening_requirement: qualityIndicator.opening_requirement,
+            slip_requirement: qualityIndicator.slip_requirement,
+            cut_requirement: qualityIndicator.cut_requirement,
+            anti_static_requirement: qualityIndicator.anti_static_requirement,
+            sterilization_requirement: qualityIndicator.sterilization_requirement,
+            hygiene_requirement: qualityIndicator.hygiene_requirement,
+            special_requirement: qualityIndicator.special_requirement,
+            tensile_strength_md: qualityIndicator.tensile_strength_md,
+            tensile_strength_td: qualityIndicator.tensile_strength_td,
+            elongation_break_md: qualityIndicator.elongation_break_md,
+            elongation_break_td: qualityIndicator.elongation_break_td,
+            dart_drop_impact: qualityIndicator.dart_drop_impact,
+            heat_shrinkage: qualityIndicator.heat_shrinkage,
+            oxygen_transmission_rate: qualityIndicator.oxygen_transmission_rate,
+            water_vapor_transmission_rate: qualityIndicator.water_vapor_transmission_rate,
+            seal_strength: qualityIndicator.seal_strength
+          };
+        }
+        
+        form.setFieldsValue(formData);
         
         // 加载产品图片
         if (productDetail.product_images) {
@@ -354,8 +517,6 @@ const ProductManagement = () => {
           })));
         }
       }
-      
-      setModalVisible(true);
     } catch (error) {
       console.error('获取产品详情失败:', error);
       message.error('获取产品详情失败');
@@ -376,7 +537,148 @@ const ProductManagement = () => {
       const response = await productManagementApi.getProductDetail(record.id);
       if (response.data.success) {
         const productDetail = response.data.data;
-        form.setFieldsValue(productDetail);
+        
+        // 处理产品结构数据
+        const formData = { ...productDetail };
+        // 初始化产品结构数据，确保所有字段都有默认值
+        formData.product_structures = {
+          length: undefined,
+          width: undefined,
+          height: undefined,
+          side_width: undefined,
+          bottom_width: undefined,
+          thickness: undefined,
+          total_thickness: undefined,
+          volume: undefined,
+          weight: undefined,
+          expand_length: undefined,
+          expand_width: undefined,
+          expand_height: undefined,
+          material_length: undefined,
+          material_width: undefined,
+          material_height: undefined,
+          single_length: undefined,
+          single_width: undefined,
+          single_height: undefined,
+          blue_color: undefined,
+          red_color: undefined,
+          other_color: undefined,
+          // 新增字段
+          cut_length: undefined,
+          cut_width: undefined,
+          cut_thickness: undefined,
+          cut_area: undefined,
+          light_eye_length: undefined,
+          light_eye_width: undefined,
+          light_eye_distance: undefined,
+          edge_sealing_width: undefined,
+          bag_making_fee: undefined,
+          container_fee: undefined,
+          cuff_fee: undefined,
+          pallet_length: undefined,
+          pallet_width: undefined,
+          pallet_height: undefined,
+          pallet_1: undefined,
+          pallet_2: undefined,
+          pallet_3: undefined,
+          winding_diameter: undefined,
+          density: undefined,
+          seal_top: undefined,
+          seal_left: undefined,
+          seal_right: undefined,
+          seal_middle: undefined,
+          sealing_temperature: undefined,
+          sealing_width: undefined,
+          sealing_strength: undefined,
+          sealing_method: undefined,
+          power: undefined
+        };
+        
+        if (productDetail.structures && productDetail.structures.length > 0) {
+          // 将第一个结构数据展开到product_structures字段
+          const structure = productDetail.structures[0];
+          formData.product_structures = {
+            ...formData.product_structures, // 保持默认值
+            length: structure.length || 0,
+            width: structure.width || 0,
+            height: structure.height || 0,
+            side_width: structure.side_width || 0,
+            bottom_width: structure.bottom_width || 0,
+            thickness: structure.thickness || 0,
+            total_thickness: structure.total_thickness || 0,
+            volume: structure.volume || 0,
+            weight: structure.weight || 0,
+            expand_length: structure.expand_length || 0,
+            expand_width: structure.expand_width || 0,
+            expand_height: structure.expand_height || 0,
+            material_length: structure.material_length || 0,
+            material_width: structure.material_width || 0,
+            material_height: structure.material_height || 0,
+            single_length: structure.single_length || 0,
+            single_width: structure.single_width || 0,
+            single_height: structure.single_height || 0,
+            blue_color: structure.blue_color || '',
+            red_color: structure.red_color || '',
+            other_color: structure.other_color || '',
+            // 新增字段
+            cut_length: structure.cut_length || 0,
+            cut_width: structure.cut_width || 0,
+            cut_thickness: structure.cut_thickness || 0,
+            cut_area: structure.cut_area || 0,
+            light_eye_length: structure.light_eye_length || 0,
+            light_eye_width: structure.light_eye_width || 0,
+            light_eye_distance: structure.light_eye_distance || 0,
+            edge_sealing_width: structure.edge_sealing_width || 0,
+            bag_making_fee: structure.bag_making_fee || 0,
+            container_fee: structure.container_fee || 0,
+            cuff_fee: structure.cuff_fee || 0,
+            pallet_length: structure.pallet_length || 0,
+            pallet_width: structure.pallet_width || 0,
+            pallet_height: structure.pallet_height || 0,
+            pallet_1: structure.pallet_1 || 0,
+            pallet_2: structure.pallet_2 || 0,
+            pallet_3: structure.pallet_3 || 0,
+            winding_diameter: structure.winding_diameter || 0,
+            density: structure.density || 0,
+            seal_top: structure.seal_top || 0,
+            seal_left: structure.seal_left || 0,
+            seal_right: structure.seal_right || 0,
+            seal_middle: structure.seal_middle || 0,
+            sealing_temperature: structure.sealing_temperature || 0,
+            sealing_width: structure.sealing_width || 0,
+            sealing_strength: structure.sealing_strength || 0,
+            sealing_method: structure.sealing_method || '',
+            power: structure.power || 0
+          };
+        }
+        
+        // 处理理化指标数据
+        if (productDetail.quality_indicators && productDetail.quality_indicators.length > 0) {
+          // 将第一个理化指标数据展开到product_quality_indicators字段
+          const qualityIndicator = productDetail.quality_indicators[0];
+          formData.product_quality_indicators = {
+            packaging_requirement: qualityIndicator.packaging_requirement,
+            tensile_requirement: qualityIndicator.tensile_requirement,
+            opening_requirement: qualityIndicator.opening_requirement,
+            slip_requirement: qualityIndicator.slip_requirement,
+            cut_requirement: qualityIndicator.cut_requirement,
+            anti_static_requirement: qualityIndicator.anti_static_requirement,
+            sterilization_requirement: qualityIndicator.sterilization_requirement,
+            hygiene_requirement: qualityIndicator.hygiene_requirement,
+            special_requirement: qualityIndicator.special_requirement,
+            tensile_strength_md: qualityIndicator.tensile_strength_md,
+            tensile_strength_td: qualityIndicator.tensile_strength_td,
+            elongation_break_md: qualityIndicator.elongation_break_md,
+            elongation_break_td: qualityIndicator.elongation_break_td,
+            dart_drop_impact: qualityIndicator.dart_drop_impact,
+            heat_shrinkage: qualityIndicator.heat_shrinkage,
+            oxygen_transmission_rate: qualityIndicator.oxygen_transmission_rate,
+            water_vapor_transmission_rate: qualityIndicator.water_vapor_transmission_rate,
+            seal_strength: qualityIndicator.seal_strength
+          };
+        }
+        
+        form.setFieldsValue(formData);
         
         // 加载产品图片
         if (productDetail.product_images) {
@@ -456,12 +758,40 @@ const ProductManagement = () => {
           sort_order: material.sort_order || 0
         }));
       
+      // 处理产品结构数据
+      const structureData = values.product_structures || {};
+      console.log('原始产品结构数据:', structureData);
+      // 过滤掉undefined和null值，只保留有效数据
+      const filteredStructureData = {};
+      Object.keys(structureData).forEach(key => {
+        if (structureData[key] !== undefined && structureData[key] !== null && structureData[key] !== '') {
+          filteredStructureData[key] = structureData[key];
+        }
+      });
+      console.log('过滤后的产品结构数据:', filteredStructureData);
+      
+      // 处理理化指标数据
+      const qualityIndicatorsData = values.product_quality_indicators || {};
+      // 过滤掉undefined和null值，只保留有效数据
+      const filteredQualityIndicatorsData = {};
+      Object.keys(qualityIndicatorsData).forEach(key => {
+        if (qualityIndicatorsData[key] !== undefined && qualityIndicatorsData[key] !== null && qualityIndicatorsData[key] !== '') {
+          filteredQualityIndicatorsData[key] = qualityIndicatorsData[key];
+        }
+      });
+      
       const productData = {
         ...values,
+        structure: filteredStructureData, // 将过滤后的产品结构数据作为structure字段传递
+        quality_indicators: filteredQualityIndicatorsData, // 将过滤后的理化指标数据作为quality_indicators字段传递
         product_images: imageData,
         product_processes: processData,
         product_materials: materialData
       };
+      
+      // 删除嵌套的字段，避免重复
+      delete productData.product_structures;
+      delete productData.product_quality_indicators;
 
       if (modalType === 'create') {
         await productManagementApi.createProduct(productData);
@@ -791,17 +1121,8 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name="salesperson_id" label="业务员">
-            <Select 
-              placeholder={'根据客户自动填入'} 
-              disabled
-            >
-              {(formOptions.employees || []).map(employee => (
-                <Option key={employee.value || employee.id} value={employee.value || employee.id}>
-                  {employee.label || employee.employee_name}
-                </Option>
-              ))}
-            </Select>
+          <Form.Item name="specification" label="产品规格">
+            <Input style={{ width: '100%' }} placeholder="宽*厚度*密度" />
           </Form.Item>
         </Col>
         
@@ -834,11 +1155,6 @@ const ProductManagement = () => {
 
       <Row gutter={16}>
         <Col span={8}>
-          <Form.Item name="product_specification" label="产品规格">
-            <InputNumber min={0} placeholder="根据袋型自动输入" disabled style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
           <Form.Item name="bag_system" label="袋型系统">
             <Select placeholder="根据选择的袋型自动输入" disabled>
               <Option value="system1">系统1</Option>
@@ -856,14 +1172,24 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name="moisture_content" label="含水率">
-            <Select placeholder="请选择含水率">
-              <Option value="low">低</Option>
-              <Option value="medium">中</Option>
-              <Option value="high">高</Option>
+          <Form.Item name="salesperson_id" label="业务员">
+            <Select 
+              placeholder={'根据客户自动填入'} 
+              disabled
+              showSearch
+              filterOption={(input, option) =>
+                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              }
+            >
+              {(formOptions.employees || []).map(employee => (
+                <Option key={employee.value || employee.id} value={employee.value || employee.id}>
+                  {employee.label || employee.employee_name}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
         </Col>
+      
       </Row>
 
       {/* 库存信息 */}
@@ -999,6 +1325,15 @@ const ProductManagement = () => {
             <TextArea rows={2} placeholder="请输入作业基准" />
           </Form.Item>
         </Col>
+        <Col span={8}>
+          <Form.Item name="moisture_content" label="含水率">
+            <Select placeholder="请选择含水率">
+              <Option value="low">低</Option>
+              <Option value="medium">中</Option>
+              <Option value="high">高</Option>
+            </Select>
+          </Form.Item>
+        </Col>
       </Row>
 
       {/* 功能开关 */}
@@ -1096,6 +1431,11 @@ const ProductManagement = () => {
         <Col span={6}>
           <Form.Item name={['product_structures', 'total_thickness']} label="总厚度">
             <InputNumber min={0} step={0.1} addonAfter="μm" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={6}>
+          <Form.Item name={['product_structures', 'density']} label="密度">
+            <InputNumber min={0} step={0.01} addonAfter="g/cm³" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
@@ -1219,11 +1559,6 @@ const ProductManagement = () => {
             <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
-        <Col span={6}>
-          <Form.Item name={['product_structures', 'density']} label="密度">
-            <InputNumber min={0} step={0.001} addonAfter="g/cm³" style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
       </Row>
 
       {/* 封口信息 */}
@@ -1282,11 +1617,6 @@ const ProductManagement = () => {
         <Col span={8}>
           <Form.Item name={['product_structures', 'power']} label="功率">
             <InputNumber min={0} step={0.1} addonAfter="kW" style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_structures', 'flight_number']} label="航班号">
-            <Input placeholder="请输入航班号" />
           </Form.Item>
         </Col>
       </Row>
@@ -1864,6 +2194,7 @@ const ProductManagement = () => {
           form={form}
           layout="vertical"
           disabled={modalType === 'view'}
+          key={`${modalType}-${editingRecord?.id || 'new'}`}
         >
           <Tabs 
             activeKey={activeTabKey} 

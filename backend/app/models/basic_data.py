@@ -4529,6 +4529,14 @@ class Product(TenantModel):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_by': str(self.updated_by) if self.updated_by else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            
+            # 关联数据
+            'product_structures': [structure.to_dict() for structure in self.product_structures] if hasattr(self, 'product_structures') else [],
+            'customer_requirements': [req.to_dict() for req in self.customer_requirements] if hasattr(self, 'customer_requirements') else [],
+            'product_processes': [process.to_dict() for process in self.product_processes] if hasattr(self, 'product_processes') else [],
+            'product_materials': [material.to_dict() for material in self.product_materials] if hasattr(self, 'product_materials') else [],
+            'quality_indicators': [indicator.to_dict() for indicator in self.quality_indicators] if hasattr(self, 'quality_indicators') else [],
+            'product_images': [image.to_dict() for image in self.product_images] if hasattr(self, 'product_images') else [],
         }
 
 
@@ -4545,6 +4553,12 @@ class ProductStructure(TenantModel):
     length = db.Column(db.Integer, default=0, comment='长度')
     width = db.Column(db.Integer, default=0, comment='宽度')
     height = db.Column(db.Integer, default=0, comment='高度')
+    side_width = db.Column(db.Integer, default=0, comment='侧宽')
+    bottom_width = db.Column(db.Integer, default=0, comment='底宽')
+    thickness = db.Column(db.Numeric(10, 1), default=0, comment='厚度')
+    total_thickness = db.Column(db.Numeric(10, 1), default=0, comment='总厚度')
+    volume = db.Column(db.Numeric(10, 2), default=0, comment='体积')
+    weight = db.Column(db.Numeric(10, 2), default=0, comment='重量')
     
     # 展开数据
     expand_length = db.Column(db.Integer, default=0, comment='展开长')
@@ -4566,6 +4580,46 @@ class ProductStructure(TenantModel):
     red_color = db.Column(db.String(50), comment='红色')
     other_color = db.Column(db.String(50), comment='其他颜色')
     
+    # 分切信息
+    cut_length = db.Column(db.Integer, default=0, comment='分切长')
+    cut_width = db.Column(db.Integer, default=0, comment='分切宽')
+    cut_thickness = db.Column(db.Integer, default=0, comment='分切厚度')
+    cut_area = db.Column(db.Numeric(10, 2), default=0, comment='分切面积')
+    
+    # 光标尺寸
+    light_eye_length = db.Column(db.Integer, default=0, comment='光标长')
+    light_eye_width = db.Column(db.Integer, default=0, comment='光标宽')
+    light_eye_distance = db.Column(db.Integer, default=0, comment='光标距离')
+    edge_sealing_width = db.Column(db.Integer, default=0, comment='封边宽度')
+    
+    # 收费信息
+    bag_making_fee = db.Column(db.Numeric(10, 2), default=0, comment='制袋费')
+    container_fee = db.Column(db.Numeric(10, 2), default=0, comment='装袋费')
+    cuff_fee = db.Column(db.Numeric(10, 2), default=0, comment='打提手费')
+    
+    # 托盘信息
+    pallet_length = db.Column(db.Integer, default=0, comment='托盘长')
+    pallet_width = db.Column(db.Integer, default=0, comment='托盘宽')
+    pallet_height = db.Column(db.Integer, default=0, comment='托盘高')
+    pallet_1 = db.Column(db.Integer, default=0, comment='托盘1')
+    pallet_2 = db.Column(db.Integer, default=0, comment='托盘2')
+    pallet_3 = db.Column(db.Integer, default=0, comment='托盘3')
+    
+    # 其他参数
+    winding_diameter = db.Column(db.Integer, default=0, comment='收卷直径')
+    density = db.Column(db.Numeric(10, 3), default=0, comment='密度')
+    
+    # 封口信息
+    seal_top = db.Column(db.Integer, default=0, comment='封口上')
+    seal_left = db.Column(db.Integer, default=0, comment='封口左')
+    seal_right = db.Column(db.Integer, default=0, comment='封口右')
+    seal_middle = db.Column(db.Integer, default=0, comment='封口中')
+    sealing_temperature = db.Column(db.Integer, default=0, comment='封合温度')
+    sealing_width = db.Column(db.Integer, default=0, comment='封合宽度')
+    sealing_strength = db.Column(db.Numeric(10, 1), default=0, comment='封合强度')
+    sealing_method = db.Column(db.String(50), comment='封机方式')
+    power = db.Column(db.Numeric(10, 1), default=0, comment='功率')
+    
     # 审计字段
     created_at = db.Column(db.DateTime, default=func.now())
     updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
@@ -4580,6 +4634,12 @@ class ProductStructure(TenantModel):
             'length': self.length,
             'width': self.width,
             'height': self.height,
+            'side_width': self.side_width,
+            'bottom_width': self.bottom_width,
+            'thickness': float(self.thickness) if self.thickness else 0,
+            'total_thickness': float(self.total_thickness) if self.total_thickness else 0,
+            'volume': float(self.volume) if self.volume else 0,
+            'weight': float(self.weight) if self.weight else 0,
             'expand_length': self.expand_length,
             'expand_width': self.expand_width,
             'expand_height': self.expand_height,
@@ -4592,6 +4652,34 @@ class ProductStructure(TenantModel):
             'blue_color': self.blue_color,
             'red_color': self.red_color,
             'other_color': self.other_color,
+            'cut_length': self.cut_length,
+            'cut_width': self.cut_width,
+            'cut_thickness': self.cut_thickness,
+            'cut_area': float(self.cut_area) if self.cut_area else 0,
+            'light_eye_length': self.light_eye_length,
+            'light_eye_width': self.light_eye_width,
+            'light_eye_distance': self.light_eye_distance,
+            'edge_sealing_width': self.edge_sealing_width,
+            'bag_making_fee': float(self.bag_making_fee) if self.bag_making_fee else 0,
+            'container_fee': float(self.container_fee) if self.container_fee else 0,
+            'cuff_fee': float(self.cuff_fee) if self.cuff_fee else 0,
+            'pallet_length': self.pallet_length,
+            'pallet_width': self.pallet_width,
+            'pallet_height': self.pallet_height,
+            'pallet_1': self.pallet_1,
+            'pallet_2': self.pallet_2,
+            'pallet_3': self.pallet_3,
+            'winding_diameter': self.winding_diameter,
+            'density': float(self.density) if self.density else 0,
+            'seal_top': self.seal_top,
+            'seal_left': self.seal_left,
+            'seal_right': self.seal_right,
+            'seal_middle': self.seal_middle,
+            'sealing_temperature': self.sealing_temperature,
+            'sealing_width': self.sealing_width,
+            'sealing_strength': float(self.sealing_strength) if self.sealing_strength else 0,
+            'sealing_method': self.sealing_method,
+            'power': float(self.power) if self.power else 0,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

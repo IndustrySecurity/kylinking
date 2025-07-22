@@ -24,7 +24,7 @@ def upgrade():
         sa.Column('warehouse_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('warehouse_name', sa.String(length=200), nullable=False),
         sa.Column('warehouse_code', sa.String(length=100), nullable=True),
-        sa.Column('count_person_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('count_person_id', postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column('department_id', postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column('count_date', sa.DateTime(), nullable=False),
         sa.Column('status', sa.String(length=20), nullable=True),

@@ -155,8 +155,9 @@ class ProductInboundService(TenantAwareService):
     def create_product_inbound_order(self, data: Dict[str, Any], created_by: str) -> Dict[str, Any]:
         """创建产品入库单（支持同时创建明细）"""
         try:
-            # 生成入库单号
-            order_number = f"PIN{datetime.now().strftime('%Y%m%d')}{datetime.now().microsecond:06d}"
+            # 生成入库单号 - 使用顺序生成
+            from app.models.business.inventory import InboundOrder
+            order_number = InboundOrder.generate_order_number('finished_goods')
             
             # 转换created_by为UUID
             try:
