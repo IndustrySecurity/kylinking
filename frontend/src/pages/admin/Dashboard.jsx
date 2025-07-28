@@ -67,35 +67,19 @@ const Dashboard = () => {
             admin: response.data.stats.users.admin || 0
           },
           growth: { 
-            tenants: 15, // 这些是模拟数据
-            users: 28
+            tenants: response.data.stats.growth?.tenants || 0,
+            users: response.data.stats.growth?.users || 0
           }
         });
         
         // 使用API返回的最近租户数据
-        if (response.data.recent_tenants && response.data.recent_tenants.length > 0) {
-          setRecentTenants(response.data.recent_tenants);
-        } else {
-          // 备用模拟数据
-          setRecentTenants([
-            { id: '1', name: '创新科技有限公司', slug: 'tech-innovation', is_active: true, created_at: '2023-06-15T08:25:30Z' },
-            { id: '2', name: '未来材料研究院', slug: 'future-materials', is_active: true, created_at: '2023-06-10T14:35:20Z' },
-            { id: '3', name: '智能制造集团', slug: 'smart-manufacturing', is_active: true, created_at: '2023-06-05T09:12:45Z' },
-            { id: '4', name: '绿色能源科技', slug: 'green-energy', is_active: false, created_at: '2023-06-01T11:42:18Z' }
-          ]);
-        }
+        setRecentTenants(response.data.recent_tenants || []);
       } else {
         message.error('获取统计数据失败，返回数据格式不正确');
       }
       
-      // 模拟系统活动数据
-      setActivities([
-        { id: '1', user: '系统管理员', action: '创建新租户', target: '创新科技有限公司', time: '2023-06-15T08:25:30Z' },
-        { id: '2', user: 'admin@example.com', action: '更新用户权限', target: 'user@example.com', time: '2023-06-14T16:42:15Z' },
-        { id: '3', user: 'manager@tech.com', action: '停用租户', target: '绿色能源科技', time: '2023-06-12T09:18:45Z' },
-        { id: '4', user: '系统管理员', action: '系统配置更新', target: '安全设置', time: '2023-06-10T14:32:20Z' },
-        { id: '5', user: 'admin@future.com', action: '添加新用户', target: 'staff@future.com', time: '2023-06-08T11:55:40Z' }
-      ]);
+      // 使用API返回的系统活动数据
+      setActivities(response.data.activities || []);
     } catch (error) {
       message.error('获取仪表盘数据失败');
     } finally {
@@ -328,31 +312,19 @@ const Dashboard = () => {
 
   // 日历数据
   const getCalendarData = (value) => {
-    // 模拟数据
-    const listData = [
-      { type: 'warning', content: '系统维护' },
-      { type: 'success', content: '新版本发布' },
-      { type: 'error', content: '安全更新' },
-      { type: 'processing', content: '数据备份' }
-    ];
+    // 使用API返回的日历数据
+    const listData = activities.filter(activity => {
+      const activityDate = new Date(activity.time);
+      const valueDate = value.toDate();
+      return activityDate.getDate() === valueDate.getDate() &&
+             activityDate.getMonth() === valueDate.getMonth() &&
+             activityDate.getFullYear() === valueDate.getFullYear();
+    }).map(activity => ({
+      type: 'processing',
+      content: activity.action
+    }));
     
-    // 根据日期返回不同的数据
-    const day = value.date();
-    
-    if (day === 8) {
-      return [listData[0]];
-    }
-    if (day === 15) {
-      return [listData[1]];
-    }
-    if (day === 22) {
-      return [listData[2]];
-    }
-    if (day === 28) {
-      return [listData[3]];
-    }
-    
-    return [];
+    return listData;
   };
   
   const dateCellRender = (value) => {

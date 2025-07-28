@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, startTransition } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { ConfigProvider, theme, App as AntApp, message } from 'antd';
 import MainLayout from './components/layout/MainLayout';
 import Dashboard from './pages/Dashboard';
@@ -8,6 +8,7 @@ import UserManagement from './pages/admin/UserManagement';
 import SystemManagement from './pages/admin/SystemManagement';
 import TenantModuleManagement from './pages/admin/TenantModuleManagement';
 import Login from './pages/auth/Login';
+import UserProfile from './pages/profile/UserProfile';
 
 // 基础档案导入
 import BaseData from './pages/base-archive/BaseData';
@@ -103,6 +104,10 @@ import MaterialTransfer from './pages/business/material-warehouse/MaterialTransf
 
 import Debug from './pages/auth/Debug';
 
+// 生产管理导入
+import ProductionSchedule from './pages/production/ProductionSchedule';
+import ProductionMonitor from './pages/production/ProductionMonitor';
+
 import { useApi } from './hooks/useApi';
 import './index.css';
 
@@ -124,11 +129,13 @@ const ProtectedRoute = ({ children }) => {
     const token = getToken();
     
     if (!token) {
-      navigate('/login', { replace: true });
+      startTransition(() => {
+        navigate('/login', { replace: true });
+      });
     }
     
     setChecking(false);
-  }, [navigate, getToken]);
+  }, [navigate, getToken, isLoggedIn]);
   
   if (checking) {
     return <div>正在检查登录状态...</div>;
@@ -139,6 +146,87 @@ const ProtectedRoute = ({ children }) => {
   }
   
   return children;
+};
+
+// 调试组件
+const RouteDebug = ({ path, element }) => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    console.log(`Route Debug: ${path} matched for location: ${location.pathname}`);
+  }, [location.pathname, path]);
+  
+  return element;
+};
+
+// 通用调试组件
+const UniversalDebug = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [forceRefresh, setForceRefresh] = useState(false);
+  
+  useEffect(() => {
+    console.log(`Universal Debug: Current location is ${location.pathname}`);
+    console.log(`Browser URL: ${window.location.pathname}`);
+    
+    // 强制同步浏览器URL和React Router状态
+    const currentPath = window.location.pathname;
+    if (location.pathname !== currentPath) {
+      console.log(`Route sync: Browser path ${currentPath} != Router path ${location.pathname}, forcing sync`);
+      
+      // 如果差异太大，强制刷新页面
+      if (Math.abs(location.pathname.split('/').length - currentPath.split('/').length) > 1) {
+        console.log('Large path difference detected, forcing page refresh');
+        window.location.reload();
+        return;
+      }
+      
+      // 使用 startTransition 确保在下一个事件循环中执行
+      startTransition(() => {
+        navigate(currentPath, { replace: true });
+      });
+    }
+  }, [location.pathname, navigate]);
+  
+  // 监听浏览器URL变化
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentPath = window.location.pathname;
+      console.log(`PopState detected: ${currentPath}`);
+      if (location.pathname !== currentPath) {
+        console.log(`Forcing navigation to: ${currentPath}`);
+        startTransition(() => {
+          navigate(currentPath, { replace: true });
+        });
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [location.pathname, navigate]);
+  
+  // 添加强制刷新按钮（仅在开发环境）
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <div style={{ position: 'fixed', top: 10, right: 10, zIndex: 9999 }}>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{ 
+            background: 'red', 
+            color: 'white', 
+            border: 'none', 
+            padding: '5px 10px',
+            borderRadius: '3px',
+            cursor: 'pointer'
+          }}
+        >
+          强制刷新
+        </button>
+      </div>
+    );
+  }
+  
+  return null;
 };
 
 // 应用根组件
@@ -155,683 +243,133 @@ const AppRoot = () => {
       }}
     >
       <AntApp>
-        <Router future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/public-debug" element={<Debug />} />
             
-            {/* Protected routes within MainLayout */}
-            <Route path="/" element={
+            {/* Protected routes with MainLayout */}
+            <Route element={
               <ProtectedRoute>
-                <MainLayout>
-                  <Navigate to="/dashboard" replace />
-                </MainLayout>
+                <MainLayout />
               </ProtectedRoute>
-            } />
-            
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Dashboard />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础档案路由 */}
-            <Route path="/base-archive/base-data" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <BaseData />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 生产档案路由 */}
-            <Route path="/base-archive/production-data" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProductionData />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 基础数据路由 */}
-            <Route path="/base-archive/base-data/customer-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CustomerManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/product-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProductManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/supplier-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SupplierManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/material-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/department-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DepartmentManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/position-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PositionManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-data/employee-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <EmployeeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
+            }>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<UserProfile />} />
+              
+              {/* 基础档案路由 */}
+              <Route path="/base-archive/base-data" element={<BaseData />} />
+              <Route path="/base-archive/production-data" element={<ProductionData />} />
+              
+              {/* 基础数据路由 */}
+              <Route path="/base-archive/base-data/customer-management" element={<CustomerManagement />} />
+              <Route path="/base-archive/base-data/product-management" element={<ProductManagement />} />
+              <Route path="/base-archive/base-data/supplier-management" element={<SupplierManagement />} />
+              <Route path="/base-archive/base-data/material-management" element={<MaterialManagement />} />
+              <Route path="/base-archive/base-data/department-management" element={<DepartmentManagement />} />
+              <Route path="/base-archive/base-data/position-management" element={<PositionManagement />} />
+              <Route path="/base-archive/base-data/employee-management" element={<EmployeeManagement />} />
+              
+              {/* 基础分类路由 */}
+              <Route path="/base-archive/base-category/customer-category-management" element={<CustomerCategoryManagement />} />
+              <Route path="/base-archive/base-category/product-category-management" element={<ProductCategoryManagement />} />
+              <Route path="/base-archive/base-category/supplier-category-management" element={<SupplierCategoryManagement />} />
+              <Route path="/base-archive/base-category/material-category-management" element={<MaterialCategoryManagement />} />
+              <Route path="/base-archive/base-category/process-category-management" element={<ProcessCategoryManagement />} />
+              
+              {/* 生产档案路由 */}
+              <Route path="/base-archive/production-archive/team-group-management" element={<TeamGroupManagement />} />
+              <Route path="/base-archive/production-archive/machine-management" element={<MachineManagement />} />
+              <Route path="/base-archive/production-archive/warehouse-management" element={<WarehouseManagement />} />
+              <Route path="/base-archive/production-archive/process-management" element={<ProcessManagement />} />
+              <Route path="/base-archive/production-archive/bag-type-management" element={<BagTypeManagement />} />
+              <Route path="/base-archive/production-archive/package-method-management" element={<PackageMethodManagement />} />
+              <Route path="/base-archive/production-archive/delivery-method-management" element={<DeliveryMethodManagement />} />
+              <Route path="/base-archive/production-archive/loss-type-management" element={<LossTypeManagement />} />
+              <Route path="/base-archive/production-archive/specification-management" element={<SpecificationManagement />} />
+              <Route path="/base-archive/production-archive/color-card-management" element={<ColorCardManagement />} />
+              <Route path="/base-archive/production-archive/unit-management" element={<UnitManagement />} />
+              
+              {/* 生产配置路由 */}
+              <Route path="/base-archive/production-config/bag-related-formula-management" element={<BagRelatedFormulaManagement />} />
+              <Route path="/base-archive/production-config/calculation-scheme-management" element={<CalculationSchemeManagement />} />
+              <Route path="/base-archive/production-config/calculation-parameter-management" element={<CalculationParameterManagement />} />
+              <Route path="/base-archive/production-config/quote-accessory-management" element={<QuoteAccessoryManagement />} />
+              <Route path="/base-archive/production-config/quote-ink-management" element={<QuoteInkManagement />} />
+              <Route path="/base-archive/production-config/quote-loss-management" element={<QuoteLossManagement />} />
+              <Route path="/base-archive/production-config/quote-material-management" element={<QuoteMaterialManagement />} />
+              <Route path="/base-archive/production-config/quote-freight-management" element={<QuoteFreightManagement />} />
+              <Route path="/base-archive/production-config/ink-option-management" element={<InkOptionManagement />} />
+              
+              {/* 基础档案 - 财务管理 */}
+              <Route path="/base-archive/financial-management" element={<FinancialManagement />} />
+              
+              {/* 财务管理子页面 */}
+              <Route path="/base-archive/financial-management/currency" element={<Currency />} />
+              <Route path="/base-archive/financial-management/tax-rate" element={<TaxRate />} />
+              <Route path="/base-archive/financial-management/settlement-method" element={<SettlementMethod />} />
+              <Route path="/base-archive/financial-management/account-management" element={<AccountManagement />} />
+              <Route path="/base-archive/financial-management/payment-method" element={<PaymentMethod />} />
 
-            
-            {/* 基础分类路由 */}
-            <Route path="/base-archive/base-category/customer-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CustomerCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-category/product-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProductCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-category/supplier-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SupplierCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-category/material-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/base-category/process-category-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProcessCategoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
+              {/* 仓库管理路由 */}
+              <Route path="/business/inventory-overview" element={<InventoryOverview />} />
+              <Route path="/business/material-warehouse" element={<MaterialWarehouse />} />
+              <Route path="/business/finished-goods-warehouse" element={<FinishedGoodsWarehouse />} />
 
-            
-            {/* 生产档案路由 */}
-            <Route path="/base-archive/production-archive/team-group-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <TeamGroupManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/machine-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MachineManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/warehouse-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <WarehouseManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/process-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ProcessManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
+              {/* 销售管理路由 */}
+              <Route path="/business/sales-management" element={<SalesManagement />} />
 
-            
-            <Route path="/base-archive/production-archive/bag-type-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <BagTypeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/package-method-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PackageMethodManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/delivery-method-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DeliveryMethodManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/loss-type-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <LossTypeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/specification-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SpecificationManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/color-card-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ColorCardManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-archive/unit-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <UnitManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 生产配置路由 */}
-            
-            <Route path="/base-archive/production-config/bag-related-formula-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <BagRelatedFormulaManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/calculation-scheme-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CalculationSchemeManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/calculation-parameter-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CalculationParameterManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/quote-accessory-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteAccessoryManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/quote-ink-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteInkManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/quote-loss-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteLossManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/quote-material-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteMaterialManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/quote-freight-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <QuoteFreightManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/production-config/ink-option-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <InkOptionManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
+              {/* 销售功能页面路由 */}
+              <Route path="/business/sales/sales-order" element={<SalesOrder />} />
+              <Route path="/business/sales/delivery-notice" element={<DeliveryNotice />} />
+              <Route path="/business/sales/delivery-order" element={<DeliveryOrder />} />
+              <Route path="/business/sales/return-notice" element={<ReturnNotice />} />
+              <Route path="/business/sales/return-order" element={<ReturnOrder />} />
+              <Route path="/business/sales/customer-contract" element={<CustomerContract />} />
+              <Route path="/business/sales/monthly-plan" element={<MonthlyPlan />} />
 
-            
-            {/* 基础档案 - 财务管理 */}
-            <Route path="/base-archive/financial-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinancialManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            {/* 财务管理子页面 */}
-            <Route path="/base-archive/financial-management/currency" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Currency />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/financial-management/tax-rate" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <TaxRate />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/financial-management/settlement-method" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SettlementMethod />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/financial-management/account-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <AccountManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/base-archive/financial-management/payment-method" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PaymentMethod />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
+              {/* 成品仓库子页面 */}
+              <Route path="/business/finished-goods/inbound" element={<FinishedGoodsInbound />} />
+              <Route path="/business/finished-goods/outbound" element={<FinishedGoodsOutbound />} />
+              <Route path="/business/finished-goods/count" element={<FinishedGoodsCount />} />
+              <Route path="/business/finished-goods/transfer" element={<FinishedGoodsTransfer />} />
+              <Route path="/business/finished-goods/weighing-slip" element={<FinishedGoodsWeighingSlip />} />
+              <Route path="/business/finished-goods/packing-weighing-slip" element={<PackingWeighingSlip />} />
+              <Route path="/business/finished-goods/rewinding-output-report" element={<RewindingOutputReport />} />
+              <Route path="/business/finished-goods/bag-picking-output-report" element={<BagPickingOutputReport />} />
+              <Route path="/business/finished-goods/semi-finished-inbound" element={<SemiFinishedInbound />} />
+              <Route path="/business/finished-goods/semi-finished-outbound" element={<SemiFinishedOutbound />} />
+              <Route path="/business/finished-goods/bag-picking-return" element={<BagPickingReturn />} />
+              <Route path="/business/finished-goods/to-tray" element={<FinishedGoodsToTray />} />
+              <Route path="/business/finished-goods/rework" element={<FinishedGoodsRework />} />
+              <Route path="/business/finished-goods/packing" element={<FinishedGoodsPacking />} />
+              <Route path="/business/finished-goods/semi-finished-weighing" element={<SemiFinishedWeighing />} />
+              <Route path="/business/finished-goods/inbound-accounting" element={<FinishedGoodsInboundAccounting />} />
 
-            {/* 销售管理路由 */}
-            <Route path="/business/sales-management" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SalesManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
+              {/* 材料仓库子页面 */}
+              <Route path="/business/material-warehouse/inbound" element={<MaterialInbound />} />
+              <Route path="/business/material-warehouse/outbound" element={<MaterialOutbound />} />
+              <Route path="/business/material-warehouse/count" element={<MaterialCount />} />
+              <Route path="/business/material-warehouse/transfer" element={<MaterialTransfer />} />
 
-            {/* 销售功能页面路由 */}
-            <Route path="/business/sales/sales-order" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SalesOrder />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/sales/delivery-notice" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DeliveryNotice />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/sales/delivery-order" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <DeliveryOrder />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/sales/return-notice" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ReturnNotice />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/sales/return-order" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <ReturnOrder />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/sales/customer-contract" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <CustomerContract />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/sales/monthly-plan" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MonthlyPlan />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
+              {/* 生产管理路由 */}
+              <Route path="/production/schedule" element={<ProductionSchedule />} />
+              <Route path="/production/monitor" element={<ProductionMonitor />} />
 
-            {/* 仓库管理路由 */}
-            <Route path="/business/inventory-overview" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <InventoryOverview />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-
-            <Route path="/business/material-warehouse" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialWarehouse />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-
-            <Route path="/business/finished-goods-warehouse" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsWarehouse />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-
-            {/* 成品仓库子页面路由 */}
-            <Route path="/business/finished-goods/inbound" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsInbound />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/outbound" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsOutbound />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/inventory" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsCount />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/transfer" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsTransfer />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/weighing-slip" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsWeighingSlip />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/packing-weighing-slip" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <PackingWeighingSlip />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/rewinding-output-report" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <RewindingOutputReport />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/bag-picking-output-report" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <BagPickingOutputReport />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/semi-finished-inbound" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SemiFinishedInbound />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/semi-finished-outbound" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SemiFinishedOutbound />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/bag-picking-return" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <BagPickingReturn />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/to-tray" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsToTray />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/rework" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsRework />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/packing" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsPacking />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/semi-finished-weighing" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SemiFinishedWeighing />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/finished-goods/inbound-accounting" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <FinishedGoodsInboundAccounting />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-
-            {/* 材料仓库路由 */}
-            <Route path="/business/material-warehouse" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialWarehouse />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/material-warehouse/inbound" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialInbound />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/material-warehouse/outbound" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialOutbound />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/material-warehouse/count" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialCount />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/business/material-warehouse/transfer" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <MaterialTransfer />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-
-            
-            {/* 平台管理路由 */}
-            <Route path="/admin/tenants" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <TenantManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/modules" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <TenantModuleManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/users" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <UserManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/tenants/:tenantId/users" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <UserManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin/system" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <SystemManagement />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/debug" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Debug />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            
-            {/* Redirect all other routes to dashboard */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              {/* 平台管理路由 */}
+              <Route path="/admin/tenants" element={<TenantManagement />} />
+              <Route path="/admin/modules" element={<TenantModuleManagement />} />
+              <Route path="/admin/users" element={<UserManagement />} />
+              <Route path="/admin/tenants/:tenantId/users" element={<UserManagement />} />
+              <Route path="/admin/system" element={<SystemManagement />} />
+              
+              <Route path="/debug" element={<Debug />} />
+              
+              {/* Redirect all other routes to dashboard */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Route>
           </Routes>
         </Router>
       </AntApp>

@@ -26,6 +26,7 @@ from app.models.basic_data import (
     LossType
 )
 from app.models.column_configuration import ColumnConfiguration
+from app.models.dynamic_field import DynamicField, DynamicFieldValue
 
 # 添加其他可能的模型导入
 
@@ -55,5 +56,7 @@ __all__ = [
     'Specification',
     'Currency',
     'LossType',
-    'ColumnConfiguration'
+    'ColumnConfiguration',
+    'DynamicField',
+    'DynamicFieldValue'
 ] 

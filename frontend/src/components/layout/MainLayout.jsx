@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Avatar, Dropdown, Badge } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   DashboardOutlined,
   AppstoreOutlined,
@@ -136,10 +136,23 @@ const UserInfo = styled.div`
   align-items: center;
   margin-left: 12px;
   cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: #f5f5f5;
+  }
   
   .username {
     margin-left: 8px;
     font-weight: 500;
+    line-height: 1.2;
+    
+    small {
+      margin-top: 2px;
+      opacity: 0.7;
+    }
   }
 `;
 
@@ -162,7 +175,7 @@ const ContentContainer = styled.div`
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 `;
 
-const MainLayout = ({ children }) => {
+const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -175,116 +188,172 @@ const MainLayout = ({ children }) => {
     setCollapsed(!collapsed);
   };
   
-  // Menu items configuration
-  const menuItems = [
-    {
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: '仪表盘',
-      path: '/dashboard',
-    },
-    // Show system management menu only for superadmin users
-    user?.is_superadmin && {
-      key: 'admin',
-      icon: <AppstoreOutlined />,
-      label: '平台管理',
-      children: [
-        {
-          key: 'tenants',
-          label: '租户管理',
-          path: '/admin/tenants',
-        },
-        {
-          key: 'modules',
-          label: '模块管理',
-          path: '/admin/modules',
-        },
-      ],
-    },
-    // Show system management for both admin and superadmin
-    (user?.is_admin || user?.is_superadmin) && {
-      key: 'system',
-      icon: <SettingOutlined />,
-      label: '系统管理',
-      path: '/admin/system',
-    },
-    {
-      key: 'production',
-      icon: <LaptopOutlined />,
-      label: '生产管理',
-      children: [
-        {
-          key: 'schedule',
-          label: '生产计划',
-          path: '/production/schedule',
-        },
-        {
-          key: 'monitor',
-          label: '生产监控',
-          path: '/production/monitor',
-        },
-      ],
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: '系统设置',
-      path: '/settings',
-    },
-    {
-      key: 'salesManagement',
-      icon: <ShoppingOutlined />,
-      label: '销售管理',
-      path: '/business/sales-management',
-    },
-    {
-      key: 'warehouseManagement',
-      icon: <DatabaseOutlined />,
-      label: '仓库管理',
-      children: [
-        {
-          key: 'inventoryOverview',
-          icon: <BarChartOutlined />,
-          label: '库存总览',
-          path: '/business/inventory-overview',
-        },
-        {
-          key: 'materialWarehouse',
-          icon: <InboxOutlined />,
-          label: '材料仓库',
-          path: '/business/material-warehouse',
-        },
-        {
-          key: 'finishedGoodsWarehouse',
-          icon: <ContainerOutlined />,
-          label: '成品仓库',
-          path: '/business/finished-goods-warehouse',
-        },
-      ],
-    },
-    {
-      key: 'baseArchive',
-      icon: <AppstoreOutlined />,
-      label: '基础档案',
-      children: [
-        {
-          key: 'baseData',
-          label: '基础数据',
-          path: '/base-archive/base-data',
-        },
-        {
-          key: 'productionData',
-          label: '生产档案',
-          path: '/base-archive/production-data',
-        },
-        {
-          key: 'financialManagement',
-          label: '财务管理',
-          path: '/base-archive/financial-management',
-        },
-      ],
-    },
-  ];
+  // 动态获取租户模块配置
+  const [tenantModules, setTenantModules] = useState([]);
+  const [modulesLoading, setModulesLoading] = useState(false);
+
+  // 获取租户模块配置
+  const fetchTenantModules = async () => {
+    if (!user?.tenant_id) return;
+    
+    setModulesLoading(true);
+    try {
+      const response = await api.get('/tenant/modules/');
+      if (response.data.success) {
+        setTenantModules(response.data.data);
+      }
+    } catch (error) {
+      console.error('获取租户模块配置失败:', error);
+    } finally {
+      setModulesLoading(false);
+    }
+  };
+
+  // 在用户信息加载后获取模块配置
+  useEffect(() => {
+    if (user?.tenant_id) {
+      fetchTenantModules();
+    }
+  }, [user?.tenant_id]);
+
+  // 根据模块配置生成菜单项
+  const generateMenuItems = () => {
+    const baseItems = [
+      {
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: '仪表盘',
+        path: '/dashboard',
+      }
+    ];
+
+    // 管理员菜单
+    if (user?.is_superadmin) {
+      baseItems.push({
+        key: 'admin',
+        icon: <AppstoreOutlined />,
+        label: '平台管理',
+        children: [
+          {
+            key: 'tenants',
+            label: '租户管理',
+            path: '/admin/tenants',
+          },
+          {
+            key: 'modules',
+            label: '模块管理',
+            path: '/admin/modules',
+          },
+        ],
+      });
+    }
+
+    if (user?.is_admin || user?.is_superadmin) {
+      baseItems.push({
+        key: 'system',
+        icon: <SettingOutlined />,
+        label: '系统管理',
+        path: '/admin/system',
+      });
+    }
+
+    // 根据租户模块配置动态生成菜单
+    const enabledModules = tenantModules.filter(module => module.is_enabled && module.is_visible);
+    
+    // 生产管理模块
+    const productionModule = enabledModules.find(m => m.category === 'production');
+    if (productionModule) {
+      baseItems.push({
+        key: 'production',
+        icon: <LaptopOutlined />,
+        label: '生产管理',
+        children: [
+          {
+            key: 'schedule',
+            label: '生产计划',
+            path: '/production/schedule',
+          },
+          {
+            key: 'monitor',
+            label: '生产监控',
+            path: '/production/monitor',
+          },
+        ],
+      });
+    }
+
+    // 销售管理模块
+    const salesModule = enabledModules.find(m => m.category === 'sales');
+    if (salesModule) {
+      baseItems.push({
+        key: 'salesManagement',
+        icon: <ShoppingOutlined />,
+        label: '销售管理',
+        path: '/business/sales-management',
+      });
+    }
+
+    // 仓库管理模块
+    const warehouseModule = enabledModules.find(m => m.category === 'warehouse');
+    if (warehouseModule) {
+      baseItems.push({
+        key: 'warehouseManagement',
+        icon: <DatabaseOutlined />,
+        label: '仓库管理',
+        children: [
+          {
+            key: 'inventoryOverview',
+            icon: <BarChartOutlined />, 
+            label: '库存总览',
+            path: '/business/inventory-overview',
+          },
+          {
+            key: 'materialWarehouse',
+            icon: <InboxOutlined />, 
+            label: '材料仓库',
+            path: '/business/material-warehouse',
+          },
+          {
+            key: 'finishedGoodsWarehouse',
+            icon: <ContainerOutlined />, 
+            label: '成品仓库',
+            path: '/business/finished-goods-warehouse',
+          },
+        ],
+      });
+    }
+
+    // 基础档案模块
+    const masterDataModule = enabledModules.find(m => m.category === 'master_data');
+    if (masterDataModule) {
+      baseItems.push({
+        key: 'baseArchive',
+        icon: <AppstoreOutlined />,
+        label: '基础档案',
+        children: [
+          {
+            key: 'baseData',
+            label: '基础数据',
+            path: '/base-archive/base-data',
+          },
+          {
+            key: 'productionData',
+            label: '生产档案',
+            path: '/base-archive/production-data',
+          },
+          {
+            key: 'financialManagement',
+            label: '财务管理',
+            path: '/base-archive/financial-management',
+          },
+        ],
+      });
+    }
+
+    return baseItems;
+  };
+
+  const menuItems = generateMenuItems();
   
   // User dropdown menu items
   const userMenuItems = [
@@ -340,6 +409,7 @@ const MainLayout = ({ children }) => {
     };
 
     const path = findPath(menuItems);
+    
     if (path) {
       navigate(path);
     }
@@ -377,14 +447,18 @@ const MainLayout = ({ children }) => {
     
     // First try exact match
     let key = findMenuKey(menuItems, pathname);
-    if (key) return key;
+    if (key) {
+      return key;
+    }
     
     // Then try partial matches for nested paths
     const pathSegments = pathname.split('/');
     for (let i = pathSegments.length; i > 0; i--) {
       const partialPath = pathSegments.slice(0, i).join('/');
       key = findMenuKey(menuItems, partialPath);
-      if (key) return key;
+      if (key) {
+        return key;
+      }
     }
     
     return 'dashboard';
@@ -477,8 +551,8 @@ const MainLayout = ({ children }) => {
                   icon={<UserOutlined />} 
                 />
                 <span className="username">
-                  {user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email : '管理员'}
-                  {tenant && <small style={{ display: 'block', fontSize: '12px' }}>{tenant.name}</small>}
+                  {user ? (user.first_name || user.last_name ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : user.email) : '管理员'}
+                  {tenant && <small style={{ display: 'block', fontSize: '12px', color: '#666' }}>{tenant.name}</small>}
                 </span>
               </UserInfo>
             </Dropdown>
@@ -488,7 +562,7 @@ const MainLayout = ({ children }) => {
         {/* Page content */}
         <ContentWrapper>
           <ContentContainer>
-            {children}
+            <Outlet />
           </ContentContainer>
         </ContentWrapper>
       </MainContentLayout>

@@ -40,8 +40,8 @@ class ModuleService:
             default_config=default_config
         )
         
-        self.get_session().add(module)
-        self.get_session().commit()
+        db.session.add(module)
+        db.session.commit()
         return module
     
     @staticmethod
@@ -75,14 +75,14 @@ class ModuleService:
             default_value=default_value
         )
         
-        self.get_session().add(field)
-        self.get_session().commit()
+        db.session.add(field)
+        db.session.commit()
         return field
     
     @staticmethod
     def get_available_modules(tenant_id: Optional[str] = None) -> List[Dict]:
         """获取可用的模块列表"""
-        query = self.get_session().query(SystemModule).filter(SystemModule.is_active == True)
+        query = db.session.query(SystemModule).filter(SystemModule.is_active == True)
         modules = query.order_by(SystemModule.sort_order).all()
         
         result = []
@@ -102,7 +102,7 @@ class ModuleService:
             
             # 如果指定了租户，添加租户配置信息
             if tenant_id:
-                tenant_module = self.get_session().query(TenantModule).filter(
+                tenant_module = db.session.query(TenantModule).filter(
                     TenantModule.tenant_id == uuid.UUID(tenant_id),
                     TenantModule.module_id == module.id
                 ).first()
@@ -138,7 +138,7 @@ class ModuleService:
     ) -> TenantModule:
         """配置租户模块"""
         # 检查是否已存在配置
-        existing = self.get_session().query(TenantModule).filter(
+        existing = db.session.query(TenantModule).filter(
             TenantModule.tenant_id == uuid.UUID(tenant_id),
             TenantModule.module_id == uuid.UUID(module_id)
         ).first()
@@ -153,7 +153,7 @@ class ModuleService:
                 existing.configured_by = uuid.UUID(configured_by)
             existing.configured_at = db.func.now()
             
-            self.get_session().commit()
+            db.session.commit()
             return existing
         else:
             # 创建新配置
@@ -167,14 +167,14 @@ class ModuleService:
                 configured_by=uuid.UUID(configured_by) if configured_by else None
             )
             
-            self.get_session().add(tenant_module)
-            self.get_session().commit()
+            db.session.add(tenant_module)
+            db.session.commit()
             return tenant_module
     
     @staticmethod
     def get_module_fields(module_id: str, tenant_id: Optional[str] = None) -> List[Dict]:
         """获取模块字段列表"""
-        query = self.get_session().query(ModuleField).filter(
+        query = db.session.query(ModuleField).filter(
             ModuleField.module_id == uuid.UUID(module_id)
         ).order_by(ModuleField.sort_order)
         
@@ -198,7 +198,7 @@ class ModuleService:
             
             # 如果指定了租户，添加租户字段配置
             if tenant_id:
-                tenant_config = self.get_session().query(TenantFieldConfig).filter(
+                tenant_config = db.session.query(TenantFieldConfig).filter(
                     TenantFieldConfig.tenant_id == uuid.UUID(tenant_id),
                     TenantFieldConfig.field_id == field.id
                 ).first()
@@ -261,13 +261,13 @@ class ModuleService:
     ) -> TenantFieldConfig:
         """配置租户字段"""
         # 检查是否已存在配置
-        existing = self.get_session().query(TenantFieldConfig).filter(
+        existing = db.session.query(TenantFieldConfig).filter(
             TenantFieldConfig.tenant_id == uuid.UUID(tenant_id),
             TenantFieldConfig.field_id == uuid.UUID(field_id)
         ).first()
         
         # 获取原始字段信息
-        field = self.get_session().query(ModuleField).get(uuid.UUID(field_id))
+        field = db.session.query(ModuleField).get(uuid.UUID(field_id))
         if not field:
             raise ValueError("Field not found")
         
@@ -298,7 +298,7 @@ class ModuleService:
                 existing.configured_by = uuid.UUID(configured_by)
             existing.configured_at = db.func.now()
             
-            self.get_session().commit()
+            db.session.commit()
             return existing
         else:
             # 创建新配置
@@ -321,8 +321,8 @@ class ModuleService:
                 configured_by=uuid.UUID(configured_by) if configured_by else None
             )
             
-            self.get_session().add(config)
-            self.get_session().commit()
+            db.session.add(config)
+            db.session.commit()
             return config
 
 
@@ -354,8 +354,8 @@ class TenantExtensionService:
             created_by=uuid.UUID(created_by) if created_by else None
         )
         
-        self.get_session().add(extension)
-        self.get_session().commit()
+        db.session.add(extension)
+        db.session.commit()
         return extension
     
     @staticmethod
@@ -365,7 +365,7 @@ class TenantExtensionService:
         module_id: Optional[str] = None
     ) -> List[Dict]:
         """获取租户扩展列表"""
-        query = self.get_session().query(TenantExtension).filter(
+        query = db.session.query(TenantExtension).filter(
             TenantExtension.tenant_id == uuid.UUID(tenant_id),
             TenantExtension.is_active == True
         )
@@ -403,7 +403,7 @@ class TenantExtensionService:
         is_active: Optional[bool] = None
     ) -> TenantExtension:
         """更新租户扩展"""
-        extension = self.get_session().query(TenantExtension).get(uuid.UUID(extension_id))
+        extension = db.session.query(TenantExtension).get(uuid.UUID(extension_id))
         if not extension:
             raise ValueError("Extension not found")
         
@@ -420,7 +420,7 @@ class TenantExtensionService:
             extension.is_active = is_active
         
         extension.updated_at = db.func.now()
-        self.get_session().commit()
+        db.session.commit()
         return extension
 
 
@@ -431,23 +431,23 @@ class TenantConfigService:
     def get_tenant_config_summary(tenant_id: str) -> Dict:
         """获取租户配置概要"""
         # 获取已启用的模块
-        enabled_modules = self.get_session().query(TenantModule).filter(
+        enabled_modules = db.session.query(TenantModule).filter(
             TenantModule.tenant_id == uuid.UUID(tenant_id),
             TenantModule.is_enabled == True
         ).count()
         
         # 获取总模块数
-        total_modules = self.get_session().query(SystemModule).filter(
+        total_modules = db.session.query(SystemModule).filter(
             SystemModule.is_active == True
         ).count()
         
         # 获取自定义字段配置数
-        custom_field_configs = self.get_session().query(TenantFieldConfig).filter(
+        custom_field_configs = db.session.query(TenantFieldConfig).filter(
             TenantFieldConfig.tenant_id == uuid.UUID(tenant_id)
         ).count()
         
         # 获取扩展数
-        extensions = self.get_session().query(TenantExtension).filter(
+        extensions = db.session.query(TenantExtension).filter(
             TenantExtension.tenant_id == uuid.UUID(tenant_id),
             TenantExtension.is_active == True
         ).count()
@@ -464,7 +464,7 @@ class TenantConfigService:
     def initialize_tenant_modules(tenant_id: str, user_id: str) -> Dict:
         """为新租户初始化默认模块配置"""
         # 获取所有核心模块
-        core_modules = self.get_session().query(SystemModule).filter(
+        core_modules = db.session.query(SystemModule).filter(
             SystemModule.is_active == True,
             SystemModule.is_core == True
         ).all()
@@ -472,7 +472,7 @@ class TenantConfigService:
         initialized_count = 0
         for module in core_modules:
             # 检查是否已存在配置
-            existing = self.get_session().query(TenantModule).filter(
+            existing = db.session.query(TenantModule).filter(
                 TenantModule.tenant_id == uuid.UUID(tenant_id),
                 TenantModule.module_id == module.id
             ).first()
@@ -486,10 +486,10 @@ class TenantConfigService:
                     custom_config=module.default_config,
                     configured_by=uuid.UUID(user_id)
                 )
-                self.get_session().add(tenant_module)
+                db.session.add(tenant_module)
                 initialized_count += 1
         
-        self.get_session().commit()
+        db.session.commit()
         
         return {
             'initialized_modules': initialized_count,
@@ -500,7 +500,7 @@ class TenantConfigService:
     def export_tenant_config(tenant_id: str) -> Dict:
         """导出租户配置"""
         # 导出模块配置
-        tenant_modules = self.get_session().query(TenantModule).filter(
+        tenant_modules = db.session.query(TenantModule).filter(
             TenantModule.tenant_id == uuid.UUID(tenant_id)
         ).all()
         
@@ -515,7 +515,7 @@ class TenantConfigService:
             })
         
         # 导出字段配置
-        field_configs = self.get_session().query(TenantFieldConfig).filter(
+        field_configs = db.session.query(TenantFieldConfig).filter(
             TenantFieldConfig.tenant_id == uuid.UUID(tenant_id)
         ).all()
         

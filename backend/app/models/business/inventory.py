@@ -2340,7 +2340,7 @@ class MaterialCountPlan(TenantModel):
 
 class MaterialCountRecord(TenantModel):
     """
-    材料盘点记录表（简化版）
+    材料盘点记录表
     """
     
     __tablename__ = 'material_count_records'

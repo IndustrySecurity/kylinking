@@ -114,8 +114,8 @@ def admin_login():
     if not user.is_active:
         return jsonify({"message": "Account is inactive"}), 403
     
-    if not user.is_admin and not user.is_superadmin:
-        return jsonify({"message": "Admin privileges required"}), 403
+    if not user.is_superadmin:
+        return jsonify({"message": "Superadmin privileges required"}), 403
     
     # 更新最后登录时间
     user.last_login_at = datetime.now()
@@ -264,6 +264,76 @@ def get_user_info():
             "is_superadmin": user.is_superadmin,
             "tenant_id": str(user.tenant_id) if user.tenant_id else None,
             "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None
+        }
+    }), 200
+
+
+@auth_bp.route('/change-password', methods=['PUT'])
+@jwt_required()
+def change_password():
+    """
+    修改密码
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.filter_by(id=current_user_id).first()
+    
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    
+    data = request.json
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    
+    if not current_password or not new_password:
+        return jsonify({"message": "Current password and new password are required"}), 400
+    
+    # 验证当前密码
+    if not user.check_password(current_password):
+        return jsonify({"message": "Current password is incorrect"}), 400
+    
+    # 验证新密码长度
+    if len(new_password) < 6:
+        return jsonify({"message": "New password must be at least 6 characters long"}), 400
+    
+    # 设置新密码
+    user.set_password(new_password)
+    db.session.commit()
+    
+    return jsonify({"message": "Password changed successfully"}), 200
+
+
+@auth_bp.route('/profile', methods=['PUT'])
+@jwt_required()
+def update_profile():
+    """
+    更新个人信息
+    """
+    current_user_id = get_jwt_identity()
+    user = User.query.filter_by(id=current_user_id).first()
+    
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    
+    data = request.json
+    
+    # 只更新现有字段
+    if 'first_name' in data:
+        user.first_name = data['first_name']
+    if 'last_name' in data:
+        user.last_name = data['last_name']
+    
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Profile updated successfully",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_admin": user.is_admin,
+            "is_superadmin": user.is_superadmin,
+            "tenant_id": str(user.tenant_id) if user.tenant_id else None
         }
     }), 200
 

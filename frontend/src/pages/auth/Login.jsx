@@ -127,19 +127,33 @@ const Login = () => {
       // 记录登录尝试
       message.loading('正在登录...', 0);
       
-      // 选择合适的登录端点
+      // 根据登录模式选择合适的登录端点
       const endpoint = loginMode === 'admin' ? '/auth/admin-login' : '/auth/login';
+      
+      // 调用登录API
       const result = await api.login(values.email, values.password, currentTenant?.slug, endpoint);
       
       message.destroy();
       
       if (result && result.access_token) {
-        message.success('登录成功！');
+        // 验证用户权限与登录模式是否匹配
+        const user = result.user;
         
-        // 登录成功后导航到合适的页面
-        if (loginMode === 'admin' || result.user.is_admin) {
+        if (loginMode === 'admin') {
+          // 平台管理员登录模式：验证用户是否有超级管理员权限
+          if (!user.is_superadmin) {
+            message.error('此账号没有超级管理员权限，请使用租户登录');
+            return;
+          }
+          message.success('登录成功！');
           navigate('/dashboard');
         } else {
+          // 租户登录模式：验证用户是否为普通租户用户
+          if (user.is_superadmin) {
+            message.error('超级管理员请使用平台管理员登录入口');
+            return;
+          }
+          message.success('登录成功！');
           navigate('/dashboard');
         }
       } else {
@@ -156,7 +170,11 @@ const Login = () => {
             message.error('用户名或密码错误');
             break;
           case 403:
-            message.error('账户已被禁用');
+            if (loginMode === 'admin') {
+              message.error('此账号没有管理员权限，请使用租户登录');
+            } else {
+              message.error('账户已被禁用或无访问权限');
+            }
             break;
           case 429:
             message.error('登录尝试次数过多，请稍后再试');

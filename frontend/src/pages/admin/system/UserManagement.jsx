@@ -60,27 +60,26 @@ const UserManagement = ({ tenant, userRole }) => {
     }
   }, [tenant?.id]); // Only depend on tenant ID, not the entire object
 
-  // Fetch users list with pagination
-  const fetchUsers = async (page = 1, pageSize = 10) => {
-    if (!tenant?.id || loading) return;
+  // 获取用户列表
+  const fetchUsers = async () => {
+    if (loading) return;
     
     setLoading(true);
+    
     try {
-      // 添加延迟以减少API调用频率
-      await sleep(500);
-      
+      // 使用API调用获取用户列表
       const response = await api.get(`/admin/tenants/${tenant.id}/users`, {
         params: {
-          page,
-          per_page: pageSize
+          page: pagination.current,
+          per_page: pagination.pageSize
         }
       });
       
       const { users, total, pages } = response.data;
       setUsers(users);
       setPagination({
-        current: page,
-        pageSize: pageSize,
+        current: pagination.current,
+        pageSize: pagination.pageSize,
         total,
         pages
       });
@@ -97,8 +96,7 @@ const UserManagement = ({ tenant, userRole }) => {
     
     setRolesLoading(true);
     try {
-      // 添加延迟以减少API调用频率
-      await sleep(600);
+      // 在真实环境中，应该使用API调用获取用户列表
       
       const response = await api.get(`/admin/tenants/${tenant.id}/roles`);
       setRoles(response.data.roles);
@@ -110,8 +108,13 @@ const UserManagement = ({ tenant, userRole }) => {
   };
 
   // Handle table change (pagination, filters, sorter)
-  const handleTableChange = (pagination) => {
-    fetchUsers(pagination.current, pagination.pageSize);
+  const handleTableChange = (newPagination) => {
+    setPagination(prev => ({
+      ...prev,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize
+    }));
+    fetchUsers();
   };
 
   // Open modal for creating a new user
@@ -151,8 +154,6 @@ const UserManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
-      await sleep(300); // 添加延迟
-      
       if (currentUser) {
         // Update existing user
         await api.put(`/admin/tenants/${tenant.id}/users/${currentUser.id}`, values);
@@ -164,11 +165,7 @@ const UserManagement = ({ tenant, userRole }) => {
       }
       
       setModalVisible(false);
-      
-      // 延迟重新加载数据
-      setTimeout(() => {
-        fetchUsers(pagination.current, pagination.pageSize);
-      }, 500);
+      fetchUsers();
     } catch (error) {
       message.error('操作失败: ' + (error.response?.data?.message || error.message));
     }
@@ -178,8 +175,6 @@ const UserManagement = ({ tenant, userRole }) => {
   const handlePasswordReset = async () => {
     try {
       const values = await passwordForm.validateFields();
-      
-      await sleep(300); // 添加延迟
       
       await api.post(`/admin/tenants/${tenant.id}/users/${currentUser.id}/reset-password`, {
         password: values.password
@@ -195,15 +190,10 @@ const UserManagement = ({ tenant, userRole }) => {
   // Toggle user active status
   const toggleUserStatus = async (user) => {
     try {
-      await sleep(300); // 添加延迟
-      
       await api.patch(`/admin/tenants/${tenant.id}/users/${user.id}/toggle-status`);
       message.success(`用户状态已${user.is_active ? '禁用' : '启用'}`);
       
-      // 延迟重新加载数据
-      setTimeout(() => {
-        fetchUsers(pagination.current, pagination.pageSize);
-      }, 500);
+      fetchUsers();
     } catch (error) {
       message.error('操作失败');
     }
@@ -212,15 +202,10 @@ const UserManagement = ({ tenant, userRole }) => {
   // Delete user
   const deleteUser = async (user_id) => {
     try {
-      await sleep(300); // 添加延迟
-      
       await api.delete(`/admin/tenants/${tenant.id}/users/${user_id}/delete`);
       message.success('用户删除成功');
       
-      // 延迟重新加载数据
-      setTimeout(() => {
-        fetchUsers(pagination.current, pagination.pageSize);
-      }, 500);
+      fetchUsers();
     } catch (error) {
       message.error('删除用户失败: ' + (error.response?.data?.message || error.message));
     }
@@ -238,7 +223,7 @@ const UserManagement = ({ tenant, userRole }) => {
       title: '姓名',
       key: 'name',
       render: (_, record) => (
-        <span>{[record.first_name, record.last_name].filter(Boolean).join(' ') || '-'}</span>
+        <span>{[record.first_name, record.last_name].filter(Boolean).join('') || '-'}</span>
       ),
     },
     {
@@ -402,16 +387,16 @@ const UserManagement = ({ tenant, userRole }) => {
           
           <Form.Item
             name="first_name"
-            label="名"
+            label="姓"
           >
-            <Input placeholder="请输入名" />
+            <Input placeholder="请输入姓" />
           </Form.Item>
           
           <Form.Item
             name="last_name"
-            label="姓"
+            label="名"
           >
-            <Input placeholder="请输入姓" />
+            <Input placeholder="请输入名" />
           </Form.Item>
           
           <Form.Item

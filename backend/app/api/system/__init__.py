@@ -9,15 +9,17 @@ def system_health():
     return {
         'status': 'ok',
         'message': '系统API模块运行正常',
-        'modules': ['column_configuration']
+        'modules': ['column_configuration', 'dynamic_fields']
     }
 
 # 注册子蓝图
 try:
     from .column_configuration import column_config_bp
+    from .dynamic_fields import dynamic_fields_bp
     
     # 注册子蓝图
     system_bp.register_blueprint(column_config_bp, url_prefix='/column-config')
+    system_bp.register_blueprint(dynamic_fields_bp, url_prefix='/dynamic-fields')
     
     print("✅ 系统子蓝图注册成功")
     

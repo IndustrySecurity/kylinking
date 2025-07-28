@@ -14,12 +14,10 @@ import {
   Col,
   Form,
   Tooltip,
-  Modal,
-  Tabs,
-  Divider,
-  Checkbox,
   Drawer,
-  Badge
+  Badge,
+  DatePicker,
+  Select
 } from 'antd';
 import {
   PlusOutlined,
@@ -35,12 +33,17 @@ import {
 } from '@ant-design/icons';
 import { customerCategoryApi } from '../../../api/base-archive/base-category/customerCategory';
 import { columnConfigurationApi } from '../../../api/system/columnConfiguration';
+import dynamicFieldsApi from '../../../api/system/dynamicFields';
 import { authApi } from '../../../api/auth';
-import { useAutoScroll } from '../../../hooks/useAutoScroll';
+import FieldManager from '../../../components/common/FieldManager';
+import DynamicForm from '../../../components/common/DynamicForm';
+import PageFieldManager from '../../../components/common/PageFieldManager';
+import PageDynamicForm from '../../../components/common/PageDynamicForm';
+import ColumnSettings from '../../../components/common/ColumnSettings';
+import DynamicFormModal from '../../../components/common/DynamicFormModal';
 
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 
 // 简化的列头组件
 const SimpleColumnHeader = ({ children, moveKey, onMove, ...restProps }) => (
@@ -52,6 +55,7 @@ const SimpleColumnHeader = ({ children, moveKey, onMove, ...restProps }) => (
 const CustomerCategoryManagement = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false); // 添加初始化状态
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
@@ -70,7 +74,6 @@ const CustomerCategoryManagement = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [currentRecord, setCurrentRecord] = useState(null);
-  const [activeTab, setActiveTab] = useState('basic');
 
   // 列配置状态
   const [columnConfig, setColumnConfig] = useState({});
@@ -79,13 +82,16 @@ const CustomerCategoryManagement = () => {
   const [columnSettingOrder, setColumnSettingOrder] = useState([]);
   const [columnSettingVisible, setColumnSettingVisible] = useState(false);
 
-  // 自动滚动功能
-  const { scrollContainerRef, setDropEffect, handleDragStart, handleDragEnd } = useAutoScroll();
+  // 动态字段状态
+  const [dynamicFields, setDynamicFields] = useState([]);
+  const [dynamicFieldValues, setDynamicFieldValues] = useState({});
+  const [fieldManagerVisible, setFieldManagerVisible] = useState(false);
+  const [tableKey, setTableKey] = useState(0); // 用于强制表格重新渲染
   
 
 
   // 字段分组定义
-  const fieldGroups = {
+  const [fieldGroups, setFieldGroups] = useState({
     basic: {
       title: '基本信息',
       icon: '👥',
@@ -96,33 +102,53 @@ const CustomerCategoryManagement = () => {
       icon: '📝',
       fields: ['created_by_name', 'created_at', 'updated_by_name', 'updated_at']
     }
-  };
+    // 动态字段分组将在运行时动态添加
+  });
 
   // 字段配置
-  const fieldConfig = {
-    category_name: { title: '分类名称', width: 150, required: true },
-    category_code: { title: '分类编码', width: 120 },
-    description: { title: '描述', width: 200 },
-    sort_order: { title: '显示排序', width: 100 },
-    is_enabled: { title: '是否启用', width: 100 },
-    created_by_name: { title: '创建人', width: 100 },
-    created_at: { title: '创建时间', width: 150 },
-    updated_by_name: { title: '修改人', width: 100 },
-    updated_at: { title: '修改时间', width: 150 },
-    action: { title: '操作', width: 120, fixed: 'right' }
-  };
+  const [fieldConfig, setFieldConfig] = useState({
+    category_name: { title: '分类名称', width: 150, required: true, display_order: 1 },
+    is_enabled: { title: '是否启用', width: 100, display_order: 2 },
+    category_code: { title: '分类编码', width: 120, display_order: 3 },
+    description: { title: '描述', width: 200, display_order: 4 },
+    sort_order: { title: '显示排序', width: 100, display_order: 5 },
+    created_by_name: { title: '创建人', width: 100, display_order: 6 },
+    created_at: { title: '创建时间', width: 150, display_order: 7 },
+    updated_by_name: { title: '修改人', width: 100, display_order: 8 },
+    updated_at: { title: '修改时间', width: 150, display_order: 9 },
+    action: { title: '操作', width: 120, fixed: 'right', display_order: 999 }
+  });
 
 
 
   // 获取表单中应该显示的字段
+  // 全局防御 .filter/.map/.forEach 报错
+  // 1. getVisibleFormFields
   const getVisibleFormFields = () => {
+    if (!fieldConfig) return [];
+    
+    // 获取基础字段
+    const baseFields = Object.keys(fieldConfig || {}).filter(key => key !== 'action');
+    
+    // 获取动态字段
+    const dynamicFieldNames = Array.isArray(dynamicFields) ? dynamicFields.map(field => field.field_name) : [];
+    
+    // 合并所有字段
+    const allFields = [...baseFields, ...dynamicFieldNames];
+    
     // 如果列配置为空，显示所有字段
-    if (Object.keys(columnConfig).length === 0) {
-      return Object.keys(fieldConfig).filter(key => key !== 'action');
+    if (Object.keys(columnConfig || {}).length === 0) {
+      return allFields;
     }
     
     // 根据列配置过滤字段，只显示被勾选的字段
-    return Object.keys(fieldConfig).filter(key => {
+    return allFields.filter(key => {
+      // 动态字段始终显示（除非明确隐藏）
+      if (dynamicFieldNames.includes(key)) {
+        return !(key in (columnConfig || {})) || columnConfig[key] === true;
+      }
+      
+      // 基础字段的处理
       if (key === 'action') return false;
       
       // 必填字段始终显示，不能被隐藏
@@ -132,50 +158,13 @@ const CustomerCategoryManagement = () => {
       }
       
       // 如果配置中没有明确设置为false，则显示
-      return !(key in columnConfig) || columnConfig[key] === true;
+      return !(key in (columnConfig || {})) || columnConfig[key] === true;
     });
   };
 
-  // 获取默认激活的分页
-  const getDefaultActiveTab = () => {
-    // 检查基本信息分组是否有可见字段
-    const basicFields = fieldGroups.basic.fields;
-    const visibleBasicFields = basicFields.filter(field => 
-      getVisibleFormFields().includes(field)
-    );
-    
-    // 如果基本信息分组有可见字段，返回 'basic'
-    if (visibleBasicFields.length > 0) {
-      return 'basic';
-    }
-    
-    // 否则找到第一个有可见字段的分组
-    for (const [groupKey, group] of Object.entries(fieldGroups)) {
-      const visibleFields = group.fields.filter(field => 
-        getVisibleFormFields().includes(field)
-      );
-      if (visibleFields.length > 0) {
-        return groupKey;
-      }
-    }
-    
-    // 如果所有分组都没有可见字段，返回 'basic'
-    return 'basic';
-  };
 
-  // 获取当前激活分页的可见字段数量
-  const getActiveTabVisibleFieldCount = () => {
-    if (!activeTab || !fieldGroups[activeTab]) {
-      return 0;
-    }
-    
-    const groupFields = fieldGroups[activeTab].fields;
-    const visibleFields = groupFields.filter(field => 
-      getVisibleFormFields().includes(field)
-    );
-    
-    return visibleFields.length;
-  };
+
+
 
   // 获取显示的列
   const getVisibleColumns = () => {
@@ -183,17 +172,28 @@ const CustomerCategoryManagement = () => {
     const defaultColumnOrder = [
       'category_name', 'category_code', 'description', 'sort_order', 'is_enabled',
       'created_by_name', 'created_at', 'updated_by_name', 'updated_at', 'action'
-    ];
+    ].sort((a, b) => {
+      const configA = fieldConfig[a];
+      const configB = fieldConfig[b];
+      const orderA = configA?.display_order || 0;
+      const orderB = configB?.display_order || 0;
+      return orderA - orderB;
+    });
     
-    const allPossibleColumns = Object.keys(fieldConfig);
+    const baseFields = Object.keys(fieldConfig || {});
+    const dynamicFieldNames = Array.isArray(dynamicFields) ? dynamicFields.map(field => field.field_name) : [];
+    const allPossibleColumns = [...baseFields];
+    
+
+    
     let visible;
     
-    if (Object.keys(columnConfig).length === 0) {
+    if (Object.keys(columnConfig || {}).length === 0) {
       // 如果配置为空，显示所有字段（除了action）
       visible = allPossibleColumns.filter(key => key !== 'action');
     } else {
       // 根据配置过滤可见字段
-      visible = allPossibleColumns.filter(key => !(key in columnConfig) || columnConfig[key] === true);
+      visible = allPossibleColumns.filter(key => !(key in (columnConfig || {})) || columnConfig[key] === true);
     }
     
     // 强制显示必填字段和操作列
@@ -206,9 +206,18 @@ const CustomerCategoryManagement = () => {
       }
     });
     
+    // 强制显示必填的动态字段（只处理在fieldConfig中存在的字段）
+    if (Array.isArray(dynamicFields)) {
+      dynamicFields.forEach(field => {
+        if (field.is_required && fieldConfig[field.field_name] && !visible.includes(field.field_name)) {
+          visible.push(field.field_name);
+        }
+      });
+    }
+    
     let finalOrder = [];
     
-    if (columnOrder.length > 0) {
+    if (Array.isArray(columnOrder) && columnOrder.length > 0) {
       columnOrder.forEach(key => {
         if (visible.includes(key)) {
           finalOrder.push(key);
@@ -227,6 +236,13 @@ const CustomerCategoryManagement = () => {
         }
       });
       
+      // 添加动态字段到默认顺序（只处理在fieldConfig中存在的字段）
+      dynamicFieldNames.forEach(key => {
+        if (visible.includes(key) && fieldConfig[key] && !finalOrder.includes(key)) {
+          finalOrder.push(key);
+        }
+      });
+      
       visible.forEach(key => {
         if (!finalOrder.includes(key)) {
           finalOrder.push(key);
@@ -239,7 +255,7 @@ const CustomerCategoryManagement = () => {
       finalOrder.push('action');
     }
     
-    return finalOrder.filter(key => fieldConfig[key]);
+    return finalOrder.filter(key => (fieldConfig || {})[key]);
   };
 
 
@@ -248,46 +264,134 @@ const CustomerCategoryManagement = () => {
 
   // 加载数据
   const loadData = async (params = {}) => {
+    // 只有在非初始化状态下才设置loading
+    if (initialized) {
     setLoading(true);
+    }
+    
     try {
-      const response = await customerCategoryApi.getCustomerCategories({
-        page: pagination.current,
-        per_page: pagination.pageSize,
-        search: searchText,
-        ...params
-      });
+      const response = await customerCategoryApi.getCustomerCategories(params);
+      if (response.data && response.data.success) {
+        // 确保数据是数组格式
+        let data = [];
 
-      // 正确处理后端响应格式
-      if (response.data.success) {
-        const { customer_categories, total, current_page } = response.data.data;
+        // 处理不同的响应格式
+        if (response.data.data) {
+          if (Array.isArray(response.data.data)) {
+            data = response.data.data;
+          } else if (response.data.data.customer_categories && Array.isArray(response.data.data.customer_categories)) {
+            data = response.data.data.customer_categories;
+          } else {
+            console.warn('响应数据格式异常:', response.data.data);
+            data = [];
+          }
+        }
         
-        // 为每行数据添加key
-        const dataWithKeys = customer_categories.map((item, index) => ({
+        // 确保每个记录都有key
+        data = data.map((item, index) => ({
           ...item,
           key: item.id || `temp_${index}`
         }));
         
-        setData(dataWithKeys);
+        // 如果有计算字段，计算字段值
+        if (Array.isArray(dynamicFields) && dynamicFields.length > 0) {
+          const calculatedFields = dynamicFields.filter(field => field.is_calculated);
+          if (calculatedFields.length > 0) {
+            // 这里可以调用后端API来计算字段值，或者在前端计算
+            // 为了简单起见，我们先在前端计算
+            for (const record of data) {
+              for (const field of calculatedFields) {
+                if (field.calculation_formula) {
+                  try {
+                    // 简单的公式计算（实际项目中应该在后端计算）
+                    const result = calculateFieldValue(field.calculation_formula, record);
+                    record[field.field_name] = result;
+                  } catch (error) {
+                    console.error(`计算字段 ${field.field_name} 时出错:`, error);
+                    record[field.field_name] = null;
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        setData(data);
         setPagination(prev => ({
           ...prev,
-          total,
-          current: current_page
+          total: response.data.total || data.length,
+          current: params.page || 1
         }));
+      } else {
+        console.warn('API响应格式异常:', response);
+        setData([]);
       }
     } catch (error) {
-      message.error('加载数据失败：' + (error.response?.data?.error || error.message));
+      console.error('加载数据失败:', error);
+      message.error('加载数据失败');
+      setData([]); // 确保出错时设置为空数组
     } finally {
+      if (initialized) {
       setLoading(false);
+    }
     }
   };
 
-  // 加载列配置
+  // 简单的字段值计算函数（实际项目中应该在后端实现）
+  const calculateFieldValue = (formula, record) => {
+    try {
+      // 创建安全的计算环境，避免使用 JavaScript 关键字
+      const safeGlobals = {
+        abs: Math.abs,
+        round: Math.round,
+        min: Math.min,
+        max: Math.max,
+        pow: Math.pow,
+        sqrt: Math.sqrt,
+        if_condition: (condition, trueVal, falseVal) => condition ? trueVal : falseVal,
+        concat: (...args) => args.join(''),
+        format_number: (num, precision = 2) => Number(num).toFixed(precision)
+      };
+      
+      // 将记录数据作为局部变量
+      const localVars = { ...record };
+      
+      // 预处理公式，将 if 替换为 if_condition
+      let processedFormula = formula.replace(/\bif\s*\(/g, 'if_condition(');
+      
+      // 使用 Function 构造函数，但将变量作为参数传递
+      const paramNames = [
+        ...Object.keys(safeGlobals),
+        ...Object.keys(localVars)
+      ];
+      
+      const paramValues = [
+        ...Object.values(safeGlobals),
+        ...Object.values(localVars)
+      ];
+      
+      // 创建函数体，确保所有变量都在作用域内
+      const functionBody = `return ${processedFormula};`;
+      
+      // 创建并执行函数
+      const calculateFunction = new Function(...paramNames, functionBody);
+      const result = calculateFunction(...paramValues);
+      
+      return result;
+    } catch (error) {
+      console.error('公式计算错误:', error);
+      return null;
+    }
+  };
+  
+
   const loadColumnConfig = async () => {
     try {
       // 获取列显示配置
       const configResponse = await columnConfigurationApi.getColumnConfig('customerCategory', 'column_config');
       if (configResponse.data.success && configResponse.data.data) {
-        setColumnConfig(configResponse.data.data.config_data);
+        const configData = configResponse.data.data.config_data;
+        setColumnConfig(configData);
       }
       
       // 获取列顺序配置
@@ -299,29 +403,69 @@ const CustomerCategoryManagement = () => {
       }
     } catch (error) {
       console.error('加载列配置失败:', error);
+      // 列配置加载失败不影响基础功能
     }
   };
 
-  // 移动列功能
-  const moveColumn = (dragKey, targetIndex) => {
-    const newOrder = [...columnSettingOrder];
-    const dragIndex = newOrder.indexOf(dragKey);
-    
-    if (dragIndex === -1 || dragIndex === targetIndex) return;
-    
-    // 移除拖拽项
-    newOrder.splice(dragIndex, 1);
-    
-    // 计算插入位置
-    let insertIndex = targetIndex;
-    if (dragIndex < targetIndex) {
-      // 如果从前面拖到后面，插入位置需要减1
-      insertIndex = targetIndex - 1;
+  // 加载动态字段
+  const loadDynamicFields = async () => {
+    try {
+      const response = await dynamicFieldsApi.getModelFields('customer_category');
+      if (response.data && response.data.success) {
+        const fields = response.data.data || [];
+        setDynamicFields(fields);
+        
+        // 更新字段配置，添加动态字段
+        const newFieldConfig = { ...fieldConfig };
+        
+        // 清理已不存在的动态字段
+        Object.keys(newFieldConfig).forEach(key => {
+          if (key !== 'action' && !['category_name', 'category_code', 'description', 'sort_order', 'is_enabled', 'created_by_name', 'created_at', 'updated_by_name', 'updated_at'].includes(key)) {
+            // 检查这个字段是否还在动态字段列表中
+            const fieldExists = fields.some(field => field.field_name === key);
+            if (!fieldExists) {
+              delete newFieldConfig[key];
+            }
+          }
+        });
+        
+        // 添加新的动态字段
+        fields.forEach(field => {
+          if (!newFieldConfig[field.field_name]) {
+            newFieldConfig[field.field_name] = {
+              title: field.field_label,
+              width: 150,
+              display_order: field.display_order || 999,
+              required: field.is_required || false,
+              readonly: field.is_readonly || false,
+              visible: field.is_visible !== false
+            };
+          }
+        });
+        
+        setFieldConfig(newFieldConfig);
+      }
+    } catch (error) {
+      console.error('加载动态字段失败:', error);
+      // 动态字段加载失败不影响基础功能
     }
+  };
     
-    // 插入到目标位置
-    newOrder.splice(insertIndex, 0, dragKey);
-    
+  // 加载记录的动态字段值
+  const loadRecordDynamicValues = async (recordId) => {
+    try {
+      const response = await dynamicFieldsApi.getRecordDynamicValues('customer_category', recordId);
+      if (response.data && response.data.success) {
+        return response.data.data || {};
+      }
+      return {};
+    } catch (error) {
+      return {};
+    }
+  };
+
+  // 移动列功能 - 现在由通用组件处理
+  const handleColumnOrderChange = (newOrder) => {
     setColumnSettingOrder(newOrder);
   };
 
@@ -331,10 +475,7 @@ const CustomerCategoryManagement = () => {
       // 使用封装的权限检查API
       const adminStatus = await authApi.checkAdminStatus();
       setIsAdmin(adminStatus.isAdmin);
-      
-      console.log(`用户权限检查: ${adminStatus.user.email}, is_admin=${adminStatus.user.is_admin}, is_superadmin=${adminStatus.user.is_superadmin}`);
     } catch (error) {
-      console.error('检查用户权限失败:', error);
       setIsAdmin(false);
     }
   };
@@ -342,19 +483,173 @@ const CustomerCategoryManagement = () => {
   // 初始加载
   useEffect(() => {
     const initialize = async () => {
-      await loadData();
-      await loadColumnConfig();
-      await checkUserPermission();
+      setLoading(true); // 设置加载状态
+      try {
+        // 先加载动态字段，再加载数据
+        await loadDynamicFields();
+        await Promise.all([
+          loadData(),
+          loadColumnConfig(),
+          checkUserPermission()
+        ]);
+        setInitialized(true); // 标记初始化完成
+      } catch (error) {
+        // 初始化失败不影响基础功能
+      } finally {
+        setLoading(false); // 清除加载状态
+      }
     };
     
     initialize();
   }, []);
 
-  // 监听列配置变化，自动切换分页
+
+
+  // 动态更新字段分组中的动态字段
   useEffect(() => {
-    const newActiveTab = getDefaultActiveTab();
-    setActiveTab(newActiveTab);
-  }, [columnConfig]);
+    if (Array.isArray(dynamicFields)) {
+      setFieldGroups(prev => {
+        const newGroups = { ...prev };
+        // 1. 清除旧的动态字段分组（只保留内置分组）
+        Object.keys(newGroups).forEach(key => {
+          if (key.startsWith('dynamic_')) {
+            delete newGroups[key];
+          }
+        });
+        
+        // 2. 创建已有分组的title映射
+        const titleToKeyMap = {};
+        Object.entries(newGroups).forEach(([key, group]) => {
+          titleToKeyMap[group.title] = key;
+        });
+        
+        // 3. 记录哪些自定义字段未能合并到已有分组
+        const orphanCustomTabs = {};
+        
+        // 4. 合并自定义字段到已有分组
+        dynamicFields.forEach(field => {
+          const pageName = (field.page_name || 'default').trim() || 'default';
+          // 通过title匹配已有分组
+          const matchedKey = titleToKeyMap[pageName];
+          if (matchedKey) {
+            if (!newGroups[matchedKey].fields.includes(field.field_name)) {
+              newGroups[matchedKey].fields.push(field.field_name);
+            }
+          } else {
+            // 否则记录为孤立自定义tab
+            if (!orphanCustomTabs[pageName]) {
+              orphanCustomTabs[pageName] = [];
+            }
+            orphanCustomTabs[pageName].push(field.field_name);
+          }
+        });
+        
+        // 5. 为没有分组的自定义字段新建tab
+        Object.entries(orphanCustomTabs).forEach(([pageName, fields]) => {
+          const groupKey = `dynamic_${pageName}`;
+          newGroups[groupKey] = {
+            title: pageName,
+            icon: '🔧',
+            fields: fields
+          };
+        });
+        
+        return newGroups;
+      });
+      
+      // 6. 自动将新字段添加到列设置中
+      const dynamicFieldNames = dynamicFields.map(field => field.field_name);
+      setColumnSettingOrder(prevOrder => {
+        const newOrder = Array.isArray(prevOrder) ? [...prevOrder] : [];
+        
+        // 添加新的动态字段到列设置中
+        dynamicFieldNames.forEach(fieldName => {
+          if (!newOrder.includes(fieldName)) {
+            newOrder.push(fieldName);
+          }
+        });
+        
+        return newOrder;
+      });
+      
+      // 7. 为动态字段添加配置
+      const newFieldConfig = { ...fieldConfig };
+      
+      // 先清除所有动态字段的配置（通过检查字段是否在dynamicFields中存在）
+      Object.keys(newFieldConfig).forEach(key => {
+        const isDynamicField = dynamicFields.some(field => field.field_name === key);
+        if (isDynamicField) {
+          delete newFieldConfig[key];
+        }
+      });
+      
+      // 重新添加当前存在的动态字段配置
+      dynamicFields.forEach(field => {
+        newFieldConfig[field.field_name] = {
+          title: field.field_label,
+          width: 120,
+          required: field.is_required,
+          readonly: field.is_readonly,
+          type: field.field_type,
+          options: field.field_options,
+          help_text: field.help_text,
+          default_value: field.default_value, // 添加默认值
+          display_order: field.display_order || 4.5 // 添加显示顺序，默认在描述(4)和显示排序(5)之间
+        };
+      });
+      setFieldConfig(newFieldConfig);
+    }
+  }, [dynamicFields]);
+
+  // 当动态字段加载完成后，重新加载数据以包含动态字段值
+  useEffect(() => {
+    if (Array.isArray(dynamicFields) && dynamicFields.length > 0 && initialized) {
+      loadData();
+    }
+  }, [dynamicFields, initialized]);
+
+  // 当动态字段变化时，清理已删除字段的配置
+  useEffect(() => {
+    if (initialized && Array.isArray(dynamicFields)) {
+      // 清理已删除字段的列配置（只清理动态字段，不清理基础字段）
+      setColumnConfig(prevConfig => {
+        const newConfig = { ...prevConfig };
+        Object.keys(newConfig).forEach(key => {
+          // 检查是否为动态字段且已不存在
+          const isDynamicField = dynamicFields.some(field => field.field_name === key);
+          if (isDynamicField && !fieldConfig[key]) {
+            delete newConfig[key];
+          }
+        });
+        return newConfig;
+      });
+      
+      // 清理已删除字段的列顺序配置（只清理动态字段，不清理基础字段）
+      setColumnOrder(prevOrder => {
+        if (Array.isArray(prevOrder)) {
+          return prevOrder.filter(key => {
+            // 保留基础字段，只清理不存在的动态字段
+            if (fieldConfig[key]) return true;
+            const isDynamicField = dynamicFields.some(field => field.field_name === key);
+            return isDynamicField;
+          });
+        }
+        return prevOrder;
+      });
+      
+      setColumnSettingOrder(prevOrder => {
+        if (Array.isArray(prevOrder)) {
+          return prevOrder.filter(key => {
+            // 保留基础字段，只清理不存在的动态字段
+            if (fieldConfig[key]) return true;
+            const isDynamicField = dynamicFields.some(field => field.field_name === key);
+            return isDynamicField;
+          });
+        }
+        return prevOrder;
+      });
+    }
+  }, [dynamicFields, fieldConfig, initialized]);
 
 
 
@@ -390,11 +685,48 @@ const CustomerCategoryManagement = () => {
 
 
   // 开始编辑 - 使用Modal
-  const edit = (record) => {
+  const edit = async (record) => {
     setCurrentRecord(record);
-    form.setFieldsValue({
-      ...record,
-    });
+    
+    // 设置基础字段值
+    const formValues = { ...record };
+    
+    // 加载动态字段值
+    if (Array.isArray(dynamicFields) && dynamicFields.length > 0) {
+      try {
+        // 获取所有页面的动态字段值
+        const pageNames = [...new Set(dynamicFields.map(field => {
+          const pageName = field.page_name || 'default';
+          return pageName.trim() || 'default';
+        }))];
+        
+        for (const pageName of pageNames) {
+          const response = await dynamicFieldsApi.getRecordPageValues('customer_category', pageName, record.id);
+          if (response.data && response.data.success) {
+            const pageValues = response.data.data || {};
+            Object.assign(formValues, pageValues);
+          }
+        }
+        
+        // 为没有值的动态字段设置默认值
+        dynamicFields.forEach(field => {
+          if (!(field.field_name in formValues) && field.default_value) {
+            // 根据字段类型转换默认值
+            let convertedValue = field.default_value;
+            if (field.field_type === 'number' || field.field_type === 'integer' || field.field_type === 'float') {
+              convertedValue = parseFloat(field.default_value);
+            } else if (field.field_type === 'checkbox' || field.field_type === 'boolean') {
+              convertedValue = field.default_value === 'true' || field.default_value === true;
+            }
+            formValues[field.field_name] = convertedValue;
+          }
+        });
+      } catch (error) {
+        console.error('加载动态字段值失败:', error);
+      }
+    }
+    
+    form.setFieldsValue(formValues);
     setEditModalVisible(true);
   };
 
@@ -411,14 +743,55 @@ const CustomerCategoryManagement = () => {
     try {
       const values = await form.validateFields();
       
+      // 分离基础字段和动态字段
+      const basicFields = ['category_name', 'category_code', 'description', 'sort_order', 'is_enabled'];
+      const basicValues = {};
+      const dynamicValuesByPage = {};
+      
+      Object.keys(values).forEach(key => {
+        if (basicFields.includes(key)) {
+          basicValues[key] = values[key];
+        } else {
+          // 动态字段 - 按页面分组
+          const dynamicField = Array.isArray(dynamicFields) ? dynamicFields.find(df => df.field_name === key) : null;
+          if (dynamicField) {
+            const pageName = (dynamicField.page_name || 'default').trim() || 'default';
+            if (!dynamicValuesByPage[pageName]) {
+              dynamicValuesByPage[pageName] = {};
+            }
+            dynamicValuesByPage[pageName][key] = values[key];
+          }
+        }
+      });
+      
       let response;
       if (currentRecord && currentRecord.id) {
         // 更新现有记录
-        response = await customerCategoryApi.updateCustomerCategory(currentRecord.id, values);
+        response = await customerCategoryApi.updateCustomerCategory(currentRecord.id, basicValues);
+        
+        // 保存动态字段值（按页面）
+        for (const [pageName, pageValues] of Object.entries(dynamicValuesByPage)) {
+          if (Object.keys(pageValues).length > 0) {
+            await dynamicFieldsApi.saveRecordPageValues('customer_category', pageName, currentRecord.id, pageValues);
+          }
+        }
+        
+        
         message.success('更新成功');
       } else {
         // 创建新记录
-        response = await customerCategoryApi.createCustomerCategory(values);
+        response = await customerCategoryApi.createCustomerCategory(basicValues);
+        
+        // 保存动态字段值（按页面）
+        if (response.data.success) {
+          const newRecordId = response.data.data.id;
+          for (const [pageName, pageValues] of Object.entries(dynamicValuesByPage)) {
+            if (Object.keys(pageValues).length > 0) {
+              await dynamicFieldsApi.saveRecordPageValues('customer_category', pageName, newRecordId, pageValues);
+            }
+          }
+        }
+        
         message.success('创建成功');
       }
 
@@ -443,6 +816,22 @@ const CustomerCategoryManagement = () => {
       const record = data.find(item => item.key === key);
       
       if (record.id && !record.id.startsWith('temp_')) {
+        // 删除所有页面的动态字段值
+        try {
+          const pageNames = [...new Set(dynamicFields.map(field => {
+            const pageName = field.page_name || 'default';
+            return pageName.trim() || 'default';
+          }))].filter(page => page && page.trim());
+          
+          // 删除每个页面的动态字段值
+          for (const pageName of pageNames) {
+            await dynamicFieldsApi.deleteRecordPageValues('customer_category', pageName, record.id);
+          }
+        } catch (error) {
+          // 动态字段值删除失败不影响主记录删除
+          console.warn('删除动态字段值失败:', error);
+        }
+        
         // 删除服务器记录
         const response = await customerCategoryApi.deleteCustomerCategory(record.id);
         if (response.data.success) {
@@ -451,7 +840,7 @@ const CustomerCategoryManagement = () => {
       }
       
       // 删除本地记录
-      const newData = data.filter(item => item.key !== key);
+      const newData = Array.isArray(data) ? data.filter(item => item.key !== key) : [];
       setData(newData);
     } catch (error) {
       message.error('删除失败：' + (error.response?.data?.error || error.message));
@@ -461,13 +850,33 @@ const CustomerCategoryManagement = () => {
   // 添加新行
   const handleAdd = () => {
     setCurrentRecord(null);
-    form.setFieldsValue({
+    
+    // 设置基础字段的默认值
+    const defaultValues = {
       category_name: '',
       category_code: '',
       description: '',
       sort_order: 0,
       is_enabled: true,
-    });
+    };
+    
+    // 为动态字段设置默认值
+    if (Array.isArray(dynamicFields)) {
+      dynamicFields.forEach(field => {
+        if (field.default_value) {
+          // 根据字段类型转换默认值
+          let convertedValue = field.default_value;
+          if (field.field_type === 'number' || field.field_type === 'integer' || field.field_type === 'float') {
+            convertedValue = parseFloat(field.default_value);
+          } else if (field.field_type === 'checkbox' || field.field_type === 'boolean') {
+            convertedValue = field.default_value === 'true' || field.default_value === true;
+          }
+          defaultValues[field.field_name] = convertedValue;
+        }
+      });
+    }
+    
+    form.setFieldsValue(defaultValues);
     setEditModalVisible(true);
   };
 
@@ -479,10 +888,13 @@ const CustomerCategoryManagement = () => {
         return;
       }
 
-      const allFields = Object.keys(fieldConfig);
+      const baseFields = Object.keys(fieldConfig || {});
+      const dynamicFieldNames = Array.isArray(dynamicFields) ? dynamicFields.map(field => field.field_name) : [];
+      const allFields = [...baseFields, ...dynamicFieldNames];
       const completeConfig = {};
       
-      allFields.forEach(field => {
+      // 处理基础字段
+      baseFields.forEach(field => {
         const fieldConfigItem = fieldConfig[field];
         // 必填字段始终设置为可见
         if (fieldConfigItem && fieldConfigItem.required) {
@@ -491,16 +903,27 @@ const CustomerCategoryManagement = () => {
           completeConfig[field] = field in config ? config[field] : true;
         }
       });
+      
+      // 处理动态字段
+      dynamicFieldNames.forEach(field => {
+        const dynamicField = dynamicFields.find(df => df.field_name === field);
+        // 必填的动态字段始终设置为可见
+        if (dynamicField && dynamicField.is_required) {
+          completeConfig[field] = true;
+        } else {
+          completeConfig[field] = field in config ? config[field] : true;
+        }
+      });
 
       let newColumnOrder = [];
       
-      if (columnSettingOrder.length > 0) {
+      if (Array.isArray(columnSettingOrder) && columnSettingOrder.length > 0) {
         columnSettingOrder.forEach(key => {
           if (completeConfig[key] === true) {
             newColumnOrder.push(key);
           }
         });
-      } else if (columnOrder.length > 0) {
+      } else if (Array.isArray(columnOrder) && columnOrder.length > 0) {
         columnOrder.forEach(key => {
           if (completeConfig[key] === true) {
             newColumnOrder.push(key);
@@ -522,6 +945,11 @@ const CustomerCategoryManagement = () => {
       setColumnSettingOrder(newColumnOrder);
       setColumnSettingVisible(false);
       message.success('列配置已保存');
+      
+      // 重新加载列配置以确保数据同步
+      setTimeout(() => {
+        loadColumnConfig();
+      }, 100);
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
       if (errorMessage && errorMessage.includes('只有管理员')) {
@@ -534,12 +962,96 @@ const CustomerCategoryManagement = () => {
 
   // 生成表格列
   const generateColumns = () => {
+    // 如果还没有初始化完成，返回基础列配置
+    if (!initialized) {
+      return [
+        {
+          title: '分类名称',
+          dataIndex: 'category_name',
+          width: 150,
+          render: (value) => <span style={{ fontWeight: 500 }}>{value || '-'}</span>,
+        },
+        {
+          title: '分类编码',
+          dataIndex: 'category_code',
+          width: 120,
+          render: (value) => value || '-',
+        },
+        {
+          title: '操作',
+          dataIndex: 'action',
+          width: 120,
+          fixed: 'right',
+          render: () => null, // 初始化期间不显示操作按钮
+        }
+      ];
+    }
+
     const visibleColumns = getVisibleColumns();
     
-    return visibleColumns.map(key => {
-      const config = fieldConfig[key];
+    // 确保 visibleColumns 是数组且不为空
+    if (!Array.isArray(visibleColumns) || visibleColumns.length === 0) {
+      console.warn('visibleColumns 不是数组或为空:', visibleColumns);
+      return [
+        {
+          title: '分类名称',
+          dataIndex: 'category_name',
+          width: 150,
+          render: (value) => <span style={{ fontWeight: 500 }}>{value || '-'}</span>,
+        },
+        {
+          title: '操作',
+          dataIndex: 'action',
+          width: 120,
+          fixed: 'right',
+          render: (_, record) => {
+            return (
+              <div style={{ display: 'flex', gap: '2px', flexWrap: 'nowrap', justifyContent: 'center' }}>
+                <Tooltip title="详情">
+                  <Button
+                    icon={<EyeOutlined />}
+                    type="link"
+                    size="small"
+                    style={{ padding: '4px', minWidth: 'auto' }}
+                    onClick={() => handleViewDetail(record)}
+                  />
+                </Tooltip>
+                <Tooltip title="编辑">
+                  <Button
+                    icon={<EditOutlined />}
+                    type="link"
+                    size="small"
+                    style={{ padding: '4px', minWidth: 'auto' }}
+                    onClick={() => edit(record)}
+                  />
+                </Tooltip>
+                <Popconfirm
+                  title="确定删除吗?"
+                  onConfirm={() => handleDelete(record.key)}
+                  okText="确定"
+                  cancelText="取消"
+                >
+                  <Tooltip title="删除">
+                    <Button
+                      icon={<DeleteOutlined />}
+                      type="link"
+                      size="small"
+                      danger
+                      style={{ padding: '4px', minWidth: 'auto' }}
+                    />
+                  </Tooltip>
+                </Popconfirm>
+              </div>
+            );
+          },
+        }
+      ];
+    }
+    
+    const allColumns = visibleColumns.map(key => {
+      // 基础字段
+      const config = (fieldConfig || {})[key];
       if (!config) return null;
-
       if (key === 'action') {
         return {
           title: config.title,
@@ -588,13 +1100,11 @@ const CustomerCategoryManagement = () => {
           },
         };
       }
-
-      // 处理特殊字段的渲染
+      // 其它基础字段渲染逻辑
       let render;
-      
       if (key === 'is_enabled') {
         render = (value) => <Switch checked={value} disabled />;
-      } else if (['created_at', 'updated_at'].includes(key)) {
+      } else if (["created_at", "updated_at"].includes(key)) {
         render = (value) => value ? new Date(value).toLocaleString() : '';
       } else if (key === 'description') {
         render = (value) => (
@@ -607,314 +1117,48 @@ const CustomerCategoryManagement = () => {
       } else {
         render = (value) => value || '-';
       }
-
-      const column = {
+      return {
         title: config.title,
         dataIndex: key,
         width: config.width,
         render,
       };
-
-      // 添加拖拽功能到列头
-      if (key !== 'action') {
-        column.onHeaderCell = () => ({
-          moveKey: key,
-          onMove: moveColumn,
-        });
-      }
-
-      return column;
     }).filter(Boolean);
+
+    return allColumns;
   };
 
 
 
 
 
-  // 渲染列设置界面
+  // 列设置组件 - 现在使用通用组件
   const renderColumnSettings = () => {
-    // 获取所有字段，按当前顺序排列
-    const allFields = Object.keys(fieldConfig).filter(key => key !== 'action');
-    
-    // 构建完整的字段列表：包含所有字段，按当前顺序排列
-    let displayFields = [];
-    
-    if (columnSettingOrder.length > 0) {
-      // 首先添加当前顺序中的字段
-      columnSettingOrder.forEach(field => {
-        if (allFields.includes(field)) {
-          displayFields.push(field);
-        }
-      });
-      
-      // 然后添加不在当前顺序中的字段（新字段或被取消勾选的字段）
-      allFields.forEach(field => {
-        if (!displayFields.includes(field)) {
-          displayFields.push(field);
-        }
-      });
-    } else {
-      // 如果没有保存的顺序，使用默认顺序
-      const defaultOrder = [
-        // 基本信息
-        'category_name', 'category_code', 'description', 'sort_order', 'is_enabled',
-        // 审计信息
-        'created_by_name', 'created_at', 'updated_by_name', 'updated_at'
-      ];
-      
-      // 按默认顺序排列
-      defaultOrder.forEach(field => {
-        if (allFields.includes(field)) {
-          displayFields.push(field);
-        }
-      });
-      
-      // 添加不在默认顺序中的字段
-      allFields.forEach(field => {
-        if (!displayFields.includes(field)) {
-          displayFields.push(field);
-        }
-      });
-    }
-    
     return (
-      <div>
-        <div style={{ marginBottom: 16 }}>
-          <Text type="secondary">
-            选择需要的字段，支持拖拽调整列顺序
-          </Text>
-        </div>
-        
-        {/* 字段列表 */}
-        <div 
-          ref={scrollContainerRef}
-          data-draggable="true"
-          style={{ 
-            maxHeight: '70vh',
-            overflowY: 'auto',
-            border: '1px solid #f0f0f0',
-            borderRadius: '4px',
-            padding: '8px',
-            position: 'relative',
-            background: 'linear-gradient(to bottom, rgba(24, 144, 255, 0.05) 0%, transparent 150px, transparent calc(100% - 150px), rgba(24, 144, 255, 0.05) 100%)'
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 强制设置拖拽效果
-            setDropEffect(e);
-          }}
-          onDragEnter={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDragLeave={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 如果拖拽到容器空白区域，添加到末尾
-            const draggedField = e.dataTransfer.getData('text/plain');
-            if (draggedField) {
-              moveColumn(draggedField, displayFields.length);
-            }
-          }}
-        >
-          {displayFields.map((field) => {
-            const config = fieldConfig[field];
-            if (!config) return null;
-            
-            // 找到字段所属的分组，用于显示分组信息
-            let groupInfo = null;
-            Object.entries(fieldGroups).forEach(([groupKey, group]) => {
-              if (group.fields.includes(field)) {
-                groupInfo = { key: groupKey, ...group };
-              }
-            });
-            
-            const isVisible = columnConfig[field] !== false;
-            
-            return (
-              <div
-                key={field}
-                data-draggable="true"
-                style={{
-                  padding: '12px',
-                  border: '1px solid #d9d9d9',
-                  borderRadius: '6px',
-                  marginBottom: '4px', // 减少间距
-                  backgroundColor: isVisible ? '#fff' : '#f5f5f5',
-                  cursor: 'grab',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.2s',
-                  opacity: isVisible ? 1 : 0.7,
-                  position: 'relative', // 为拖拽区域定位
-                  userSelect: 'none' // 防止文本选择
-                }}
-                draggable
-                onDragStart={(e) => handleDragStart(e, field)}
-                onDragEnd={(e) => handleDragEnd(e, isVisible)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  // 强制设置拖拽效果
-                  setDropEffect(e);
-                  
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const mouseY = e.clientY;
-                  const itemCenterY = rect.top + rect.height / 2;
-                  
-                  // 根据鼠标位置决定插入位置
-                  if (mouseY < itemCenterY) {
-                    // 插入到当前项之前
-                    e.currentTarget.style.borderTop = '2px solid #1890ff';
-                    e.currentTarget.style.borderBottom = '1px solid #d9d9d9';
-                  } else {
-                    // 插入到当前项之后
-                    e.currentTarget.style.borderTop = '1px solid #d9d9d9';
-                    e.currentTarget.style.borderBottom = '2px solid #1890ff';
-                  }
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.currentTarget.style.borderTop = '1px solid #d9d9d9';
-                  e.currentTarget.style.borderBottom = '1px solid #d9d9d9';
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // 重置边框样式
-                  e.currentTarget.style.borderTop = '1px solid #d9d9d9';
-                  e.currentTarget.style.borderBottom = '1px solid #d9d9d9';
-                  
-                  const draggedField = e.dataTransfer.getData('text/plain');
-                  
-                  if (draggedField !== field) {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const mouseY = e.clientY;
-                    const itemCenterY = rect.top + rect.height / 2;
-                    
-                    // 找到目标字段在当前顺序中的索引
-                    let targetIndex = displayFields.indexOf(field);
-                    
-                    // 根据鼠标位置决定插入位置
-                    if (mouseY >= itemCenterY) {
-                      // 插入到当前项之后
-                      targetIndex += 1;
-                    }
-                    // 如果鼠标在上半部分，就插入到当前项之前（targetIndex 保持不变）
-                    
-                    if (targetIndex !== -1) {
-                      moveColumn(draggedField, targetIndex);
-                    }
-                  }
-                }}
-              >
-                {/* 拖拽区域指示器 */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-2px',
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    backgroundColor: 'transparent',
-                    cursor: 'grab',
-                    zIndex: 1
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // 强制设置拖拽效果
-                    setDropEffect(e);
-                    
-                    e.currentTarget.style.backgroundColor = '#1890ff';
-                  }}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    
-                    const draggedField = e.dataTransfer.getData('text/plain');
-                    if (draggedField !== field) {
-                      const targetIndex = displayFields.indexOf(field);
-                      if (targetIndex !== -1) {
-                        moveColumn(draggedField, targetIndex);
-                      }
-                    }
-                  }}
-                />
-                
-                {/* 字段信息 */}
-                <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                  <MenuOutlined style={{ marginRight: 8, color: '#999', cursor: 'grab' }} />
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ 
-                      fontWeight: 'bold', 
-                      color: isVisible ? '#000' : '#999',
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}>
-                      {config.title}
-                      {config.required && (
-                        <span style={{ color: '#ff4d4f', marginLeft: '4px' }}>*</span>
-                      )}
-                    </div>
-                    {groupInfo && (
-                      <div style={{ fontSize: '12px', color: '#666', marginLeft: '8px', display: 'flex', alignItems: 'center' }}>
-                        <span>{groupInfo.icon} {groupInfo.title}</span>
-                        <Badge 
-                          count={groupInfo.fields.filter(f => getVisibleFormFields().includes(f)).length} 
-                          size="small" 
-                          style={{ 
-                            backgroundColor: '#52c41a', 
-                            marginLeft: '4px',
-                            fontSize: '10px'
-                          }} 
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <Checkbox
-                  checked={isVisible}
-                  disabled={config.required} // 必填字段禁用复选框
-                  onChange={(e) => {
-                    const newConfig = {
-                      ...columnConfig,
-                      [field]: e.target.checked
-                    };
-                    setColumnConfig(newConfig);
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <ColumnSettings
+        fieldConfig={fieldConfig}
+        dynamicFields={dynamicFields}
+        fieldGroups={fieldGroups}
+        columnConfig={columnConfig}
+        columnSettingOrder={columnSettingOrder}
+        isAdmin={isAdmin}
+        onConfigChange={setColumnConfig}
+        onOrderChange={handleColumnOrderChange}
+        onSave={saveColumnConfig}
+        onReset={async () => {
+          try {
+            // 删除列配置和列顺序配置
+            await columnConfigurationApi.deleteColumnConfig('customerCategory', 'column_config');
+            await columnConfigurationApi.deleteColumnConfig('customerCategory', 'column_order');
+            setColumnConfig({});
+            setColumnSettingOrder([]);
+            message.success('列配置已重置为默认值');
+          } catch (error) {
+            message.error('重置列配置失败');
+          }
+        }}
+        title="列显示设置"
+      />
     );
   };
 
@@ -922,28 +1166,6 @@ const CustomerCategoryManagement = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      <style>
-        {`
-          [draggable="true"] {
-            cursor: grab !important;
-            user-select: none;
-          }
-          [draggable="true"]:active {
-            cursor: grabbing !important;
-          }
-          * {
-            -webkit-user-drag: none;
-            user-drag: none;
-          }
-          [data-draggable="true"][draggable="true"] {
-            -webkit-user-drag: element;
-            user-drag: element;
-          }
-          input, textarea {
-            user-select: text;
-          }
-        `}
-      </style>
 
       <Card>
         <div style={{ marginBottom: 16 }}>
@@ -951,18 +1173,26 @@ const CustomerCategoryManagement = () => {
             <div>
               <Title level={4} style={{ margin: 0 }}>
                 客户分类管理
-                <Badge count={getVisibleFormFields().length} style={{ marginLeft: 8 }} />
+                <Badge count={Array.isArray(getVisibleFormFields()) ? getVisibleFormFields().length : 0} style={{ marginLeft: 8 }} />
               </Title>
             </div>
             
-            <Space>
-              {isAdmin && (
+            <Space direction="vertical" size="small">
+              {isAdmin && initialized && (
+                <>
                 <Button 
                   icon={<SettingOutlined />} 
                   onClick={() => setColumnSettingVisible(true)}
                 >
                   字段设置
                 </Button>
+                  <Button 
+                    icon={<SettingOutlined />} 
+                    onClick={() => setFieldManagerVisible(true)}
+                  >
+                    自定义字段
+                  </Button>
+                </>
               )}
             </Space>
           </div>
@@ -978,20 +1208,39 @@ const CustomerCategoryManagement = () => {
                 onPressEnter={handleSearch}
                 prefix={<SearchOutlined />}
                 allowClear
+                disabled={!initialized}
               />
             </Col>
             <Col span={16}>
               <Space>
-                <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+                <Button 
+                  type="primary" 
+                  icon={<SearchOutlined />} 
+                  onClick={handleSearch}
+                  disabled={!initialized}
+                >
                   搜索
                 </Button>
-                <Button icon={<ClearOutlined />} onClick={handleReset}>
+                <Button 
+                  icon={<ClearOutlined />} 
+                  onClick={handleReset}
+                  disabled={!initialized}
+                >
                   重置
                 </Button>
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={handleAdd}
+                  disabled={!initialized}
+                >
                   新增
                 </Button>
-                <Button icon={<ReloadOutlined />} onClick={() => loadData()}>
+                <Button 
+                  icon={<ReloadOutlined />} 
+                  onClick={() => loadData()}
+                  disabled={!initialized}
+                >
                   刷新
                 </Button>
               </Space>
@@ -1000,155 +1249,56 @@ const CustomerCategoryManagement = () => {
         </div>
 
         <Table
+          key={tableKey} // 强制表格重新渲染
           components={{
             header: {
               cell: SimpleColumnHeader,
             },
           }}
           bordered
-          dataSource={data}
+          dataSource={Array.isArray(data) ? data : []}
           columns={generateColumns()}
           pagination={pagination}
-          loading={loading}
+          loading={loading || !initialized} // 在初始化期间也显示loading
           onChange={handleTableChange}
           scroll={{ x: 1200, y: 600 }}
           size="middle"
         />
 
         {/* 详情弹窗 */}
-        <Modal
+        <DynamicFormModal
+          visible={detailModalVisible}
           title="客户分类详情"
-          open={detailModalVisible}
+          fieldConfig={fieldConfig}
+          dynamicFields={dynamicFields}
+          fieldGroups={fieldGroups}
+          columnSettingOrder={columnSettingOrder}
+          form={detailForm}
           onCancel={() => setDetailModalVisible(false)}
-          footer={[
-            <Button key="close" onClick={() => setDetailModalVisible(false)}>
-              关闭
-            </Button>
-          ]}
+          onOk={() => setDetailModalVisible(false)}
+          okText="关闭"
+          cancelText="取消"
           width={800}
-        >
-          <Form form={detailForm} layout="vertical">
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-              {Object.entries(fieldGroups).map(([groupKey, group]) => {
-                // 过滤出当前分组中可见的字段
-                const visibleFields = group.fields.filter(field => 
-                  getVisibleFormFields().includes(field)
-                );
-                
-                // 如果分组中没有可见字段，不显示该分组
-                if (visibleFields.length === 0) return null;
-                
-                return (
-                  <TabPane 
-                    tab={
-                      <Space>
-                        <span>{group.icon}</span>
-                        <span>{group.title}</span>
-                        <Badge count={visibleFields.length} size="small" style={{ backgroundColor: '#52c41a' }} />
-                      </Space>
-                    } 
-                    key={groupKey}
-                  >
-                    <Row gutter={16}>
-                      {visibleFields.map(field => {
-                        const config = fieldConfig[field];
-                        if (!config) return null;
-                        
-                        let formItem;
-                        if (field === 'is_enabled') {
-                          formItem = <Switch disabled />;
-                        } else if (['created_at', 'updated_at'].includes(field)) {
-                          formItem = <Input disabled />;
-                        } else {
-                          formItem = <Input disabled />;
-                        }
-                        
-                        return (
-                          <Col span={12} key={field}>
-                            <Form.Item label={config.title} name={field}>
-                              {formItem}
-                            </Form.Item>
-                          </Col>
-                        );
-                      })}
-                    </Row>
-                  </TabPane>
-                );
-              })}
-            </Tabs>
-          </Form>
-        </Modal>
+          layout="vertical"
+        />
 
         {/* 编辑弹窗 */}
-        <Modal
+        <DynamicFormModal
+          visible={editModalVisible}
           title={currentRecord?.id ? '编辑客户分类' : '新增客户分类'}
-          open={editModalVisible}
-          onCancel={cancel}
+          fieldConfig={fieldConfig}
+          dynamicFields={dynamicFields}
+          fieldGroups={fieldGroups}
+          columnSettingOrder={columnSettingOrder}
+          form={form}
+          loading={loading}
           onOk={saveModal}
+          onCancel={cancel}
           okText="保存"
           cancelText="取消"
           width={800}
-          confirmLoading={loading}
-        >
-          <Form form={form} layout="vertical">
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-              {Object.entries(fieldGroups).map(([groupKey, group]) => {
-                // 过滤出当前分组中可见且可编辑的字段
-                const visibleFields = group.fields.filter(field => 
-                  getVisibleFormFields().includes(field) && 
-                  !['created_at', 'updated_at', 'created_by_name', 'updated_by_name'].includes(field)
-                );
-                
-                // 如果分组中没有可见字段，不显示该分组
-                if (visibleFields.length === 0) return null;
-                
-                return (
-                  <TabPane 
-                    tab={
-                      <Space>
-                        <span>{group.icon}</span>
-                        <span>{group.title}</span>
-                        <Badge count={visibleFields.length} size="small" style={{ backgroundColor: '#52c41a' }} />
-                      </Space>
-                    } 
-                    key={groupKey}
-                  >
-                    <Row gutter={16}>
-                      {visibleFields.map(field => {
-                        const config = fieldConfig[field];
-                        if (!config) return null;
-                        
-                        let formItem;
-                        if (field === 'is_enabled') {
-                          formItem = <Switch />;
-                        } else if (field === 'sort_order') {
-                          formItem = <InputNumber style={{ width: '100%' }} placeholder={`请输入${config.title}`} />;
-                        } else if (field === 'description') {
-                          formItem = <Input.TextArea rows={3} placeholder={`请输入${config.title}`} />;
-                        } else {
-                          formItem = <Input placeholder={`请输入${config.title}`} />;
-                        }
-                        
-                        return (
-                          <Col span={12} key={field}>
-                            <Form.Item 
-                              label={config.title} 
-                              name={field}
-                              rules={config.required ? [{ required: true, message: `请输入${config.title}` }] : []}
-                              valuePropName={field === 'is_enabled' ? 'checked' : 'value'}
-                            >
-                              {formItem}
-                            </Form.Item>
-                          </Col>
-                        );
-                      })}
-                    </Row>
-                  </TabPane>
-                );
-              })}
-            </Tabs>
-          </Form>
-        </Modal>
+          layout="vertical"
+        />
 
 
 
@@ -1166,53 +1316,32 @@ const CustomerCategoryManagement = () => {
             open={columnSettingVisible}
             width="30%"
           >
-            <div>
-             
               {renderColumnSettings()}
-              
-              <Divider />
-              
-              <Space style={{ width: '100%', justifyContent: 'center' }}>
-                <Button 
-                  type="primary" 
-                  onClick={() => saveColumnConfig(columnConfig)}
-                >
-                  保存设置
-                </Button>
-                <Button 
-                  onClick={async () => {
-                    try {
-                      if (!isAdmin) {
-                        message.error('只有管理员可以重置列配置');
-                        return;
-                      }
+          </Drawer>
+        )}
 
-                      // 删除后端配置
-                      await columnConfigurationApi.deleteColumnConfig('customerCategory', 'column_config');
-                      await columnConfigurationApi.deleteColumnConfig('customerCategory', 'column_order');
-                      
-                      // 重置为默认配置
+        {/* 字段管理组件 */}
+        <FieldManager
+          modelName="customer_category"
+          visible={fieldManagerVisible}
+          onCancel={() => setFieldManagerVisible(false)}
+          onSuccess={async () => {
+            // 重置所有相关状态
                       setColumnConfig({});
                       setColumnOrder([]);
                       setColumnSettingOrder([]);
-                      message.success('已重置为默认设置');
-                    } catch (error) {
-                      // 检查是否是权限错误
-                      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
-                      if (errorMessage && errorMessage.includes('只有管理员')) {
-                        message.error('只有管理员可以重置列配置');
-                      } else {
-                        message.error('重置列配置失败: ' + errorMessage);
-                      }
-                    }
-                  }}
-                >
-                  重置默认
-                </Button>
-              </Space>
-            </div>
-          </Drawer>
-        )}
+            
+            // 重新加载所有数据
+            await loadDynamicFields();
+            await loadData();
+            await loadColumnConfig();
+            
+            // 强制表格重新渲染
+            setTableKey(prev => prev + 1);
+          }}
+          title="客户分类自定义字段管理"
+          predefinedPages={Object.values(fieldGroups).filter(group => group.title === '基本信息').map(group => group.title)}
+        />
       </Card>
     </div>
   );

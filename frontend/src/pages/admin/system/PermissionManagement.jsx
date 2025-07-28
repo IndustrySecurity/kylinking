@@ -47,24 +47,52 @@ const PermissionManagement = ({ tenant, userRole }) => {
 
   // Fetch permissions when component mounts
   useEffect(() => {
-    fetchPermissions();
-  }, []);
+    if (tenant?.id) {
+      fetchPermissions();
+    }
+  }, [tenant?.id]);
 
-  // Fetch permissions list
+  // Handle table change (pagination, filters, sorter)
+  const handleTableChange = (newPagination) => {
+    setPagination(prev => ({
+      ...prev,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize
+    }));
+    
+    // 使用新的分页参数直接调用API
+    fetchPermissionsWithParams(newPagination.current, newPagination.pageSize);
+  };
+
+  // 获取权限列表
   const fetchPermissions = async () => {
-    if (loading) return; // Prevent concurrent fetches
+    await fetchPermissionsWithParams(pagination.current, pagination.pageSize);
+  };
+
+  // 带参数获取权限列表
+  const fetchPermissionsWithParams = async (page, pageSize) => {
+    if (loading) return;
     
     setLoading(true);
+    
     try {
-      // Add delay to slow down API calls
-      await sleep(600);
-      
-      const response = await api.get('/admin/permissions');
-      setPermissions(response.data.permissions);
-      setPagination({
-        ...pagination,
-        total: response.data.permissions.length
+      // 权限是系统级别的，不是租户级别的
+      const response = await api.get('/admin/permissions', {
+        params: {
+          page: page,
+          per_page: pageSize
+        }
       });
+      
+      const { permissions, total, pages } = response.data;
+      setPermissions(permissions);
+      setPagination(prev => ({
+        ...prev,
+        current: page,
+        pageSize: pageSize,
+        total,
+        pages
+      }));
     } catch (error) {
       message.error('获取权限列表失败');
     } finally {
@@ -123,26 +151,18 @@ const PermissionManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
-      // Add delay before API call simulation
-      await sleep(500);
-      
-      // This is a placeholder - the backend endpoint for creating/editing permissions
-      // might not be implemented since permissions are typically predefined
-      
       if (currentPermission) {
-        // Update permission simulation - in a real app, this would call the API
+        // Update existing permission
+        await api.put(`/admin/permissions/${currentPermission.id}`, values);
         message.success('权限更新成功');
       } else {
-        // Create permission simulation - in a real app, this would call the API
+        // Create new permission
+        await api.post('/admin/permissions', values);
         message.success('权限创建成功');
       }
       
       setModalVisible(false);
-      
-      // Add delay before refreshing permissions
-      setTimeout(() => {
-        fetchPermissions();
-      }, 800);
+      fetchPermissions();
     } catch (error) {
       message.error('操作失败');
     }
@@ -223,6 +243,7 @@ const PermissionManagement = ({ tenant, userRole }) => {
         rowKey="id"
         loading={loading}
         pagination={pagination}
+        onChange={handleTableChange}
       />
 
       {/* Permission Create/Edit Modal */}

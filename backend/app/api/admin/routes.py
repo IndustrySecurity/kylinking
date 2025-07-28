@@ -919,28 +919,99 @@ def get_permissions():
     """
     获取所有权限列表
     """
-    print("DEBUG - Inside get_permissions function")
     try:
-        # 查询所有权限
-        permissions = Permission.query.all()
+        from app.services.system.permission_service import get_permission_service
         
-        # 准备返回数据
-        permissions_data = []
-        for permission in permissions:
-            permission_data = {
-                "id": str(permission.id),
-                "name": permission.name,
-                "description": permission.description,
-                "created_at": permission.created_at.isoformat(),
-                "updated_at": permission.updated_at.isoformat()
-            }
-            permissions_data.append(permission_data)
-
-        print(f"DEBUG - Found {len(permissions_data)} permissions")
-        return jsonify({"permissions": permissions_data}), 200
+        # 获取查询参数
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        search = request.args.get('search')
+        
+        # 使用权限服务
+        permission_service = get_permission_service()
+        result = permission_service.get_permissions(page=page, per_page=per_page, search=search)
+        
+        return jsonify(result), 200
     except Exception as e:
         print(f"DEBUG - Error in get_permissions: {str(e)}")
         return jsonify({"message": "Failed to retrieve permissions", "error": str(e)}), 500
+
+
+@admin_bp.route('/permissions', methods=['POST'])
+@superadmin_required
+def create_permission():
+    """
+    创建新权限
+    """
+    try:
+        from app.services.system.permission_service import get_permission_service
+        
+        data = request.json
+        if not data or 'name' not in data:
+            return jsonify({"message": "Permission name is required"}), 400
+        
+        # 使用权限服务
+        permission_service = get_permission_service()
+        result = permission_service.create_permission(
+            name=data['name'],
+            description=data.get('description', ''),
+            created_by=get_jwt_identity()
+        )
+        
+        return jsonify({"permission": result, "message": "Permission created successfully"}), 201
+    except ValueError as e:
+        return jsonify({"message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"message": "Failed to create permission", "error": str(e)}), 500
+
+
+@admin_bp.route('/permissions/<uuid:permission_id>', methods=['PUT'])
+@superadmin_required
+def update_permission(permission_id):
+    """
+    更新权限
+    """
+    try:
+        from app.services.system.permission_service import get_permission_service
+        
+        data = request.json
+        if not data:
+            return jsonify({"message": "No data provided"}), 400
+        
+        # 使用权限服务
+        permission_service = get_permission_service()
+        result = permission_service.update_permission(
+            permission_id=str(permission_id),
+            name=data.get('name'),
+            description=data.get('description'),
+            updated_by=get_jwt_identity()
+        )
+        
+        return jsonify({"permission": result, "message": "Permission updated successfully"}), 200
+    except ValueError as e:
+        return jsonify({"message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"message": "Failed to update permission", "error": str(e)}), 500
+
+
+@admin_bp.route('/permissions/<uuid:permission_id>', methods=['DELETE'])
+@superadmin_required
+def delete_permission(permission_id):
+    """
+    删除权限
+    """
+    try:
+        from app.services.system.permission_service import get_permission_service
+        
+        # 使用权限服务
+        permission_service = get_permission_service()
+        permission_service.delete_permission(str(permission_id))
+        
+        return jsonify({"message": "Permission deleted successfully"}), 200
+    except ValueError as e:
+        return jsonify({"message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"message": "Failed to delete permission", "error": str(e)}), 500
 
 
 @admin_bp.route('/debug/auth', methods=['GET'])

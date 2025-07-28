@@ -81,17 +81,11 @@ export const useApi = () => {
               }
             } catch (refreshError) {
               // 刷新token失败，登出并重定向到登录页
-              // 如果重试刷新令牌失败，只有在非admin页面才自动登出
-              // 这样可以防止管理页面突然跳转
-              if (!originalRequest.url.includes('/admin/')) {
-                authUtils.clearAuthInfo();
-                setIsLoggedIn(false);
-                message.error('登录已过期，请重新登录');
-                navigate('/login');
-              } else {
-                // 对于管理页面的401错误，只显示警告，不跳转
-                message.warning('管理员权限验证失败，部分功能可能无法使用');
-              }
+              // 对于所有页面的401错误，都进行登出处理
+              authUtils.clearAuthInfo();
+              setIsLoggedIn(false);
+              message.error('登录已过期，请重新登录');
+              navigate('/login');
               
               return Promise.reject(refreshError);
             }
@@ -176,10 +170,6 @@ export const useApi = () => {
           throw new Error('Invalid response format from authentication server');
         }
       } catch (apiError) {
-        if (process.env.NODE_ENV === 'development' && apiError.response?.status === 404) {
-          // 开发环境中，API 404的情况下继续模拟登录
-          return simulateMockLogin(email, tenant);
-        }
         throw apiError;
       }
     } catch (error) {
@@ -187,41 +177,7 @@ export const useApi = () => {
     }
   };
 
-  // 模拟登录（仅用于开发环境）
-  const simulateMockLogin = (email, tenant) => {
-    const mockUser = {
-      id: 1,
-      email: email || 'admin@kylinking.com',
-      first_name: email && email.includes('admin') ? 'Admin' : 'User',
-      last_name: 'User',
-      is_admin: email && email.includes('admin'),
-      is_superadmin: email && email.includes('admin')
-    };
-    
-    const mockToken = 'mock_token_' + Math.random().toString(36).substring(2);
-    const mockRefreshToken = 'mock_refresh_' + Math.random().toString(36).substring(2);
-    
-    // 保存模拟认证数据
-    authUtils.saveToken(mockToken);
-    authUtils.saveRefreshToken(mockRefreshToken);
-    authUtils.saveUser(mockUser);
-    
-    if (tenant) {
-      localStorage.setItem('tenant', JSON.stringify({
-        name: tenant,
-        slug: tenant,
-        is_active: true
-      }));
-    }
-    
-    setIsLoggedIn(true);
-    
-    return {
-      access_token: mockToken,
-      refresh_token: mockRefreshToken,
-      user: mockUser
-    };
-  };
+
 
   // 获取当前租户
   const getCurrentTenant = useCallback(() => {

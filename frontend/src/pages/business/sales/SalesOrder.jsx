@@ -30,11 +30,18 @@ import {
   ReloadOutlined,
   CheckOutlined,
   CloseOutlined,
-  CalculatorOutlined
+  SettingOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import salesOrderService from '../../../api/business/sales/salesOrder';
+import dynamicFieldsApi from '../../../api/system/dynamicFields';
+import FieldManager from '../../../components/common/FieldManager';
+import ColumnSettings from '../../../components/common/ColumnSettings';
+import DynamicFormModal from '../../../components/common/DynamicFormModal';
+import request from '../../../utils/request';
+import { columnConfigurationApi } from '../../../api/system/columnConfiguration';
+import { authApi } from '../../../api/auth';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -64,7 +71,7 @@ const SalesOrder = () => {
   const [searchForm] = Form.useForm();
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0
   });
 
@@ -84,6 +91,64 @@ const SalesOrder = () => {
 
   const [activeTab, setActiveTab] = useState('base');
 
+  // 动态字段相关状态
+  const [initialized, setInitialized] = useState(false);
+  const [dynamicFields, setDynamicFields] = useState([]);
+  const [dynamicFieldValues, setDynamicFieldValues] = useState({});
+  const [fieldManagerVisible, setFieldManagerVisible] = useState(false);
+  const [columnSettingVisible, setColumnSettingVisible] = useState(false);
+  const [tableKey, setTableKey] = useState(0);
+  const [columnConfig, setColumnConfig] = useState({});
+  const [columnOrder, setColumnOrder] = useState([]);
+  const [columnSettingOrder, setColumnSettingOrder] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  // 字段配置 - 从常量改为状态，支持动态更新
+  const [fieldConfig, setFieldConfig] = useState({
+    order_number: { title: '销售单号', type: 'text', required: true, readonly: true, display_order: 1 },
+    customer_id: { title: '客户名称', type: 'select', required: true, display_order: 2 },
+    customer_order_number: { title: '客户订单号', type: 'text', display_order: 3 },
+    contact_person_id: { title: '联系人', type: 'select', display_order: 4 },
+    tax_id: { title: '税收', type: 'select', display_order: 5 },
+    tax_rate: { title: '税率', type: 'number', readonly: true, display_order: 6 },
+    order_type: { title: '订单类型', type: 'select', required: true, display_order: 7 },
+    customer_code: { title: '客户编号', type: 'text', display_order: 8 },
+    payment_method: { title: '付款方式', type: 'text', display_order: 9 },
+    phone: { title: '电话', type: 'text', display_order: 10 },
+    deposit: { title: '订金', type: 'number', display_order: 11 },
+    plate_deposit_rate: { title: '版费订金%', type: 'number', display_order: 12 },
+    delivery_date: { title: '交货日期', type: 'date', required: true, display_order: 13 },
+    customer_short_name: { title: '客户简称', type: 'text', display_order: 14 },
+    delivery_method: { title: '送货方式', type: 'text', display_order: 15 },
+    mobile: { title: '手机', type: 'text', display_order: 16 },
+    deposit_amount: { title: '订金', type: 'number', display_order: 17 },
+    plate_deposit: { title: '版费订金', type: 'number', display_order: 18 },
+    internal_delivery_date: { title: '内部交期', type: 'date', display_order: 19 },
+    salesperson_id: { title: '业务员', type: 'select', display_order: 20 },
+    contract_date: { title: '合同日期', type: 'date', display_order: 21 },
+    contact_method: { title: '联系方式', type: 'select', display_order: 22 },
+    tracking_person: { title: '跟单员', type: 'select', display_order: 23 },
+    company_id: { title: '归属公司', type: 'select', display_order: 24 },
+    logistics_info: { title: '物流信息', type: 'select', display_order: 25 },
+    delivery_contact: { title: '送货联系人', type: 'text', display_order: 26 },
+    status: { title: '状态', type: 'select', display_order: 27 },
+    delivery_address: { title: '送货地址', type: 'textarea', display_order: 28 },
+    production_requirements: { title: '生产要求', type: 'textarea', display_order: 29 },
+    order_requirements: { title: '订单要求', type: 'textarea', display_order: 30 }
+  });
+
+  // 字段分组
+  const [fieldGroups, setFieldGroups] = useState({
+    '基本信息': ['order_number', 'customer_id', 'customer_order_number', 'contact_person_id', 'tax_id', 'tax_rate'],
+    '订单信息': ['order_type', 'delivery_date', 'internal_delivery_date', 'contract_date', 'status'],
+    '客户信息': ['customer_code', 'customer_short_name', 'phone', 'mobile', 'contact_method'],
+    '业务信息': ['salesperson_id', 'tracking_person', 'company_id'],
+    '付款信息': ['payment_method', 'deposit', 'deposit_amount', 'plate_deposit_rate', 'plate_deposit'],
+    '物流信息': ['delivery_method', 'logistics_info', 'delivery_contact', 'delivery_address'],
+    '要求信息': ['production_requirements', 'order_requirements']
+  });
+
   useEffect(() => {
     fetchData();
     fetchOptions();
@@ -95,6 +160,715 @@ const SalesOrder = () => {
     }
   }, [modalVisible]);
 
+  // 动态字段相关函数
+  const calculateFieldValue = (formula, record) => {
+    try {
+      const safeGlobals = {
+        abs: Math.abs,
+        round: Math.round,
+        min: Math.min,
+        max: Math.max,
+        pow: Math.pow,
+        sqrt: Math.sqrt,
+        if_condition: (condition, trueVal, falseVal) => condition ? trueVal : falseVal,
+        concat: (...args) => args.join(''),
+        format_number: (num, precision = 2) => Number(num).toFixed(precision)
+      };
+      
+      const localVars = { ...record };
+      
+      let processedFormula = formula.replace(/\bif\s*\(/g, 'if_condition(');
+      
+      const paramNames = [
+        ...Object.keys(safeGlobals),
+        ...Object.keys(localVars)
+      ];
+      
+      const paramValues = [
+        ...Object.values(safeGlobals),
+        ...Object.values(localVars)
+      ];
+      
+      const functionBody = `return ${processedFormula};`;
+      
+      const calculateFunction = new Function(...paramNames, functionBody);
+      const result = calculateFunction(...paramValues);
+      
+      return result;
+    } catch (error) {
+      console.error('公式计算错误:', error);
+      return null;
+    }
+  };
+
+  const loadDynamicFields = async () => {
+    try {
+      const response = await dynamicFieldsApi.getModelFields('sales_order');
+      if (response.data.success) {
+        setDynamicFields(response.data.data || []);
+        setInitialized(true);
+      }
+    } catch (error) {
+      console.error('加载动态字段失败:', error);
+    }
+  };
+
+  const loadRecordDynamicValues = async (recordId) => {
+    try {
+      const response = await dynamicFieldsApi.getRecordDynamicValues('salesOrder', recordId);
+      if (response.data.success) {
+        setDynamicFieldValues(response.data.data || {});
+      }
+    } catch (error) {
+      console.error('加载动态字段值失败:', error);
+    }
+  };
+
+  const saveColumnConfig = async (config) => {
+    try {
+      if (!isAdmin) {
+        message.error('只有管理员可以保存列配置');
+        return;
+      }
+
+      const baseFields = Object.keys(fieldConfig || {});
+      const dynamicFieldNames = Array.isArray(dynamicFields) ? dynamicFields.map(field => field.field_name) : [];
+      const allFields = [...baseFields, ...dynamicFieldNames];
+      const completeConfig = {};
+      
+      // 处理基础字段
+      baseFields.forEach(field => {
+        const fieldConfigItem = fieldConfig[field];
+        // 必填字段始终设置为可见
+        if (fieldConfigItem && fieldConfigItem.required) {
+          completeConfig[field] = true;
+        } else {
+          completeConfig[field] = field in config ? config[field] : true;
+        }
+      });
+      
+      // 处理动态字段
+      dynamicFieldNames.forEach(field => {
+        const dynamicField = dynamicFields.find(df => df.field_name === field);
+        // 必填的动态字段始终设置为可见
+        if (dynamicField && dynamicField.is_required) {
+          completeConfig[field] = true;
+        } else {
+          completeConfig[field] = field in config ? config[field] : true;
+        }
+      });
+
+      let newColumnOrder = [];
+      
+      if (Array.isArray(columnSettingOrder) && columnSettingOrder.length > 0) {
+        columnSettingOrder.forEach(key => {
+          if (completeConfig[key] === true) {
+            newColumnOrder.push(key);
+          }
+        });
+      } else if (Array.isArray(columnOrder) && columnOrder.length > 0) {
+        columnOrder.forEach(key => {
+          if (completeConfig[key] === true) {
+            newColumnOrder.push(key);
+          }
+        });
+      }
+      
+      allFields.forEach(field => {
+        if (completeConfig[field] === true && !newColumnOrder.includes(field)) {
+          newColumnOrder.push(field);
+        }
+      });
+
+
+      
+      await columnConfigurationApi.saveColumnConfig('salesOrder', 'column_config', completeConfig);
+      await columnConfigurationApi.saveColumnConfig('salesOrder', 'column_order', newColumnOrder);
+      
+      setColumnConfig(completeConfig);
+      setColumnOrder(newColumnOrder);
+      setColumnSettingOrder(newColumnOrder);
+      setTableKey(prev => prev + 1);
+      message.success('列配置已保存');
+      
+      // 关闭字段设置面板
+      setColumnSettingVisible(false);
+      
+      // 重新加载列配置以确保数据同步
+      setTimeout(() => {
+        loadColumnConfig();
+      }, 100);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      if (errorMessage && errorMessage.includes('只有管理员')) {
+        message.error('只有管理员可以保存列配置');
+      } else {
+        message.error('保存列配置失败: ' + errorMessage);
+      }
+    }
+  };
+
+  const handleColumnOrderChange = (newOrder) => {
+    setColumnSettingOrder(newOrder);
+  };
+
+  // 初始化列顺序
+  const initializeColumnOrder = () => {
+    // 只有在没有保存的列顺序且没有从后端加载的列顺序时才设置默认顺序
+    if (columnSettingOrder.length === 0) {
+      const defaultOrder = [
+        'order_number', 'customer_id', 'customer_order_number', 'contact_person_id',
+        'tax_id', 'tax_rate', 'order_type', 'customer_code', 'payment_method',
+        'phone', 'deposit', 'plate_deposit_rate', 'delivery_date', 'customer_short_name',
+        'delivery_method', 'mobile', 'deposit_amount', 'plate_deposit', 'internal_delivery_date',
+        'salesperson_id', 'contract_date', 'contact_method', 'tracking_person', 'company_id',
+        'logistics_info', 'delivery_contact', 'status', 'delivery_address',
+        'production_requirements', 'order_requirements'
+      ];
+      setColumnSettingOrder(defaultOrder);
+    }
+  };
+
+  const checkUserPermission = async () => {
+    try {
+      // 使用封装的权限检查API
+      const adminStatus = await authApi.checkAdminStatus();
+      setIsAdmin(adminStatus.isAdmin);
+      
+
+    } catch (error) {
+      console.error('检查用户权限失败:', error);
+      setIsAdmin(false);
+    }
+  };
+
+  // 根据列配置获取可见的表单字段
+  const getVisibleFormFields = () => {
+    // 如果配置还没有加载完成，显示所有字段
+    if (!configLoaded) {
+      return Object.keys(fieldConfig);
+    }
+    
+    // 如果列配置为空，显示所有字段
+    if (Object.keys(columnConfig).length === 0) {
+      return Object.keys(fieldConfig);
+    }
+    
+    // 根据列配置过滤字段，只显示被勾选的字段
+    return Object.keys(fieldConfig).filter(field => {
+      // 必填字段始终显示，不能被隐藏
+      const config = fieldConfig[field];
+      if (config && config.required) {
+        return true;
+      }
+      
+      // 如果配置中没有明确设置为false，则显示
+      return !(field in columnConfig) || columnConfig[field] === true;
+    });
+  };
+
+  // 获取按列设置顺序排列的可见表单字段
+  const getOrderedVisibleFormFields = () => {
+    const visibleFields = getVisibleFormFields();
+    
+    // 如果有保存的列顺序，按该顺序排列
+    if (columnSettingOrder.length > 0) {
+      const orderedFields = [];
+      
+      // 首先添加列设置顺序中的可见字段
+      columnSettingOrder.forEach(field => {
+        if (visibleFields.includes(field)) {
+          orderedFields.push(field);
+        }
+      });
+      
+      // 然后添加不在列设置顺序中的可见字段
+      visibleFields.forEach(field => {
+        if (!orderedFields.includes(field)) {
+          orderedFields.push(field);
+        }
+      });
+      
+      return orderedFields;
+    }
+    
+    // 如果没有保存的顺序，按字段配置的display_order排序
+    return visibleFields.sort((a, b) => {
+      const configA = fieldConfig[a];
+      const configB = fieldConfig[b];
+      return (configA?.display_order || 0) - (configB?.display_order || 0);
+    });
+  };
+
+  // 渲染表单字段
+  const renderFormField = (fieldName) => {
+    const config = fieldConfig[fieldName];
+    if (!config) return null;
+
+    const commonProps = {
+      name: fieldName,
+      label: config.title,
+      rules: config.required ? [{ required: true, message: `请输入${config.title}` }] : []
+    };
+
+    switch (fieldName) {
+      case 'order_number':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="自动生成" disabled />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'customer_id':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select 
+                placeholder="请选择客户" 
+                showSearch 
+                optionFilterProp="children"
+                onChange={handleCustomerChange}
+              >
+                {customerOptions.map(option => (
+                  <Option key={option.value} value={option.value}>{option.label}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'customer_order_number':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="客户订单号" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'contact_person_id':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select 
+                placeholder="请选择联系人" 
+                allowClear
+                showSearch
+                optionFilterProp="children"
+                onChange={handleContactChange}
+              >
+                {contactOptions.map(option => (
+                  <Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'tax_id':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select 
+                placeholder="请选择税收" 
+                allowClear 
+                showSearch 
+                optionFilterProp="children"
+                onChange={handleTaxChange}
+              >
+                {taxOptions.map(option => (
+                  <Option key={option.value} value={option.value} data-rate={option.rate}>
+                    {option.label}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'tax_rate':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="0" disabled addonAfter="%" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'order_type':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="正常订单">
+                <Option value="normal">正常订单</Option>
+                <Option value="sample">打样订单</Option>
+                <Option value="stock_check">查库订单</Option>
+                <Option value="plate_fee">版费订单</Option>
+                <Option value="urgent">加急订单</Option>
+                <Option value="stock">备货订单</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'customer_code':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="客户编号" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'payment_method':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="付款方式" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'phone':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="电话" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'deposit':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.01} placeholder="0" addonAfter="%" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'plate_deposit_rate':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.01} placeholder="0" addonAfter="%" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'delivery_date':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <DatePicker 
+                style={{ width: '100%' }} 
+                onChange={handleDeliveryDateChange}
+              />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'customer_short_name':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="客户简称" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'delivery_method':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="送货方式" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'mobile':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="手机" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'deposit_amount':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="0" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'plate_deposit':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="0" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'internal_delivery_date':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'salesperson_id':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="请选择业务员" allowClear>
+                {employees.map((employee, index) => (
+                  <Option key={employee.value || `sales-employee-${index}`} value={employee.value}>
+                    {employee.label}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'contract_date':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'contact_method':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="请选择联系方式" allowClear>
+                <Option value="phone">电话</Option>
+                <Option value="email">邮件</Option>
+                <Option value="fax">传真</Option>
+                <Option value="wechat">微信</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'tracking_person':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="请选择跟单员" allowClear showSearch optionFilterProp="children">
+                {employees.map((employee, index) => (
+                  <Option key={employee.value || `tracking-employee-${index}`} value={employee.value}>
+                    {employee.label}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'company_id':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="请选择归属公司" allowClear>
+                {/* TODO: 添加公司选项 */}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'logistics_info':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="请选择物流信息" allowClear>
+                {/* TODO: 添加物流选项 */}
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'delivery_contact':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="送货联系人" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'status':
+        return (
+          <Col span={4} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Select placeholder="草稿" defaultValue="draft" disabled>
+                <Option value="draft">草稿</Option>
+                <Option value="confirmed">已确认</Option>
+                <Option value="production">生产中</Option>
+                <Option value="shipped">已发货</Option>
+                <Option value="completed">已完成</Option>
+                <Option value="cancelled">已取消</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'delivery_address':
+        return (
+          <Col span={24} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="请输入送货地址" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'production_requirements':
+        return (
+          <Col span={12} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="请输入生产要求" />
+            </Form.Item>
+          </Col>
+        );
+      
+      case 'order_requirements':
+        return (
+          <Col span={12} key={fieldName}>
+            <Form.Item {...commonProps}>
+              <Input placeholder="请输入订单要求" />
+            </Form.Item>
+          </Col>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  // 动态字段相关的useEffect
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await loadDynamicFields();
+        await loadColumnConfig();
+        await checkUserPermission();
+        setInitialized(true);
+        setConfigLoaded(true);
+      } catch (error) {
+        console.error('初始化失败:', error);
+        setInitialized(true);
+      }
+    };
+    
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (initialized && dynamicFields.length > 0) {
+      // 更新字段配置，添加动态字段
+      const newFieldConfig = { ...fieldConfig };
+      const newFieldGroups = { ...fieldGroups };
+      
+      dynamicFields.forEach(field => {
+        if (!newFieldConfig[field.field_name]) {
+          newFieldConfig[field.field_name] = {
+            title: field.field_label,
+            type: field.field_type,
+            required: field.is_required,
+            readonly: field.is_readonly,
+            display_order: field.display_order || 999,
+            help_text: field.help_text,
+            field_options: field.field_options,
+            is_calculated: field.is_calculated,
+            calculation_formula: field.calculation_formula
+          };
+        }
+      });
+      
+      setFieldConfig(newFieldConfig);
+      
+      // 将动态字段添加到默认分组
+      if (!newFieldGroups['自定义字段']) {
+        newFieldGroups['自定义字段'] = [];
+      }
+      dynamicFields.forEach(field => {
+        if (!newFieldGroups['自定义字段'].includes(field.field_name)) {
+          newFieldGroups['自定义字段'].push(field.field_name);
+        }
+      });
+      
+      setFieldGroups(newFieldGroups);
+      
+      // 只有在没有列顺序时才初始化
+      if (columnSettingOrder.length === 0) {
+        initializeColumnOrder();
+      } else {
+        // 如果有保存的列顺序，确保动态字段也在其中
+        const currentOrder = [...columnSettingOrder];
+        let hasChanges = false;
+        
+        dynamicFields.forEach(field => {
+          if (!currentOrder.includes(field.field_name)) {
+            currentOrder.push(field.field_name);
+            hasChanges = true;
+          }
+        });
+        
+        if (hasChanges) {
+          setColumnSettingOrder(currentOrder);
+        }
+      }
+    }
+  }, [initialized, dynamicFields.length]); // 只依赖长度，避免无限循环
+
+  useEffect(() => {
+    if (initialized) {
+      fetchData();
+    }
+  }, [initialized]); // 移除dynamicFields依赖，避免无限循环
+
+  // 监听列顺序变化，强制表格重新渲染
+  useEffect(() => {
+    if (columnSettingOrder.length > 0) {
+      setTableKey(prev => prev + 1);
+    }
+  }, [columnSettingOrder]);
+
+  // 点击外部关闭列设置面板
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (columnSettingVisible) {
+        const columnSettingPanel = document.querySelector('.column-setting-panel');
+        const columnSettingButton = document.querySelector('.column-setting-button');
+        
+        if (columnSettingPanel && 
+            !columnSettingPanel.contains(event.target) && 
+            columnSettingButton && 
+            !columnSettingButton.contains(event.target)) {
+          setColumnSettingVisible(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [columnSettingVisible]);
+
   const fetchData = async (params = {}) => {
     setLoading(true);
     try {
@@ -105,7 +879,23 @@ const SalesOrder = () => {
       });
 
       if (response.data.success) {
-        setData(response.data.data.orders || []);
+        let orders = response.data.data.orders || [];
+        
+        // 计算动态字段值
+        if (initialized && dynamicFields.length > 0) {
+          orders = orders.map(order => {
+            const calculatedFields = {};
+            dynamicFields.forEach(field => {
+              if (field.is_calculated && field.calculation_formula) {
+                const calculatedValue = calculateFieldValue(field.calculation_formula, order);
+                calculatedFields[field.field_name] = calculatedValue;
+              }
+            });
+            return { ...order, ...calculatedFields };
+          });
+        }
+        
+        setData(orders);
         setPagination(prev => ({
           ...prev,
           total: response.data.data.total
@@ -191,6 +981,9 @@ const SalesOrder = () => {
         const orderData = response.data.data;
         setCurrentRecord(orderData); // 设置完整的订单数据
         
+        // 加载动态字段值
+        await loadRecordDynamicValues(record.id);
+        
         // 先设置基本字段（不包括联系人相关字段）
         const basicFields = {
           ...orderData,
@@ -198,7 +991,9 @@ const SalesOrder = () => {
           internal_delivery_date: orderData.internal_delivery_date ? dayjs(orderData.internal_delivery_date) : null,
           contract_date: orderData.contract_date ? dayjs(orderData.contract_date) : null,
           // 映射税收字段名
-          tax_id: orderData.tax_rate_id
+          tax_id: orderData.tax_rate_id,
+          // 添加动态字段值
+          ...dynamicFieldValues
         };
         
         // 如果订单有客户ID，先获取联系人列表
@@ -259,6 +1054,8 @@ const SalesOrder = () => {
     try {
       const response = await salesOrderService.deleteSalesOrder(record.id);
       if (response.data.success) {
+        // 删除动态字段值
+        await dynamicFieldsApi.deleteRecordPageValues('sales_order', 'sales_order', record.id);
         message.success('删除成功');
         fetchData();
       }
@@ -312,13 +1109,31 @@ const SalesOrder = () => {
       };
 
       let response;
+      let newRecordId;
       if (currentRecord) {
         response = await salesOrderService.updateSalesOrder(currentRecord.id, orderData);
+        newRecordId = currentRecord.id;
       } else {
         response = await salesOrderService.createSalesOrder(orderData);
+        newRecordId = response.data.data?.id;
       }
 
       if (response.data.success) {
+        // 保存动态字段值
+        if (newRecordId) {
+          const pageValues = {};
+          dynamicFields.forEach(field => {
+            const fieldValue = values[field.field_name];
+            if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
+              pageValues[field.field_name] = fieldValue;
+            }
+          });
+          
+          if (Object.keys(pageValues).length > 0) {
+            await dynamicFieldsApi.saveRecordPageValues('sales_order', 'sales_order', newRecordId, pageValues);
+          }
+        }
+        
         message.success(currentRecord ? '更新成功' : '创建成功');
         setModalVisible(false);
         fetchData();
@@ -575,7 +1390,7 @@ const SalesOrder = () => {
       
       // 自动填充计划米数和计划重量
       if (field === 'order_quantity' || field === 'unit_id') {
-        console.log('触发自动填充，字段:', field, '索引:', index);
+
         const detail = newDetails[index];
         const quantity = detail.order_quantity || 0;
         
@@ -586,14 +1401,14 @@ const SalesOrder = () => {
           unitName = unitOption ? unitOption.label : '';
         }
         
-        console.log('当前明细:', { quantity, unitName, unit_id: detail.unit_id });
+        
         
         // 获取产品数据和规格信息
         const productData = detail.productData || null;
         const specification = detail.product_specification || null;
         
         const plannedValues = calculatePlannedValues(quantity, unitName, productData, specification);
-        console.log('计算结果:', plannedValues);
+        
         
         newDetails[index].planned_meters = plannedValues.planned_meters;
         newDetails[index].planned_weight = plannedValues.planned_weight;
@@ -707,11 +1522,11 @@ const SalesOrder = () => {
         if (product) {
           setOrderDetails(prev => {
             const updatedDetails = [...prev];
-                          updatedDetails[index] = {
-                ...updatedDetails[index],
-                product_name: product.product_name || product.label?.split(' - ')[1],
-                product_code: product.product_code || product.label?.split(' - ')[0],
-                product_specification: product.specification || '',
+            updatedDetails[index] = {
+              ...updatedDetails[index],
+              product_name: product.product_name || product.label?.split(' - ')[1],
+              product_code: product.product_code || product.label?.split(' - ')[0],
+              product_specification: product.specification || '',
               unit: product.unit || product.unit_name,
               unit_id: product.unit_id,
               material_structure: product.specification || '',
@@ -744,7 +1559,7 @@ const SalesOrder = () => {
   const parseSpecification = (specification) => {
     if (!specification) return null;
     
-    console.log('解析规格:', specification);
+
     
     // 尝试解析 "宽度*厚度*密度" 格式
     const patterns = [
@@ -757,7 +1572,7 @@ const SalesOrder = () => {
       const match = specification.match(pattern);
       if (match) {
         const [, width, thickness, density] = match;
-        console.log('解析成功:', { width: parseFloat(width), thickness: parseFloat(thickness), density: parseFloat(density) });
+
         return {
           width: parseFloat(width),
           thickness: parseFloat(thickness),
@@ -766,7 +1581,7 @@ const SalesOrder = () => {
       }
     }
     
-    console.log('规格解析失败');
+    
     return null;
   };
 
@@ -777,27 +1592,18 @@ const SalesOrder = () => {
     // 优先从产品结构表获取
     if (productData.structures && productData.structures.length > 0) {
       const structure = productData.structures[0];
-      if (structure.width && structure.thickness && structure.density) {
-        console.log('从产品结构获取参数:', {
-          width: structure.width,
-          thickness: structure.thickness,
-          density: structure.density
-        });
-        return {
-          width: structure.width,
-          thickness: structure.thickness,
-          density: structure.density
-        };
-      }
+              if (structure.width && structure.thickness && structure.density) {
+          return {
+            width: structure.width,
+            thickness: structure.thickness,
+            density: structure.density
+          };
+        }
     }
     
     // 从产品基本信息获取
     if (productData.width && productData.thickness) {
-      console.log('从产品基本信息获取参数:', {
-        width: productData.width,
-        thickness: productData.thickness,
-        density: productData.density
-      });
+
       return {
         width: productData.width,
         thickness: productData.thickness,
@@ -813,7 +1619,7 @@ const SalesOrder = () => {
     if (!quantity || quantity <= 0) return { planned_meters: undefined, planned_weight: undefined };
     
     const unitLower = unitName.toLowerCase();
-    console.log('计算转换，单位:', unitLower, '数量:', quantity);
+
     
     // 尝试从规格解析参数
     let params = parseSpecification(specification);
@@ -823,11 +1629,11 @@ const SalesOrder = () => {
     }
     
     if (!params || !params.width || !params.thickness || !params.density) {
-      console.log('无法获取产品参数，使用基础单位转换');
+
       return calculateBasicConversion(quantity, unitName);
     }
     
-    console.log('使用产品参数进行转换:', params);
+
     
     // 重量转长度：重量(kg) / (宽度(mm) * 厚度(μm) * 密度(g/cm³) / 1000000)
     // 长度转重量：长度(m) * 宽度(mm) * 厚度(μm) * 密度(g/cm³) / 1000000
@@ -836,46 +1642,46 @@ const SalesOrder = () => {
      if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
        const plannedWeight = quantity;
        const plannedMeters = quantity / (params.width * params.thickness * params.density / 1000000);
-       console.log('重量转长度:', { plannedWeight, plannedMeters });
+
        return { planned_meters: plannedMeters, planned_weight: plannedWeight };
      }
      // 重量单位：t/吨 -> 转换为kg后计算
      else if (unitLower.includes('t') || unitLower.includes('吨')) {
        const plannedWeight = quantity * 1000;
        const plannedMeters = (quantity * 1000) / (params.width * params.thickness * params.density / 1000000);
-       console.log('吨转长度:', { plannedWeight, plannedMeters });
+
        return { planned_meters: plannedMeters, planned_weight: plannedWeight };
      }
      // 长度单位：m/米 -> 计算计划米数和计划重量
      else if (unitLower.includes('m') || unitLower.includes('米')) {
        const plannedMeters = quantity;
        const plannedWeight = quantity * params.width * params.thickness * params.density / 1000000;
-       console.log('长度转重量:', { plannedMeters, plannedWeight });
+
        return { planned_meters: plannedMeters, planned_weight: plannedWeight };
      }
      // 长度单位：km/公里 -> 转换为米后计算
      else if (unitLower.includes('km') || unitLower.includes('千米')) {
        const plannedMeters = quantity * 1000;
        const plannedWeight = (quantity * 1000) * params.width * params.thickness * params.density / 1000000;
-       console.log('公里转重量:', { plannedMeters, plannedWeight });
+
        return { planned_meters: plannedMeters, planned_weight: plannedWeight };
      }
      // 长度单位：cm/厘米 -> 转换为米后计算
      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
        const plannedMeters = quantity / 100;
        const plannedWeight = (quantity / 100) * params.width * params.thickness * params.density / 1000000;
-       console.log('厘米转重量:', { plannedMeters, plannedWeight });
+
        return { planned_meters: plannedMeters, planned_weight: plannedWeight };
      }
      // 长度单位：mm/毫米 -> 转换为米后计算
      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
        const plannedMeters = quantity / 1000;
        const plannedWeight = (quantity / 1000) * params.width * params.thickness * params.density / 1000000;
-       console.log('毫米转重量:', { plannedMeters, plannedWeight });
+
        return { planned_meters: plannedMeters, planned_weight: plannedWeight };
      }
     
-    console.log('未识别的单位类型，使用基础转换');
+
     return calculateBasicConversion(quantity, unitName);
   };
 
@@ -912,10 +1718,10 @@ const SalesOrder = () => {
   };
 
   const calculatePlannedValues = (quantity, unitName, productData = null, specification = null) => {
-    console.log('计算计划值:', { quantity, unitName, hasProductData: !!productData, specification });
+
     
     if (!quantity || quantity <= 0 || !unitName) {
-      console.log('数量或单位为空，返回空值');
+
       return { planned_meters: undefined, planned_weight: undefined };
     }
     
@@ -1046,257 +1852,293 @@ const SalesOrder = () => {
     stock: '备货订单'
   };
 
-  const columns = [
-    {
-      title: '销售单号',
-      dataIndex: 'order_number',
-      key: 'order_number',
-      width: 150,
-      fixed: 'left'
-    },
-    {
-      title: '客户名称',
-      dataIndex: 'customer_name',
-      key: 'customer_name',
-      width: 150
-    },
-    {
-      title: '客户订单号',
-      dataIndex: 'customer_order_number',
-      key: 'customer_order_number',
-      width: 120
-    },
-    {
-      title: '交货日期',
-      dataIndex: 'delivery_date',
-      key: 'delivery_date',
-      width: 120,
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
-    },
-    {
-      title: '内部交期',
-      dataIndex: 'internal_delivery_date',
-      key: 'internal_delivery_date',
-      width: 140,
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      render: (status) => {
-        const config = statusConfig[status] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
-      }
-    },
-    {
-      title: '联系人',
-      dataIndex: 'contact_person',
-      key: 'contact_person',
-      width: 100
-    },
-    {
-      title: '税收',
-      dataIndex: 'tax_name',
-      key: 'tax_name',
-      width: 100
-    },
-    {
-      title: '税率',
-      dataIndex: 'tax_rate',
-      key: 'tax_rate',
-      width: 80,
-      render: (rate) => rate ? `${rate}%` : '0%'
-    },
-    {
-      title: '订单类型',
-      dataIndex: 'order_type',
-      key: 'order_type',
-      width: 100,
-      render: (type) => orderTypeConfig[type] || type
-    },
-    {
-      title: '客户编号',
-      dataIndex: 'customer_code',
-      key: 'customer_code',
-      width: 150
-    },
-    {
-      title: '付款方式',
-      dataIndex: 'payment_method',
-      key: 'payment_method',
-      width: 100
-    },
-    {
-      title: '电话',
-      dataIndex: 'phone',
-      key: 'phone',
-      width: 120
-    },
-    {
-      title: '订金%',
-      dataIndex: 'deposit_percentage',
-      key: 'deposit_percentage',
-      width: 80,
-      render: (rate) => rate ? `${rate}%` : '0%'
-    },
-    {
-      title: '版费订金%',
-      dataIndex: 'plate_deposit_rate',
-      key: 'plate_deposit_rate',
-      width: 100,
-      render: (rate) => rate ? `${rate}%` : '0%'
-    },
-    {
-      title: '客户简称',
-      dataIndex: 'customer_short_name',
-      key: 'customer_short_name',
-      width: 100
-    },
-    {
-      title: '送货方式',
-      dataIndex: 'delivery_method',
-      key: 'delivery_method',
-      width: 100
-    },
-    {
-      title: '手机',
-      dataIndex: 'mobile',
-      key: 'mobile',
-      width: 120
-    },
-    {
-      title: '订金',
-      dataIndex: 'deposit_amount',
-      key: 'deposit_amount',
-      width: 100,
-      render: (amount) => `¥${amount?.toFixed(2) || '0.00'}`
-    },
-    {
-      title: '版费订金',
-      dataIndex: 'plate_deposit',
-      key: 'plate_deposit',
-      width: 100,
-      render: (amount) => `¥${amount?.toFixed(2) || '0.00'}`
-    },
-    {
-      title: '业务员',
-      dataIndex: 'salesperson_name',
-      key: 'salesperson_name',
-      width: 100
-    },
-    {
-      title: '合同日期',
-      dataIndex: 'contract_date',
-      key: 'contract_date',
-      width: 120,
-      render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
-    },
-    {
-      title: '联系方式',
-      dataIndex: 'contact_method',
-      key: 'contact_method',
-      width: 100
-    },
-    {
-      title: '跟单员',
-      dataIndex: 'tracking_person_name',
-      key: 'tracking_person_name',
-      width: 100
-    },
-    {
-      title: '归属公司',
-      dataIndex: 'company_name',
-      key: 'company_name',
-      width: 120
-    },
-    {
-      title: '物流信息',
-      dataIndex: 'logistics_info',
-      key: 'logistics_info',
-      width: 120
-    },
-    {
-      title: '送货联系人',
-      dataIndex: 'delivery_contact',
-      key: 'delivery_contact',
-      width: 120
-    },
-    {
-      title: '送货地址',
-      dataIndex: 'delivery_address',
-      key: 'delivery_address',
-      width: 200
-    },
-    {
-      title: '生产要求',
-      dataIndex: 'production_requirements',
-      key: 'production_requirements',
-      width: 150,
-      ellipsis: true
-    },
-    {
-      title: '订单要求',
-      dataIndex: 'order_requirements',
-      key: 'order_requirements',
-      width: 150,
-      ellipsis: true
-    },
-    {
-      title: '操作',
-      key: 'action',
-      fixed: 'right',
-      width: 200,
-      render: (_, record) => (
-        <Space size="small">
-          <Button 
-            type="link" 
-            size="small" 
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-          >
-            详情
-          </Button>
-          {(record.status === 'draft'  || record.status === 'confirmed') && (
-            <>
-              <Button 
-                type="link" 
-                size="small" 
-                icon={<EditOutlined />}
-                onClick={() => handleEdit(record)}
-              >
+  // 生成表格列配置
+  const generateColumns = () => {
+    const baseColumns = [
+      {
+        title: '销售单号',
+        dataIndex: 'order_number',
+        key: 'order_number',
+        width: 150,
+        fixed: 'left'
+      },
+      {
+        title: '客户名称',
+        dataIndex: 'customer_name',
+        key: 'customer_id',
+        width: 150
+      },
+      {
+        title: '客户订单号',
+        dataIndex: 'customer_order_number',
+        key: 'customer_order_number',
+        width: 120
+      },
+      {
+        title: '交货日期',
+        dataIndex: 'delivery_date',
+        key: 'delivery_date',
+        width: 120,
+        render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+      },
+      {
+        title: '内部交期',
+        dataIndex: 'internal_delivery_date',
+        key: 'internal_delivery_date',
+        width: 140,
+        render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+      },
+      {
+        title: '状态',
+        dataIndex: 'status',
+        key: 'status',
+        width: 80,
+        render: (status) => {
+          const config = statusConfig[status] || { color: 'default', text: status };
+          return <Tag color={config.color}>{config.text}</Tag>;
+        }
+      },
+      {
+        title: '联系人',
+        dataIndex: 'contact_person',
+        key: 'contact_person_id',
+        width: 100
+      },
+      {
+        title: '税收',
+        dataIndex: 'tax_name',
+        key: 'tax_id',
+        width: 100
+      },
+      {
+        title: '税率',
+        dataIndex: 'tax_rate',
+        key: 'tax_rate',
+        width: 80,
+        render: (rate) => rate ? `${rate}%` : '0%'
+      },
+      {
+        title: '订单类型',
+        dataIndex: 'order_type',
+        key: 'order_type',
+        width: 100,
+        render: (type) => orderTypeConfig[type] || type
+      },
+      {
+        title: '客户编号',
+        dataIndex: 'customer_code',
+        key: 'customer_code',
+        width: 150
+      },
+      {
+        title: '付款方式',
+        dataIndex: 'payment_method',
+        key: 'payment_method',
+        width: 100
+      },
+      {
+        title: '电话',
+        dataIndex: 'phone',
+        key: 'phone',
+        width: 120
+      },
+      {
+        title: '订金%',
+        dataIndex: 'deposit_percentage',
+        key: 'deposit',
+        width: 80,
+        render: (rate) => rate ? `${rate}%` : '0%'
+      },
+      {
+        title: '版费订金%',
+        dataIndex: 'plate_deposit_rate',
+        key: 'plate_deposit_rate',
+        width: 100,
+        render: (rate) => rate ? `${rate}%` : '0%'
+      },
+      {
+        title: '客户简称',
+        dataIndex: 'customer_short_name',
+        key: 'customer_short_name',
+        width: 120
+      },
+      {
+        title: '送货方式',
+        dataIndex: 'delivery_method',
+        key: 'delivery_method',
+        width: 100
+      },
+      {
+        title: '手机',
+        dataIndex: 'mobile',
+        key: 'mobile',
+        width: 120
+      },
+      {
+        title: '订金',
+        dataIndex: 'deposit_amount',
+        key: 'deposit_amount',
+        width: 100,
+        render: (amount) => amount ? `¥${amount}` : '¥0'
+      },
+      {
+        title: '版费订金',
+        dataIndex: 'plate_deposit',
+        key: 'plate_deposit',
+        width: 100,
+        render: (amount) => amount ? `¥${amount}` : '¥0'
+      },
+      {
+        title: '业务员',
+        dataIndex: 'salesperson_name',
+        key: 'salesperson_id',
+        width: 100
+      },
+      {
+        title: '合同日期',
+        dataIndex: 'contract_date',
+        key: 'contract_date',
+        width: 120,
+        render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-'
+      },
+      {
+        title: '联系方式',
+        dataIndex: 'contact_method',
+        key: 'contact_method',
+        width: 100
+      },
+      {
+        title: '跟单员',
+        dataIndex: 'tracking_person_name',
+        key: 'tracking_person',
+        width: 100
+      },
+      {
+        title: '归属公司',
+        dataIndex: 'company_name',
+        key: 'company_id',
+        width: 120
+      },
+      {
+        title: '物流信息',
+        dataIndex: 'logistics_info',
+        key: 'logistics_info',
+        width: 120
+      },
+      {
+        title: '送货联系人',
+        dataIndex: 'delivery_contact',
+        key: 'delivery_contact',
+        width: 120
+      },
+      {
+        title: '送货地址',
+        dataIndex: 'delivery_address',
+        key: 'delivery_address',
+        width: 200
+      },
+      {
+        title: '生产要求',
+        dataIndex: 'production_requirements',
+        key: 'production_requirements',
+        width: 200
+      },
+      {
+        title: '订单要求',
+        dataIndex: 'order_requirements',
+        key: 'order_requirements',
+        width: 200
+      },
+      {
+        title: '操作',
+        key: 'action',
+        fixed: 'right',
+        width: 200,
+        render: (_, record) => (
+          <Space size="small">
+            <Button type="link" size="small" onClick={() => handleViewDetail(record)}>
+              查看
+            </Button>
+            {record.status !== 'completed' && (
+              <Button type="link" size="small" onClick={() => handleEdit(record)}>
                 编辑
               </Button>
-              <Button 
-                type="link" 
-                size="small" 
-                icon={<CheckOutlined />}
-                onClick={() => handleFinish(record)}
-              >
-                完成
-              </Button>
-              <Popconfirm
-                title="确定要删除这条记录吗？"
-                onConfirm={() => handleDelete(record)}
-                okText="确定"
-                cancelText="取消"
-              >
-                <Button 
-                  type="link" 
-                  danger 
-                  size="small"
-                  icon={<DeleteOutlined />}
-                >
+            )}
+            {record.status === 'draft' && (
+              <>
+                <Button type="link" size="small" onClick={() => handleApprove(record)}>
+                  确认
+                </Button>
+                <Button type="link" size="small" danger onClick={() => handleDelete(record)}>
                   删除
                 </Button>
-              </Popconfirm>
-            </>
-          )}
-        </Space>
-      )
+              </>
+            )}
+            {record.status === 'confirmed' && (
+              <Button type="link" size="small" onClick={() => handleFinish(record)}>
+                完成
+              </Button>
+            )}
+            {record.status === 'confirmed' && (
+              <Button type="link" size="small" danger onClick={() => handleCancel(record)}>
+                取消
+              </Button>
+            )}
+          </Space>
+        )
+      }
+    ];
+
+    // 添加动态字段列
+    const dynamicColumns = Array.isArray(dynamicFields) ? dynamicFields.map(field => ({
+      title: field.field_label || field.field_Label,
+      dataIndex: field.field_name,
+      key: field.field_name,
+      width: 120,
+      render: (value, record) => {
+        if (field.is_calculated && field.calculation_formula) {
+          try {
+            return calculateFieldValue(field.calculation_formula, record);
+          } catch (error) {
+            console.error('计算字段值失败:', error);
+            return value || '-';
+          }
+        }
+        return value || '-';
+      }
+    })) : [];
+
+    // 合并基础列和动态列
+    const allColumns = [...baseColumns, ...dynamicColumns];
+
+    // 根据列配置过滤和排序
+    if (Object.keys(columnConfig).length > 0) {
+      const visibleColumns = allColumns.filter(col => {
+        if (col.key === 'action') return true; // 操作列始终显示
+        return columnConfig[col.key] !== false;
+      });
+
+      // 根据列顺序排序
+      if (Array.isArray(columnSettingOrder) && columnSettingOrder.length > 0) {
+        const orderMap = {};
+        columnSettingOrder.forEach((key, index) => {
+          orderMap[key] = index;
+        });
+
+        visibleColumns.sort((a, b) => {
+          const orderA = orderMap[a.key] ?? 999;
+          const orderB = orderMap[b.key] ?? 999;
+          return orderA - orderB;
+        });
+      }
+
+      return visibleColumns;
     }
-  ];
+
+    return allColumns;
+  };
+
+  const columns = generateColumns();
 
   // 订单明细表格列
   // 缓存订单明细列定义
@@ -1337,18 +2179,18 @@ const SalesOrder = () => {
         />
       )
     },
-         {
-       title: '产品规格',
-       dataIndex: 'product_specification',
-       key: 'product_specification',
-       width: 150,
-       render: (value, record, index) => (
-         <Input
-           value={value}
-           placeholder="产品规格"
-         />
-       )
-     },
+    {
+      title: '产品规格',
+      dataIndex: 'product_specification',
+      key: 'product_specification',
+      width: 150,
+      render: (value, record, index) => (
+        <Input
+          value={value}
+          placeholder="产品规格"
+        />
+      )
+    },
     {
       title: '订单数量',
       dataIndex: 'order_quantity',
@@ -1406,11 +2248,11 @@ const SalesOrder = () => {
       width: 100,
       render: (value) => `¥${(value || 0).toLocaleString()}`
     },
-         {
-       title: '计划米数',
-       dataIndex: 'planned_meters',
-       key: 'planned_meters',
-       width: 120,
+    {
+      title: '计划米数',
+      dataIndex: 'planned_meters',
+      key: 'planned_meters',
+      width: 120,
        render: (value, record, index) => (
          <InputNumber
            style={{ 
@@ -2206,6 +3048,26 @@ const SalesOrder = () => {
     }
   ];
 
+  // 加载列配置
+  const loadColumnConfig = async () => {
+    try {
+      // 加载列配置
+      const configResponse = await columnConfigurationApi.getColumnConfig('salesOrder', 'column_config');
+      if (configResponse.data.success && configResponse.data.data && configResponse.data.data.config_data) {
+        setColumnConfig(configResponse.data.data.config_data);
+      }
+      
+      // 加载列顺序
+      const orderResponse = await columnConfigurationApi.getColumnConfig('salesOrder', 'column_order');
+      if (orderResponse.data.success && orderResponse.data.data && orderResponse.data.data.config_data) {
+        setColumnOrder(orderResponse.data.data.config_data);
+        setColumnSettingOrder(orderResponse.data.data.config_data);
+      }
+    } catch (error) {
+      console.error('加载列配置失败:', error);
+    }
+  };
+
   return (
     <PageContainer>
       {/* 搜索区域 */}
@@ -2256,16 +3118,77 @@ const SalesOrder = () => {
 
       {/* 操作区域 */}
       <StyledCard>
-        <Space>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            新增订单
-          </Button>
-        </Space>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              新增订单
+            </Button>
+            {checkUserPermission('field_manage') && (
+              <Button 
+                icon={<SettingOutlined />} 
+                onClick={() => setFieldManagerVisible(true)}
+              >
+                自定义字段
+              </Button>
+            )}
+            <Button 
+              icon={<SettingOutlined />} 
+              onClick={() => setColumnSettingVisible(true)}
+              className="column-setting-button"
+            >
+              字段设置
+            </Button>
+          </Space>
+          
+          {columnSettingVisible && (
+            <div 
+              className="column-setting-panel"
+              style={{ 
+                position: 'absolute', 
+                top: '100%', 
+                right: 0, 
+                zIndex: 1000,
+                backgroundColor: 'white',
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                padding: '16px',
+                minWidth: '400px',
+                maxHeight: '80vh',
+                overflowY: 'auto'
+              }}>
+              <ColumnSettings
+                fieldConfig={fieldConfig}
+                dynamicFields={dynamicFields}
+                fieldGroups={fieldGroups}
+                columnConfig={columnConfig}
+                columnSettingOrder={columnSettingOrder}
+                onConfigChange={(config) => {
+                  setColumnConfig(config);
+                }}
+                onSave={saveColumnConfig}
+                onReset={() => {
+                  setColumnConfig({});
+                  setColumnSettingOrder([]);
+                  message.success('已重置为默认设置');
+                }}
+                onOrderChange={handleColumnOrderChange}
+                isAdmin={isAdmin}
+              />
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <Button onClick={() => setColumnSettingVisible(false)}>
+                  关闭
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </StyledCard>
 
       {/* 表格区域 */}
       <StyledCard>
         <Table
+          key={tableKey}
           columns={columns}
           dataSource={data}
           rowKey="id"
@@ -2298,254 +3221,41 @@ const SalesOrder = () => {
         >
           <TabPane tab="基本信息" key="base">
             <Form form={form} layout="vertical">
-              {/* 第一行：基本订单信息 */}
-              <Row gutter={16}>
-                <Col span={4}>
-                  <Form.Item name="order_number" label="销售单号">
-                    <Input placeholder="自动生成" disabled />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="customer_id" label="客户名称" rules={[{ required: true, message: '请选择客户' }]}>
-                    <Select 
-                      placeholder="请选择客户" 
-                      showSearch 
-                      optionFilterProp="children"
-                      onChange={handleCustomerChange}
-                    >
-                      {customerOptions.map(option => (
-                        <Option key={option.value} value={option.value}>{option.label}</Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="customer_order_number" label="客户订单号">
-                    <Input placeholder="客户订单号" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="contact_person_id" label="联系人">
-                    <Select 
-                      placeholder="请选择联系人" 
-                      allowClear
-                      showSearch
-                      optionFilterProp="children"
-                      onChange={handleContactChange}
-                    >
-                      {contactOptions.map(option => (
-                        <Option key={option.value} value={option.value}>
-                          {option.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="tax_id" label="税收">
-                    <Select 
-                      placeholder="请选择税收" 
-                      allowClear 
-                      showSearch 
-                      optionFilterProp="children"
-                      onChange={handleTaxChange}
-                    >
-                      {taxOptions.map(option => (
-                        <Option key={option.value} value={option.value} data-rate={option.rate}>
-                          {option.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="tax_rate" label="税率">
-                    <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="0" disabled addonAfter="%" />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 第二行：订单类型和客户信息 */}
-              <Row gutter={16}>
-                <Col span={4}>
-                  <Form.Item name="order_type" label="订单类型" rules={[{ required: true, message: '请选择订单类型' }]}>
-                    <Select placeholder="正常订单">
-                      <Option value="normal">正常订单</Option>
-                      <Option value="sample">打样订单</Option>
-                      <Option value="stock_check">查库订单</Option>
-                      <Option value="plate_fee">版费订单</Option>
-                      <Option value="urgent">加急订单</Option>
-                      <Option value="stock">备货订单</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="customer_code" label="客户编号">
-                    <Input placeholder="客户编号" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="payment_method" label="付款方式">
-                    <Input placeholder="付款方式" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="phone" label="电话">
-                    <Input placeholder="电话" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="deposit" label="订金">
-                    <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.01} placeholder="0" addonAfter="%" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="plate_deposit_rate" label="版费订金%">
-                    <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.01} placeholder="0" addonAfter="%" />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 第三行：日期和送货信息 */}
-              <Row gutter={16}>
-                <Col span={4}>
-                  <Form.Item name="delivery_date" label="交货日期" rules={[{ required: true, message: '请选择交货日期' }]}>
-                    <DatePicker 
-                      style={{ width: '100%' }} 
-                      onChange={handleDeliveryDateChange}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="customer_short_name" label="客户简称">
-                    <Input placeholder="客户简称" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="delivery_method" label="送货方式">
-                    <Input placeholder="送货方式" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="mobile" label="手机">
-                    <Input placeholder="手机" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="deposit_amount" label="订金">
-                    <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="0" />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="plate_deposit" label="版费订金">
-                    <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="0" />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 第四行：交期和业务信息 */}
-              <Row gutter={16}>
-                <Col span={4}>
-                  <Form.Item name="internal_delivery_date" label="内部交期">
-                    <DatePicker style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="salesperson_id" label="业务员">
-                  <Select placeholder="请选择业务员" allowClear>
-                  {employees.map((employee, index) => (
-                    <Option key={employee.value || `sales-employee-${index}`} value={employee.value}>
-                      {employee.label}
-                    </Option>
-                  ))}
-                </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="contract_date" label="合同日期">
-                    <DatePicker style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="contact_method" label="联系方式">
-                    <Select placeholder="请选择联系方式" allowClear>
-                      <Option value="phone">电话</Option>
-                      <Option value="email">邮件</Option>
-                      <Option value="fax">传真</Option>
-                      <Option value="wechat">微信</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="tracking_person" label="跟单员">
-                    <Select placeholder="请选择跟单员" allowClear showSearch optionFilterProp="children">
-                    {employees.map((employee, index) => (
-                    <Option key={employee.value || `sales-employee-${index}`} value={employee.value}>
-                      {employee.label}
-                    </Option>
-                  ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={4}>
-                  <Form.Item name="company_id" label="归属公司">
-                    <Select placeholder="请选择归属公司" allowClear>
-                      {/* TODO: 添加公司选项 */}
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 第五行：物流和地址信息 */}
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Form.Item name="logistics_info" label="物流信息">
-                    <Select placeholder="请选择物流信息" allowClear>
-                      {/* TODO: 添加物流选项 */}
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="delivery_contact" label="送货联系人">
-                    <Input placeholder="送货联系人" />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="status" label="状态">
-                    <Select placeholder="请选择状态" defaultValue="draft">
-                      <Option value="draft">草稿</Option>
-                      <Option value="confirmed">已确认</Option>
-                      <Option value="production">生产中</Option>
-                      <Option value="shipped">已发货</Option>
-                      <Option value="completed">已完成</Option>
-                      <Option value="cancelled">已取消</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 第六行：地址信息 */}
-              <Row gutter={16}>
-                <Col span={24}>
-                  <Form.Item name="delivery_address" label="送货地址">
-                    <Input placeholder="请输入送货地址" />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 第七行：要求信息 */}
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="production_requirements" label="生产要求">
-                    <TextArea rows={2} placeholder="请输入生产要求" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="order_requirements" label="订单要求">
-                    <TextArea rows={2} placeholder="请输入订单要求" />
-                  </Form.Item>
-                </Col>
-              </Row>
+              {/* 动态渲染表单字段，按列设置顺序排列 */}
+              {(() => {
+                const orderedFields = getOrderedVisibleFormFields();
+                const rows = [];
+                let currentRow = [];
+                
+                orderedFields.forEach((fieldName, index) => {
+                  const fieldElement = renderFormField(fieldName);
+                  if (fieldElement) {
+                    currentRow.push(fieldElement);
+                    
+                    // 每6个字段换一行，或者遇到特殊字段
+                    if (currentRow.length === 6 || fieldName === 'delivery_address' || 
+                        fieldName === 'production_requirements' || fieldName === 'order_requirements') {
+                      rows.push(
+                        <Row gutter={16} key={`row-${rows.length}`}>
+                          {currentRow}
+                        </Row>
+                      );
+                      currentRow = [];
+                    }
+                  }
+                });
+                
+                // 处理最后一行
+                if (currentRow.length > 0) {
+                  rows.push(
+                    <Row gutter={16} key={`row-${rows.length}`}>
+                      {currentRow}
+                    </Row>
+                  );
+                }
+                
+                return rows;
+              })()}
             </Form>
           </TabPane>
           
@@ -2714,6 +3424,18 @@ const SalesOrder = () => {
           </div>
         )}
       </Drawer>
+
+      {/* 动态字段管理模态框 */}
+      <FieldManager
+        visible={fieldManagerVisible}
+        onCancel={() => setFieldManagerVisible(false)}
+        modelName="sales_order"
+        pageName="sales_order"
+        onSuccess={() => {
+          setFieldManagerVisible(false);
+          loadDynamicFields();
+        }}
+      />
     </PageContainer>
   );
 };

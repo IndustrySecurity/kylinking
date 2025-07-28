@@ -16,11 +16,11 @@ import uuid
 
 def init_production_planning_module():
     """初始化生产计划管理模块"""
-    print("初始化生产计划管理模块...")
+    print("初始化生产管理模块...")
     
     module = ModuleService.create_system_module(
         name='production_planning',
-        display_name='生产计划管理',
+        display_name='生产管理',
         description='薄膜生产计划的制定、调度和跟踪管理',
         category='production',
         version='1.0.0',
@@ -1063,6 +1063,7 @@ def main():
                 ('sales_management', '销售管理', init_sales_management_module),
                 ('warehouse_management', '仓库管理', init_warehouse_management_module),
                 ('purchase_management', '采购管理', init_purchase_management_module),
+                ('production_planning', '生产管理', init_production_planning_module),
                 ('finance_management', '财务管理', init_finance_management_module)
             ]
             

@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
             const refreshToken = authUtils.getRefreshToken();
             if (refreshToken) {
               try {
-                const response = await api.post('/api/auth/refresh', {}, {
+                const response = await api.post('/auth/refresh', {}, {
                   headers: { 
                     Authorization: `Bearer ${refreshToken}` 
                   }
@@ -55,9 +55,12 @@ export const AuthProvider = ({ children }) => {
             // 令牌有效，设置用户信息
             setUser(authUtils.getUser());
           }
+        } else {
+          // 没有有效令牌，清除认证信息并重定向到登录页
+          logout();
         }
       } catch (error) {
-        // 清除认证信息并重定向到登录页
+        // 处理错误，清除认证信息并重定向到登录页
         logout();
       } finally {
         setLoading(false);
@@ -73,7 +76,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       
       // 选择合适的登录端点
-      const endpoint = isAdmin ? '/api/auth/admin-login' : '/api/auth/login';
+      const endpoint = isAdmin ? '/auth/admin-login' : '/auth/login';
       
       // 调用登录API
       const authData = await api.login(email, password, tenant, endpoint);
@@ -103,8 +106,8 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       await api.logout();
     } catch (error) {
-      // 清除认证信息并重定向到登录页
-      logout();
+      // 忽略登出API错误，继续清理本地数据
+      console.error('Logout API error:', error);
     } finally {
       setUser(null);
       setLoading(false);

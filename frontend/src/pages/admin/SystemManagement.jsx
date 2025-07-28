@@ -35,6 +35,8 @@ const SystemManagement = () => {
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState(null);
   
+  // 移除调试日志，避免无限重新渲染
+  
   // Direct state initialization from localStorage if available
   useEffect(() => {
     // Try to immediately initialize state from localStorage to avoid flicker
@@ -64,17 +66,21 @@ const SystemManagement = () => {
         }
       }
     }
-  }, [api]);
+  }, []); // 移除api依赖项，避免无限重新渲染
 
   // Fetch user role and tenants on component mount
   useEffect(() => {
+    // useEffect triggered
+    
     // Save a reference to determine if the component is still mounted when async operations complete
     let isMounted = true;
     let fetchAttempts = 0;
     const maxAttempts = 3;
     
     const fetchUserRoleAndTenants = async () => {
-      if (loading) return; // Prevent concurrent fetches
+      if (loading) {
+        return; // Prevent concurrent fetches
+      }
       
       fetchAttempts++;
       setLoading(true);
@@ -90,10 +96,14 @@ const SystemManagement = () => {
         if (!userInfo) {
           try {
             await sleep(300); // Add sleep before API call
-            const userResponse = await api.get('/api/auth/me');
+            const userResponse = await api.get('/auth/me');
             userInfo = userResponse.data.user;
           } catch (authError) {
-            throw new Error("User authentication failed");
+            // 如果API不存在，使用本地存储的用户信息
+            userInfo = api.getUser();
+            if (!userInfo) {
+              throw new Error("User authentication failed");
+            }
           }
         }
         
@@ -146,23 +156,9 @@ const SystemManagement = () => {
           }
         }
       } catch (error) {
-        // Check if we should retry
-        if (fetchAttempts < maxAttempts && isMounted) {
-          setTimeout(() => {
-            if (isMounted) {
-              setLoading(false);
-              fetchUserRoleAndTenants();
-            }
-          }, 2000); // Increase wait time before retrying to 2 seconds
-          return;
-        }
-        
         if (isMounted) {
           message.error("Failed to load user information");
-          // Only redirect if we have no user information at all
-          if (!userRole) {
-            navigate('/');
-          }
+          // 不进行重试，避免无限循环
         }
       } finally {
         if (isMounted) {
@@ -174,9 +170,10 @@ const SystemManagement = () => {
     fetchUserRoleAndTenants();
     
     // Add window event listener for online/offline status
+    let onlineTimeout;
     const handleOnline = () => {
       if (isMounted && !loading) {
-        setTimeout(fetchUserRoleAndTenants, 1000); // Delay reload on connection restore
+        onlineTimeout = setTimeout(fetchUserRoleAndTenants, 1000); // Delay reload on connection restore
       }
     };
     
@@ -186,8 +183,11 @@ const SystemManagement = () => {
     return () => {
       isMounted = false;
       window.removeEventListener('online', handleOnline);
+      if (onlineTimeout) {
+        clearTimeout(onlineTimeout);
+      }
     };
-  }, [navigate, api, userRole]); // Include userRole to prevent unnecessary redirects
+  }, []); // Empty dependency array to run only once
 
   // Handle tenant change for superadmin
   const handleTenantChange = (tenantId) => {
@@ -247,6 +247,11 @@ const SystemManagement = () => {
     }
   };
   
+  // 如果URL不是系统管理页面，不渲染组件
+  if (window.location.pathname !== '/admin/system') {
+    return null;
+  }
+  
   return (
     <div className="system-management">
       <Card>
@@ -282,12 +287,9 @@ const SystemManagement = () => {
 
           {/* Status alerts */}
           {userRole === null && !loading && (
-            <Alert
-              message="用户权限加载失败"
-              description="无法确定您的用户权限。请刷新页面或联系系统管理员。"
-              type="error"
-              showIcon
-            />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+              <Spin size="large" />
+            </div>
           )}
           
           {/* Display message if no tenant is selected for superadmin */}

@@ -31,35 +31,6 @@ const CustomerContract = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
-  const mockData = [
-    {
-      id: '1',
-      contract_number: 'CT202412150001',
-      customer_name: '上海塑料制品有限公司',
-      contract_name: '2024年度产品供应合同',
-      contract_amount: 1200000.00,
-      signing_date: '2024-01-15',
-      start_date: '2024-01-20',
-      end_date: '2024-12-31',
-      status: 'active',
-      sales_person: '张三',
-      payment_terms: '月结30天'
-    },
-    {
-      id: '2',
-      contract_number: 'CT202412150002',
-      customer_name: '北京包装材料公司',
-      contract_name: '包装材料采购框架协议',
-      contract_amount: 800000.00,
-      signing_date: '2024-03-10',
-      start_date: '2024-03-15',
-      end_date: '2025-03-14',
-      status: 'active',
-      sales_person: '李四',
-      payment_terms: '货到付款'
-    }
-  ];
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -67,12 +38,11 @@ const CustomerContract = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      setTimeout(() => {
-        setData(mockData);
-        setLoading(false);
-      }, 1000);
+      const response = await api.get('/business/sales/customer-contracts');
+      setData(response.data.contracts || []);
     } catch (error) {
       message.error('获取数据失败');
+    } finally {
       setLoading(false);
     }
   };

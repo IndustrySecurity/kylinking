@@ -53,7 +53,7 @@ const OrganizationManagement = ({ tenant, userRole }) => {
   const api = useApi();
   const [usersLoading, setUsersLoading] = useState(false);
 
-  // 模拟获取组织数据
+  // 获取组织数据
   useEffect(() => {
     let isMounted = true;
     
@@ -71,78 +71,26 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     };
   }, [tenant?.id]); // Only depend on tenant ID to prevent unnecessary rerenders
 
-  // 模拟获取组织列表
+  // 获取组织列表
   const fetchOrganizations = async () => {
     if (loading) return; // Prevent concurrent fetches
     
     setLoading(true);
     
     try {
-      // Add delay to slow down API calls
-      await sleep(600);
+      const response = await api.get(`/admin/tenants/${tenant.id}/organizations`);
       
-      // 在真实环境中，应该使用API调用获取组织列表
-      // 例如: const response = await api.get(`/admin/tenants/${tenant.id}/organizations`);
-      // 这里使用模拟数据
-      const mockOrgs = [
-        {
-          id: '1',
-          name: '总公司',
-          code: 'HQ',
-          description: '公司总部',
-          parent_id: null,
-          level: 1,
-          children: [
-            {
-              id: '2',
-              name: '生产部',
-              code: 'PROD',
-              description: '负责产品生产',
-              parent_id: '1',
-              level: 2
-            },
-            {
-              id: '3',
-              name: '销售部',
-              code: 'SALES',
-              description: '负责产品销售',
-              parent_id: '1',
-              level: 2,
-              children: [
-                {
-                  id: '5',
-                  name: '国内销售组',
-                  code: 'SALES-CN',
-                  description: '负责国内市场',
-                  parent_id: '3',
-                  level: 3
-                },
-                {
-                  id: '6',
-                  name: '国际销售组',
-                  code: 'SALES-INT',
-                  description: '负责国际市场',
-                  parent_id: '3',
-                  level: 3
-                }
-              ]
-            }
-          ]
-        },
-        {
-          id: '4',
-          name: '研发部',
-          code: 'RD',
-          description: '负责产品研发',
-          parent_id: null,
-          level: 1
-        }
-      ];
-      
-      setOrganizations(flattenOrgs(mockOrgs));
-      setTreeData(mockOrgs);
-      setExpandedKeys(['1', '3']); // 默认展开的节点
+      if (response.data.success) {
+        const organizations = response.data.data.organizations || [];
+        
+        setOrganizations(flattenOrgs(organizations));
+        setTreeData(organizations);
+        setExpandedKeys(['1', '3']); // 默认展开的节点
+      } else {
+        message.error('获取组织结构失败');
+      }
     } catch (error) {
+      console.error('获取组织数据错误:', error);
       message.error('获取组织结构失败');
     } finally {
       setLoading(false);
@@ -169,25 +117,27 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     return result;
   };
 
-  // 获取用户列表 - 使用debounce减少API调用频率
-  const fetchUsers = useCallback(debounce(async () => {
-    if (!tenant?.id || usersLoading) return;
+  // 获取用户列表
+  const fetchUsers = async () => {
+    if (usersLoading) return;
     
     setUsersLoading(true);
+    
     try {
-      // 添加较长的延迟以减少API调用频率
-      await sleep(800);
-      
-      const response = await api.get(`/admin/tenants/${tenant.id}/users`, {
-        params: { per_page: 100 } // 获取更多用户
-      });
-      setUsers(response.data.users);
+      const response = await api.get(`/admin/tenants/${tenant.id}/users`);
+      if (response.data && response.data.users) {
+        setUsers(response.data.users || []);
+      } else {
+        setUsers([]);
+      }
     } catch (error) {
+      console.error('获取用户列表错误:', error);
       message.error('获取用户列表失败');
+      setUsers([]);
     } finally {
       setUsersLoading(false);
     }
-  }, 1500), [tenant?.id, api, usersLoading]); // 增加debounce时间到1500ms，添加usersLoading依赖项
+  };
 
   // 显示创建组织的模态框
   const showCreateModal = (parentOrg = null) => {
@@ -242,22 +192,31 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     try {
       const values = await form.validateFields();
       
-      // 添加延迟以减少API调用频率
-      await sleep(600);
+      if (currentOrg) {
+        // 更新组织
+        const response = await api.put(`/admin/tenants/${tenant.id}/organizations/${currentOrg.id}`, values);
+        if (response.data.success) {
+          message.success('组织更新成功');
+          await fetchOrganizations(); // 刷新数据
+        } else {
+          message.error(response.data.message || '组织更新失败');
+        }
+      } else {
+        // 创建新组织
+        const response = await api.post(`/admin/tenants/${tenant.id}/organizations`, values);
+        if (response.data.success) {
+          message.success('组织创建成功');
+          await fetchOrganizations(); // 刷新数据
+        } else {
+          message.error(response.data.message || '组织创建失败');
+        }
+      }
       
-      // 这里模拟提交到API
-      // 实际应用中应该调用真实的API
-      // 如果有实际API，应该使用 api.post 或 api.put
-      // 例如: await api.post(`/admin/tenants/${tenant.id}/organizations`, values);
-      
-      message.success(currentOrg ? '组织更新成功' : '组织创建成功');
       setModalVisible(false);
-      
-      // 添加延迟后再刷新数据
-      setTimeout(() => {
-        fetchOrganizations(); // 重新获取数据
-      }, 800);
+      form.resetFields();
+      setCurrentOrg(null);
     } catch (error) {
+      console.error('组织操作错误:', error);
       message.error('操作失败');
     }
   };
@@ -267,42 +226,37 @@ const OrganizationManagement = ({ tenant, userRole }) => {
     try {
       const values = await assignForm.validateFields();
       
-      // 添加延迟以减少API调用频率
-      await sleep(600);
+      const response = await api.post(`/admin/tenants/${tenant.id}/organizations/${currentOrg.id}/users`, values);
       
-      // 这里模拟提交到API
-      // 实际应用中应该调用真实的API
-      // 例如: await api.post(`/admin/tenants/${tenant.id}/organizations/${currentOrg.id}/users`, values);
-      
-      message.success('用户分配成功');
-      setAssignUserModalVisible(false);
+      if (response.data.success) {
+        message.success('用户分配成功');
+        setAssignUserModalVisible(false);
+        assignForm.resetFields();
+        setCurrentOrg(null);
+      } else {
+        message.error(response.data.message || '用户分配失败');
+      }
     } catch (error) {
-      message.error('用户分配失败');
+      console.error('分配用户错误:', error);
+      message.error('分配失败');
     }
   };
 
   // 处理组织删除
   const handleDeleteOrg = async (orgId) => {
-    // 检查是否有子组织
-    const hasChildren = organizations.some(org => org.parent_id === orgId);
-    if (hasChildren) {
-      message.error('不能删除包含子组织的组织，请先删除其下属组织');
-      return;
+    try {
+      const response = await api.delete(`/admin/tenants/${tenant.id}/organizations/${orgId}`);
+      
+      if (response.data.success) {
+        message.success('组织删除成功');
+        await fetchOrganizations(); // 刷新数据
+      } else {
+        message.error(response.data.message || '组织删除失败');
+      }
+    } catch (error) {
+      console.error('删除组织错误:', error);
+      message.error('删除失败');
     }
-    
-    // 添加延迟以减少API调用频率
-    await sleep(500);
-    
-    // 这里模拟从API删除组织
-    // 实际应用中应该调用真实的API
-    // 例如: await api.delete(`/admin/tenants/${tenant.id}/organizations/${orgId}`);
-    
-    message.success('组织删除成功');
-    
-    // 添加延迟后再刷新数据
-    setTimeout(() => {
-      fetchOrganizations(); // 重新获取数据
-    }, 800);
   };
 
   // 处理树节点展开/收起

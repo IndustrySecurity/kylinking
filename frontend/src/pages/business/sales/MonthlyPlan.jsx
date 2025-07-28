@@ -32,54 +32,6 @@ const MonthlyPlan = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
-  const mockData = [
-    {
-      id: '1',
-      plan_number: 'MP202412',
-      year: 2024,
-      month: 12,
-      sales_person: '张三',
-      department: '销售一部',
-      target_amount: 500000.00,
-      actual_amount: 425000.00,
-      completion_rate: 85.0,
-      target_orders: 20,
-      actual_orders: 18,
-      status: 'in_progress',
-      create_date: '2024-11-25'
-    },
-    {
-      id: '2',
-      plan_number: 'MP202411',
-      year: 2024,
-      month: 11,
-      sales_person: '李四',
-      department: '销售二部',
-      target_amount: 450000.00,
-      actual_amount: 467000.00,
-      completion_rate: 103.8,
-      target_orders: 18,
-      actual_orders: 19,
-      status: 'completed',
-      create_date: '2024-10-25'
-    },
-    {
-      id: '3',
-      plan_number: 'MP202410',
-      year: 2024,
-      month: 10,
-      sales_person: '王五',
-      department: '销售一部',
-      target_amount: 380000.00,
-      actual_amount: 320000.00,
-      completion_rate: 84.2,
-      target_orders: 15,
-      actual_orders: 13,
-      status: 'completed',
-      create_date: '2024-09-25'
-    }
-  ];
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -87,12 +39,11 @@ const MonthlyPlan = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      setTimeout(() => {
-        setData(mockData);
-        setLoading(false);
-      }, 1000);
+      const response = await api.get('/business/sales/monthly-plans');
+      setData(response.data.monthly_plans || []);
     } catch (error) {
       message.error('获取数据失败');
+    } finally {
       setLoading(false);
     }
   };

@@ -23,11 +23,13 @@ try:
     from .base_archive import base_archive_bp
     from .business import business_bp
     from .routes import production_bp
+    from .modules import bp as modules_bp
     
     # 注册子蓝图
     tenant_bp.register_blueprint(base_archive_bp, url_prefix='/base-archive')
     tenant_bp.register_blueprint(business_bp, url_prefix='/business')
     tenant_bp.register_blueprint(production_bp, url_prefix='/production')
+    tenant_bp.register_blueprint(modules_bp, url_prefix='/modules')
     
     # 兼容路径 - 为前端错误的API路径创建别名
     from .base_archive.base_data import base_data_bp

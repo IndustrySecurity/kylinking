@@ -78,30 +78,34 @@ const RoleManagement = ({ tenant, userRole }) => {
     };
   }, [tenant?.id]); // Only depend on tenant ID to prevent unnecessary rerenders
 
-  // Fetch roles list with pagination
-  const fetchRoles = async (page = 1, pageSize = 10) => {
-    if (loading) return; // Prevent concurrent fetches
+  // 获取角色列表
+  const fetchRoles = async () => {
+    await fetchRolesWithParams(pagination.current, pagination.pageSize);
+  };
+
+  // 带参数获取角色列表
+  const fetchRolesWithParams = async (page, pageSize) => {
+    if (loading) return;
     
     setLoading(true);
+    
     try {
-      // Add delay to slow down API calls
-      await sleep(500);
-      
       const response = await api.get(`/admin/tenants/${tenant.id}/roles`, {
         params: {
-          page,
+          page: page,
           per_page: pageSize
         }
       });
       
       const { roles, total, pages } = response.data;
       setRoles(roles);
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         current: page,
+        pageSize: pageSize,
         total,
         pages
-      });
+      }));
     } catch (error) {
       message.error('获取角色列表失败');
     } finally {
@@ -112,9 +116,6 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Fetch permissions
   const fetchPermissions = async () => {
     try {
-      // Add delay to slow down API calls
-      await sleep(600);
-      
       const response = await api.get('/admin/permissions');
       setPermissions(response.data.permissions.map(p => ({
         key: p.id,
@@ -130,9 +131,6 @@ const RoleManagement = ({ tenant, userRole }) => {
   const fetchUsers = async () => {
     let usersLoading = true;
     try {
-      // Add delay to slow down API calls
-      await sleep(800);
-      
       const response = await api.get(`/admin/tenants/${tenant.id}/users`, {
         params: { per_page: 100 } // Get more users for selection
       });
@@ -149,8 +147,15 @@ const RoleManagement = ({ tenant, userRole }) => {
   };
 
   // Handle table change (pagination, filters, sorter)
-  const handleTableChange = (pagination) => {
-    fetchRoles(pagination.current, pagination.pageSize);
+  const handleTableChange = (newPagination) => {
+    setPagination(prev => ({
+      ...prev,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize
+    }));
+    
+    // 使用新的分页参数直接调用API
+    fetchRolesWithParams(newPagination.current, newPagination.pageSize);
   };
 
   // Open modal for creating a new role
@@ -185,9 +190,6 @@ const RoleManagement = ({ tenant, userRole }) => {
     
     // Get role details with assigned users
     try {
-      // Add delay to slow down API calls
-      await sleep(500);
-      
       const response = await api.get(`/admin/tenants/${tenant.id}/roles/${role.id}`);
       const roleData = response.data.role;
       
@@ -213,9 +215,6 @@ const RoleManagement = ({ tenant, userRole }) => {
     
     // Get role details with assigned permissions
     try {
-      // Add delay to slow down API calls
-      await sleep(500);
-      
       const response = await api.get(`/admin/tenants/${tenant.id}/roles/${role.id}`);
       const roleData = response.data.role;
       
@@ -236,9 +235,6 @@ const RoleManagement = ({ tenant, userRole }) => {
   const handleFormSubmit = async () => {
     try {
       const values = await form.validateFields();
-      
-      // Add delay to slow down API calls
-      await sleep(500);
       
       if (currentRole) {
         // Update existing role
@@ -264,9 +260,6 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Handle delete role
   const handleDeleteRole = async (roleId) => {
     try {
-      // Add delay to slow down API calls
-      await sleep(500);
-      
       await api.delete(`/admin/tenants/${tenant.id}/roles/${roleId}`);
       message.success('角色删除成功');
       
@@ -292,9 +285,6 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Save role users
   const saveRoleUsers = async () => {
     try {
-      // Add delay to slow down API calls
-      await sleep(600);
-      
       await api.put(`/admin/tenants/${tenant.id}/roles/${currentRole.id}/users`, {
         user_ids: targetKeys
       });
@@ -314,9 +304,6 @@ const RoleManagement = ({ tenant, userRole }) => {
   // Save role permissions
   const saveRolePermissions = async () => {
     try {
-      // Add delay to slow down API calls
-      await sleep(600);
-      
       await api.put(`/admin/tenants/${tenant.id}/roles/${currentRole.id}/permissions`, {
         permission_ids: permissionTargetKeys
       });
@@ -436,7 +423,13 @@ const RoleManagement = ({ tenant, userRole }) => {
         columns={columns}
         rowKey="id"
         loading={loading}
-        pagination={pagination}
+        pagination={{
+          ...pagination,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+          pageSizeOptions: ['5', '10', '20', '50']
+        }}
         onChange={handleTableChange}
       />
 

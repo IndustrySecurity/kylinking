@@ -30,19 +30,6 @@ const ReturnNotice = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
-  const mockData = [
-    {
-      id: '1',
-      return_notice_number: 'RN202412150001',
-      customer_name: '上海塑料制品有限公司',
-      order_number: 'SO202412150001',
-      return_reason: '质量问题',
-      return_date: '2024-12-25',
-      status: 'pending',
-      return_amount: 5000.00
-    }
-  ];
-
   useEffect(() => {
     fetchData();
   }, []);
@@ -50,12 +37,11 @@ const ReturnNotice = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      setTimeout(() => {
-        setData(mockData);
-        setLoading(false);
-      }, 1000);
+      const response = await api.get('/business/sales/return-notices');
+      setData(response.data.return_notices || []);
     } catch (error) {
       message.error('获取数据失败');
+    } finally {
       setLoading(false);
     }
   };
