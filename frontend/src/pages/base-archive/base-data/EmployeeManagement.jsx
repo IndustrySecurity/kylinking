@@ -40,6 +40,7 @@ import {
 } from '../../../api/base-archive/base-data/employee'
 import { getDepartmentOptions } from '../../../api/base-archive/base-data/department'
 import { getPositionOptions } from '../../../api/base-archive/base-data/position'
+
 import dayjs from 'dayjs'
 
 const { Title } = Typography
@@ -234,14 +235,30 @@ const EmployeeManagement = () => {
   const handleDelete = async (id) => {
     try {
       const response = await deleteEmployee(id)
-      if (response.success) {
+      // 正确访问后端响应数据
+      const backendResponse = response.data
+      
+      if (backendResponse && backendResponse.success) {
         message.success('删除成功')
         loadEmployees()
       } else {
-        message.error(response.message || '删除失败')
+        message.error(backendResponse?.message || '删除失败')
       }
     } catch (error) {
-      message.error('删除失败')
+      console.error('删除员工出错:', error)
+      // 检查是否是网络错误导致的假阳性
+      if (error.response && error.response.status === 200) {
+        // 状态码200表示成功，可能是响应格式解析问题
+        const backendResponse = error.response.data
+        if (backendResponse && backendResponse.success) {
+          message.success('删除成功')
+          loadEmployees()
+        } else {
+          message.error('删除可能成功，但响应格式异常，请刷新页面查看')
+        }
+      } else {
+        message.error('删除失败: ' + (error.message || '未知错误'))
+      }
     }
   }
 
@@ -324,6 +341,8 @@ const EmployeeManagement = () => {
       }
     }
   }
+
+
 
   // 表格列定义
   const columns = [
@@ -656,6 +675,7 @@ const EmployeeManagement = () => {
                 <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
                   新建员工
                 </Button>
+
               </Space>
             </Col>
           </Row>
