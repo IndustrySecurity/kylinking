@@ -68,7 +68,7 @@ class ProductInboundService(TenantAwareService):
         inbound_person_id: Optional[str] = None,
         department_id: Optional[str] = None,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 10
     ) -> Dict[str, Any]:
         """获取产品入库单列表"""
         from sqlalchemy.orm import joinedload
@@ -181,7 +181,13 @@ class ProductInboundService(TenantAwareService):
                 'supplier_name': data.get('supplier_name', ''),
                 'supplier_id': uuid.UUID(data['supplier_id']) if data.get('supplier_id') else None,
                 'pallet_count': data.get('pallet_count', 0),
-                'notes': data.get('notes', '')
+                'pallet_barcode': data.get('pallet_barcode', ''),
+                'source_document_type': data.get('source_document_type', ''),
+                'source_document_id': uuid.UUID(data['source_document_id']) if data.get('source_document_id') else None,
+                'source_document_number': data.get('source_document_number', ''),
+                'customer_id': uuid.UUID(data['customer_id']) if data.get('customer_id') else None,
+                'notes': data.get('notes', ''),
+                'custom_fields': data.get('custom_fields', {})
             }
             
             # 使用继承的create_with_tenant方法
@@ -194,7 +200,8 @@ class ProductInboundService(TenantAwareService):
                     detail_params = {
                         'inbound_order_id': order.id,
                         'inbound_quantity': Decimal(str(detail_data.get('inbound_quantity', 0))),
-                        'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None
+                        'unit_id': uuid.UUID(detail_data.get('unit_id')) if detail_data.get('unit_id') else None,
+                        'created_by': created_by_uuid
                     }
                     
                     # 设置其他明细字段
@@ -204,14 +211,59 @@ class ProductInboundService(TenantAwareService):
                         detail_params['product_name'] = detail_data['product_name']
                     if detail_data.get('product_code'):
                         detail_params['product_code'] = detail_data['product_code']
+                    
+                    # 处理产品规格字段 - 支持多种字段名
                     if detail_data.get('product_spec'):
                         detail_params['product_spec'] = detail_data['product_spec']
+                    elif detail_data.get('specification'):
+                        detail_params['product_spec'] = detail_data['specification']
+                    
                     if detail_data.get('batch_number'):
                         detail_params['batch_number'] = detail_data['batch_number']
                     if detail_data.get('location_code'):
                         detail_params['location_code'] = detail_data['location_code']
                     if detail_data.get('unit_cost'):
                         detail_params['unit_cost'] = Decimal(str(detail_data['unit_cost']))
+                    
+                    # 处理数量相关字段
+                    if detail_data.get('inbound_kg_quantity') is not None:
+                        detail_params['inbound_kg_quantity'] = Decimal(str(detail_data['inbound_kg_quantity']))
+                    if detail_data.get('inbound_m_quantity') is not None:
+                        detail_params['inbound_m_quantity'] = Decimal(str(detail_data['inbound_m_quantity']))
+                    if detail_data.get('inbound_roll_quantity') is not None:
+                        detail_params['inbound_roll_quantity'] = Decimal(str(detail_data['inbound_roll_quantity']))
+                    
+                    # 处理其他字段
+                    if detail_data.get('quality_status'):
+                        detail_params['quality_status'] = detail_data['quality_status']
+                    if detail_data.get('production_date'):
+                        detail_params['production_date'] = datetime.strptime(detail_data['production_date'], '%Y-%m-%d')
+                    if detail_data.get('expiry_date'):
+                        detail_params['expiry_date'] = datetime.strptime(detail_data['expiry_date'], '%Y-%m-%d')
+                    if detail_data.get('quality_certificate'):
+                        detail_params['quality_certificate'] = detail_data['quality_certificate']
+                    if detail_data.get('actual_location_code'):
+                        detail_params['actual_location_code'] = detail_data['actual_location_code']
+                    if detail_data.get('package_quantity') is not None:
+                        detail_params['package_quantity'] = Decimal(str(detail_data['package_quantity']))
+                    if detail_data.get('package_unit_id'):
+                        detail_params['package_unit_id'] = uuid.UUID(detail_data['package_unit_id'])
+                    if detail_data.get('box_quantity') is not None:
+                        detail_params['box_quantity'] = Decimal(str(detail_data['box_quantity']))
+                    if detail_data.get('case_quantity') is not None:
+                        detail_params['case_quantity'] = detail_data['case_quantity']
+                    if detail_data.get('line_number') is not None:
+                        detail_params['line_number'] = detail_data['line_number']
+                    if detail_data.get('sort_order') is not None:
+                        detail_params['sort_order'] = detail_data['sort_order']
+                    if detail_data.get('notes'):
+                        detail_params['notes'] = detail_data['notes']
+                    if detail_data.get('custom_fields'):
+                        detail_params['custom_fields'] = detail_data['custom_fields']
+                    
+                    # 计算总成本
+                    if detail_params.get('unit_cost') and detail_params.get('inbound_quantity'):
+                        detail_params['total_cost'] = detail_params['unit_cost'] * detail_params['inbound_quantity']
                     
                     # 创建明细
                     detail = self.create_with_tenant(InboundOrderDetail, **detail_params)
@@ -255,6 +307,14 @@ class ProductInboundService(TenantAwareService):
                         order.warehouse_id = uuid.UUID(value)
                     elif key == 'supplier_id' and isinstance(value, str):
                         order.supplier_id = uuid.UUID(value)
+                    elif key == 'inbound_person_id' and isinstance(value, str):
+                        order.inbound_person_id = uuid.UUID(value)
+                    elif key == 'department_id' and isinstance(value, str):
+                        order.department_id = uuid.UUID(value)
+                    elif key == 'source_document_id' and isinstance(value, str):
+                        order.source_document_id = uuid.UUID(value)
+                    elif key == 'customer_id' and isinstance(value, str):
+                        order.customer_id = uuid.UUID(value)
                     else:
                         setattr(order, key, value)
             
@@ -292,14 +352,59 @@ class ProductInboundService(TenantAwareService):
                         detail_params['product_name'] = detail_data['product_name']
                     if detail_data.get('product_code'):
                         detail_params['product_code'] = detail_data['product_code']
+                    
+                    # 处理产品规格字段 - 支持多种字段名
                     if detail_data.get('product_spec'):
                         detail_params['product_spec'] = detail_data['product_spec']
+                    elif detail_data.get('specification'):
+                        detail_params['product_spec'] = detail_data['specification']
+                    
                     if detail_data.get('batch_number'):
                         detail_params['batch_number'] = detail_data['batch_number']
                     if detail_data.get('location_code'):
                         detail_params['location_code'] = detail_data['location_code']
                     if detail_data.get('unit_cost'):
                         detail_params['unit_cost'] = Decimal(str(detail_data['unit_cost']))
+                    
+                    # 处理数量相关字段
+                    if detail_data.get('inbound_kg_quantity') is not None:
+                        detail_params['inbound_kg_quantity'] = Decimal(str(detail_data['inbound_kg_quantity']))
+                    if detail_data.get('inbound_m_quantity') is not None:
+                        detail_params['inbound_m_quantity'] = Decimal(str(detail_data['inbound_m_quantity']))
+                    if detail_data.get('inbound_roll_quantity') is not None:
+                        detail_params['inbound_roll_quantity'] = Decimal(str(detail_data['inbound_roll_quantity']))
+                    
+                    # 处理其他字段
+                    if detail_data.get('quality_status'):
+                        detail_params['quality_status'] = detail_data['quality_status']
+                    if detail_data.get('production_date'):
+                        detail_params['production_date'] = datetime.strptime(detail_data['production_date'], '%Y-%m-%d')
+                    if detail_data.get('expiry_date'):
+                        detail_params['expiry_date'] = datetime.strptime(detail_data['expiry_date'], '%Y-%m-%d')
+                    if detail_data.get('quality_certificate'):
+                        detail_params['quality_certificate'] = detail_data['quality_certificate']
+                    if detail_data.get('actual_location_code'):
+                        detail_params['actual_location_code'] = detail_data['actual_location_code']
+                    if detail_data.get('package_quantity') is not None:
+                        detail_params['package_quantity'] = Decimal(str(detail_data['package_quantity']))
+                    if detail_data.get('package_unit_id'):
+                        detail_params['package_unit_id'] = uuid.UUID(detail_data['package_unit_id'])
+                    if detail_data.get('box_quantity') is not None:
+                        detail_params['box_quantity'] = Decimal(str(detail_data['box_quantity']))
+                    if detail_data.get('case_quantity') is not None:
+                        detail_params['case_quantity'] = detail_data['case_quantity']
+                    if detail_data.get('line_number') is not None:
+                        detail_params['line_number'] = detail_data['line_number']
+                    if detail_data.get('sort_order') is not None:
+                        detail_params['sort_order'] = detail_data['sort_order']
+                    if detail_data.get('notes'):
+                        detail_params['notes'] = detail_data['notes']
+                    if detail_data.get('custom_fields'):
+                        detail_params['custom_fields'] = detail_data['custom_fields']
+                    
+                    # 计算总成本
+                    if detail_params.get('unit_cost') and detail_params.get('inbound_quantity'):
+                        detail_params['total_cost'] = detail_params['unit_cost'] * detail_params['inbound_quantity']
                     
                     detail = self.create_with_tenant(InboundOrderDetail, **detail_params)
             
@@ -595,12 +700,59 @@ class ProductInboundService(TenantAwareService):
                 detail_params['product_name'] = detail_data['product_name']
             if detail_data.get('product_code'):
                 detail_params['product_code'] = detail_data['product_code']
+            
+            # 处理产品规格字段 - 支持多种字段名
+            if detail_data.get('product_spec'):
+                detail_params['product_spec'] = detail_data['product_spec']
+            elif detail_data.get('specification'):
+                detail_params['product_spec'] = detail_data['specification']
+            
             if detail_data.get('batch_number'):
                 detail_params['batch_number'] = detail_data['batch_number']
             if detail_data.get('location_code'):
                 detail_params['location_code'] = detail_data['location_code']
             if detail_data.get('unit_cost'):
                 detail_params['unit_cost'] = Decimal(str(detail_data['unit_cost']))
+            
+            # 处理数量相关字段
+            if detail_data.get('inbound_kg_quantity') is not None:
+                detail_params['inbound_kg_quantity'] = Decimal(str(detail_data['inbound_kg_quantity']))
+            if detail_data.get('inbound_m_quantity') is not None:
+                detail_params['inbound_m_quantity'] = Decimal(str(detail_data['inbound_m_quantity']))
+            if detail_data.get('inbound_roll_quantity') is not None:
+                detail_params['inbound_roll_quantity'] = Decimal(str(detail_data['inbound_roll_quantity']))
+            if detail_data.get('box_quantity') is not None:
+                detail_params['box_quantity'] = Decimal(str(detail_data['box_quantity']))
+            if detail_data.get('case_quantity') is not None:
+                detail_params['case_quantity'] = detail_data['case_quantity']
+            
+            # 处理其他字段
+            if detail_data.get('quality_status'):
+                detail_params['quality_status'] = detail_data['quality_status']
+            if detail_data.get('production_date'):
+                detail_params['production_date'] = datetime.strptime(detail_data['production_date'], '%Y-%m-%d')
+            if detail_data.get('expiry_date'):
+                detail_params['expiry_date'] = datetime.strptime(detail_data['expiry_date'], '%Y-%m-%d')
+            if detail_data.get('quality_certificate'):
+                detail_params['quality_certificate'] = detail_data['quality_certificate']
+            if detail_data.get('actual_location_code'):
+                detail_params['actual_location_code'] = detail_data['actual_location_code']
+            if detail_data.get('package_quantity') is not None:
+                detail_params['package_quantity'] = Decimal(str(detail_data['package_quantity']))
+            if detail_data.get('package_unit_id'):
+                detail_params['package_unit_id'] = uuid.UUID(detail_data['package_unit_id'])
+            if detail_data.get('line_number') is not None:
+                detail_params['line_number'] = detail_data['line_number']
+            if detail_data.get('sort_order') is not None:
+                detail_params['sort_order'] = detail_data['sort_order']
+            if detail_data.get('notes'):
+                detail_params['notes'] = detail_data['notes']
+            if detail_data.get('custom_fields'):
+                detail_params['custom_fields'] = detail_data['custom_fields']
+            
+            # 计算总成本
+            if detail_params.get('unit_cost') and detail_params.get('inbound_quantity'):
+                detail_params['total_cost'] = detail_params['unit_cost'] * detail_params['inbound_quantity']
             
             detail = self.create_with_tenant(InboundOrderDetail, **detail_params)
             self.commit()
@@ -633,12 +785,40 @@ class ProductInboundService(TenantAwareService):
                 if hasattr(detail, key) and key not in ['id', 'inbound_order_id', 'created_at', 'created_by']:
                     if key == 'inbound_quantity' and value is not None:
                         detail.inbound_quantity = Decimal(str(value))
+                    elif key == 'inbound_kg_quantity' and value is not None:
+                        detail.inbound_kg_quantity = Decimal(str(value))
+                    elif key == 'inbound_m_quantity' and value is not None:
+                        detail.inbound_m_quantity = Decimal(str(value))
+                    elif key == 'inbound_roll_quantity' and value is not None:
+                        detail.inbound_roll_quantity = Decimal(str(value))
+                    elif key == 'box_quantity' and value is not None:
+                        detail.box_quantity = Decimal(str(value))
+                    elif key == 'case_quantity' and value is not None:
+                        detail.case_quantity = value
+                    elif key == 'package_quantity' and value is not None:
+                        detail.package_quantity = Decimal(str(value))
                     elif key == 'unit_cost' and value is not None:
                         detail.unit_cost = Decimal(str(value))
                     elif key == 'product_id' and value:
                         detail.product_id = uuid.UUID(value)
+                    elif key == 'unit_id' and value:
+                        detail.unit_id = uuid.UUID(value)
+                    elif key == 'package_unit_id' and value:
+                        detail.package_unit_id = uuid.UUID(value)
+                    elif key == 'production_date' and value:
+                        detail.production_date = datetime.strptime(value, '%Y-%m-%d')
+                    elif key == 'expiry_date' and value:
+                        detail.expiry_date = datetime.strptime(value, '%Y-%m-%d')
+                    elif key == 'line_number' and value is not None:
+                        detail.line_number = value
+                    elif key == 'sort_order' and value is not None:
+                        detail.sort_order = value
                     else:
                         setattr(detail, key, value)
+            
+            # 计算总成本
+            if detail.inbound_quantity and detail.unit_cost:
+                detail.total_cost = detail.inbound_quantity * detail.unit_cost
             
             detail.updated_by = uuid.UUID(updated_by)
             detail.updated_at = func.now()
@@ -712,12 +892,59 @@ class ProductInboundService(TenantAwareService):
                     detail_params['product_name'] = detail_data['product_name']
                 if detail_data.get('product_code'):
                     detail_params['product_code'] = detail_data['product_code']
+                
+                # 处理产品规格字段 - 支持多种字段名
+                if detail_data.get('product_spec'):
+                    detail_params['product_spec'] = detail_data['product_spec']
+                elif detail_data.get('specification'):
+                    detail_params['product_spec'] = detail_data['specification']
+                
                 if detail_data.get('batch_number'):
                     detail_params['batch_number'] = detail_data['batch_number']
                 if detail_data.get('location_code'):
                     detail_params['location_code'] = detail_data['location_code']
                 if detail_data.get('unit_cost'):
                     detail_params['unit_cost'] = Decimal(str(detail_data['unit_cost']))
+                
+                # 处理数量相关字段
+                if detail_data.get('inbound_kg_quantity') is not None:
+                    detail_params['inbound_kg_quantity'] = Decimal(str(detail_data['inbound_kg_quantity']))
+                if detail_data.get('inbound_m_quantity') is not None:
+                    detail_params['inbound_m_quantity'] = Decimal(str(detail_data['inbound_m_quantity']))
+                if detail_data.get('inbound_roll_quantity') is not None:
+                    detail_params['inbound_roll_quantity'] = Decimal(str(detail_data['inbound_roll_quantity']))
+                if detail_data.get('box_quantity') is not None:
+                    detail_params['box_quantity'] = Decimal(str(detail_data['box_quantity']))
+                if detail_data.get('case_quantity') is not None:
+                    detail_params['case_quantity'] = detail_data['case_quantity']
+                
+                # 处理其他字段
+                if detail_data.get('quality_status'):
+                    detail_params['quality_status'] = detail_data['quality_status']
+                if detail_data.get('production_date'):
+                    detail_params['production_date'] = datetime.strptime(detail_data['production_date'], '%Y-%m-%d')
+                if detail_data.get('expiry_date'):
+                    detail_params['expiry_date'] = datetime.strptime(detail_data['expiry_date'], '%Y-%m-%d')
+                if detail_data.get('quality_certificate'):
+                    detail_params['quality_certificate'] = detail_data['quality_certificate']
+                if detail_data.get('actual_location_code'):
+                    detail_params['actual_location_code'] = detail_data['actual_location_code']
+                if detail_data.get('package_quantity') is not None:
+                    detail_params['package_quantity'] = Decimal(str(detail_data['package_quantity']))
+                if detail_data.get('package_unit_id'):
+                    detail_params['package_unit_id'] = uuid.UUID(detail_data['package_unit_id'])
+                if detail_data.get('line_number') is not None:
+                    detail_params['line_number'] = detail_data['line_number']
+                if detail_data.get('sort_order') is not None:
+                    detail_params['sort_order'] = detail_data['sort_order']
+                if detail_data.get('notes'):
+                    detail_params['notes'] = detail_data['notes']
+                if detail_data.get('custom_fields'):
+                    detail_params['custom_fields'] = detail_data['custom_fields']
+                
+                # 计算总成本
+                if detail_params.get('unit_cost') and detail_params.get('inbound_quantity'):
+                    detail_params['total_cost'] = detail_params['unit_cost'] * detail_params['inbound_quantity']
                 
                 detail = self.create_with_tenant(InboundOrderDetail, **detail_params)
                 details.append(detail)

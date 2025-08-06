@@ -145,7 +145,7 @@ except Exception as e:
     ProcessService = None
 
 try:
-    from .base_archive.production_archive.team_group_service import TeamGroupService
+    from .base_archive.base_data.team_group_service import TeamGroupService
 except Exception as e:
     print(f"❌ TeamGroupService导入失败: {e}")
     TeamGroupService = None

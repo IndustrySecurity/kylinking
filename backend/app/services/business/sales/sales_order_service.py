@@ -282,7 +282,7 @@ class SalesOrderService(TenantAwareService):
         
         return sales_order.to_dict()
     
-    def get_sales_order_list(self, page: int = 1, page_size: int = 20,
+    def get_sales_order_list(self, page: int = 1, page_size: int = 10,
                            filters: Dict[str, Any] = None) -> Dict[str, Any]:
         """获取销售订单列表"""
         
@@ -537,6 +537,8 @@ class SalesOrderService(TenantAwareService):
         total_count = base_query.count()
         draft_count = base_query.filter(SalesOrder.status == 'draft').count()
         confirmed_count = base_query.filter(SalesOrder.status == 'confirmed').count()
+        shipped_count = base_query.filter(SalesOrder.status == 'shipped').count()
+        partial_shipped_count = base_query.filter(SalesOrder.status == 'partial_shipped').count()
         completed_count = base_query.filter(SalesOrder.status == 'completed').count()
         cancelled_count = base_query.filter(SalesOrder.status == 'cancelled').count()
         
@@ -544,6 +546,8 @@ class SalesOrderService(TenantAwareService):
             'total_count': total_count,
             'draft_count': draft_count,
             'confirmed_count': confirmed_count,
+            'shipped_count': shipped_count,
+            'partial_shipped_count': partial_shipped_count,
             'completed_count': completed_count,
             'cancelled_count': cancelled_count
         }

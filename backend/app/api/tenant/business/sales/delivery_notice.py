@@ -153,11 +153,15 @@ def update_delivery_notice(notice_id):
 def delete_delivery_notice(notice_id):
     """删除送货通知"""
     try:
+        # 获取当前用户ID
+        user_id = get_jwt_identity()
+        
         # 创建服务实例
         delivery_notice_service = DeliveryNoticeService()
         
         success = delivery_notice_service.delete_delivery_notice(
-            notice_id=notice_id
+            notice_id=notice_id,
+            user_id=user_id
         )
         
         if success:

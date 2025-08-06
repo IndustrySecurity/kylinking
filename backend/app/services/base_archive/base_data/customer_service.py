@@ -70,7 +70,8 @@ class CustomerService(TenantAwareService):
                 query = query.filter(
                     or_(
                         CustomerManagement.customer_name.ilike(search_pattern),
-                        CustomerManagement.customer_code.ilike(search_pattern)
+                        CustomerManagement.customer_code.ilike(search_pattern),
+                        CustomerManagement.customer_abbreviation.ilike(search_pattern)
                     )
                 )
             
@@ -93,7 +94,8 @@ class CustomerService(TenantAwareService):
                 total_query = total_query.filter(
                     or_(
                         CustomerManagement.customer_name.ilike(search_pattern),
-                        CustomerManagement.customer_code.ilike(search_pattern)
+                        CustomerManagement.customer_code.ilike(search_pattern),
+                        CustomerManagement.customer_abbreviation.ilike(search_pattern)
                     )
                 )
             if category_id:
@@ -198,7 +200,7 @@ class CustomerService(TenantAwareService):
                         data[field] = None
 
             # -------- 数值字段处理 -------- #
-            numeric_fields = ['credit_amount', 'registered_capital', 'sales_commission']
+            numeric_fields = ['credit_amount', 'registered_capital', 'sales_commission', 'tare_coefficient']
             for nf in numeric_fields:
                 if nf in data and data[nf] == '':
                     data[nf] = None
@@ -263,7 +265,7 @@ class CustomerService(TenantAwareService):
                     else:
                         data[field] = None
 
-            numeric_fields = ['credit_amount', 'registered_capital', 'sales_commission', 'sort_order']
+            numeric_fields = ['credit_amount', 'registered_capital', 'sales_commission', 'tare_coefficient', 'sort_order']
             for nf in numeric_fields:
                 if nf in data and data[nf] in [None, '']:
                     data[nf] = None # 空值处理

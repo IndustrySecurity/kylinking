@@ -67,7 +67,7 @@ class ProductOutboundService(TenantAwareService):
         end_date: str = None,
         search: str = None,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 10
     ) -> Dict[str, Any]:
         """获取出库单列表"""
         from sqlalchemy.orm import joinedload

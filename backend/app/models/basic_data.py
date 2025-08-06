@@ -606,8 +606,6 @@ class SettlementMethod(TenantModel):
     
     def __repr__(self):
         return f'<SettlementMethod {self.settlement_name}>'
-
-
 class AccountManagement(TenantModel):
     """账户管理模型"""
     __tablename__ = 'account_management'
@@ -1164,8 +1162,6 @@ class LossType(TenantModel):
     
     def __repr__(self):
         return f'<LossType {self.loss_type_name}>'
-
-
 class Machine(TenantModel):
     """机台模型"""
     __tablename__ = 'machines'
@@ -1734,8 +1730,6 @@ class Position(TenantModel):
     
     def __repr__(self):
         return f'<Position {self.position_name}>'
-
-
 class Employee(TenantModel):
     """员工管理模型"""
     __tablename__ = 'employees'
@@ -1750,7 +1744,7 @@ class Employee(TenantModel):
     
     # 在职状态和基本信息
     employment_status = db.Column(db.String(20), default='trial', comment='在职状态(trial试用/active在职/leave离职/suspended停职)')
-    business_type = db.Column(db.String(20), comment='业务类型(salesperson业务员/purchaser采购员/comprehensive综合/delivery_person送货员)')
+    business_type = db.Column(db.String(20), comment='业务类型(production生产/sales销售/purchasing采购/management管理/support支持/delivery送货/comprehensive综合)')
     gender = db.Column(db.String(20), comment='性别(male男/female女/confidential保密)')
     mobile_phone = db.Column(db.String(20), comment='手机')
     landline_phone = db.Column(db.String(20), comment='电话')
@@ -1809,7 +1803,7 @@ class Employee(TenantModel):
     __table_args__ = (
         db.CheckConstraint("employment_status IN ('trial', 'active', 'leave')", name='employees_status_check'),
         db.CheckConstraint("gender IN ('male', 'female', 'confidential')", name='employees_gender_check'),
-        db.CheckConstraint("business_type IN ('salesperson', 'purchaser', 'comprehensive', 'delivery_person')", name='employees_business_type_check'),
+        db.CheckConstraint("business_type IN ('production', 'sales', 'purchasing', 'management', 'support', 'delivery', 'comprehensive')", name='employees_business_type_check'),
         db.CheckConstraint("evaluation_level IN ('finance', 'technology', 'supply', 'marketing')", name='employees_evaluation_level_check'),
     )
     
@@ -2120,8 +2114,6 @@ class Warehouse(TenantModel):
     
     def __repr__(self):
         return f'<Warehouse {self.warehouse_name}>'
-
-
 class ProcessCategory(TenantModel):
     """工序分类模型"""
     __tablename__ = 'process_categories'
@@ -2667,8 +2659,6 @@ class BagTypeStructure(TenantModel):
     
     def __repr__(self):
         return f'<BagTypeStructure {self.structure_name}>'
-
-
 class BagRelatedFormula(TenantModel):
     """袋型相关公式模型"""
     __tablename__ = 'bag_related_formulas'
@@ -3108,9 +3098,9 @@ class TeamGroupMember(TenantModel):
         return {
             'id': str(self.id),
             'team_group_id': str(self.team_group_id),
-            'employee_id': str(self.employee_id),
+            'employee_id': str(self.employee_id),  # 这是UUID
+            'employee_code': self.employee.employee_id if self.employee else None,  # 这是员工工号
             'employee_name': self.employee.employee_name if self.employee else None,
-            'employee_code': self.employee.employee_id if self.employee else None,
             'position_name': self.employee.position.position_name if self.employee and self.employee.position else None,
             'piece_rate_percentage': float(self.piece_rate_percentage) if self.piece_rate_percentage else 0,
             'saving_bonus_percentage': float(self.saving_bonus_percentage) if self.saving_bonus_percentage else 0,
@@ -3217,8 +3207,6 @@ class TeamGroupProcess(TenantModel):
     
     def __repr__(self):
         return f'<TeamGroupProcess {self.process_category.process_name if self.process_category else "Unknown"}>'
-
-
 class CustomerManagement(TenantModel):
     """客户管理模型 - 完整字段版本"""
     __tablename__ = 'customer_management'
@@ -3228,12 +3216,12 @@ class CustomerManagement(TenantModel):
     # 基本信息字段（根据用户表格）
     customer_code = db.Column(db.String(50), comment='客户编号')  # 自动生成
     customer_name = db.Column(db.String(255), nullable=False, comment='客户名称')  # 手工输入
-    customer_category_id = db.Column(UUID(as_uuid=True), comment='客户分类ID')  # 选择
-    tax_rate_id = db.Column(UUID(as_uuid=True), comment='税收ID')  # 选择
+    customer_category_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_category_management.id'), comment='客户分类ID')  # 选择
+    tax_rate_id = db.Column(UUID(as_uuid=True), db.ForeignKey('tax_rates.id'), comment='税收ID')  # 选择
     tax_rate = db.Column(db.Numeric(5, 2), comment='税率%')  # 自动填入
     customer_abbreviation = db.Column(db.String(100), comment='客户简称')  # 手工输入
     customer_level = db.Column(db.String(10), comment='客户等级')  # 选择: 空/A/B
-    parent_customer_id = db.Column(UUID(as_uuid=True), comment='上级客户ID')  # 选择
+    parent_customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), comment='上级客户ID')  # 选择
     region = db.Column(db.String(100), comment='区域')  # 选择省份
     package_method_id = db.Column(UUID(as_uuid=True), db.ForeignKey('package_methods.id'), comment='包装方式ID')  # 选择
     barcode_prefix = db.Column(db.String(50), comment='条码前缀')  # 手工输入
@@ -3261,7 +3249,7 @@ class CustomerManagement(TenantModel):
     inspection_report_end_date = db.Column(db.Date, comment='检测报告(截止日期)')
     
     # 选择字段
-    payment_method_id = db.Column(UUID(as_uuid=True), comment='付款方式ID')  # 选择
+    payment_method_id = db.Column(UUID(as_uuid=True), db.ForeignKey('payment_methods.id'), comment='付款方式ID')  # 选择
     currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), comment='币别ID')  # 选择
     
     # 数字字段
@@ -3302,7 +3290,7 @@ class CustomerManagement(TenantModel):
     inspection_report = db.Column(db.Boolean, default=False, comment='检验报告')
     free_samples = db.Column(db.Boolean, default=False, comment='免费样用')
     advance_payment_control = db.Column(db.Boolean, default=False, comment='放开管控')
-    warehouse = db.Column(db.Boolean, default=False, comment='定置')
+    tare_coefficient = db.Column(db.Numeric(10, 4), default=1, comment='皮重系数')
     old_customer = db.Column(db.Boolean, default=False, comment='旧客户')
     customer_archive_review = db.Column(db.Boolean, default=False, comment='客户简称重复')
     
@@ -3314,19 +3302,13 @@ class CustomerManagement(TenantModel):
     created_by = db.Column(UUID(as_uuid=True), nullable=False, comment='创建人')
     updated_by = db.Column(UUID(as_uuid=True), comment='修改人')
     
-    # 关联关系 - 暂时简化避免初始化问题
-    # customer_category = db.relationship('CustomerCategoryManagement', 
-    #                                   primaryjoin='CustomerManagement.customer_category_id == CustomerCategoryManagement.id')
-    # parent_customer = db.relationship('CustomerManagement', remote_side=[id],
-    #                                 primaryjoin='CustomerManagement.parent_customer_id == CustomerManagement.id')
-    # package_method = db.relationship('PackageMethod',
-    #                                primaryjoin='CustomerManagement.package_method_id == PackageMethod.id')
-    # tax_rate_rel = db.relationship('TaxRate',
-    #                              primaryjoin='CustomerManagement.tax_rate_id == TaxRate.id')
-    # payment_method = db.relationship('PaymentMethod',
-    #                                primaryjoin='CustomerManagement.payment_method_id == PaymentMethod.id')
-    # currency = db.relationship('Currency',
-    #                          primaryjoin='CustomerManagement.currency_id == Currency.id')
+    # 关联关系
+    customer_category = db.relationship('CustomerCategoryManagement', backref='customers')
+    parent_customer = db.relationship('CustomerManagement', remote_side=[id], backref='child_customers')
+    package_method = db.relationship('PackageMethod', backref='customers')
+    tax_rate_rel = db.relationship('TaxRate', backref='customers')
+    payment_method = db.relationship('PaymentMethod', backref='customers')
+    currency = db.relationship('Currency', backref='customers')
     
     # 子表关联
     contacts = db.relationship('CustomerContact', backref='customer', lazy='dynamic', cascade='all, delete-orphan')
@@ -3408,15 +3390,15 @@ class CustomerManagement(TenantModel):
             'id': str(self.id),
             'customer_name': self.customer_name,
             'customer_category_id': str(self.customer_category_id) if self.customer_category_id else None,
-            'customer_category_name': None,  # 暂时禁用关系查询
+            'customer_category_name': self.customer_category.category_name if self.customer_category else None,
             'customer_code': self.customer_code,
             'customer_abbreviation': self.customer_abbreviation,
             'customer_level': self.customer_level,
             'parent_customer_id': str(self.parent_customer_id) if self.parent_customer_id else None,
-            'parent_customer_name': None,  # 暂时禁用关系查询
+            'parent_customer_name': self.parent_customer.customer_name if self.parent_customer else None,
             'region': self.region,
             'package_method_id': str(self.package_method_id) if self.package_method_id else None,
-            'package_method_name': None,  # 暂时禁用关系查询
+            'package_method_name': self.package_method.package_name if self.package_method else None,
             'barcode_prefix': self.barcode_prefix,
             'business_type': self.business_type,
             'enterprise_type': self.enterprise_type,
@@ -3470,7 +3452,7 @@ class CustomerManagement(TenantModel):
             'inspection_report': self.inspection_report,
             'free_samples': self.free_samples,
             'advance_payment_control': self.advance_payment_control,
-            'warehouse': self.warehouse,
+            'tare_coefficient': float(self.tare_coefficient) if self.tare_coefficient else None,
             'old_customer': self.old_customer,
             'customer_archive_review': self.customer_archive_review,
             
@@ -3686,8 +3668,6 @@ class CustomerAffiliatedCompany(TenantModel):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
-
-
 class SupplierManagement(TenantModel):
     """供应商管理模型"""
     __tablename__ = 'supplier_management'
@@ -4330,8 +4310,6 @@ class MaterialSupplier(TenantModel):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
-
-
 class Product(TenantModel):
     """产品档案模型"""
     __tablename__ = 'products'
@@ -4349,6 +4327,10 @@ class Product(TenantModel):
     model = db.Column(db.String(100))
     specification = db.Column(db.Text)
     unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='单位ID')
+
+    inner = db.Column('inner', db.Text, comment='内')
+    middle = db.Column('middle', db.Text, comment='中')
+    outer = db.Column('outer', db.Text, comment='外')
     
     # 产品管理界面新增字段
     customer_id = db.Column(UUID(as_uuid=True), db.ForeignKey('customer_management.id'), comment='客户ID')
@@ -4412,6 +4394,180 @@ class Product(TenantModel):
     quality_standard = db.Column(db.String(200))  # 质量标准
     inspection_method = db.Column(db.String(200))  # 检验方法
     
+    # ========== 产品结构字段 (从ProductStructure整合) ==========
+    # 产品结构字段 - 对应界面图片中的产品结构区域
+    struct_length = db.Column(db.Numeric(10, 2), comment='长度')
+    struct_width = db.Column(db.Numeric(10, 2), comment='宽度')
+    struct_height = db.Column(db.Numeric(10, 2), comment='高度')
+    side_width = db.Column(db.Numeric(10, 2), comment='侧宽')
+    bottom_width = db.Column(db.Numeric(10, 2), comment='底宽')
+    struct_thickness = db.Column(db.Numeric(10, 2), comment='厚度')
+    total_thickness = db.Column(db.Numeric(10, 2), comment='总厚度')
+    volume = db.Column(db.Numeric(10, 2), comment='体积')
+    weight = db.Column(db.Numeric(10, 2), comment='重量')
+    
+    # 展开数据
+    expand_length = db.Column(db.Numeric(10, 2), comment='展开长')
+    expand_width = db.Column(db.Numeric(10, 2), comment='展开宽')
+    expand_height = db.Column(db.Numeric(10, 2), comment='展开高')
+    
+    # 材料数据
+    material_length = db.Column(db.Numeric(10, 2), comment='材料长')
+    material_width = db.Column(db.Numeric(10, 2), comment='材料宽')
+    material_height = db.Column(db.Numeric(10, 2), comment='材料高')
+    
+    # 单片数据
+    single_length = db.Column(db.Numeric(10, 2), comment='单片长')
+    single_width = db.Column(db.Numeric(10, 2), comment='单片宽')
+    single_height = db.Column(db.Numeric(10, 2), comment='单片高')
+    
+    # 其他结构字段
+    blue_color = db.Column(db.String(50), comment='蓝色')
+    red_color = db.Column(db.String(50), comment='红色')
+    other_color = db.Column(db.String(50), comment='其他颜色')
+    
+    # 分切信息
+    cut_length = db.Column(db.Numeric(10, 2), comment='分切长')
+    cut_width = db.Column(db.Numeric(10, 2), comment='分切宽')
+    cut_thickness = db.Column(db.Numeric(10, 2), comment='分切厚度')
+    cut_area = db.Column(db.Numeric(10, 2), comment='分切面积')
+    
+    # 光标尺寸
+    light_eye_length = db.Column(db.Numeric(10, 2), comment='光标长')
+    light_eye_width = db.Column(db.Numeric(10, 2), comment='光标宽')
+    light_eye_distance = db.Column(db.Numeric(10, 2), comment='光标距离')
+    edge_sealing_width = db.Column(db.Numeric(10, 2), comment='封边宽度')
+    
+    # 收费信息
+    bag_making_fee = db.Column(db.Numeric(10, 2), comment='制袋费')
+    container_fee = db.Column(db.Numeric(10, 2), comment='装袋费')
+    cuff_fee = db.Column(db.Numeric(10, 2), comment='打提手费')
+    
+    # 托盘信息
+    pallet_length = db.Column(db.Numeric(10, 2), comment='托盘长')
+    pallet_width = db.Column(db.Numeric(10, 2), comment='托盘宽')
+    pallet_height = db.Column(db.Numeric(10, 2), comment='托盘高')
+    pallet_1 = db.Column(db.Numeric(10, 2), comment='托盘1')
+    pallet_2 = db.Column(db.Numeric(10, 2), comment='托盘2')
+    pallet_3 = db.Column(db.Numeric(10, 2), comment='托盘3')
+    
+    # 其他参数
+    winding_diameter = db.Column(db.Numeric(10, 2), comment='收卷直径')
+    density = db.Column(db.Numeric(10, 3), comment='密度')
+    
+    # 封口信息
+    seal_top = db.Column(db.Numeric(10, 2), comment='封口上')
+    seal_left = db.Column(db.Numeric(10, 2), comment='封口左')
+    seal_right = db.Column(db.Numeric(10, 2), comment='封口右')
+    seal_middle = db.Column(db.Numeric(10, 2), comment='封口中')
+    sealing_temperature = db.Column(db.Numeric(10, 2), comment='封合温度')
+    sealing_width = db.Column(db.Numeric(10, 2), comment='封合宽度')
+    sealing_strength = db.Column(db.Numeric(10, 2), comment='封合强度')
+    sealing_method = db.Column(db.String(50), comment='封机方式')
+    power = db.Column(db.Numeric(10, 2), comment='功率')
+    
+    # ========== 客户需求字段 (从ProductCustomerRequirement整合) ==========
+    # 外观性能需求
+    appearance_requirements = db.Column(db.String(200), comment='外观需求')
+    surface_treatment = db.Column(db.String(200), comment='表面处理')
+    printing_requirements = db.Column(db.String(200), comment='印刷需求')
+    color_requirements = db.Column(db.String(200), comment='颜色需求')
+    pattern_requirements = db.Column(db.String(200), comment='图案需求')
+    
+    # 分切需求
+    cutting_method = db.Column(db.String(200), comment='分切方式')
+    cutting_width = db.Column(db.Numeric(10, 2), comment='分切宽度')
+    cutting_length = db.Column(db.Numeric(10, 2), comment='分切长度')
+    cutting_thickness = db.Column(db.Numeric(10, 2), comment='分切厚度')
+    optical_distance = db.Column(db.Numeric(10, 2), comment='光标距离')
+    optical_width = db.Column(db.Numeric(10, 2), comment='光标宽度')
+    
+    # 制袋需求
+    bag_sealing_up = db.Column(db.String(200), comment='封口上')
+    bag_sealing_down = db.Column(db.String(200), comment='封口下')
+    bag_sealing_left = db.Column(db.String(200), comment='封口左')
+    bag_sealing_right = db.Column(db.String(200), comment='封口右')
+    bag_sealing_middle = db.Column(db.String(200), comment='封口中')
+    bag_sealing_inner = db.Column(db.String(200), comment='封口内')
+    bag_length_tolerance = db.Column(db.String(200), comment='袋长公差')
+    bag_width_tolerance = db.Column(db.String(200), comment='袋宽公差')
+    
+    # 包装需求
+    packaging_method = db.Column(db.String(200), comment='包装方式')
+    packaging_requirements = db.Column(db.String(200), comment='包装需求')
+    packaging_material = db.Column(db.String(200), comment='包装材料')
+    packaging_quantity = db.Column(db.Integer, comment='包装数量')
+    packaging_specifications = db.Column(db.String(200), comment='包装规格')
+    
+    # 理化需求
+    req_tensile_strength = db.Column(db.String(200), comment='拉伸强度需求')
+    thermal_shrinkage = db.Column(db.String(200), comment='热缩率')
+    impact_strength = db.Column(db.String(200), comment='冲击强度')
+    thermal_tensile_strength = db.Column(db.String(200), comment='热拉伸强度')
+    water_vapor_permeability = db.Column(db.String(200), comment='水蒸气透过率')
+    heat_shrinkage_curve = db.Column(db.String(200), comment='热缩曲线')
+    melt_index = db.Column(db.String(200), comment='熔指')
+    gas_permeability = db.Column(db.String(200), comment='气体透过率')
+    
+    # 预留字段
+    custom_1 = db.Column(db.String(200), comment='预留1')
+    custom_2 = db.Column(db.String(200), comment='预留2')
+    custom_3 = db.Column(db.String(200), comment='预留3')
+    custom_4 = db.Column(db.String(200), comment='预留4')
+    custom_5 = db.Column(db.String(200), comment='预留5')
+    custom_6 = db.Column(db.String(200), comment='预留6')
+    custom_7 = db.Column(db.String(200), comment='预留7')
+
+    
+    # ========== 理化指标字段 (从ProductQualityIndicator整合) ==========
+    # 理化指标
+    tensile_strength_longitudinal = db.Column(db.String(100), comment='拉伸强度纵向')
+    tensile_strength_transverse = db.Column(db.String(100), comment='拉伸强度横向')
+    thermal_shrinkage_longitudinal = db.Column(db.String(100), comment='热缩率纵向')
+    thermal_shrinkage_transverse = db.Column(db.String(100), comment='热缩率横向')
+    
+    # 穿刺强度
+    puncture_strength = db.Column(db.String(100), comment='穿刺强度')
+    
+    # 光学性能
+    optical_properties = db.Column(db.String(100), comment='光学性能')
+    
+    # 热封温度
+    heat_seal_temperature = db.Column(db.String(100), comment='热封温度')
+    
+    # 热封拉伸强度
+    heat_seal_tensile_strength = db.Column(db.String(100), comment='热封拉伸强度')
+    
+    # 水蒸气透过率
+    quality_water_vapor_permeability = db.Column(db.String(100), comment='水蒸气透过率')
+    
+    # 氧气透过率
+    oxygen_permeability = db.Column(db.String(100), comment='氧气透过率')
+    
+    # 磨擦系数
+    friction_coefficient = db.Column(db.String(100), comment='磨擦系数')
+    
+    # 剥离强度
+    peel_strength = db.Column(db.String(100), comment='剥离强度')
+    
+    # 检测标准
+    test_standard = db.Column(db.String(200), comment='检测标准')
+    
+    # 检测依据
+    test_basis = db.Column(db.String(200), comment='检测依据')
+    
+    # 预留指标字段
+    indicator_1 = db.Column(db.String(100), comment='预留1')
+    indicator_2 = db.Column(db.String(100), comment='预留2')
+    indicator_3 = db.Column(db.String(100), comment='预留3')
+    indicator_4 = db.Column(db.String(100), comment='预留4')
+    indicator_5 = db.Column(db.String(100), comment='预留5')
+    indicator_6 = db.Column(db.String(100), comment='预留6')
+    indicator_7 = db.Column(db.String(100), comment='预留7')
+    indicator_8 = db.Column(db.String(100), comment='预留8')
+    indicator_9 = db.Column(db.String(100), comment='预留9')
+    indicator_10 = db.Column(db.String(100), comment='预留10')
+    
     # 系统字段
     status = db.Column(db.String(20), default='active')
     is_sellable = db.Column(db.Boolean, default=True)  # 可销售
@@ -4457,6 +4613,11 @@ class Product(TenantModel):
             'specification': self.specification,
             'unit_id': str(self.unit_id) if self.unit_id else None,
             'unit_name': self.unit.unit_name if self.unit else None,
+
+            # 内中外
+            'inner': self.inner,
+            'middle': self.middle,
+            'outer': self.outer,
             
             # 产品管理界面新增字段
             'customer_id': str(self.customer_id) if self.customer_id else None,
@@ -4515,128 +4676,13 @@ class Product(TenantModel):
             'quality_standard': self.quality_standard,
             'inspection_method': self.inspection_method,
             
-            # 系统字段
-            'status': self.status,
-            'is_sellable': self.is_sellable,
-            'is_purchasable': self.is_purchasable,
-            'is_producible': self.is_producible,
-            
-            # 自定义字段
-            'custom_fields': self.custom_fields or {},
-            
-            # 审计字段
-            'created_by': str(self.created_by) if self.created_by else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_by': str(self.updated_by) if self.updated_by else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            
-            # 关联数据
-            'product_structures': [structure.to_dict() for structure in self.product_structures] if hasattr(self, 'product_structures') else [],
-            'customer_requirements': [req.to_dict() for req in self.customer_requirements] if hasattr(self, 'customer_requirements') else [],
-            'product_processes': [process.to_dict() for process in self.product_processes] if hasattr(self, 'product_processes') else [],
-            'product_materials': [material.to_dict() for material in self.product_materials] if hasattr(self, 'product_materials') else [],
-            'quality_indicators': [indicator.to_dict() for indicator in self.quality_indicators] if hasattr(self, 'quality_indicators') else [],
-            'product_images': [image.to_dict() for image in self.product_images] if hasattr(self, 'product_images') else [],
-        }
-
-
-# 在Product模型的末尾添加新的产品管理相关模型
-
-class ProductStructure(TenantModel):
-    """产品结构模型"""
-    __tablename__ = 'product_structures'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
-    
-    # 产品结构字段 - 对应界面图片中的产品结构区域
-    length = db.Column(db.Integer, default=0, comment='长度')
-    width = db.Column(db.Integer, default=0, comment='宽度')
-    height = db.Column(db.Integer, default=0, comment='高度')
-    side_width = db.Column(db.Integer, default=0, comment='侧宽')
-    bottom_width = db.Column(db.Integer, default=0, comment='底宽')
-    thickness = db.Column(db.Numeric(10, 1), default=0, comment='厚度')
-    total_thickness = db.Column(db.Numeric(10, 1), default=0, comment='总厚度')
-    volume = db.Column(db.Numeric(10, 2), default=0, comment='体积')
-    weight = db.Column(db.Numeric(10, 2), default=0, comment='重量')
-    
-    # 展开数据
-    expand_length = db.Column(db.Integer, default=0, comment='展开长')
-    expand_width = db.Column(db.Integer, default=0, comment='展开宽')
-    expand_height = db.Column(db.Integer, default=0, comment='展开高')
-    
-    # 材料数据
-    material_length = db.Column(db.Integer, default=0, comment='材料长')
-    material_width = db.Column(db.Integer, default=0, comment='材料宽')
-    material_height = db.Column(db.Integer, default=0, comment='材料高')
-    
-    # 单片数据
-    single_length = db.Column(db.Integer, default=0, comment='单片长')
-    single_width = db.Column(db.Integer, default=0, comment='单片宽')
-    single_height = db.Column(db.Integer, default=0, comment='单片高')
-    
-    # 其他结构字段
-    blue_color = db.Column(db.String(50), comment='蓝色')
-    red_color = db.Column(db.String(50), comment='红色')
-    other_color = db.Column(db.String(50), comment='其他颜色')
-    
-    # 分切信息
-    cut_length = db.Column(db.Integer, default=0, comment='分切长')
-    cut_width = db.Column(db.Integer, default=0, comment='分切宽')
-    cut_thickness = db.Column(db.Integer, default=0, comment='分切厚度')
-    cut_area = db.Column(db.Numeric(10, 2), default=0, comment='分切面积')
-    
-    # 光标尺寸
-    light_eye_length = db.Column(db.Integer, default=0, comment='光标长')
-    light_eye_width = db.Column(db.Integer, default=0, comment='光标宽')
-    light_eye_distance = db.Column(db.Integer, default=0, comment='光标距离')
-    edge_sealing_width = db.Column(db.Integer, default=0, comment='封边宽度')
-    
-    # 收费信息
-    bag_making_fee = db.Column(db.Numeric(10, 2), default=0, comment='制袋费')
-    container_fee = db.Column(db.Numeric(10, 2), default=0, comment='装袋费')
-    cuff_fee = db.Column(db.Numeric(10, 2), default=0, comment='打提手费')
-    
-    # 托盘信息
-    pallet_length = db.Column(db.Integer, default=0, comment='托盘长')
-    pallet_width = db.Column(db.Integer, default=0, comment='托盘宽')
-    pallet_height = db.Column(db.Integer, default=0, comment='托盘高')
-    pallet_1 = db.Column(db.Integer, default=0, comment='托盘1')
-    pallet_2 = db.Column(db.Integer, default=0, comment='托盘2')
-    pallet_3 = db.Column(db.Integer, default=0, comment='托盘3')
-    
-    # 其他参数
-    winding_diameter = db.Column(db.Integer, default=0, comment='收卷直径')
-    density = db.Column(db.Numeric(10, 3), default=0, comment='密度')
-    
-    # 封口信息
-    seal_top = db.Column(db.Integer, default=0, comment='封口上')
-    seal_left = db.Column(db.Integer, default=0, comment='封口左')
-    seal_right = db.Column(db.Integer, default=0, comment='封口右')
-    seal_middle = db.Column(db.Integer, default=0, comment='封口中')
-    sealing_temperature = db.Column(db.Integer, default=0, comment='封合温度')
-    sealing_width = db.Column(db.Integer, default=0, comment='封合宽度')
-    sealing_strength = db.Column(db.Numeric(10, 1), default=0, comment='封合强度')
-    sealing_method = db.Column(db.String(50), comment='封机方式')
-    power = db.Column(db.Numeric(10, 1), default=0, comment='功率')
-    
-    # 审计字段
-    created_at = db.Column(db.DateTime, default=func.now())
-    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-    
-    # 关联关系
-    product = db.relationship('Product', backref='product_structures')
-    
-    def to_dict(self):
-        return {
-            'id': str(self.id),
-            'product_id': str(self.product_id),
-            'length': self.length,
-            'width': self.width,
-            'height': self.height,
+            # ========== 产品结构字段 ==========
+            'struct_length': self.struct_length,
+            'struct_width': self.struct_width,
+            'struct_height': self.struct_height,
             'side_width': self.side_width,
             'bottom_width': self.bottom_width,
-            'thickness': float(self.thickness) if self.thickness else 0,
+            'struct_thickness': float(self.struct_thickness) if self.struct_thickness else 0,
             'total_thickness': float(self.total_thickness) if self.total_thickness else 0,
             'volume': float(self.volume) if self.volume else 0,
             'weight': float(self.weight) if self.weight else 0,
@@ -4680,83 +4726,8 @@ class ProductStructure(TenantModel):
             'sealing_strength': float(self.sealing_strength) if self.sealing_strength else 0,
             'sealing_method': self.sealing_method,
             'power': float(self.power) if self.power else 0,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class ProductCustomerRequirement(TenantModel):
-    """产品客户需求模型"""
-    __tablename__ = 'product_customer_requirements'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
-    
-    # 外观性能需求 - 对应界面图片中的外观性能需求区域
-    appearance_requirements = db.Column(db.String(200), comment='外观需求')
-    surface_treatment = db.Column(db.String(200), comment='表面处理')
-    printing_requirements = db.Column(db.String(200), comment='印刷需求')
-    color_requirements = db.Column(db.String(200), comment='颜色需求')
-    pattern_requirements = db.Column(db.String(200), comment='图案需求')
-    
-    # 分切需求 - 对应界面图片中的分切需求区域
-    cutting_method = db.Column(db.String(200), comment='分切方式')
-    cutting_width = db.Column(db.Integer, default=0, comment='分切宽度')
-    cutting_length = db.Column(db.Integer, default=0, comment='分切长度')
-    cutting_thickness = db.Column(db.Integer, default=0, comment='分切厚度')
-    optical_distance = db.Column(db.Integer, default=0, comment='光标距离')
-    optical_width = db.Column(db.Integer, default=0, comment='光标宽度')
-    
-    # 制袋需求 - 对应界面图片中的制袋需求区域
-    bag_sealing_up = db.Column(db.String(200), comment='封口上')
-    bag_sealing_down = db.Column(db.String(200), comment='封口下')
-    bag_sealing_left = db.Column(db.String(200), comment='封口左')
-    bag_sealing_right = db.Column(db.String(200), comment='封口右')
-    bag_sealing_middle = db.Column(db.String(200), comment='封口中')
-    bag_sealing_inner = db.Column(db.String(200), comment='封口内')
-    bag_length_tolerance = db.Column(db.String(200), comment='袋长公差')
-    bag_width_tolerance = db.Column(db.String(200), comment='袋宽公差')
-    
-    # 包装需求 - 对应界面图片中的包装需求区域
-    packaging_method = db.Column(db.String(200), comment='包装方式')
-    packaging_requirements = db.Column(db.String(200), comment='包装需求')
-    packaging_material = db.Column(db.String(200), comment='包装材料')
-    packaging_quantity = db.Column(db.Integer, default=0, comment='包装数量')
-    packaging_specifications = db.Column(db.String(200), comment='包装规格')
-    
-    # 理化需求 - 对应界面图片中的理化需求区域
-    tensile_strength = db.Column(db.String(200), comment='拉伸强度')
-    thermal_shrinkage = db.Column(db.String(200), comment='热缩率')
-    impact_strength = db.Column(db.String(200), comment='冲击强度')
-    thermal_tensile_strength = db.Column(db.String(200), comment='热拉伸强度')
-    water_vapor_permeability = db.Column(db.String(200), comment='水蒸气透过率')
-    heat_shrinkage_curve = db.Column(db.String(200), comment='热缩曲线')
-    melt_index = db.Column(db.String(200), comment='熔指')
-    gas_permeability = db.Column(db.String(200), comment='气体透过率')
-    
-    # 其他字段
-    custom_1 = db.Column(db.String(200), comment='预留1')
-    custom_2 = db.Column(db.String(200), comment='预留2')
-    custom_3 = db.Column(db.String(200), comment='预留3')
-    custom_4 = db.Column(db.String(200), comment='预留4')
-    custom_5 = db.Column(db.String(200), comment='预留5')
-    custom_6 = db.Column(db.String(200), comment='预留6')
-    custom_7 = db.Column(db.String(200), comment='预留7')
-    custom_8 = db.Column(db.String(200), comment='预留8')
-    custom_9 = db.Column(db.String(200), comment='预留9')
-    custom_10 = db.Column(db.String(200), comment='预留10')
-    
-    # 审计字段
-    created_at = db.Column(db.DateTime, default=func.now())
-    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-    
-    # 关联关系
-    product = db.relationship('Product', backref='customer_requirements')
-    
-    def to_dict(self):
-        return {
-            'id': str(self.id),
-            'product_id': str(self.product_id),
+            
+            # ========== 客户需求字段 ==========
             'appearance_requirements': self.appearance_requirements,
             'surface_treatment': self.surface_treatment,
             'printing_requirements': self.printing_requirements,
@@ -4781,7 +4752,7 @@ class ProductCustomerRequirement(TenantModel):
             'packaging_material': self.packaging_material,
             'packaging_quantity': self.packaging_quantity,
             'packaging_specifications': self.packaging_specifications,
-            'tensile_strength': self.tensile_strength,
+            'req_tensile_strength': self.req_tensile_strength,
             'thermal_shrinkage': self.thermal_shrinkage,
             'impact_strength': self.impact_strength,
             'thermal_tensile_strength': self.thermal_tensile_strength,
@@ -4796,165 +4767,8 @@ class ProductCustomerRequirement(TenantModel):
             'custom_5': self.custom_5,
             'custom_6': self.custom_6,
             'custom_7': self.custom_7,
-            'custom_8': self.custom_8,
-            'custom_9': self.custom_9,
-            'custom_10': self.custom_10,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class ProductProcess(TenantModel):
-    """产品工序关联模型"""
-    __tablename__ = 'product_processes'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
-    process_id = db.Column(UUID(as_uuid=True), db.ForeignKey('processes.id'), nullable=False, comment='工序ID')
-    
-    # 工序相关信息
-    sort_order = db.Column(db.Integer, default=0, comment='排序')
-    is_required = db.Column(db.Boolean, default=True, comment='是否必需')
-    duration_hours = db.Column(db.Float, comment='工时(小时)')
-    cost_per_unit = db.Column(db.Numeric(10, 4), comment='单位成本')
-    notes = db.Column(db.Text, comment='备注')
-    
-    # 审计字段
-    created_at = db.Column(db.DateTime, default=func.now())
-    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-    
-    # 关联关系
-    product = db.relationship('Product', backref='product_processes')
-    process = db.relationship('Process', backref='product_processes')
-    
-    def to_dict(self):
-        return {
-            'id': str(self.id),
-            'product_id': str(self.product_id),
-            'process_id': str(self.process_id),
-            'process_name': self.process.process_name if self.process else None,
-            'process_category_name': self.process.process_category.process_name if self.process and self.process.process_category else None,
-            'sort_order': self.sort_order,
-            'is_required': self.is_required,
-            'duration_hours': float(self.duration_hours) if self.duration_hours else None,
-            'cost_per_unit': float(self.cost_per_unit) if self.cost_per_unit else None,
-            'notes': self.notes,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class ProductMaterial(TenantModel):
-    """产品材料关联模型"""
-    __tablename__ = 'product_materials'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
-    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('materials.id'), nullable=False, comment='材料ID')
-    
-    # 材料使用信息
-    usage_quantity = db.Column(db.Numeric(10, 4), comment='用量')
-    usage_unit = db.Column(db.String(20), comment='用量单位')
-    sort_order = db.Column(db.Integer, default=0, comment='排序')
-    is_main_material = db.Column(db.Boolean, default=False, comment='是否主材料')
-    cost_per_unit = db.Column(db.Numeric(10, 4), comment='单位成本')
-    supplier_id = db.Column(UUID(as_uuid=True), comment='供应商ID')
-    notes = db.Column(db.Text, comment='备注')
-    
-    # 审计字段
-    created_at = db.Column(db.DateTime, default=func.now())
-    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-    
-    # 关联关系
-    product = db.relationship('Product', backref='product_materials')
-    material = db.relationship('Material', backref='product_materials')
-    
-    def to_dict(self):
-        return {
-            'id': str(self.id),
-            'product_id': str(self.product_id),
-            'material_id': str(self.material_id),
-            'material_name': self.material.material_name if self.material else None,
-            'material_code': self.material.material_code if self.material else None,
-            'material_category_name': self.material.material_category.material_name if self.material and self.material.material_category else None,
-            'usage_quantity': float(self.usage_quantity) if self.usage_quantity else None,
-            'usage_unit': self.usage_unit,
-            'sort_order': self.sort_order,
-            'is_main_material': self.is_main_material,
-            'cost_per_unit': float(self.cost_per_unit) if self.cost_per_unit else None,
-            'supplier_id': str(self.supplier_id) if self.supplier_id else None,
-            'notes': self.notes,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class ProductQualityIndicator(TenantModel):
-    """产品理化指标模型"""
-    __tablename__ = 'product_quality_indicators'
-    
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
-    
-    # 理化指标 - 对应界面图片中的理化指标区域
-    tensile_strength_longitudinal = db.Column(db.String(100), comment='拉伸强度纵向')
-    tensile_strength_transverse = db.Column(db.String(100), comment='拉伸强度横向')
-    thermal_shrinkage_longitudinal = db.Column(db.String(100), comment='热缩率纵向')
-    thermal_shrinkage_transverse = db.Column(db.String(100), comment='热缩率横向')
-    
-    # 穿刺强度
-    puncture_strength = db.Column(db.String(100), comment='穿刺强度')
-    
-    # 光学性能
-    optical_properties = db.Column(db.String(100), comment='光学性能')
-    
-    # 热封温度
-    heat_seal_temperature = db.Column(db.String(100), comment='热封温度')
-    
-    # 热封拉伸强度
-    heat_seal_tensile_strength = db.Column(db.String(100), comment='热封拉伸强度')
-    
-    # 水蒸气透过率
-    water_vapor_permeability = db.Column(db.String(100), comment='水蒸气透过率')
-    
-    # 氧气透过率
-    oxygen_permeability = db.Column(db.String(100), comment='氧气透过率')
-    
-    # 磨擦系数
-    friction_coefficient = db.Column(db.String(100), comment='磨擦系数')
-    
-    # 剥离强度
-    peel_strength = db.Column(db.String(100), comment='剥离强度')
-    
-    # 检测标准
-    test_standard = db.Column(db.String(200), comment='检测标准')
-    
-    # 检测依据
-    test_basis = db.Column(db.String(200), comment='检测依据')
-    
-    # 预留指标字段
-    indicator_1 = db.Column(db.String(100), comment='预留1')
-    indicator_2 = db.Column(db.String(100), comment='预留2')
-    indicator_3 = db.Column(db.String(100), comment='预留3')
-    indicator_4 = db.Column(db.String(100), comment='预留4')
-    indicator_5 = db.Column(db.String(100), comment='预留5')
-    indicator_6 = db.Column(db.String(100), comment='预留6')
-    indicator_7 = db.Column(db.String(100), comment='预留7')
-    indicator_8 = db.Column(db.String(100), comment='预留8')
-    indicator_9 = db.Column(db.String(100), comment='预留9')
-    indicator_10 = db.Column(db.String(100), comment='预留10')
-    
-    # 审计字段
-    created_at = db.Column(db.DateTime, default=func.now())
-    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
-    
-    # 关联关系
-    product = db.relationship('Product', backref='quality_indicators')
-    
-    def to_dict(self):
-        return {
-            'id': str(self.id),
-            'product_id': str(self.product_id),
+            
+            # ========== 理化指标字段 ==========
             'tensile_strength_longitudinal': self.tensile_strength_longitudinal,
             'tensile_strength_transverse': self.tensile_strength_transverse,
             'thermal_shrinkage_longitudinal': self.thermal_shrinkage_longitudinal,
@@ -4963,7 +4777,7 @@ class ProductQualityIndicator(TenantModel):
             'optical_properties': self.optical_properties,
             'heat_seal_temperature': self.heat_seal_temperature,
             'heat_seal_tensile_strength': self.heat_seal_tensile_strength,
-            'water_vapor_permeability': self.water_vapor_permeability,
+            'quality_water_vapor_permeability': self.quality_water_vapor_permeability,
             'oxygen_permeability': self.oxygen_permeability,
             'friction_coefficient': self.friction_coefficient,
             'peel_strength': self.peel_strength,
@@ -4979,9 +4793,186 @@ class ProductQualityIndicator(TenantModel):
             'indicator_8': self.indicator_8,
             'indicator_9': self.indicator_9,
             'indicator_10': self.indicator_10,
+            
+            # 系统字段
+            'status': self.status,
+            'is_sellable': self.is_sellable,
+            'is_purchasable': self.is_purchasable,
+            'is_producible': self.is_producible,
+            
+            # 自定义字段
+            'custom_fields': self.custom_fields or {},
+            
+            # 审计字段
+            'created_by': str(self.created_by) if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_by': str(self.updated_by) if self.updated_by else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            
+            # 关联数据
+            'product_processes': [process.to_dict() for process in self.product_processes] if hasattr(self, 'product_processes') else [],
+            'product_materials': [material.to_dict() for material in self.product_materials] if hasattr(self, 'product_materials') else [],
+            'product_images': [image.to_dict() for image in self.product_images] if hasattr(self, 'product_images') else [],
+        }
+
+
+class ProductProcess(TenantModel):
+    """产品工序关联模型"""
+    __tablename__ = 'product_processes'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
+    process_id = db.Column(UUID(as_uuid=True), db.ForeignKey('processes.id'), nullable=False, comment='工序ID')
+    
+    # 基础信息
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    unit_id = db.Column(UUID(as_uuid=True), db.ForeignKey('units.id'), comment='单位ID')
+    curing = db.Column(db.Boolean, default=False, comment='熟化')
+    roll_out_direction = db.Column(db.String(50), comment='出卷方向')  # 头出、尾出、任意统一
+    
+    # 重量相关
+    weight_gain = db.Column(db.Numeric(10, 2), default=0, comment='增重g/m²')
+    total_gram_weight = db.Column(db.Numeric(10, 2), default=0, comment='总克重')
+    weight_gain_upper_limit = db.Column(db.Numeric(10, 2), default=0, comment='增重上限g/m²')
+    weight_gain_lower_limit = db.Column(db.Numeric(10, 2), default=0, comment='增重下限g/m²')
+    
+    # 淋膜相关
+    lamination_width = db.Column(db.Numeric(10, 2), default=0, comment='淋膜宽mm')
+    lamination_thickness = db.Column(db.Numeric(10, 2), default=0, comment='淋膜厚µm')
+    lamination_density = db.Column(db.Numeric(10, 2), default=0, comment='淋膜密度')
+    
+    # 工艺要求
+    process_requirements = db.Column(db.Text, comment='工艺要求')
+    
+    # 价格和等级
+    piece_rate_unit_price = db.Column(db.Numeric(10, 4), default=0, comment='计件单价')
+    difficulty_level = db.Column(db.String(50), comment='难易等级')
+    
+    # 印刷相关
+    surface_print = db.Column(db.Numeric(10, 2), default=0, comment='表印g/m²')
+    reverse_print = db.Column(db.Numeric(10, 2), default=0, comment='里印g/m²')
+    
+    # 喷码和溶剂
+    inkjet_code = db.Column(db.Numeric(10, 2), default=0, comment='喷码(万个/kg)')
+    solvent = db.Column(db.Numeric(10, 2), default=0, comment='溶剂g/m²')
+    
+    # 胶水相关
+    adhesive_amount = db.Column(db.Numeric(10, 2), default=0, comment='上胶量g/m²')
+    solid_content = db.Column(db.Numeric(10, 2), default=0, comment='固含量g/m²')
+    
+    # MES相关
+    no_material_needed = db.Column(db.Boolean, default=False, comment='无需材料')
+    mes_semi_finished_usage = db.Column(db.Boolean, default=False, comment='MES半成品用量')
+    mes_multi_process_semi_finished = db.Column(db.Boolean, default=False, comment='MES多工序半成品')
+    
+    # 产量相关
+    min_hourly_output = db.Column(db.Numeric(10, 2), default=0, comment='每小时最低产量')
+    standard_hourly_output = db.Column(db.Numeric(10, 2), default=0, comment='每小时标准产量')
+    semi_finished_coefficient = db.Column(db.Numeric(10, 4), default=0, comment='半成品系数')
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    # 关联关系
+    product = db.relationship('Product', backref='product_processes')
+    process = db.relationship('Process', backref='product_processes')
+    unit = db.relationship('Unit', backref='product_processes')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'product_id': str(self.product_id),
+            'process_id': str(self.process_id),
+            'process_name': self.process.process_name if self.process else None,
+            'process_category_name': self.process.process_category.process_name if self.process and self.process.process_category else None,
+            'sort_order': self.sort_order,
+            'unit_id': str(self.unit_id) if self.unit_id else None,
+            'unit_name': self.unit.unit_name if self.unit else None,
+            'curing': self.curing,
+            'roll_out_direction': self.roll_out_direction,
+            'weight_gain': float(self.weight_gain) if self.weight_gain else 0,
+            'total_gram_weight': float(self.total_gram_weight) if self.total_gram_weight else 0,
+            'lamination_width': float(self.lamination_width) if self.lamination_width else 0,
+            'lamination_thickness': float(self.lamination_thickness) if self.lamination_thickness else 0,
+            'lamination_density': float(self.lamination_density) if self.lamination_density else 0,
+            'process_requirements': self.process_requirements,
+            'weight_gain_upper_limit': float(self.weight_gain_upper_limit) if self.weight_gain_upper_limit else 0,
+            'weight_gain_lower_limit': float(self.weight_gain_lower_limit) if self.weight_gain_lower_limit else 0,
+            'piece_rate_unit_price': float(self.piece_rate_unit_price) if self.piece_rate_unit_price else 0,
+            'difficulty_level': self.difficulty_level,
+            'surface_print': float(self.surface_print) if self.surface_print else 0,
+            'reverse_print': float(self.reverse_print) if self.reverse_print else 0,
+            'inkjet_code': float(self.inkjet_code) if self.inkjet_code else 0,
+            'solvent': float(self.solvent) if self.solvent else 0,
+            'adhesive_amount': float(self.adhesive_amount) if self.adhesive_amount else 0,
+            'solid_content': float(self.solid_content) if self.solid_content else 0,
+            'no_material_needed': self.no_material_needed,
+            'mes_semi_finished_usage': self.mes_semi_finished_usage,
+            'mes_multi_process_semi_finished': self.mes_multi_process_semi_finished,
+            'min_hourly_output': float(self.min_hourly_output) if self.min_hourly_output else 0,
+            'standard_hourly_output': float(self.standard_hourly_output) if self.standard_hourly_output else 0,
+            'semi_finished_coefficient': float(self.semi_finished_coefficient) if self.semi_finished_coefficient else 0,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+class ProductMaterial(TenantModel):
+    """产品材料关联模型"""
+    __tablename__ = 'product_materials'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = db.Column(UUID(as_uuid=True), db.ForeignKey('products.id'), nullable=False, comment='产品ID')
+    material_id = db.Column(UUID(as_uuid=True), db.ForeignKey('materials.id'), nullable=False, comment='材料ID')
+    process_id = db.Column(UUID(as_uuid=True), db.ForeignKey('processes.id'), nullable=False, comment='工序ID')
+    
+    # 材料使用信息
+    sort_order = db.Column(db.Integer, default=0, comment='排序')
+    
+    layer_number = db.Column(db.String(50), comment='层数')  # 第一层、第二层、第三层
+    supplier_id = db.Column(UUID(as_uuid=True), db.ForeignKey('supplier_management.id'), comment='供应商ID')
+    material_process = db.Column(db.String(200), comment='材质工艺')  # 可编辑文本字段
+    remarks = db.Column(db.Text, comment='备注')  # 可编辑文本字段
+    hot_stamping_film_length = db.Column(db.Numeric(10, 2), default=0, comment='烫金膜长')
+    hot_stamping_film_width = db.Column(db.Numeric(10, 2), default=0, comment='烫金膜宽')
+    material_file_remarks = db.Column(db.Text, comment='材料档案备注')  # 可编辑文本字段
+    
+    # 审计字段
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now(), onupdate=func.now())
+    
+    # 关联关系
+    product = db.relationship('Product', backref='product_materials')
+    material = db.relationship('Material', backref='product_materials')
+    process = db.relationship('Process', backref='product_materials')
+    supplier = db.relationship('SupplierManagement', backref='product_materials')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'product_id': str(self.product_id),
+            'product_name': self.product.product_name if self.product else '',
+            'material_id': str(self.material_id),
+            'material_name': self.material.material_name if self.material and self.material.material_name else '',
+            'material_code': self.material.material_code if self.material and self.material.material_code else '',
+            'material_specification': self.material.specification_model if self.material and self.material.specification_model else '',
+            'material_category_name': self.material.material_category.material_name if self.material and self.material.material_category and self.material.material_category.material_name else '',
+            'material_attribute': self.material.material_category.material_type if self.material and self.material.material_category and self.material.material_category.material_type else '',
+            'process_id': str(self.process_id),
+            'process_name': self.process.process_name if self.process and self.process.process_name else '',
+            'sort_order': self.sort_order,
+            # 新增字段
+            'layer_number': self.layer_number or '',
+            'supplier_id': str(self.supplier_id) if self.supplier_id else '',
+            'supplier_name': self.supplier.supplier_name if self.supplier and self.supplier.supplier_name else '',
+            'material_process': self.material_process or '',
+            'remarks': self.remarks or '',
+            'hot_stamping_film_length': float(self.hot_stamping_film_length) if self.hot_stamping_film_length else 0,
+            'hot_stamping_film_width': float(self.hot_stamping_film_width) if self.hot_stamping_film_width else 0,
+            'material_file_remarks': self.material_file_remarks or '',
+            'created_at': self.created_at.isoformat() if self.created_at else '',
+            'updated_at': self.updated_at.isoformat() if self.updated_at else ''
+        }
+
 
 
 class ProductImage(TenantModel):

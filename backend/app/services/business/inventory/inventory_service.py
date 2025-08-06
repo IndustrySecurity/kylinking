@@ -99,7 +99,7 @@ class InventoryService(TenantAwareService):
         below_safety_stock: bool = False,
         expired_only: bool = False,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 10
     ) -> Dict[str, Any]:
         """获取库存列表"""
         query = self.get_session().query(Inventory).filter(Inventory.is_active == True)
@@ -749,7 +749,7 @@ class InventoryService(TenantAwareService):
         start_date: datetime = None,
         end_date: datetime = None,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 10
     ) -> Dict[str, Any]:
         """获取库存流水记录"""
         query = self.get_session().query(InventoryTransaction)
@@ -875,7 +875,7 @@ class InventoryService(TenantAwareService):
         end_date: datetime = None,
         search: str = None,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 10
     ) -> Dict[str, Any]:
         """获取入库单列表"""
         from sqlalchemy.orm import joinedload

@@ -6,10 +6,12 @@ from app.models.user import User, Role, Permission
 from app.extensions import db
 from app.schemas.tenant import TenantSchema, TenantCreateSchema, TenantUpdateSchema
 from app.utils.tenant_context import TenantContext
+from app.constants.error_messages import get_error_message, AUTH_ERRORS, TENANT_ERRORS, USER_ERRORS, ROLE_ERRORS, PERMISSION_ERRORS
 from slugify import slugify
 import re
 import uuid
 from functools import wraps
+from sqlalchemy.exc import IntegrityError
 
 
 def admin_required(fn):
@@ -59,7 +61,7 @@ def admin_required(fn):
         
         if not is_admin and not is_superadmin:
             print(f"DEBUG - Access denied: User is not admin or superadmin")
-            return jsonify({"message": "Admin privileges required"}), 403
+            return jsonify({"message": get_error_message('AUTH_ERRORS', 'admin_required')}), 403
             
         print(f"DEBUG - Access granted: User is {'superadmin' if is_superadmin else 'admin'}")
         return fn(*args, **kwargs)
@@ -76,7 +78,7 @@ def superadmin_required(fn):
     def superadmin_wrapper(*args, **kwargs):
         claims = get_jwt()
         if not claims.get('is_superadmin'):
-            return jsonify({"message": "Superadmin privileges required"}), 403
+            return jsonify({"message": get_error_message('AUTH_ERRORS', 'superadmin_required')}), 403
         return fn(*args, **kwargs)
     
     return superadmin_wrapper
@@ -405,54 +407,67 @@ def create_tenant_user(tenant_id):
     """
     为租户创建新用户
     """
-    # 验证租户
-    tenant = Tenant.query.get_or_404(tenant_id)
-    
-    # 验证请求数据
-    data = request.json
-    
-    # 必填字段检查
-    if not data.get('email'):
-        return jsonify({"message": "Email is required"}), 400
-    
-    if not data.get('password'):
-        return jsonify({"message": "Password is required"}), 400
-    
-    # 检查邮箱是否已存在
-    if User.query.filter_by(email=data['email']).first():
-        return jsonify({"message": "Email already registered"}), 400
-    
-    # 创建新用户
-    new_user = User(
-        email=data['email'],
-        password=data['password'],
-        first_name=data.get('first_name'),
-        last_name=data.get('last_name'),
-        tenant_id=tenant_id,
-        is_active=data.get('is_active', True),
-        is_admin=data.get('is_admin', False)
-    )
-    
-    # 保存用户
-    db.session.add(new_user)
-    db.session.commit()
-    
-    # 准备返回数据
-    user_data = {
-        "id": str(new_user.id),
-        "email": new_user.email,
-        "first_name": new_user.first_name,
-        "last_name": new_user.last_name,
-        "is_active": new_user.is_active,
-        "is_admin": new_user.is_admin,
-        "created_at": new_user.created_at.isoformat(),
-        "roles": []  # 简化后的模型不再有roles关系
-    }
-    
-    return jsonify({
-        "message": "User created successfully",
-        "user": user_data
-    }), 201
+    try:
+        # 验证租户
+        tenant = Tenant.query.get_or_404(tenant_id)
+        
+        # 验证请求数据
+        data = request.json
+        
+        # 必填字段检查
+        if not data.get('email'):
+            return jsonify({"message": get_error_message('USER_ERRORS', 'email_required')}), 400
+        
+        if not data.get('password'):
+            return jsonify({"message": get_error_message('AUTH_ERRORS', 'password_required')}), 400
+        
+        # 检查邮箱是否已存在
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user:
+            return jsonify({"message": get_error_message('USER_ERRORS', 'email_exists')}), 400
+        
+        # 创建新用户
+        new_user = User(
+            email=data['email'],
+            password=data['password'],
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name'),
+            tenant_id=tenant_id,
+            is_active=data.get('is_active', True),
+            is_admin=data.get('is_admin', False)
+        )
+        
+        # 保存用户
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # 准备返回数据
+        user_data = {
+            "id": str(new_user.id),
+            "email": new_user.email,
+            "first_name": new_user.first_name,
+            "last_name": new_user.last_name,
+            "is_active": new_user.is_active,
+            "is_admin": new_user.is_admin,
+            "created_at": new_user.created_at.isoformat(),
+            "roles": []  # 简化后的模型不再有roles关系
+        }
+        
+        return jsonify({
+            "message": get_error_message('USER_ERRORS', 'user_created'),
+            "user": user_data
+        }), 201
+        
+    except IntegrityError as e:
+        db.session.rollback()
+        # 检查是否是邮箱重复错误
+        if 'email' in str(e).lower() or 'unique' in str(e).lower():
+            return jsonify({"message": get_error_message('USER_ERRORS', 'email_exists')}), 400
+        return jsonify({"message": get_error_message('COMMON_ERRORS', 'database_error')}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"{get_error_message('COMMON_ERRORS', 'server_error')}: {str(e)}"}), 500
 
 
 @admin_bp.route('/tenants/<uuid:tenant_id>/users/<uuid:user_id>', methods=['PUT'])
@@ -461,56 +476,68 @@ def update_tenant_user(tenant_id, user_id):
     """
     更新租户用户
     """
-    # 验证租户
-    tenant = Tenant.query.get_or_404(tenant_id)
-    
-    # 查询用户
-    user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
-    if not user:
-        return jsonify({"message": "User not found in this tenant"}), 404
-    
-    # 验证请求数据
-    data = request.json
-    
-    # 更新用户信息
-    if data.get('email') is not None and data['email'] != user.email:
-        # 检查新邮箱是否已被其他用户使用
-        existing_user = User.query.filter_by(email=data['email']).first()
-        if existing_user and existing_user.id != user_id:
-            return jsonify({"message": "Email already registered by another user"}), 400
-        user.email = data['email']
-    
-    if data.get('first_name') is not None:
-        user.first_name = data['first_name']
-    
-    if data.get('last_name') is not None:
-        user.last_name = data['last_name']
-    
-    if data.get('is_active') is not None:
-        user.is_active = data['is_active']
-    
-    if data.get('is_admin') is not None:
-        user.is_admin = data['is_admin']
-    
-    # 保存更新
-    db.session.commit()
-    
-    # 准备返回数据
-    user_data = {
-        "id": str(user.id),
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "is_active": user.is_active,
-        "is_admin": user.is_admin,
-        "updated_at": user.updated_at.isoformat(),
-        "roles": []  # 简化后的模型不再有roles关系
-    }
-    
-    return jsonify({
-        "message": "User updated successfully",
-        "user": user_data
-    }), 200
+    try:
+        # 验证租户
+        tenant = Tenant.query.get_or_404(tenant_id)
+        
+        # 查询用户
+        user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
+        if not user:
+            return jsonify({"message": get_error_message('USER_ERRORS', 'user_not_in_tenant')}), 404
+        
+        # 验证请求数据
+        data = request.json
+        
+        # 更新用户信息
+        if data.get('email') is not None and data['email'] != user.email:
+            # 检查新邮箱是否已被其他用户使用
+            existing_user = User.query.filter_by(email=data['email']).first()
+            if existing_user and existing_user.id != user_id:
+                return jsonify({"message": get_error_message('USER_ERRORS', 'email_exists')}), 400
+            user.email = data['email']
+        
+        if data.get('first_name') is not None:
+            user.first_name = data['first_name']
+        
+        if data.get('last_name') is not None:
+            user.last_name = data['last_name']
+        
+        if data.get('is_active') is not None:
+            user.is_active = data['is_active']
+        
+        if data.get('is_admin') is not None:
+            user.is_admin = data['is_admin']
+        
+        # 保存更新
+        db.session.commit()
+        
+        # 准备返回数据
+        user_data = {
+            "id": str(user.id),
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "updated_at": user.updated_at.isoformat(),
+            "roles": []  # 简化后的模型不再有roles关系
+        }
+        
+        return jsonify({
+            "message": get_error_message('USER_ERRORS', 'user_updated'),
+            "user": user_data
+        }), 200
+        
+    except IntegrityError as e:
+        db.session.rollback()
+        # 检查是否是邮箱重复错误
+        if 'email' in str(e).lower() or 'unique' in str(e).lower():
+            return jsonify({"message": get_error_message('USER_ERRORS', 'email_exists')}), 400
+        return jsonify({"message": get_error_message('COMMON_ERRORS', 'database_error')}), 500
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"{get_error_message('COMMON_ERRORS', 'server_error')}: {str(e)}"}), 500
 
 
 @admin_bp.route('/tenants/<uuid:tenant_id>/users/<uuid:user_id>/toggle-status', methods=['PATCH'])
@@ -519,24 +546,29 @@ def toggle_user_status(tenant_id, user_id):
     """
     切换用户的活跃状态
     """
-    # 验证租户
-    tenant = Tenant.query.get_or_404(tenant_id)
-    
-    # 查询用户
-    user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
-    if not user:
-        return jsonify({"message": "User not found in this tenant"}), 404
-    
-    # 切换状态
-    user.is_active = not user.is_active
-    
-    # 保存更新
-    db.session.commit()
-    
-    return jsonify({
-        "message": f"User status changed to {'active' if user.is_active else 'inactive'}",
-        "is_active": user.is_active
-    }), 200
+    try:
+        # 验证租户
+        tenant = Tenant.query.get_or_404(tenant_id)
+        
+        # 查询用户
+        user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
+        if not user:
+            return jsonify({"message": "在此租户中未找到用户"}), 404
+        
+        # 切换状态
+        user.is_active = not user.is_active
+        
+        # 保存更新
+        db.session.commit()
+        
+        return jsonify({
+            "message": f"用户状态已更改为{'启用' if user.is_active else '禁用'}",
+            "is_active": user.is_active
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"服务器内部错误: {str(e)}"}), 500
 
 @admin_bp.route('/tenants/<uuid:tenant_id>/users/<uuid:user_id>/delete', methods=['DELETE'])
 @admin_required
@@ -551,24 +583,24 @@ def delete_user(tenant_id, user_id):
         # 查询用户
         user = User.query.filter_by(id=user_id, tenant_id=tenant_id).first()
         if not user:
-            return jsonify({"message": "User not found in this tenant"}), 404
+            return jsonify({"message": "在此租户中未找到用户"}), 404
         
         # 检查是否是最后一个管理员用户
         if user.is_admin:
             admin_count = User.query.filter_by(tenant_id=tenant_id, is_admin=True).count()
             if admin_count <= 1:
-                return jsonify({"message": "Cannot delete the last admin user"}), 400
+                return jsonify({"message": "无法删除最后一个管理员用户"}), 400
         
         # 删除用户（SQLAlchemy会自动处理关联关系，如果有CASCADE设置）
         db.session.delete(user)
         db.session.commit()
         
-        return jsonify({"message": "User deleted successfully"}), 200
+        return jsonify({"message": "用户删除成功"}), 200
         
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting user {user_id}: {str(e)}")
-        return jsonify({"message": "Failed to delete user", "error": str(e)}), 500
+        return jsonify({"message": "删除用户失败", "error": str(e)}), 500
 
 
 
@@ -589,7 +621,7 @@ def reset_user_password(tenant_id, user_id):
     # 验证请求数据
     data = request.json
     if not data.get('password'):
-        return jsonify({"message": "Password is required"}), 400
+        return jsonify({"message": "密码为必填项"}), 400
     
     # 更新密码
     user.set_password(data['password'])
@@ -597,7 +629,7 @@ def reset_user_password(tenant_id, user_id):
     # 保存更新
     db.session.commit()
     
-    return jsonify({"message": "Password reset successfully"}), 200
+    return jsonify({"message": "密码重置成功"}), 200
 
 
 @admin_bp.route('/tenants/<uuid:tenant_id>/roles', methods=['GET'])

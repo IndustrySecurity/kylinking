@@ -46,7 +46,7 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0,
     showSizeChanger: true,
     showQuickJumper: true,
@@ -62,6 +62,8 @@ const ProductManagement = () => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState('basic');
   const [productImages, setProductImages] = useState([]);
+  const [deletedImages, setDeletedImages] = useState([]); // 跟踪被删除的图片
+  const [originalImages, setOriginalImages] = useState([]); // 记录编辑开始时的原始图片
   const [productProcesses, setProductProcesses] = useState([]);
   const [productMaterials, setProductMaterials] = useState([]);
   
@@ -224,18 +226,43 @@ const ProductManagement = () => {
     customRequest: async (options) => {
       const { file, onSuccess, onError, onProgress } = options;
       
+
+      
       try {
         onProgress({ percent: 10 });
         
+        // 立即上传图片到服务器
         const response = await productManagementApi.uploadImage(file);
         
+  
+        
         onProgress({ percent: 100 });
-        onSuccess(response.data.data);
+        
+        // 确保返回正确的数据结构
+        const result = {
+          url: response.data.data.url,
+          filename: response.data.data.filename,
+          original_name: response.data.data.original_name,
+          size: response.data.data.size
+        };
+        
+        // 重要：需要将结果包装在 data 字段中
+        
+        // 直接调用onSuccess，让Ant Design处理数据
+        onSuccess(result);
         
       } catch (error) {
         console.error('图片上传失败:', error);
         onError(error);
-        message.error('图片上传失败');
+        
+        // 显示具体的错误信息
+        let errorMessage = '图片上传失败';
+        if (error.response && error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        message.error(errorMessage);
       }
     },
     beforeUpload: (file) => {
@@ -259,14 +286,39 @@ const ProductManagement = () => {
       
       // 设置上传状态
       fileList = fileList.map(file => {
+        // 处理上传成功的文件
         if (file.response) {
+          // 直接使用response中的数据
           file.url = file.response.url;
+          file.name = file.response.filename;
           file.status = 'done';
+          file.thumbUrl = file.response.url;
         }
+        
         return file;
       });
       
       setProductImages(fileList);
+    }
+  };
+
+  // 删除图片处理
+  const handleDeleteImage = async (image) => {
+    try {
+  
+      
+      // 记录被删除的图片，用于保存时删除服务器文件
+      setDeletedImages(prev => [...prev, image]);
+      
+      // 从本地图片列表中移除
+      const newImageList = productImages.filter(img => img.uid !== image.uid);
+      setProductImages(newImageList);
+      
+      message.success('图片已从表单中移除');
+      
+    } catch (error) {
+      console.error('删除图片失败:', error);
+      message.error('删除图片失败');
     }
   };
 
@@ -299,6 +351,7 @@ const ProductManagement = () => {
     setEditingRecord(null);
     setActiveTabKey('basic');
     setProductImages([]);
+    setOriginalImages([]); // 新建时清空原始图片
     setProductProcesses([]);
     setProductMaterials([]);
     form.resetFields();
@@ -346,152 +399,152 @@ const ProductManagement = () => {
       const response = await productManagementApi.getProductDetail(record.id);
       if (response.data.success) {
         const productDetail = response.data.data;
-        console.log('productDetail', productDetail);
         
         // 处理产品结构数据
         const formData = { ...productDetail };
-        // 初始化产品结构数据，确保所有字段都有默认值
-        formData.product_structures = {
-          length: undefined,
-          width: undefined,
-          height: undefined,
-          side_width: undefined,
-          bottom_width: undefined,
-          thickness: undefined,
-          total_thickness: undefined,
-          volume: undefined,
-          weight: undefined,
-          expand_length: undefined,
-          expand_width: undefined,
-          expand_height: undefined,
-          material_length: undefined,
-          material_width: undefined,
-          material_height: undefined,
-          single_length: undefined,
-          single_width: undefined,
-          single_height: undefined,
-          blue_color: undefined,
-          red_color: undefined,
-          other_color: undefined,
-          // 新增字段
-          cut_length: undefined,
-          cut_width: undefined,
-          cut_thickness: undefined,
-          cut_area: undefined,
-          light_eye_length: undefined,
-          light_eye_width: undefined,
-          light_eye_distance: undefined,
-          edge_sealing_width: undefined,
-          bag_making_fee: undefined,
-          container_fee: undefined,
-          cuff_fee: undefined,
-          pallet_length: undefined,
-          pallet_width: undefined,
-          pallet_height: undefined,
-          pallet_1: undefined,
-          pallet_2: undefined,
-          pallet_3: undefined,
-          winding_diameter: undefined,
-          density: undefined,
-          seal_top: undefined,
-          seal_left: undefined,
-          seal_right: undefined,
-          seal_middle: undefined,
-          sealing_temperature: undefined,
-          sealing_width: undefined,
-          sealing_strength: undefined,
-          sealing_method: undefined,
-          power: undefined
-        };
+        // 初始化产品结构数据，不设置默认值
+        formData.product_structures = {};
         
         if (productDetail.structures && productDetail.structures.length > 0) {
           // 将第一个结构数据展开到product_structures字段
           const structure = productDetail.structures[0];
           formData.product_structures = {
-            ...formData.product_structures, // 保持默认值
-            length: structure.length || 0,
-            width: structure.width || 0,
-            height: structure.height || 0,
-            side_width: structure.side_width || 0,
-            bottom_width: structure.bottom_width || 0,
-            thickness: structure.thickness || 0,
-            total_thickness: structure.total_thickness || 0,
-            volume: structure.volume || 0,
-            weight: structure.weight || 0,
-            expand_length: structure.expand_length || 0,
-            expand_width: structure.expand_width || 0,
-            expand_height: structure.expand_height || 0,
-            material_length: structure.material_length || 0,
-            material_width: structure.material_width || 0,
-            material_height: structure.material_height || 0,
-            single_length: structure.single_length || 0,
-            single_width: structure.single_width || 0,
-            single_height: structure.single_height || 0,
-            blue_color: structure.blue_color || '',
-            red_color: structure.red_color || '',
-            other_color: structure.other_color || '',
+            length: structure.length,
+            width: structure.width,
+            height: structure.height,
+            side_width: structure.side_width,
+            bottom_width: structure.bottom_width,
+            thickness: structure.thickness,
+            total_thickness: structure.total_thickness,
+            volume: structure.volume,
+            weight: structure.weight,
+            expand_length: structure.expand_length,
+            expand_width: structure.expand_width,
+            expand_height: structure.expand_height,
+            material_length: structure.material_length,
+            material_width: structure.material_width,
+            material_height: structure.material_height,
+            single_length: structure.single_length,
+            single_width: structure.single_width,
+            single_height: structure.single_height,
+            blue_color: structure.blue_color,
+            red_color: structure.red_color,
+            other_color: structure.other_color,
             // 新增字段
-            cut_length: structure.cut_length || 0,
-            cut_width: structure.cut_width || 0,
-            cut_thickness: structure.cut_thickness || 0,
-            cut_area: structure.cut_area || 0,
-            light_eye_length: structure.light_eye_length || 0,
-            light_eye_width: structure.light_eye_width || 0,
-            light_eye_distance: structure.light_eye_distance || 0,
-            edge_sealing_width: structure.edge_sealing_width || 0,
-            bag_making_fee: structure.bag_making_fee || 0,
-            container_fee: structure.container_fee || 0,
-            cuff_fee: structure.cuff_fee || 0,
-            pallet_length: structure.pallet_length || 0,
-            pallet_width: structure.pallet_width || 0,
-            pallet_height: structure.pallet_height || 0,
-            pallet_1: structure.pallet_1 || 0,
-            pallet_2: structure.pallet_2 || 0,
-            pallet_3: structure.pallet_3 || 0,
-            winding_diameter: structure.winding_diameter || 0,
-            density: structure.density || 0,
-            seal_top: structure.seal_top || 0,
-            seal_left: structure.seal_left || 0,
-            seal_right: structure.seal_right || 0,
-            seal_middle: structure.seal_middle || 0,
-            sealing_temperature: structure.sealing_temperature || 0,
-            sealing_width: structure.sealing_width || 0,
-            sealing_strength: structure.sealing_strength || 0,
-            sealing_method: structure.sealing_method || '',
-            power: structure.power || 0
+            cut_length: structure.cut_length,
+            cut_width: structure.cut_width,
+            cut_thickness: structure.cut_thickness,
+            cut_area: structure.cut_area,
+            light_eye_length: structure.light_eye_length,
+            light_eye_width: structure.light_eye_width,
+            light_eye_distance: structure.light_eye_distance,
+            edge_sealing_width: structure.edge_sealing_width,
+            bag_making_fee: structure.bag_making_fee,
+            container_fee: structure.container_fee,
+            cuff_fee: structure.cuff_fee,
+            pallet_length: structure.pallet_length,
+            pallet_width: structure.pallet_width,
+            pallet_height: structure.pallet_height,
+            pallet_1: structure.pallet_1,
+            pallet_2: structure.pallet_2,
+            pallet_3: structure.pallet_3,
+            winding_diameter: structure.winding_diameter,
+            density: structure.density,
+            seal_top: structure.seal_top,
+            seal_left: structure.seal_left,
+            seal_right: structure.seal_right,
+            seal_middle: structure.seal_middle,
+            sealing_temperature: structure.sealing_temperature,
+            sealing_width: structure.sealing_width,
+            sealing_strength: structure.sealing_strength,
+            sealing_method: structure.sealing_method,
+            power: structure.power
           };
         }
         
+        // 处理客户需求数据
+        if (productDetail.customer_requirements && productDetail.customer_requirements.length > 0) {
+          // 将第一个客户需求数据展开到product_customer_requirements字段
+          const customerRequirement = productDetail.customer_requirements[0];
+          formData.product_customer_requirements = {
+            appearance_requirements: customerRequirement.appearance_requirements,
+            surface_treatment: customerRequirement.surface_treatment,
+            printing_requirements: customerRequirement.printing_requirements,
+            color_requirements: customerRequirement.color_requirements,
+            pattern_requirements: customerRequirement.pattern_requirements,
+            cutting_method: customerRequirement.cutting_method,
+            cutting_width: customerRequirement.cutting_width,
+            cutting_length: customerRequirement.cutting_length,
+            cutting_thickness: customerRequirement.cutting_thickness,
+            optical_distance: customerRequirement.optical_distance,
+            optical_width: customerRequirement.optical_width,
+            bag_sealing_up: customerRequirement.bag_sealing_up,
+            bag_sealing_down: customerRequirement.bag_sealing_down,
+            bag_sealing_left: customerRequirement.bag_sealing_left,
+            bag_sealing_right: customerRequirement.bag_sealing_right,
+            bag_sealing_middle: customerRequirement.bag_sealing_middle,
+            bag_sealing_inner: customerRequirement.bag_sealing_inner,
+            bag_length_tolerance: customerRequirement.bag_length_tolerance,
+            bag_width_tolerance: customerRequirement.bag_width_tolerance,
+            packaging_method: customerRequirement.packaging_method,
+            packaging_requirements: customerRequirement.packaging_requirements,
+            packaging_material: customerRequirement.packaging_material,
+            packaging_quantity: customerRequirement.packaging_quantity,
+            packaging_specifications: customerRequirement.packaging_specifications,
+            req_tensile_strength: customerRequirement.tensile_strength,
+            thermal_shrinkage: customerRequirement.thermal_shrinkage,
+            impact_strength: customerRequirement.impact_strength,
+            thermal_tensile_strength: customerRequirement.thermal_tensile_strength,
+            water_vapor_permeability: customerRequirement.water_vapor_permeability,
+            heat_shrinkage_curve: customerRequirement.heat_shrinkage_curve,
+            melt_index: customerRequirement.melt_index,
+            gas_permeability: customerRequirement.gas_permeability,
+            custom_1: customerRequirement.custom_1,
+            custom_2: customerRequirement.custom_2,
+            custom_3: customerRequirement.custom_3,
+            custom_4: customerRequirement.custom_4,
+            custom_5: customerRequirement.custom_5,
+            custom_6: customerRequirement.custom_6,
+            custom_7: customerRequirement.custom_7
+          };
+        }
+
         // 处理理化指标数据
         if (productDetail.quality_indicators && productDetail.quality_indicators.length > 0) {
           // 将第一个理化指标数据展开到product_quality_indicators字段
           const qualityIndicator = productDetail.quality_indicators[0];
           formData.product_quality_indicators = {
-            packaging_requirement: qualityIndicator.packaging_requirement,
-            tensile_requirement: qualityIndicator.tensile_requirement,
-            opening_requirement: qualityIndicator.opening_requirement,
-            slip_requirement: qualityIndicator.slip_requirement,
-            cut_requirement: qualityIndicator.cut_requirement,
-            anti_static_requirement: qualityIndicator.anti_static_requirement,
-            sterilization_requirement: qualityIndicator.sterilization_requirement,
-            hygiene_requirement: qualityIndicator.hygiene_requirement,
-            special_requirement: qualityIndicator.special_requirement,
-            tensile_strength_md: qualityIndicator.tensile_strength_md,
-            tensile_strength_td: qualityIndicator.tensile_strength_td,
-            elongation_break_md: qualityIndicator.elongation_break_md,
-            elongation_break_td: qualityIndicator.elongation_break_td,
-            dart_drop_impact: qualityIndicator.dart_drop_impact,
-            heat_shrinkage: qualityIndicator.heat_shrinkage,
-            oxygen_transmission_rate: qualityIndicator.oxygen_transmission_rate,
-            water_vapor_transmission_rate: qualityIndicator.water_vapor_transmission_rate,
-            seal_strength: qualityIndicator.seal_strength
+            tensile_strength_longitudinal: qualityIndicator.tensile_strength_longitudinal,
+            tensile_strength_transverse: qualityIndicator.tensile_strength_transverse,
+            thermal_shrinkage_longitudinal: qualityIndicator.thermal_shrinkage_longitudinal,
+            thermal_shrinkage_transverse: qualityIndicator.thermal_shrinkage_transverse,
+            puncture_strength: qualityIndicator.puncture_strength,
+            optical_properties: qualityIndicator.optical_properties,
+            heat_seal_temperature: qualityIndicator.heat_seal_temperature,
+            heat_seal_tensile_strength: qualityIndicator.heat_seal_tensile_strength,
+            quality_water_vapor_permeability: qualityIndicator.water_vapor_permeability,
+            oxygen_permeability: qualityIndicator.oxygen_permeability,
+            friction_coefficient: qualityIndicator.friction_coefficient,
+            peel_strength: qualityIndicator.peel_strength,
+            test_standard: qualityIndicator.test_standard,
+            test_basis: qualityIndicator.test_basis,
+            indicator_1: qualityIndicator.indicator_1,
+            indicator_2: qualityIndicator.indicator_2,
+            indicator_3: qualityIndicator.indicator_3,
+            indicator_4: qualityIndicator.indicator_4,
+            indicator_5: qualityIndicator.indicator_5,
+            indicator_6: qualityIndicator.indicator_6,
+            indicator_7: qualityIndicator.indicator_7,
+            indicator_8: qualityIndicator.indicator_8,
+            indicator_9: qualityIndicator.indicator_9,
+            indicator_10: qualityIndicator.indicator_10
           };
         }
         
         form.setFieldsValue(formData);
         
         // 加载产品图片
-        if (productDetail.product_images) {
+        if (productDetail.product_images && productDetail.product_images.length > 0) {
           const images = productDetail.product_images.map(img => ({
             uid: img.id,
             name: img.image_name,
@@ -499,6 +552,11 @@ const ProductManagement = () => {
             status: 'done'
           }));
           setProductImages(images);
+          // 记录编辑开始时的原始图片（用于取消时判断哪些是新添加的）
+          setOriginalImages([...images]);
+        } else {
+          setProductImages([]);
+          setOriginalImages([]);
         }
 
         // 加载产品工序
@@ -513,7 +571,22 @@ const ProductManagement = () => {
         if (productDetail.product_materials) {
           setProductMaterials(productDetail.product_materials.map(material => ({
             ...material,
-            id: material.id || Date.now() + Math.random()
+            id: material.id || Date.now() + Math.random(),
+            material_name: material.material_name || '',
+            material_code: material.material_code || '',
+            material_category_name: material.material_category_name || '',
+            material_attribute: material.material_attribute || '',
+            process_id: material.process_id || '',
+            process_name: material.process_name || '',
+            supplier_id: material.supplier_id || '',
+            supplier_name: material.supplier_name || '',
+            layer_number: material.layer_number || '',
+            material_process: material.material_process || '',
+            remarks: material.remarks || '',
+            hot_stamping_film_length: material.hot_stamping_film_length || null,
+            hot_stamping_film_width: material.hot_stamping_film_width || null,
+            material_file_remarks: material.material_file_remarks || '',
+            sort_order: material.sort_order || 0
           })));
         }
       }
@@ -598,90 +671,142 @@ const ProductManagement = () => {
           // 将第一个结构数据展开到product_structures字段
           const structure = productDetail.structures[0];
           formData.product_structures = {
-            ...formData.product_structures, // 保持默认值
-            length: structure.length || 0,
-            width: structure.width || 0,
-            height: structure.height || 0,
-            side_width: structure.side_width || 0,
-            bottom_width: structure.bottom_width || 0,
-            thickness: structure.thickness || 0,
-            total_thickness: structure.total_thickness || 0,
-            volume: structure.volume || 0,
-            weight: structure.weight || 0,
-            expand_length: structure.expand_length || 0,
-            expand_width: structure.expand_width || 0,
-            expand_height: structure.expand_height || 0,
-            material_length: structure.material_length || 0,
-            material_width: structure.material_width || 0,
-            material_height: structure.material_height || 0,
-            single_length: structure.single_length || 0,
-            single_width: structure.single_width || 0,
-            single_height: structure.single_height || 0,
-            blue_color: structure.blue_color || '',
-            red_color: structure.red_color || '',
-            other_color: structure.other_color || '',
+            length: structure.length,
+            width: structure.width,
+            height: structure.height,
+            side_width: structure.side_width,
+            bottom_width: structure.bottom_width,
+            thickness: structure.thickness,
+            total_thickness: structure.total_thickness,
+            volume: structure.volume,
+            weight: structure.weight,
+            expand_length: structure.expand_length,
+            expand_width: structure.expand_width,
+            expand_height: structure.expand_height,
+            material_length: structure.material_length,
+            material_width: structure.material_width,
+            material_height: structure.material_height,
+            single_length: structure.single_length,
+            single_width: structure.single_width,
+            single_height: structure.single_height,
+            blue_color: structure.blue_color,
+            red_color: structure.red_color,
+            other_color: structure.other_color,
             // 新增字段
-            cut_length: structure.cut_length || 0,
-            cut_width: structure.cut_width || 0,
-            cut_thickness: structure.cut_thickness || 0,
-            cut_area: structure.cut_area || 0,
-            light_eye_length: structure.light_eye_length || 0,
-            light_eye_width: structure.light_eye_width || 0,
-            light_eye_distance: structure.light_eye_distance || 0,
-            edge_sealing_width: structure.edge_sealing_width || 0,
-            bag_making_fee: structure.bag_making_fee || 0,
-            container_fee: structure.container_fee || 0,
-            cuff_fee: structure.cuff_fee || 0,
-            pallet_length: structure.pallet_length || 0,
-            pallet_width: structure.pallet_width || 0,
-            pallet_height: structure.pallet_height || 0,
-            pallet_1: structure.pallet_1 || 0,
-            pallet_2: structure.pallet_2 || 0,
-            pallet_3: structure.pallet_3 || 0,
-            winding_diameter: structure.winding_diameter || 0,
-            density: structure.density || 0,
-            seal_top: structure.seal_top || 0,
-            seal_left: structure.seal_left || 0,
-            seal_right: structure.seal_right || 0,
-            seal_middle: structure.seal_middle || 0,
-            sealing_temperature: structure.sealing_temperature || 0,
-            sealing_width: structure.sealing_width || 0,
-            sealing_strength: structure.sealing_strength || 0,
-            sealing_method: structure.sealing_method || '',
-            power: structure.power || 0
+            cut_length: structure.cut_length,
+            cut_width: structure.cut_width,
+            cut_thickness: structure.cut_thickness,
+            cut_area: structure.cut_area,
+            light_eye_length: structure.light_eye_length,
+            light_eye_width: structure.light_eye_width,
+            light_eye_distance: structure.light_eye_distance,
+            edge_sealing_width: structure.edge_sealing_width,
+            bag_making_fee: structure.bag_making_fee,
+            container_fee: structure.container_fee,
+            cuff_fee: structure.cuff_fee,
+            pallet_length: structure.pallet_length,
+            pallet_width: structure.pallet_width,
+            pallet_height: structure.pallet_height,
+            pallet_1: structure.pallet_1,
+            pallet_2: structure.pallet_2,
+            pallet_3: structure.pallet_3,
+            winding_diameter: structure.winding_diameter,
+            density: structure.density,
+            seal_top: structure.seal_top,
+            seal_left: structure.seal_left,
+            seal_right: structure.seal_right,
+            seal_middle: structure.seal_middle,
+            sealing_temperature: structure.sealing_temperature,
+            sealing_width: structure.sealing_width,
+            sealing_strength: structure.sealing_strength,
+            sealing_method: structure.sealing_method,
+            power: structure.power
           };
         }
         
+        // 处理客户需求数据
+        if (productDetail.customer_requirements && productDetail.customer_requirements.length > 0) {
+          // 将第一个客户需求数据展开到product_customer_requirements字段
+          const customerRequirement = productDetail.customer_requirements[0];
+          formData.product_customer_requirements = {
+            appearance_requirements: customerRequirement.appearance_requirements,
+            surface_treatment: customerRequirement.surface_treatment,
+            printing_requirements: customerRequirement.printing_requirements,
+            color_requirements: customerRequirement.color_requirements,
+            pattern_requirements: customerRequirement.pattern_requirements,
+            cutting_method: customerRequirement.cutting_method,
+            cutting_width: customerRequirement.cutting_width,
+            cutting_length: customerRequirement.cutting_length,
+            cutting_thickness: customerRequirement.cutting_thickness,
+            optical_distance: customerRequirement.optical_distance,
+            optical_width: customerRequirement.optical_width,
+            bag_sealing_up: customerRequirement.bag_sealing_up,
+            bag_sealing_down: customerRequirement.bag_sealing_down,
+            bag_sealing_left: customerRequirement.bag_sealing_left,
+            bag_sealing_right: customerRequirement.bag_sealing_right,
+            bag_sealing_middle: customerRequirement.bag_sealing_middle,
+            bag_sealing_inner: customerRequirement.bag_sealing_inner,
+            bag_length_tolerance: customerRequirement.bag_length_tolerance,
+            bag_width_tolerance: customerRequirement.bag_width_tolerance,
+            packaging_method: customerRequirement.packaging_method,
+            packaging_requirements: customerRequirement.packaging_requirements,
+            packaging_material: customerRequirement.packaging_material,
+            packaging_quantity: customerRequirement.packaging_quantity,
+            packaging_specifications: customerRequirement.packaging_specifications,
+            req_tensile_strength: customerRequirement.tensile_strength,
+            thermal_shrinkage: customerRequirement.thermal_shrinkage,
+            impact_strength: customerRequirement.impact_strength,
+            thermal_tensile_strength: customerRequirement.thermal_tensile_strength,
+            water_vapor_permeability: customerRequirement.water_vapor_permeability,
+            heat_shrinkage_curve: customerRequirement.heat_shrinkage_curve,
+            melt_index: customerRequirement.melt_index,
+            gas_permeability: customerRequirement.gas_permeability,
+            custom_1: customerRequirement.custom_1,
+            custom_2: customerRequirement.custom_2,
+            custom_3: customerRequirement.custom_3,
+            custom_4: customerRequirement.custom_4,
+            custom_5: customerRequirement.custom_5,
+            custom_6: customerRequirement.custom_6,
+            custom_7: customerRequirement.custom_7
+          };
+        }
+
         // 处理理化指标数据
         if (productDetail.quality_indicators && productDetail.quality_indicators.length > 0) {
           // 将第一个理化指标数据展开到product_quality_indicators字段
           const qualityIndicator = productDetail.quality_indicators[0];
           formData.product_quality_indicators = {
-            packaging_requirement: qualityIndicator.packaging_requirement,
-            tensile_requirement: qualityIndicator.tensile_requirement,
-            opening_requirement: qualityIndicator.opening_requirement,
-            slip_requirement: qualityIndicator.slip_requirement,
-            cut_requirement: qualityIndicator.cut_requirement,
-            anti_static_requirement: qualityIndicator.anti_static_requirement,
-            sterilization_requirement: qualityIndicator.sterilization_requirement,
-            hygiene_requirement: qualityIndicator.hygiene_requirement,
-            special_requirement: qualityIndicator.special_requirement,
-            tensile_strength_md: qualityIndicator.tensile_strength_md,
-            tensile_strength_td: qualityIndicator.tensile_strength_td,
-            elongation_break_md: qualityIndicator.elongation_break_md,
-            elongation_break_td: qualityIndicator.elongation_break_td,
-            dart_drop_impact: qualityIndicator.dart_drop_impact,
-            heat_shrinkage: qualityIndicator.heat_shrinkage,
-            oxygen_transmission_rate: qualityIndicator.oxygen_transmission_rate,
-            water_vapor_transmission_rate: qualityIndicator.water_vapor_transmission_rate,
-            seal_strength: qualityIndicator.seal_strength
+            tensile_strength_longitudinal: qualityIndicator.tensile_strength_longitudinal,
+            tensile_strength_transverse: qualityIndicator.tensile_strength_transverse,
+            thermal_shrinkage_longitudinal: qualityIndicator.thermal_shrinkage_longitudinal,
+            thermal_shrinkage_transverse: qualityIndicator.thermal_shrinkage_transverse,
+            puncture_strength: qualityIndicator.puncture_strength,
+            optical_properties: qualityIndicator.optical_properties,
+            heat_seal_temperature: qualityIndicator.heat_seal_temperature,
+            heat_seal_tensile_strength: qualityIndicator.heat_seal_tensile_strength,
+            quality_water_vapor_permeability: qualityIndicator.water_vapor_permeability,
+            oxygen_permeability: qualityIndicator.oxygen_permeability,
+            friction_coefficient: qualityIndicator.friction_coefficient,
+            peel_strength: qualityIndicator.peel_strength,
+            test_standard: qualityIndicator.test_standard,
+            test_basis: qualityIndicator.test_basis,
+            indicator_1: qualityIndicator.indicator_1,
+            indicator_2: qualityIndicator.indicator_2,
+            indicator_3: qualityIndicator.indicator_3,
+            indicator_4: qualityIndicator.indicator_4,
+            indicator_5: qualityIndicator.indicator_5,
+            indicator_6: qualityIndicator.indicator_6,
+            indicator_7: qualityIndicator.indicator_7,
+            indicator_8: qualityIndicator.indicator_8,
+            indicator_9: qualityIndicator.indicator_9,
+            indicator_10: qualityIndicator.indicator_10
           };
         }
         
         form.setFieldsValue(formData);
         
         // 加载产品图片
-        if (productDetail.product_images) {
+        if (productDetail.product_images && productDetail.product_images.length > 0) {
           const images = productDetail.product_images.map(img => ({
             uid: img.id,
             name: img.image_name,
@@ -689,6 +814,11 @@ const ProductManagement = () => {
             status: 'done'
           }));
           setProductImages(images);
+          // 记录编辑开始时的原始图片（用于取消时判断哪些是新添加的）
+          setOriginalImages([...images]);
+        } else {
+          setProductImages([]);
+          setOriginalImages([]);
         }
 
         // 加载产品工序
@@ -703,7 +833,22 @@ const ProductManagement = () => {
         if (productDetail.product_materials) {
           setProductMaterials(productDetail.product_materials.map(material => ({
             ...material,
-            id: material.id || Date.now() + Math.random()
+            id: material.id || Date.now() + Math.random(),
+            material_name: material.material_name || '',
+            material_code: material.material_code || '',
+            material_category_name: material.material_category_name || '',
+            material_attribute: material.material_attribute || '',
+            process_id: material.process_id || '',
+            process_name: material.process_name || '',
+            supplier_id: material.supplier_id || '',
+            supplier_name: material.supplier_name || '',
+            layer_number: material.layer_number || '',
+            material_process: material.material_process || '',
+            remarks: material.remarks || '',
+            hot_stamping_film_length: material.hot_stamping_film_length || null,
+            hot_stamping_film_width: material.hot_stamping_film_width || null,
+            material_file_remarks: material.material_file_remarks || '',
+            sort_order: material.sort_order || 0
           })));
         }
       }
@@ -736,7 +881,7 @@ const ProductManagement = () => {
       // 处理图片数据
       const imageData = productImages.map((img, index) => ({
         image_name: img.name,
-        image_url: img.url || img.response?.url,
+        image_url: img.url || img.response?.data?.url || img.response?.url,
         image_type: `图片${index + 1}`,
         file_size: img.size,
         sort_order: index
@@ -750,17 +895,38 @@ const ProductManagement = () => {
           sort_order: process.sort_order || 0
         }));
 
+      // 验证材料数据
+      const materialsWithProcess = productMaterials.filter(material => material.material_id);
+      for (const material of materialsWithProcess) {
+        const process_id = material.process_id;
+        const materialDisplayName = material.material_name || material.material_code || `材料${material.id}`;
+        if (!process_id || process_id === '' || process_id === 'null') {
+          message.error(`材料 "${materialDisplayName}" 必须选择工序`);
+          return;
+        }
+      }
+
       // 处理材料数据 - 只传送必要字段
-      const materialData = productMaterials
-        .filter(material => material.material_id) // 只保存已选择材料的记录
-        .map(material => ({
-          material_id: material.material_id,
-          sort_order: material.sort_order || 0
-        }));
+      const materialData = materialsWithProcess.map(material => ({
+        material_id: material.material_id,
+        process_id: material.process_id,
+        material_name: material.material_name,
+        material_code: material.material_code,
+        material_category_name: material.material_category_name,
+        material_attribute: material.material_attribute,
+        sort_order: material.sort_order || 0,
+        layer_number: material.layer_number,
+        supplier_id: material.supplier_id,
+        material_process: material.material_process,
+        remarks: material.remarks,
+        hot_stamping_film_length: material.hot_stamping_film_length,
+        hot_stamping_film_width: material.hot_stamping_film_width,
+        material_file_remarks: material.material_file_remarks
+      }));
       
       // 处理产品结构数据
       const structureData = values.product_structures || {};
-      console.log('原始产品结构数据:', structureData);
+
       // 过滤掉undefined和null值，只保留有效数据
       const filteredStructureData = {};
       Object.keys(structureData).forEach(key => {
@@ -768,7 +934,16 @@ const ProductManagement = () => {
           filteredStructureData[key] = structureData[key];
         }
       });
-      console.log('过滤后的产品结构数据:', filteredStructureData);
+
+      // 处理客户需求数据
+      const customerRequirementsData = values.product_customer_requirements || {};
+      // 过滤掉undefined和null值，只保留有效数据
+      const filteredCustomerRequirementsData = {};
+      Object.keys(customerRequirementsData).forEach(key => {
+        if (customerRequirementsData[key] !== undefined && customerRequirementsData[key] !== null && customerRequirementsData[key] !== '') {
+          filteredCustomerRequirementsData[key] = customerRequirementsData[key];
+        }
+      });
       
       // 处理理化指标数据
       const qualityIndicatorsData = values.product_quality_indicators || {};
@@ -783,6 +958,7 @@ const ProductManagement = () => {
       const productData = {
         ...values,
         structure: filteredStructureData, // 将过滤后的产品结构数据作为structure字段传递
+        customer_requirements: filteredCustomerRequirementsData, // 将过滤后的客户需求数据作为customer_requirements字段传递
         quality_indicators: filteredQualityIndicatorsData, // 将过滤后的理化指标数据作为quality_indicators字段传递
         product_images: imageData,
         product_processes: processData,
@@ -791,6 +967,7 @@ const ProductManagement = () => {
       
       // 删除嵌套的字段，避免重复
       delete productData.product_structures;
+      delete productData.product_customer_requirements;
       delete productData.product_quality_indicators;
 
       if (modalType === 'create') {
@@ -801,7 +978,37 @@ const ProductManagement = () => {
         message.success('产品更新成功');
       }
 
+      // 保存成功后，删除被删除的图片文件
+      if (deletedImages.length > 0) {
+  
+        for (const image of deletedImages) {
+          let filename = null;
+          
+          // 获取文件名
+          if (image.response && image.response.data && image.response.data.filename) {
+            filename = image.response.data.filename;
+          } else if (image.response && image.response.filename) {
+            filename = image.response.filename;
+          } else if (image.name) {
+            filename = image.name;
+          } else if (image.url) {
+            const urlParts = image.url.split('/');
+            filename = urlParts[urlParts.length - 1];
+          }
+          
+          if (filename) {
+            try {
+              await productManagementApi.deleteImage(filename);
+  
+            } catch (deleteError) {
+              console.warn('删除图片文件失败:', filename, deleteError);
+            }
+          }
+        }
+      }
+
       setModalVisible(false);
+      setDeletedImages([]); // 清空被删除的图片列表
       loadData();
     } catch (error) {
       if (error.errorFields) {
@@ -816,11 +1023,85 @@ const ProductManagement = () => {
   };
 
   // 关闭模态框
-  const closeModal = () => {
+  const closeModal = async () => {
+    // 只清理新添加的图片（在编辑过程中上传但未保存到数据库的图片）
+    if (productImages.length > 0) {
+      try {
+        // 🔒 安全检查：如果是编辑模式但originalImages为空，说明有问题，不删除任何图片
+        if (modalType === 'edit' && originalImages.length === 0 && productImages.length > 0) {
+          console.warn('⚠️ 编辑模式下originalImages为空，跳过图片清理以防误删');
+          setModalVisible(false);
+          setEditingRecord(null);
+          setActiveTabKey('basic');
+          setProductImages([]);
+          setOriginalImages([]);
+          setDeletedImages([]);
+          setProductProcesses([]);
+          setProductMaterials([]);
+          form.resetFields();
+          return;
+        }
+        
+        // 找出新添加的图片（不在原始图片列表中的图片）
+        const newImages = productImages.filter(currentImage => {
+          // 如果有response字段，说明是新上传的
+          if (currentImage.response) {
+            return true;
+          }
+          
+          // 如果不在原始图片列表中，也认为是新添加的
+          const isOriginal = originalImages.some(originalImage => 
+            originalImage.uid === currentImage.uid || 
+            originalImage.name === currentImage.name ||
+            originalImage.url === currentImage.url
+          );
+          
+          return !isOriginal;
+        });
+        
+
+        
+        // 只删除新添加的图片
+        for (const image of newImages) {
+          let filename = null;
+          
+          // 获取文件名：优先从response获取，其次从name获取，最后从URL提取
+          if (image.response && image.response.data && image.response.data.filename) {
+            filename = image.response.data.filename;
+          } else if (image.response && image.response.filename) {
+            filename = image.response.filename;
+          } else if (image.name) {
+            filename = image.name;
+          } else if (image.url) {
+            // 从URL中提取文件名
+            const urlParts = image.url.split('/');
+            filename = urlParts[urlParts.length - 1];
+          }
+          
+          if (filename) {
+            try {
+              await productManagementApi.deleteImage(filename);
+
+            } catch (deleteError) {
+
+            }
+          }
+        }
+        
+        if (newImages.length > 0) {
+          message.info(`已清理 ${newImages.length} 张未保存的图片`);
+        }
+      } catch (error) {
+        console.error('清理图片失败:', error);
+      }
+    }
+    
     setModalVisible(false);
     setEditingRecord(null);
     setActiveTabKey('basic');
     setProductImages([]);
+    setOriginalImages([]); // 清空原始图片列表
+    setDeletedImages([]); // 清空被删除的图片列表
     setProductProcesses([]);
     setProductMaterials([]);
     form.resetFields();
@@ -833,9 +1114,33 @@ const ProductManagement = () => {
       process_id: '',
       process_name: '',
       process_category_name: '',
-      scheduling_method: '',
-      unit: '',
-      sort_order: productProcesses.length + 1
+      unit_id: '',
+      unit_name: '',
+      sort_order: productProcesses.length + 1,
+      curing: false,
+      roll_out_direction: '',
+      weight_gain: null,
+      total_gram_weight: null,
+      weight_gain_upper_limit: null,
+      weight_gain_lower_limit: null,
+      lamination_width: null,
+      lamination_thickness: null,
+      lamination_density: null,
+      process_requirements: '',
+      piece_rate_unit_price: null,
+      difficulty_level: '',
+      surface_print: null,
+      reverse_print: null,
+      inkjet_code: null,
+      solvent: null,
+      adhesive_amount: null,
+      solid_content: null,
+      no_material_needed: false,
+      mes_semi_finished_usage: false,
+      mes_multi_process_semi_finished: false,
+      min_hourly_output: null,
+      standard_hourly_output: null,
+      semi_finished_coefficient: null
     };
     setProductProcesses([...productProcesses, newProcess]);
   };
@@ -863,8 +1168,8 @@ const ProductManagement = () => {
             process_id: value,
             process_name: selectedProcess.process_name,
             process_category_name: selectedProcess.process_category_name || '',
-            scheduling_method: selectedProcess.scheduling_method || '',
-            unit: selectedProcess.unit || ''
+            unit_id: selectedProcess.unit_id || '',
+            unit_name: selectedProcess.unit_name || ''
           };
         }
       } else {
@@ -874,8 +1179,8 @@ const ProductManagement = () => {
           process_id: '',
           process_name: '',
           process_category_name: '',
-          scheduling_method: '',
-          unit: ''
+          unit_id: '',
+          unit_name: ''
         };
       }
       setProductProcesses(updatedProcesses);
@@ -894,7 +1199,17 @@ const ProductManagement = () => {
       material_code: '',
       material_category_name: '',
       material_attribute: '',
-      sort_order: productMaterials.length + 1
+      process_id: '',
+      process_name: '',
+      sort_order: productMaterials.length + 1,
+      layer_number: '',
+      supplier_id: '',
+      supplier_name: '',
+      material_process: '',
+      remarks: '',
+      hot_stamping_film_length: null,
+      hot_stamping_film_width: null,
+      material_file_remarks: ''
     };
     setProductMaterials([...productMaterials, newMaterial]);
   };
@@ -938,6 +1253,48 @@ const ProductManagement = () => {
         };
       }
       setProductMaterials(updatedMaterials);
+    } else if (field === 'process_id') {
+      const updatedMaterials = [...productMaterials];
+      if (value) {
+        // 查找选中的工序信息
+        const selectedProcess = (formOptions.processes || []).find(p => p.value === value);
+        if (selectedProcess) {
+          updatedMaterials[index] = {
+            ...updatedMaterials[index],
+            process_id: value,
+            process_name: selectedProcess.label
+          };
+        }
+      } else {
+        // 清空选择
+        updatedMaterials[index] = {
+          ...updatedMaterials[index],
+          process_id: '',
+          process_name: ''
+        };
+      }
+      setProductMaterials(updatedMaterials);
+    } else if (field === 'supplier_id') {
+      const updatedMaterials = [...productMaterials];
+      if (value) {
+        // 查找选中的供应商信息
+        const selectedSupplier = (formOptions.suppliers || []).find(s => s.value === value);
+        if (selectedSupplier) {
+          updatedMaterials[index] = {
+            ...updatedMaterials[index],
+            supplier_id: value,
+            supplier_name: selectedSupplier.label
+          };
+        }
+      } else {
+        // 清空选择
+        updatedMaterials[index] = {
+          ...updatedMaterials[index],
+          supplier_id: '',
+          supplier_name: ''
+        };
+      }
+      setProductMaterials(updatedMaterials);
     } else {
       const materialId = productMaterials[index].id;
       updateMaterial(materialId, field, value);
@@ -965,6 +1322,12 @@ const ProductManagement = () => {
       dataIndex: 'customer_name',
       key: 'customer_name',
       width: 150
+    },
+    {
+      title: '产品类别',
+      dataIndex: 'category_name',
+      key: 'category_name',
+      width: 120
     },
     {
       title: '袋型',
@@ -1122,19 +1485,20 @@ const ProductManagement = () => {
         </Col>
         <Col span={8}>
           <Form.Item name="specification" label="产品规格">
-            <Input style={{ width: '100%' }} placeholder="宽*厚度*密度" />
+            <Input style={{ width: '100%' }} placeholder="宽(cm)*厚度(丝)" />
           </Form.Item>
         </Col>
-        
       </Row>
 
       <Row gutter={16}>
         <Col span={8}>
-          <Form.Item name="product_category" label="产品类别">
+          <Form.Item name="category_id" label="产品类别">
             <Select placeholder="请选择产品类别">
-              <Option value="plastic_bag">塑料袋</Option>
-              <Option value="paper_bag">纸袋</Option>
-              <Option value="cloth_bag">布袋</Option>
+              {(formOptions.product_categories || []).map(category => (
+                <Option key={category.value} value={category.value}>
+                  {category.label}
+                </Option>
+              ))}
             </Select>
           </Form.Item>
         </Col>
@@ -1144,6 +1508,32 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
         <Col span={8}>
+          <Form.Item name={['product_structures', 'density']} label="密度">
+            <InputNumber min={0} step={0.01} addonAfter="g/cm³" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name="inner" label="内">
+            <TextArea rows={3} placeholder="请输入内" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="middle" label="中">
+            <TextArea rows={3} placeholder="请输入中" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name="outer" label="外">
+            <TextArea rows={3} placeholder="请输入外" />
+          </Form.Item>
+        </Col>
+      </Row>
+      
+      <Row gutter={16}>
+        <Col span={8}>
           <Form.Item name="bag_body" label="袋体">
             <Select placeholder="请选择袋体">
               <Option value="single">单体</Option>
@@ -1151,9 +1541,6 @@ const ProductManagement = () => {
             </Select>
           </Form.Item>
         </Col>
-      </Row>
-
-      <Row gutter={16}>
         <Col span={8}>
           <Form.Item name="bag_system" label="袋型系统">
             <Select placeholder="根据选择的袋型自动输入" disabled>
@@ -1171,6 +1558,9 @@ const ProductManagement = () => {
             </Select>
           </Form.Item>
         </Col>
+      </Row>
+
+      <Row gutter={16}>
         <Col span={8}>
           <Form.Item name="salesperson_id" label="业务员">
             <Select 
@@ -1189,7 +1579,6 @@ const ProductManagement = () => {
             </Select>
           </Form.Item>
         </Col>
-      
       </Row>
 
       {/* 库存信息 */}
@@ -1211,7 +1600,12 @@ const ProductManagement = () => {
           </Form.Item>
         </Col>
       </Row>
+    </div>
+  );
 
+  // 新增价格和其他信息分页
+  const renderPriceAndOtherInfo = () => (
+    <div>
       {/* 价格信息 */}
       <Divider orientation="left">价格信息</Divider>
       <Row gutter={16}>
@@ -1402,22 +1796,22 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'length']} label="长">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="cm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'width']} label="宽">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="cm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'side_width']} label="侧宽">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'bottom_width']} label="底宽">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1425,22 +1819,17 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'thickness']} label="厚度">
-            <InputNumber min={0} step={0.1} addonAfter="μm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="丝" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'total_thickness']} label="总厚度">
-            <InputNumber min={0} step={0.1} addonAfter="μm" style={{ width: '100%' }} />
-          </Form.Item>
-        </Col>
-        <Col span={6}>
-          <Form.Item name={['product_structures', 'density']} label="密度">
-            <InputNumber min={0} step={0.01} addonAfter="g/cm³" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="丝" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'volume']} label="体积">
-            <InputNumber min={0} addonAfter="L" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="L" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
@@ -1455,17 +1844,17 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'cut_length']} label="分切长">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'cut_width']} label="分切宽">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'cut_thickness']} label="分切厚度">
-            <InputNumber min={0} step={0.1} addonAfter="μm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="丝" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
@@ -1480,22 +1869,22 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'light_eye_length']} label="光标长">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'light_eye_width']} label="光标宽">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'light_eye_distance']} label="光标距离">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'edge_sealing_width']} label="封边宽度">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1520,7 +1909,7 @@ const ProductManagement = () => {
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'pallet_length']} label="托盘长">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1528,22 +1917,22 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'pallet_width']} label="托盘宽">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'pallet_height']} label="托盘高">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'pallet_1']} label="托盘1">
-            <InputNumber min={0} addonAfter="个" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="个" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'pallet_2']} label="托盘2">
-            <InputNumber min={0} addonAfter="个" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="个" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1551,12 +1940,12 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'pallet_3']} label="托盘3">
-            <InputNumber min={0} addonAfter="个" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="个" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'winding_diameter']} label="收卷直径">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1566,22 +1955,22 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={6}>
           <Form.Item name={['product_structures', 'seal_top']} label="封口上">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'seal_left']} label="封口左">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'seal_right']} label="封口右">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={6}>
           <Form.Item name={['product_structures', 'seal_middle']} label="封口中">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1589,17 +1978,17 @@ const ProductManagement = () => {
       <Row gutter={16}>
         <Col span={8}>
           <Form.Item name={['product_structures', 'sealing_temperature']} label="封合温度">
-            <InputNumber min={0} addonAfter="℃" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="℃" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={8}>
           <Form.Item name={['product_structures', 'sealing_width']} label="封合宽度">
-            <InputNumber min={0} addonAfter="mm" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
         <Col span={8}>
           <Form.Item name={['product_structures', 'sealing_strength']} label="封合强度">
-            <InputNumber min={0} step={0.1} addonAfter="N" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="N" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1616,7 +2005,7 @@ const ProductManagement = () => {
         </Col>
         <Col span={8}>
           <Form.Item name={['product_structures', 'power']} label="功率">
-            <InputNumber min={0} step={0.1} addonAfter="kW" style={{ width: '100%' }} />
+            <InputNumber min={0} step={0.01} addonAfter="kW" style={{ width: '100%' }} />
           </Form.Item>
         </Col>
       </Row>
@@ -1639,29 +2028,70 @@ const ProductManagement = () => {
       </Col>
       <Col span={24} style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-          {productImages.map((image, index) => (
-            <div key={image.uid} style={{ position: 'relative' }}>
-              <Image
-                width={200}
-                height={150}
-                src={image.url || image.thumbUrl}
-                placeholder="图片加载中..."
-                style={{ objectFit: 'cover', borderRadius: 8 }}
-              />
-              <div style={{ 
-                position: 'absolute', 
-                top: 8, 
-                left: 8, 
-                background: 'rgba(0,0,0,0.7)', 
-                color: 'white', 
-                padding: '2px 6px', 
-                borderRadius: 4, 
-                fontSize: 12 
-              }}>
-                图片{index + 1}
+          {productImages.map((image, index) => {
+            
+            return (
+              <div key={image.uid} style={{ position: 'relative' }}>
+                <Image
+                  width={200}
+                  height={150}
+                  src={(() => {
+                    let url = image.url || image.thumbUrl || image.response?.data?.url;
+
+                    if (url) {
+                      // 如果是相对路径，添加域名
+                      if (url.startsWith('/')) {
+                        url = `https://www.kylinking.com${url}`;
+                      }
+                      // 如果包含 /api/ 前缀，移除它
+                      if (url.includes('/api/uploads/')) {
+                        url = url.replace('/api/uploads/', '/uploads/');
+                      }
+                    }
+
+                    return url;
+                  })()}
+                  placeholder="图片加载中..."
+                  style={{ objectFit: 'cover', borderRadius: 8 }}
+                  onError={(e) => {
+                    console.error('图片加载失败:', image.url, e);
+                  }}
+                />
+                <div style={{ 
+                  position: 'absolute', 
+                  top: 8, 
+                  left: 8, 
+                  background: 'rgba(0,0,0,0.7)', 
+                  color: 'white', 
+                  padding: '2px 6px', 
+                  borderRadius: 4, 
+                  fontSize: 12 
+                }}>
+                  图片{index + 1}
+                </div>
+                <Button
+                  type="text"
+                  icon={<DeleteOutlined />}
+                  size="small"
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    background: 'rgba(255,0,0,0.8)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 4,
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  onClick={() => handleDeleteImage(image)}
+                />
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Col>
     </Row>
@@ -1687,23 +2117,25 @@ const ProductManagement = () => {
             title={`工序 ${index + 1}`}
             bodyStyle={{ padding: '8px 12px' }}
           >
-            <Row gutter={8} align="middle">
-              <Col span={5}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>工序名称:</span>
-                                  <Select
+            {/* 单行显示，支持左右滑动 */}
+            <div style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
+              <div style={{ display: 'inline-flex', gap: '8px', minWidth: 'max-content', padding: '8px 0' }}>
+                                {/* 工序名称 */}
+                <div style={{ minWidth: '150px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>工序名称:</span>
+                  <Select
                     placeholder="请选择工序"
                     value={process.process_id}
                     onChange={(value) => handleProcessChange(index, 'process_id', value)}
                     showSearch
                     size="small"
-                    style={{ width: '70%' }}
+                    style={{ width: '120px' }}
                     filterOption={(input, option) =>
                       option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                     }
                   >
                     {(formOptions.processes || [])
                       .filter(p => {
-                        // 过滤掉已经被其他工序选择的项目
                         const selectedProcessIds = productProcesses
                           .filter((proc, idx) => idx !== index && proc.process_id)
                           .map(proc => proc.process_id);
@@ -1715,59 +2147,339 @@ const ProductManagement = () => {
                         </Option>
                       ))}
                   </Select>
-              </Col>
-              <Col span={4}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>工序分类:</span>
-                <Input
-                  value={process.process_category_name || ''}
-                  readOnly
-                  size="small"
-                  style={{ width: '60%' }}
-                  placeholder="自动填入"
-                />
-              </Col>
-              <Col span={4}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>排程方式:</span>
-                <Input
-                  value={process.scheduling_method || ''}
-                  readOnly
-                  size="small"
-                  style={{ width: '60%' }}
-                  placeholder="自动填入"
-                />
-              </Col>
-              <Col span={3}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>单位:</span>
-                <Input
-                  value={process.unit || ''}
-                  readOnly
-                  size="small"
-                  style={{ width: '60%' }}
-                  placeholder="自动填入"
-                />
-              </Col>
-              <Col span={3}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>排序:</span>
-                <InputNumber
-                  min={0}
-                  value={process.sort_order}
-                  onChange={(value) => updateProcess(process.id, 'sort_order', value)}
-                  size="small"
-                  style={{ width: '60%' }}
-                />
-              </Col>
-              <Col span={5} style={{ textAlign: 'right' }}>
-                <Button 
-                  type="text" 
-                  danger 
-                  icon={<DeleteOutlined />} 
-                  onClick={() => removeProcess(process.id)}
-                  size="small"
-                >
-                  删除
-                </Button>
-              </Col>
-            </Row>
+                </div>
+
+                                {/* 工序分类 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>工序分类:</span>
+                  <Input
+                    value={process.process_category_name || ''}
+                    readOnly
+                    size="small"
+                    style={{ width: '80px' }}
+                    placeholder="自动填入"
+                  />
+                </div>
+
+                {/* 单位 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>单位:</span>
+                  <Input
+                    value={process.unit_name || ''}
+                    readOnly
+                    size="small"
+                    style={{ width: '80px' }}
+                    placeholder="自动填入"
+                  />
+                </div>
+
+                {/* 熟化 */}
+                <div style={{ minWidth: '80px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>熟化:</span>
+                  <Checkbox
+                    checked={process.curing}
+                    onChange={(e) => updateProcess(process.id, 'curing', e.target.checked)}
+                    size="small"
+                  />
+                </div>
+
+                {/* 出卷方向 */}
+                <div style={{ minWidth: '140px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>出卷方向:</span>
+                  <Select
+                    placeholder="请选择"
+                    value={process.roll_out_direction}
+                    onChange={(value) => updateProcess(process.id, 'roll_out_direction', value)}
+                    size="small"
+                    style={{ width: '100px' }}
+                  >
+                    <Option value="头出">头出</Option>
+                    <Option value="尾出">尾出</Option>
+                    <Option value="任意统一">任意统一</Option>
+                  </Select>
+                </div>
+
+                {/* 增重g/m² */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>增重g/m²:</span>
+                  <InputNumber
+                    value={process.weight_gain}
+                    onChange={(value) => updateProcess(process.id, 'weight_gain', value)}
+                    size="small"
+                    style={{ width: '80px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 总克重 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>总克重:</span>
+                  <InputNumber
+                    value={process.total_gram_weight}
+                    onChange={(value) => updateProcess(process.id, 'total_gram_weight', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 增重上限 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>增重上限:</span>
+                  <InputNumber
+                    value={process.weight_gain_upper_limit}
+                    onChange={(value) => updateProcess(process.id, 'weight_gain_upper_limit', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 增重下限 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>增重下限:</span>
+                  <InputNumber
+                    value={process.weight_gain_lower_limit}
+                    onChange={(value) => updateProcess(process.id, 'weight_gain_lower_limit', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 计件单价 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>计件单价:</span>
+                  <InputNumber
+                    value={process.piece_rate_unit_price}
+                    onChange={(value) => updateProcess(process.id, 'piece_rate_unit_price', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 难易等级 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>难易等级:</span>
+                  <Input
+                    value={process.difficulty_level}
+                    onChange={(e) => updateProcess(process.id, 'difficulty_level', e.target.value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                  />
+                </div>
+
+                {/* 淋膜宽mm */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>淋膜宽mm:</span>
+                  <InputNumber
+                    value={process.lamination_width}
+                    onChange={(value) => updateProcess(process.id, 'lamination_width', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 淋膜厚µm */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>淋膜厚µm:</span>
+                  <InputNumber
+                    value={process.lamination_thickness}
+                    onChange={(value) => updateProcess(process.id, 'lamination_thickness', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 淋膜密度 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>淋膜密度:</span>
+                  <InputNumber
+                    value={process.lamination_density}
+                    onChange={(value) => updateProcess(process.id, 'lamination_density', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 表印g/m² */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>表印g/m²:</span>
+                  <InputNumber
+                    value={process.surface_print}
+                    onChange={(value) => updateProcess(process.id, 'surface_print', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 里印g/m² */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>里印g/m²:</span>
+                  <InputNumber
+                    value={process.reverse_print}
+                    onChange={(value) => updateProcess(process.id, 'reverse_print', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 喷码(万个/kg) */}
+                <div style={{ minWidth: '140px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>喷码(万个/kg):</span>
+                  <InputNumber
+                    value={process.inkjet_code}
+                    onChange={(value) => updateProcess(process.id, 'inkjet_code', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 溶剂g/m² */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>溶剂g/m²:</span>
+                  <InputNumber
+                    value={process.solvent}
+                    onChange={(value) => updateProcess(process.id, 'solvent', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 上胶量g/m² */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>上胶量g/m²:</span>
+                  <InputNumber
+                    value={process.adhesive_amount}
+                    onChange={(value) => updateProcess(process.id, 'adhesive_amount', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 固含量g/m² */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>固含量g/m²:</span>
+                  <InputNumber
+                    value={process.solid_content}
+                    onChange={(value) => updateProcess(process.id, 'solid_content', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 最低产量 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>最低产量:</span>
+                  <InputNumber
+                    value={process.min_hourly_output}
+                    onChange={(value) => updateProcess(process.id, 'min_hourly_output', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 标准产量 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>标准产量:</span>
+                  <InputNumber
+                    value={process.standard_hourly_output}
+                    onChange={(value) => updateProcess(process.id, 'standard_hourly_output', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 半成品系数 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>半成品系数:</span>
+                  <InputNumber
+                    value={process.semi_finished_coefficient}
+                    onChange={(value) => updateProcess(process.id, 'semi_finished_coefficient', value)}
+                    size="small"
+                    style={{ width: '60px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 无需材料 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>无需材料:</span>
+                  <Checkbox
+                    checked={process.no_material_needed}
+                    onChange={(e) => updateProcess(process.id, 'no_material_needed', e.target.checked)}
+                    size="small"
+                  />
+                </div>
+
+                {/* MES半成品用量 */}
+                <div style={{ minWidth: '140px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>MES半成品用量:</span>
+                  <Checkbox
+                    checked={process.mes_semi_finished_usage}
+                    onChange={(e) => updateProcess(process.id, 'mes_semi_finished_usage', e.target.checked)}
+                    size="small"
+                  />
+                </div>
+
+                {/* MES多工序半成品 */}
+                <div style={{ minWidth: '160px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>MES多工序半成品:</span>
+                  <Checkbox
+                    checked={process.mes_multi_process_semi_finished}
+                    onChange={(e) => updateProcess(process.id, 'mes_multi_process_semi_finished', e.target.checked)}
+                    size="small"
+                  />
+                </div>
+
+                                {/* 工艺要求 */}
+                <div style={{ minWidth: '200px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>工艺要求:</span>
+                  <Input
+                    value={process.process_requirements}
+                    onChange={(e) => updateProcess(process.id, 'process_requirements', e.target.value)}
+                    size="small"
+                    style={{ width: '150px' }}
+                    placeholder="请输入工艺要求"
+                  />
+                </div>
+
+                {/* 排序 */}
+                <div style={{ minWidth: '80px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>排序:</span>
+                  <InputNumber
+                    min={0}
+                    value={process.sort_order}
+                    onChange={(value) => updateProcess(process.id, 'sort_order', value)}
+                    size="small"
+                    style={{ width: '50px' }}
+                  />
+                </div>
+
+                {/* 删除按钮 */}
+                <div style={{ minWidth: '60px', textAlign: 'center' }}>
+                  <Button 
+                    type="text" 
+                    danger 
+                    icon={<DeleteOutlined />} 
+                    onClick={() => removeProcess(process.id)}
+                    size="small"
+                  />
+                </div>
+              </div>
+            </div>
           </Card>
         ))}
         
@@ -1800,33 +2512,36 @@ const ProductManagement = () => {
             title={`材料 ${index + 1}`}
             bodyStyle={{ padding: '8px 12px' }}
           >
-            <Row gutter={8} align="middle">
-              <Col span={4}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>材料编号:</span>
-                <Input
-                  value={material.material_code || ''}
-                  readOnly
-                  size="small"
-                  style={{ width: '65%' }}
-                  placeholder="自动填入"
-                />
-              </Col>
-              <Col span={5}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>材料名称:</span>
-                                  <Select
+            {/* 单行显示，支持左右滑动 */}
+            <div style={{ overflowX: 'auto', whiteSpace: 'nowrap' }}>
+              <div style={{ display: 'inline-flex', gap: '8px', minWidth: 'max-content', padding: '8px 0' }}>
+                {/* 材料编号 */}
+                <div style={{ minWidth: '180px', maxWidth: '260px', display: 'inline-block', verticalAlign: 'middle' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>材料编号:</span>
+                  <Input
+                    value={material.material_code}
+                    readOnly
+                    size="small"
+                    style={{ width: '140px', fontSize: 14 }}
+                  />
+                </div>
+
+                {/* 材料名称 */}
+                <div style={{ minWidth: '150px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>材料名称:</span>
+                  <Select
                     placeholder="请选择材料"
                     value={material.material_id}
                     onChange={(value) => handleMaterialChange(index, 'material_id', value)}
                     showSearch
                     size="small"
-                    style={{ width: '70%' }}
+                    style={{ width: '120px', fontSize: 14 }}
                     filterOption={(input, option) =>
                       option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
                     }
                   >
                     {(formOptions.materials || [])
                       .filter(m => {
-                        // 过滤掉已经被其他材料选择的项目
                         const selectedMaterialIds = productMaterials
                           .filter((mat, idx) => idx !== index && mat.material_id)
                           .map(mat => mat.material_id);
@@ -1838,49 +2553,174 @@ const ProductManagement = () => {
                         </Option>
                       ))}
                   </Select>
-              </Col>
-              <Col span={4}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>材料分类:</span>
-                <Input
-                  value={material.material_category_name || ''}
-                  readOnly
-                  size="small"
-                  style={{ width: '60%' }}
-                  placeholder="自动填入"
-                />
-              </Col>
-              <Col span={4}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>材料属性:</span>
-                <Input
-                  value={material.material_attribute || ''}
-                  readOnly
-                  size="small"
-                  style={{ width: '60%' }}
-                  placeholder="自动填入"
-                />
-              </Col>
-              <Col span={3}>
-                <span style={{ fontSize: 12, color: '#666', marginRight: 4 }}>排序:</span>
-                <InputNumber
-                  min={0}
-                  value={material.sort_order}
-                  onChange={(value) => updateMaterial(material.id, 'sort_order', value)}
-                  size="small"
-                  style={{ width: '60%' }}
-                />
-              </Col>
-              <Col span={4} style={{ textAlign: 'right' }}>
-                <Button 
-                  type="text" 
-                  danger 
-                  icon={<DeleteOutlined />} 
-                  onClick={() => removeMaterial(material.id)}
-                  size="small"
-                >
-                  删除
-                </Button>
-              </Col>
-            </Row>
+                </div>
+
+                {/* 材料类别 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>材料类别:</span>
+                  <Input
+                    value={material.material_category_name || ''}
+                    readOnly
+                    size="small"
+                    style={{ width: '80px' }}
+                    placeholder="自动填入"
+                  />
+                </div>
+
+                {/* 材料属性 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>材料属性:</span>
+                  <Input
+                    value={material.material_attribute || ''}
+                    readOnly
+                    size="small"
+                    style={{ width: '80px' }}
+                    placeholder="自动填入"
+                  />
+                </div>
+
+                {/* 工序 */}
+                <div style={{ minWidth: '150px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>工序:</span>
+                  <Select
+                    placeholder="请选择工序"
+                    value={material.process_id}
+                    onChange={(value) => handleMaterialChange(index, 'process_id', value)}
+                    showSearch
+                    size="small"
+                    style={{ width: '120px' }}
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                    }
+                  >
+                    {productProcesses
+                      .filter(process => process.process_id)
+                      .map(process => {
+                        const processOption = (formOptions.processes || []).find(p => p.value === process.process_id);
+                        return processOption ? (
+                          <Option key={process.process_id} value={process.process_id}>
+                            {processOption.label}
+                          </Option>
+                        ) : null;
+                      })
+                      .filter(Boolean)}
+                  </Select>
+                </div>
+
+                {/* 层数 */}
+                <div style={{ minWidth: '100px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>层数:</span>
+                  <Input
+                    placeholder="请输入层数"
+                    value={material.layer_number}
+                    onChange={(e) => updateMaterial(material.id, 'layer_number', e.target.value)}
+                    size="small"
+                    style={{ width: '80px' }}
+                  />
+                </div>
+
+                {/* 供应商 */}
+                <div style={{ minWidth: '150px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>供应商:</span>
+                  <Select
+                    placeholder="请选择供应商"
+                    value={material.supplier_id}
+                    onChange={(value) => handleMaterialChange(index, 'supplier_id', value)}
+                    size="small"
+                    style={{ width: '120px' }}
+                  >
+                    {(formOptions.suppliers || []).map(supplier => (
+                      <Option key={supplier.value} value={supplier.value}>
+                        {supplier.label}
+                      </Option>
+                    ))}
+                  </Select>
+                </div>
+
+                {/* 材质工艺 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>材质工艺:</span>
+                  <Input
+                    value={material.material_process}
+                    onChange={(e) => updateMaterial(material.id, 'material_process', e.target.value)}
+                    size="small"
+                    style={{ width: '80px' }}
+                    placeholder="请输入材质工艺"
+                  />
+                </div>
+
+                {/* 烫金膜长 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>烫金膜长:</span>
+                  <InputNumber
+                    value={material.hot_stamping_film_length}
+                    onChange={(value) => updateMaterial(material.id, 'hot_stamping_film_length', value)}
+                    size="small"
+                    style={{ width: '80px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 烫金膜宽 */}
+                <div style={{ minWidth: '120px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>烫金膜宽:</span>
+                  <InputNumber
+                    value={material.hot_stamping_film_width}
+                    onChange={(value) => updateMaterial(material.id, 'hot_stamping_film_width', value)}
+                    size="small"
+                    style={{ width: '80px' }}
+                    precision={2}
+                  />
+                </div>
+
+                {/* 备注 */}
+                <div style={{ minWidth: '150px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>备注:</span>
+                  <Input
+                    value={material.remarks}
+                    onChange={(e) => updateMaterial(material.id, 'remarks', e.target.value)}
+                    size="small"
+                    style={{ width: '120px' }}
+                    placeholder="请输入备注"
+                  />
+                </div>
+
+                {/* 材料档案备注 */}
+                <div style={{ minWidth: '150px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>材料档案备注:</span>
+                  <Input
+                    value={material.material_file_remarks}
+                    onChange={(e) => updateMaterial(material.id, 'material_file_remarks', e.target.value)}
+                    size="small"
+                    style={{ width: '120px' }}
+                    placeholder="请输入档案备注"
+                  />
+                </div>
+
+                {/* 排序 */}
+                <div style={{ minWidth: '80px' }}>
+                  <span style={{ fontSize: 14, color: '#333', marginRight: 4 }}>排序:</span>
+                  <InputNumber
+                    min={0}
+                    value={material.sort_order}
+                    onChange={(value) => updateMaterial(material.id, 'sort_order', value)}
+                    size="small"
+                    style={{ width: '50px' }}
+                  />
+                </div>
+
+                {/* 删除按钮 */}
+                <div style={{ minWidth: '60px', textAlign: 'center' }}>
+                  <Button 
+                    type="text" 
+                    danger 
+                    icon={<DeleteOutlined />} 
+                    onClick={() => removeMaterial(material.id)}
+                    size="small"
+                  />
+                </div>
+              </div>
+            </div>
           </Card>
         ))}
         
@@ -1894,177 +2734,424 @@ const ProductManagement = () => {
   };
 
   // 理化指标标签页
+  // 客户需求标签页
+  const renderCustomerRequirements = () => (
+    <div>
+      {/* 外观要求 */}
+      <Divider orientation="left">外观要求</Divider>
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'appearance_requirements']} label="外观要求">
+            <TextArea rows={3} placeholder="请输入外观要求" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'surface_treatment']} label="表面处理">
+            <TextArea rows={3} placeholder="请输入表面处理要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'printing_requirements']} label="印刷要求">
+            <TextArea rows={3} placeholder="请输入印刷要求" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'color_requirements']} label="颜色要求">
+            <TextArea rows={3} placeholder="请输入颜色要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'pattern_requirements']} label="图案要求">
+            <TextArea rows={3} placeholder="请输入图案要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* 切割要求 */}
+      <Divider orientation="left">切割要求</Divider>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'cutting_method']} label="切割方式">
+            <Select placeholder="请选择切割方式">
+              <Option value="laser">激光切割</Option>
+              <Option value="mechanical">机械切割</Option>
+              <Option value="water_jet">水刀切割</Option>
+              <Option value="other">其他</Option>
+            </Select>
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'cutting_width']} label="切割宽度">
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'cutting_length']} label="切割长度">
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'cutting_thickness']} label="切割厚度">
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'optical_distance']} label="光标距离">
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'optical_width']} label="光标宽度">
+            <InputNumber min={0} step={0.01} addonAfter="mm" style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* 制袋要求 */}
+      <Divider orientation="left">制袋要求</Divider>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'bag_sealing_up']} label="上封">
+            <Input placeholder="请输入上封要求" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'bag_sealing_down']} label="下封">
+            <Input placeholder="请输入下封要求" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'bag_sealing_left']} label="左封">
+            <Input placeholder="请输入左封要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'bag_sealing_right']} label="右封">
+            <Input placeholder="请输入右封要求" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'bag_sealing_middle']} label="中封">
+            <Input placeholder="请输入中封要求" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'bag_sealing_inner']} label="内封">
+            <Input placeholder="请输入内封要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'bag_length_tolerance']} label="袋长公差">
+            <Input placeholder="请输入袋长公差" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'bag_width_tolerance']} label="袋宽公差">
+            <Input placeholder="请输入袋宽公差" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* 包装要求 */}
+      <Divider orientation="left">包装要求</Divider>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'packaging_method']} label="包装方式">
+            <Input placeholder="请输入包装方式" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'packaging_requirements']} label="包装要求">
+            <Input placeholder="请输入包装要求" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'packaging_material']} label="包装材料">
+            <Input placeholder="请输入包装材料" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'packaging_quantity']} label="包装数量">
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'packaging_specifications']} label="包装规格">
+            <Input placeholder="请输入包装规格" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* 性能要求 */}
+      <Divider orientation="left">性能要求</Divider>
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'req_tensile_strength']} label="拉伸强度要求">
+            <Input placeholder="请输入拉伸强度要求" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'thermal_shrinkage']} label="热收缩率">
+            <Input placeholder="请输入热收缩率要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'impact_strength']} label="冲击强度">
+            <Input placeholder="请输入冲击强度要求" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'thermal_tensile_strength']} label="热拉伸强度">
+            <Input placeholder="请输入热拉伸强度要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'water_vapor_permeability']} label="水蒸气透过率">
+            <Input placeholder="请输入水蒸气透过率要求" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'heat_shrinkage_curve']} label="热缩曲线">
+            <Input placeholder="请输入热缩曲线要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'melt_index']} label="熔指">
+            <Input placeholder="请输入熔指要求" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_customer_requirements', 'gas_permeability']} label="气体透过率">
+            <Input placeholder="请输入气体透过率要求" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* 自定义字段 */}
+      <Divider orientation="left">自定义字段</Divider>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_1']} label="自定义1">
+            <Input placeholder="请输入自定义字段1" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_2']} label="自定义2">
+            <Input placeholder="请输入自定义字段2" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_3']} label="自定义3">
+            <Input placeholder="请输入自定义字段3" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_4']} label="自定义4">
+            <Input placeholder="请输入自定义字段4" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_5']} label="自定义5">
+            <Input placeholder="请输入自定义字段5" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_6']} label="自定义6">
+            <Input placeholder="请输入自定义字段6" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_customer_requirements', 'custom_7']} label="自定义7">
+            <Input placeholder="请输入自定义字段7" />
+          </Form.Item>
+        </Col>
+
+      </Row>
+    </div>
+  );
+
   const renderQualityIndicators = () => (
     <div>
-      {/* 工艺要求 */}
-      <Divider orientation="left">工艺要求</Divider>
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'packaging_requirement']} label="包装要求">
-            <Select placeholder="请选择包装要求">
-              <Option value="vacuum">真空包装</Option>
-              <Option value="standard">标准包装</Option>
-              <Option value="special">特殊包装</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'tensile_requirement']} label="拉丝要求">
-            <Select placeholder="请选择拉丝要求">
-              <Option value="high">高要求</Option>
-              <Option value="medium">中等要求</Option>
-              <Option value="low">低要求</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'opening_requirement']} label="开口要求">
-            <Select placeholder="请选择开口要求">
-              <Option value="easy">易开口</Option>
-              <Option value="normal">普通开口</Option>
-              <Option value="difficult">难开口</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'slip_requirement']} label="爽滑要求">
-            <Select placeholder="请选择爽滑要求">
-              <Option value="high">高爽滑</Option>
-              <Option value="medium">中等爽滑</Option>
-              <Option value="low">低爽滑</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'cut_requirement']} label="切刀要求">
-            <Select placeholder="请选择切刀要求">
-              <Option value="sharp">锋利切割</Option>
-              <Option value="smooth">平滑切割</Option>
-              <Option value="special">特殊切割</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'anti_static_requirement']} label="抗静电要求">
-            <Select placeholder="请选择抗静电要求">
-              <Option value="high">高抗静电</Option>
-              <Option value="medium">中等抗静电</Option>
-              <Option value="low">低抗静电</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'sterilization_requirement']} label="灭菌要求">
-            <Select placeholder="请选择灭菌要求">
-              <Option value="required">需要灭菌</Option>
-              <Option value="not_required">不需要灭菌</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'hygiene_requirement']} label="卫生要求">
-            <Select placeholder="请选择卫生要求">
-              <Option value="food_grade">食品级</Option>
-              <Option value="medical_grade">医疗级</Option>
-              <Option value="industrial_grade">工业级</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'special_requirement']} label="特殊要求">
-            <TextArea rows={2} placeholder="请输入特殊要求" />
-          </Form.Item>
-        </Col>
-      </Row>
-
       {/* 理化指标 */}
       <Divider orientation="left">理化指标</Divider>
       <Row gutter={16}>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'tensile_strength_md']} label="拉伸强度≥(MD方向)">
-            <InputNumber min={0} step={0.1} addonAfter="MPa" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'tensile_strength_longitudinal']} label="拉伸强度纵向">
+            <Input placeholder="请输入拉伸强度纵向" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'tensile_strength_td']} label="拉伸强度≥(TD方向)">
-            <InputNumber min={0} step={0.1} addonAfter="MPa" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'tensile_strength_transverse']} label="拉伸强度横向">
+            <Input placeholder="请输入拉伸强度横向" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'elongation_break_md']} label="断裂伸长率≥(MD方向)">
-            <InputNumber min={0} step={0.1} addonAfter="%" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'thermal_shrinkage_longitudinal']} label="热缩率纵向">
+            <Input placeholder="请输入热缩率纵向" />
           </Form.Item>
         </Col>
       </Row>
 
       <Row gutter={16}>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'elongation_break_td']} label="断裂伸长率≥(TD方向)">
-            <InputNumber min={0} step={0.1} addonAfter="%" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'thermal_shrinkage_transverse']} label="热缩率横向">
+            <Input placeholder="请输入热缩率横向" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'dart_drop_impact']} label="抗冲击性能">
-            <InputNumber min={0} step={0.1} addonAfter="J" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'puncture_strength']} label="穿刺强度">
+            <Input placeholder="请输入穿刺强度" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'heat_shrinkage']} label="热收缩率">
-            <InputNumber min={0} step={0.1} addonAfter="%" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'optical_properties']} label="光学性能">
+            <Input placeholder="请输入光学性能" />
           </Form.Item>
         </Col>
       </Row>
 
       <Row gutter={16}>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'oxygen_transmission_rate']} label="氧气透过率≤(O2/15μm)">
-            <InputNumber min={0} step={0.1} addonAfter="cm³/m²·d" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'heat_seal_temperature']} label="热封温度">
+            <Input placeholder="请输入热封温度" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'water_vapor_transmission_rate']} label="水蒸气透过率≤(MJ/m²)">
-            <InputNumber min={0} step={0.1} addonAfter="g/m²·d" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'heat_seal_tensile_strength']} label="热封拉伸强度">
+            <Input placeholder="请输入热封拉伸强度" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'seal_strength']} label="热封强度≥(g/m²)">
-            <InputNumber min={0} step={0.1} addonAfter="N/15mm" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'quality_water_vapor_permeability']} label="水蒸气透过率">
+            <Input placeholder="请输入水蒸气透过率" />
           </Form.Item>
         </Col>
       </Row>
 
       <Row gutter={16}>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'peel_strength_top']} label="剥离度(上层)">
-            <InputNumber min={0} step={0.1} addonAfter="N/15mm" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'oxygen_permeability']} label="氧气透过率">
+            <Input placeholder="请输入氧气透过率" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'peel_strength_bottom']} label="剥离度(下层)">
-            <InputNumber min={0} step={0.1} addonAfter="N/15mm" style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'friction_coefficient']} label="摩擦系数">
+            <Input placeholder="请输入摩擦系数" />
           </Form.Item>
         </Col>
         <Col span={8}>
-          <Form.Item name={['product_quality_indicators', 'friction_coefficient']} label="摩擦力">
-            <InputNumber min={0} step={0.001} style={{ width: '100%' }} />
+          <Form.Item name={['product_quality_indicators', 'peel_strength']} label="剥离强度">
+            <Input placeholder="请输入剥离强度" />
           </Form.Item>
         </Col>
       </Row>
 
       <Row gutter={16}>
-        <Col span={24}>
-          <Form.Item name={['product_quality_indicators', 'test_standard']} label="检验依据">
-            <Select placeholder="不可编辑" disabled>
-              <Option value="national_standard">国家标准</Option>
-              <Option value="industry_standard">行业标准</Option>
-              <Option value="enterprise_standard">企业标准</Option>
-            </Select>
+        <Col span={12}>
+          <Form.Item name={['product_quality_indicators', 'test_standard']} label="检验标准">
+            <Input placeholder="请输入检验标准" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item name={['product_quality_indicators', 'test_basis']} label="检验依据">
+            <Input placeholder="请输入检验依据" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* 指标1-10 */}
+      <Divider orientation="left">其他指标</Divider>
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_1']} label="指标1">
+            <Input placeholder="请输入指标1" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_2']} label="指标2">
+            <Input placeholder="请输入指标2" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_3']} label="指标3">
+            <Input placeholder="请输入指标3" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_4']} label="指标4">
+            <Input placeholder="请输入指标4" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_5']} label="指标5">
+            <Input placeholder="请输入指标5" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_6']} label="指标6">
+            <Input placeholder="请输入指标6" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_7']} label="指标7">
+            <Input placeholder="请输入指标7" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_8']} label="指标8">
+            <Input placeholder="请输入指标8" />
+          </Form.Item>
+        </Col>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_9']} label="指标9">
+            <Input placeholder="请输入指标9" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item name={['product_quality_indicators', 'indicator_10']} label="指标10">
+            <Input placeholder="请输入指标10" />
           </Form.Item>
         </Col>
       </Row>
@@ -2209,6 +3296,16 @@ const ProductManagement = () => {
                 key: 'structure',
                 label: '产品结构',
                 children: renderProductStructure()
+              },
+              {
+                key: 'customer_requirements',
+                label: '客户需求',
+                children: renderCustomerRequirements()
+              },
+              {
+                key: 'price_and_other',
+                label: '价格及其他',
+                children: renderPriceAndOtherInfo()
               },
               {
                 key: 'images',

@@ -31,7 +31,7 @@ import MaterialCategoryManagement from './pages/base-archive/base-category/Mater
 import ProcessCategoryManagement from './pages/base-archive/base-category/ProcessCategoryManagement';
 
 // 生产档案相关导入
-import TeamGroupManagement from './pages/base-archive/production-archive/TeamGroupManagement';
+import TeamGroupManagement from './pages/base-archive/base-data/TeamGroupManagement';
 import MachineManagement from './pages/base-archive/production-archive/MachineManagement';
 import WarehouseManagement from './pages/base-archive/production-archive/WarehouseManagement';
 import ProcessManagement from './pages/base-archive/production-archive/ProcessManagement';
@@ -271,6 +271,7 @@ const AppRoot = () => {
               <Route path="/base-archive/base-data/department-management" element={<DepartmentManagement />} />
               <Route path="/base-archive/base-data/position-management" element={<PositionManagement />} />
               <Route path="/base-archive/base-data/employee-management" element={<EmployeeManagement />} />
+              <Route path="/base-archive/base-data/team-group-management" element={<TeamGroupManagement />} />
               
               {/* 基础分类路由 */}
               <Route path="/base-archive/base-category/customer-category-management" element={<CustomerCategoryManagement />} />

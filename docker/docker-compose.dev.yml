@@ -37,6 +37,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
       - ../frontend/dist:/usr/share/nginx/html
+      - ../backend/uploads:/app/uploads
     depends_on:
       - backend
     networks:

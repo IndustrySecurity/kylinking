@@ -36,6 +36,7 @@ import styled from 'styled-components';
 import dayjs from 'dayjs';
 import deliveryNoticeService from '../../../api/business/sales/deliveryNotice';
 import salesOrderService from '../../../api/business/sales/salesOrder';
+import { useApi } from '../../../hooks/useApi';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -55,6 +56,7 @@ const StyledCard = styled(Card)`
 `;
 
 const DeliveryNotice = () => {
+  const api = useApi();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -62,7 +64,7 @@ const DeliveryNotice = () => {
   const [currentRecord, setCurrentRecord] = useState(null);
   const [form] = Form.useForm();
   const [searchForm] = Form.useForm();
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [details, setDetails] = useState([]);
   const [customerOptions, setCustomerOptions] = useState([]);
   const [productOptions, setProductOptions] = useState([]);
@@ -92,22 +94,13 @@ const DeliveryNotice = () => {
 
   const fetchOptions = async () => {
     try {
-      const [customerRes, productRes, salesOrderRes, unitRes] = await Promise.all([
+      const [customerRes, productRes, unitRes] = await Promise.all([
         salesOrderService.getCustomerOptions(),
         salesOrderService.getProductOptions(),
-        salesOrderService.getActiveSalesOrderOptions(null, 100), // 使用新的API，限制100条，排除completed状态
         salesOrderService.getUnitOptions()
       ]);
       if (customerRes.data.success) setCustomerOptions(customerRes.data.data);
       if (productRes.data.success) setProductOptions(productRes.data.data);
-      if (salesOrderRes.data.success) {
-        const orderOptions = salesOrderRes.data.data.map(order => ({
-          value: order.value,
-          label: order.label,
-          data: order.data
-        }));
-        setSalesOrderOptions(orderOptions);
-      }
       if (unitRes.data.success) setUnitOptions(unitRes.data.data);
     } catch (error) {
       console.error('获取选项数据失败:', error);
@@ -124,8 +117,7 @@ const DeliveryNotice = () => {
     setCurrentRecord(null);
     form.resetFields();
     form.setFieldsValue({ 
-      delivery_date: dayjs(), 
-      status: 'draft' 
+      delivery_date: dayjs()
     });
     setDetails([]);
     setModalVisible(true);
@@ -282,25 +274,28 @@ const DeliveryNotice = () => {
       title: '通知单号',
       dataIndex: 'notice_number',
       key: 'notice_number',
-      width: 150,
+      width: 140,
+      ellipsis: true,
     },
     {
       title: '客户名称',
       dataIndex: ['customer', 'customer_name'],
       key: 'customer_name',
-      width: 200,
+      width: 180,
+      ellipsis: true,
     },
     {
       title: '销售订单号',
       dataIndex: ['sales_order', 'order_number'],
       key: 'order_number',
-      width: 150,
+      width: 140,
+      ellipsis: true,
     },
     {
       title: '送货地址',
       dataIndex: 'delivery_address',
       key: 'delivery_address',
-      width: 200,
+      width: 180,
       ellipsis: true,
     },
     {
@@ -314,7 +309,7 @@ const DeliveryNotice = () => {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 80,
       render: (status) => (
         <Tag color={getStatusColor(status)}>
           {getStatusText(status)}
@@ -325,82 +320,97 @@ const DeliveryNotice = () => {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 150,
+      width: 160,
       render: (text) => text ? dayjs(text).format('YYYY-MM-DD HH:mm') : '-',
     },
     {
       title: '操作',
       key: 'action',
-      width: 280,
+      width: 240,
+      fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-          >
-            查看
-          </Button>
-          {record.status === 'draft' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {/* 第一行：查看、打印 */}
+          <Space size="small">
             <Button
               type="link"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewDetail(record)}
             >
-              编辑
+              查看
             </Button>
-          )}
-          {record.status === 'draft' && (
             <Button
               type="link"
-              icon={<CheckOutlined />}
-              onClick={() => handleStatusChange(record, 'confirm')}
+              size="small"
+              icon={<PrinterOutlined />}
+              onClick={() => handlePrint(record)}
             >
-              确认
+              打印
             </Button>
-          )}
-          {record.status === 'draft' && (
-            <Popconfirm
-              title="确定要删除这条记录吗？"
-              onConfirm={() => handleDelete(record)}
-              okText="确定"
-              cancelText="取消"
-            >
+          </Space>
+          
+          {/* 第二行：编辑、确认、删除、发货、完成 */}
+          <Space size="small">
+            {record.status === 'draft' && (
               <Button
                 type="link"
-                danger
-                icon={<DeleteOutlined />}
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
               >
-                删除
+                编辑
               </Button>
-            </Popconfirm>
-          )}
-          {record.status === 'confirmed' && (
-            <Button
-              type="link"
-              icon={<SendOutlined />}
-              onClick={() => handleStatusChange(record, 'ship')}
-            >
-              发货
-            </Button>
-          )}
-          {record.status === 'shipped' && (
-            <Button
-              type="link"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleStatusChange(record, 'complete')}
-            >
-              完成
-            </Button>
-          )}
-          <Button
-            type="link"
-            icon={<PrinterOutlined />}
-            onClick={() => handlePrint(record)}
-          >
-            打印
-          </Button>
-        </Space>
+            )}
+            {record.status === 'draft' && (
+              <Button
+                type="link"
+                size="small"
+                icon={<CheckOutlined />}
+                onClick={() => handleStatusChange(record, 'confirm')}
+              >
+                确认
+              </Button>
+            )}
+            {record.status === 'confirmed' && (
+              <Button
+                type="link"
+                size="small"
+                icon={<SendOutlined />}
+                onClick={() => handleStatusChange(record, 'ship')}
+              >
+                发货
+              </Button>
+            )}
+            {(record.status === 'draft' || record.status === 'confirmed') && (
+              <Popconfirm
+                title="确定要删除这条记录吗？"
+                onConfirm={() => handleDelete(record)}
+                okText="确定"
+                cancelText="取消"
+              >
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                >
+                  删除
+                </Button>
+              </Popconfirm>
+            )}
+            {record.status === 'shipped' && (
+              <Button
+                type="link"
+                size="small"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleStatusChange(record, 'complete')}
+              >
+                完成
+              </Button>
+            )}
+          </Space>
+        </div>
       ),
     },
   ];
@@ -598,8 +608,8 @@ const DeliveryNotice = () => {
       return;
     }
     try {
-      // 使用新的API获取该客户未完成的销售订单
-      const res = await salesOrderService.getActiveSalesOrderOptions(custId, 50);
+      // 使用专门获取未安排送货订单的API
+      const res = await salesOrderService.getUnscheduledSalesOrders(custId);
       if (res.data.success) {
         const opts = res.data.data.map(order => ({
           value: order.value,
@@ -648,29 +658,79 @@ const DeliveryNotice = () => {
         return;
       }
       const notice = res.data.data;
+      console.log('notice', notice);
+      
+      // 获取当前租户信息
+      const currentTenant = api.getCurrentTenant();
+      const companyName = currentTenant?.name || '';
+      
       // 构建打印HTML
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>送货通知单打印</title>
-      <style>
-        body{font-family:Arial,Helvetica,sans-serif;padding:20px}
-        h2{text-align:center;margin-bottom:24px}
-        table{width:100%;border-collapse:collapse;margin-top:16px}
-        th,td{border:1px solid #000;padding:4px;text-align:left;font-size:12px}
-        th{background:#f5f5f5}
-      </style></head><body onload="window.print();setTimeout(()=>window.close(),100);">
-      <h2>送货通知单</h2>
-      <div>通知单号：${notice.notice_number || ''}</div>
-      <div>客户名称：${notice.customer?.customer_name || ''}</div>
-      <div>销售订单号：${notice.sales_order?.order_number || ''}</div>
-      <div>送货日期：${notice.delivery_date ? dayjs(notice.delivery_date).format('YYYY-MM-DD') : ''}</div>
-      <table><thead><tr><th>产品编号</th><th>产品名称</th><th>规格</th><th>通知数量</th><th>单位</th></tr></thead><tbody>
-      ${notice.details.map(d=>{
-        const pname = d.product_name || (d.product?.product_name ?? '');
-        const pcode = d.product_code || (d.product?.product_code ?? '');
-        const unitName = d.unit_name || (d.unit?.unit_name ?? '');
-        return `<tr><td>${pcode}</td><td>${pname}</td><td>${d.specification||''}</td><td>${d.notice_quantity||0}</td><td>${unitName}</td></tr>`;
-      }).join('')}
-      </tbody></table>
-      </body></html>`;
+       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>送货通知单打印</title>
+       <style>
+         body{font-family:Arial,Helvetica,sans-serif;padding:20px}
+         h2{text-align:center;margin-bottom:24px}
+         table{width:100%;border-collapse:collapse;margin-top:16px;border:2px solid #000}
+         th,td{border:1px solid #000;padding:8px;text-align:left;font-size:12px}
+         th{background:#f5f5f5;font-weight:bold}
+         tr:nth-child(even){background:#fafafa}
+         .info-row td{background:#f0f0f0;font-weight:bold}
+         .product-row td{background:#ffffff}
+         .inner-middle-outer td{background:#f9f9f9}
+       </style></head><body onload="window.print();setTimeout(()=>window.close(),100);">
+       <h2>${companyName}送货通知单</h2>
+       <table>
+         <tr class="info-row">
+           <td width="15%">通知单号</td>
+           <td width="35%">${notice.notice_number || ''}</td>
+           <td width="15%">客户名称</td>
+           <td width="35%">${notice.customer?.customer_abbreviation || ''}</td>
+         </tr>
+         <tr class="info-row">
+           <td>销售订单号</td>
+           <td>${notice.sales_order?.order_number || ''}</td>
+           <td>送货日期</td>
+           <td>${notice.delivery_date ? dayjs(notice.delivery_date).format('YYYY-MM-DD') : ''}</td>
+         </tr>
+         <tr class="info-row">
+           <td>客户要求</td>
+           <td colspan="3">${notice.customer?.remarks || ''}</td>
+         </tr>
+         <tr class="info-row">
+           <th colspan="4">产品明细</th>
+         </tr>
+         ${notice.details.map(d=>{
+           const pname = d.product_name || (d.product?.product_name ?? '');
+           const pcode = d.product_code || (d.product?.product_code ?? '');
+           const unitName = d.unit_name || (d.unit?.unit_name ?? '');
+           return `
+             <tr class="info-row">
+               <th width="20%">产品编号</th>
+               <th width="30%">产品名称</th>
+               <th width="30%">规格</th>
+               <th width="20%">通知数量</th>
+             </tr>
+             <tr class="product-row">
+               <td>${pcode}</td>
+               <td>${pname}</td>
+               <td>${d.specification||''}</td>
+               <td>${d.notice_quantity||0} ${unitName}</td>
+             </tr>
+             <tr class="inner-middle-outer">
+               <td>内</td>
+               <td colspan="3">${d.product?.inner || ''}</td>
+             </tr>
+             <tr class="inner-middle-outer">
+               <td>中</td>
+               <td colspan="3">${d.product?.middle || ''}</td>
+             </tr>
+             <tr class="inner-middle-outer">
+               <td>外</td>
+               <td colspan="3">${d.product?.outer || ''}</td>
+             </tr>
+           `;
+         }).join('')}
+       </table>
+       </body></html>`;
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.open();
@@ -771,7 +831,7 @@ const DeliveryNotice = () => {
               fetchData();
             },
           }}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1200 }}
         />
       </StyledCard>
 
@@ -840,7 +900,7 @@ const DeliveryNotice = () => {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="status" label="状态">
+              <Form.Item name="status" label="状态" initialValue="confirmed">
                 <Select placeholder="选择状态">
                   <Option value="draft">草稿</Option>
                   <Option value="confirmed">已确认</Option>

@@ -194,8 +194,11 @@ def get_business_type_options():
         options = [
             {'value': 'production', 'label': '生产'},
             {'value': 'sales', 'label': '销售'},
+            {'value': 'purchasing', 'label': '采购'},
             {'value': 'management', 'label': '管理'},
-            {'value': 'support', 'label': '支持'}
+            {'value': 'support', 'label': '支持'},
+            {'value': 'delivery', 'label': '送货'},
+            {'value': 'comprehensive', 'label': '综合'}
         ]
         
         return jsonify({

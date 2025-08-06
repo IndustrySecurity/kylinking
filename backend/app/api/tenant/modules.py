@@ -5,7 +5,7 @@ from app.models.user import User
 from app.extensions import db
 import uuid
 
-bp = Blueprint('tenant_modules', __name__, url_prefix='/api/tenant/modules')
+bp = Blueprint('tenant_modules', __name__)
 
 
 @bp.route('/', methods=['GET'])

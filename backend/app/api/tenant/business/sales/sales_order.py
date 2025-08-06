@@ -353,7 +353,8 @@ def get_unscheduled_sales_order_options():
         from app.extensions import db
 
         query = db.session.query(SalesOrder).options(joinedload(SalesOrder.order_details))\
-            .filter(SalesOrder.customer_id == customer_id)
+            .filter(SalesOrder.customer_id == customer_id)\
+            .filter(SalesOrder.status != 'completed')
 
         results = []
         for order in query.all():
@@ -394,6 +395,8 @@ def get_customer_options():
                     'value': str(customer['id']),
                     'label': customer['customer_name'],
                     'code': customer.get('customer_code', ''),
+                    'customer_name': customer['customer_name'],
+                    'customer_abbreviation': customer.get('customer_abbreviation', ''),
                     'contact': customer.get('contact_person', ''),
                     'phone': customer.get('contact_phone', ''),
                     'address': customer.get('address', '')
@@ -615,6 +618,8 @@ def get_order_status_options():
             {'value': 'confirmed', 'label': '已确认'},
             {'value': 'approved', 'label': '已审批'},
             {'value': 'in_production', 'label': '生产中'},
+            {'value': 'shipped', 'label': '已安排送货'},
+            {'value': 'partial_shipped', 'label': '已安排部分送货'},
             {'value': 'completed', 'label': '已完成'},
             {'value': 'cancelled', 'label': '已取消'}
         ]

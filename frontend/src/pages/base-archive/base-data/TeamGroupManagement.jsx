@@ -46,7 +46,7 @@ import {
   deleteTeamMachine,
   addTeamProcess,
   deleteTeamProcess
-} from '../../../api/base-archive/production-archive/teamGroup'
+} from '../../../api/base-archive/base-data/teamGroup'
 
 const { Title } = Typography
 const { TextArea } = Input
@@ -58,7 +58,7 @@ const TeamGroupManagement = () => {
   const [teamGroups, setTeamGroups] = useState([])
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0
   })
   const [searchParams, setSearchParams] = useState({
@@ -181,6 +181,12 @@ const TeamGroupManagement = () => {
   const handleEdit = async (record) => {
     try {
       setLoading(true)
+      
+      // 确保选项数据已加载
+      if (!options.employees || options.employees.length === 0) {
+        await loadOptions()
+      }
+      
       const response = await getTeamGroup(record.id)
       if (response?.data?.success) {
         const teamGroupData = response.data.data
@@ -200,8 +206,25 @@ const TeamGroupManagement = () => {
           is_enabled: teamGroupData.is_enabled
         })
 
-        // 设置子表数据
-        setMembersData(teamGroupData.team_members || [])
+        // 设置子表数据 - 处理员工数据，确保使用正确的ID
+        const processedMembers = (teamGroupData.team_members || []).map(member => {
+          // 找到对应的员工选项，获取UUID
+          const employee = options.employees.find(emp => 
+            emp.employee_id === member.employee_code
+          )
+          
+          return {
+            ...member,
+            // 使用UUID作为内部ID，保持员工工号作为显示
+            id: employee ? (employee.value || employee.id) : member.id,
+            // 确保employee_id字段是UUID，employee_code是员工工号
+            employee_id: member.employee_id,
+            employee_code: member.employee_code,
+            employee_name: member.employee_name || (employee ? employee.employee_name : ''),
+            position_name: member.position_name || (employee ? (employee.position_name || '') : '')
+          }
+        })
+        setMembersData(processedMembers)
         setMachinesData(teamGroupData.team_machines || [])
         setProcessesData(teamGroupData.team_processes || [])
         
@@ -236,15 +259,26 @@ const TeamGroupManagement = () => {
     try {
       const values = await form.validateFields()
       
+      // 确保选项数据已加载
+      if (!options.employees || options.employees.length === 0) {
+        await loadOptions()
+      }
+      
       const submitData = {
         ...values,
-        team_members: membersData.map(member => ({
-          employee_id: member.employee_id,
-          piece_rate_percentage: member.piece_rate_percentage || 0,
-          saving_bonus_percentage: member.saving_bonus_percentage || 0,
-          remarks: member.remarks,
-          sort_order: member.sort_order || 0
-        })),
+        team_members: membersData.map(member => {
+          // 找到对应的员工选项，获取UUID
+          const employee = options.employees.find(emp => 
+            emp.employee_id === member.employee_code
+          )
+          return {
+            employee_id: employee ? (employee.value || employee.id) : member.employee_id,
+            piece_rate_percentage: member.piece_rate_percentage || 0,
+            saving_bonus_percentage: member.saving_bonus_percentage || 0,
+            remarks: member.remarks,
+            sort_order: member.sort_order || 0
+          }
+        }),
         team_machines: machinesData.map(machine => ({
           machine_id: machine.machine_id,
           remarks: machine.remarks,
@@ -293,7 +327,14 @@ const TeamGroupManagement = () => {
 
   const handleEditMember = (member) => {
     setEditingMember(member)
-    memberForm.setFieldsValue(member)
+    // 设置表单值时，使用正确的员工ID（UUID）而不是员工工号
+    const employee = options.employees.find(emp => 
+      emp.employee_id === member.employee_code
+    )
+    memberForm.setFieldsValue({
+      ...member,
+      employee_id: employee ? (employee.value || employee.id) : member.employee_id
+    })
     setMemberFormVisible(true)
   }
 
@@ -303,13 +344,21 @@ const TeamGroupManagement = () => {
       
       if (editingMember) {
         // 更新成员
+        const employee = options.employees.find(emp => (emp.value || emp.id) === values.employee_id)
         const updatedMembers = membersData.map(member => 
-          member.id === editingMember.id ? { ...member, ...values } : member
+                          member.id === editingMember.id ? { 
+                  ...member, 
+                  ...values,
+                  employee_id: employee ? (employee.value || employee.id) : member.employee_id,
+                  employee_code: employee ? employee.employee_id : member.employee_code,
+                  employee_name: employee ? employee.employee_name : member.employee_name,
+                  position_name: employee ? (employee.position_name || '') : member.position_name
+                } : member
         )
         setMembersData(updatedMembers)
       } else {
         // 添加成员
-        const employee = options.employees.find(emp => emp.id === values.employee_id)
+        const employee = options.employees.find(emp => (emp.value || emp.id) === values.employee_id)
         if (employee) {
           // 检查是否已存在
           const exists = membersData.some(member => member.employee_id === values.employee_id)
@@ -318,14 +367,14 @@ const TeamGroupManagement = () => {
             return
           }
           
-          const newMember = {
-            id: Date.now(), // 临时ID
-            employee_id: values.employee_id,
-            employee_name: employee.employee_name,
-            employee_code: employee.employee_id,
-            position_name: employee.position_name,
-            ...values
-          }
+                          const newMember = {
+                  id: values.employee_id, 
+                  employee_id: values.employee_id,  // 这是UUID
+                  employee_code: employee.employee_id,  // 这是员工工号
+                  employee_name: employee.employee_name,
+                  position_name: employee.position_name || '',
+                  ...values
+                }
           setMembersData([...membersData, newMember])
         }
       }
@@ -344,7 +393,7 @@ const TeamGroupManagement = () => {
   const handleAddMachine = (machineId) => {
     if (!machineId) return
     
-    const machine = options.machines.find(m => m.id === machineId)
+    const machine = options.machines.find(m => (m.value || m.id) === machineId)
     if (machine) {
       // 检查是否已存在
       const exists = machinesData.some(m => m.machine_id === machineId)
@@ -356,8 +405,8 @@ const TeamGroupManagement = () => {
       const newMachine = {
         id: Date.now(),
         machine_id: machineId,
-        machine_name: machine.machine_name,
-        machine_code: machine.machine_code,
+        machine_name: machine.label || machine.machine_name,
+        machine_code: machine.machine_code || '',
         remarks: '',
         sort_order: 0
       }
@@ -373,7 +422,7 @@ const TeamGroupManagement = () => {
   const handleAddProcess = (processId) => {
     if (!processId) return
     
-    const process = options.process_categories.find(p => p.id === processId)
+    const process = options.process_categories.find(p => (p.value || p.id) === processId)
     if (process) {
       // 检查是否已存在
       const exists = processesData.some(p => p.process_category_id === processId)
@@ -385,7 +434,7 @@ const TeamGroupManagement = () => {
       const newProcess = {
         id: Date.now(),
         process_category_id: processId,
-        process_category_name: process.process_name,
+        process_category_name: process.label || process.process_name,
         sort_order: 0
       }
       setProcessesData([...processesData, newProcess])
@@ -410,7 +459,7 @@ const TeamGroupManagement = () => {
   const handleSaveMachine = async () => {
     try {
       const values = await machineForm.validateFields()
-      const machine = options.machines.find(m => m.id === values.machine_id)
+      const machine = options.machines.find(m => (m.value || m.id) === values.machine_id)
       if (machine) {
         // 检查是否已存在
         const exists = machinesData.some(m => m.machine_id === values.machine_id)
@@ -422,8 +471,8 @@ const TeamGroupManagement = () => {
         const newMachine = {
           id: Date.now(),
           machine_id: values.machine_id,
-          machine_name: machine.machine_name,
-          machine_code: machine.machine_code,
+          machine_name: machine.label || machine.machine_name,
+          machine_code: machine.machine_code || '',
           remarks: values.remarks || '',
           sort_order: values.sort_order || 0
         }
@@ -444,7 +493,7 @@ const TeamGroupManagement = () => {
   const handleSaveProcess = async () => {
     try {
       const values = await processForm.validateFields()
-      const process = options.process_categories.find(p => p.id === values.process_category_id)
+      const process = options.process_categories.find(p => (p.value || p.id) === values.process_category_id)
       if (process) {
         // 检查是否已存在
         const exists = processesData.some(p => p.process_category_id === values.process_category_id)
@@ -461,7 +510,7 @@ const TeamGroupManagement = () => {
         const newProcess = {
           id: Date.now(),
           process_category_id: values.process_category_id,
-          process_category_name: process.process_name,
+          process_category_name: process.label || process.process_name,
           sort_order: maxSortOrder + 1
         }
         setProcessesData([...processesData, newProcess])
@@ -765,7 +814,7 @@ const TeamGroupManagement = () => {
           <Row justify="space-between" align="middle">
             <Col>
               <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
-                <ToolOutlined style={{ marginRight: 8 }} />
+                <TeamOutlined style={{ marginRight: 8 }} />
                 班组管理
               </Title>
             </Col>
@@ -835,13 +884,13 @@ const TeamGroupManagement = () => {
           modalType === 'create' ? '新建班组' :
           modalType === 'edit' ? '编辑班组' : '班组详情'
         }
-        visible={modalVisible}
+        open={modalVisible}
         onOk={modalType === 'detail' ? () => setModalVisible(false) : handleSave}
         onCancel={() => setModalVisible(false)}
         width={1000}
         okText={modalType === 'detail' ? '关闭' : '保存'}
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
           <TabPane 
@@ -986,7 +1035,7 @@ const TeamGroupManagement = () => {
             <Table
               columns={memberColumns}
               dataSource={membersData}
-              rowKey="id"
+              rowKey={(record) => record.id || record.employee_id}
               pagination={false}
               size="small"
             />
@@ -1055,12 +1104,12 @@ const TeamGroupManagement = () => {
       {/* 班组成员编辑模态框 */}
       <Modal
         title={editingMember ? '编辑成员' : '添加成员'}
-        visible={memberFormVisible}
+        open={memberFormVisible}
         onOk={handleSaveMember}
         onCancel={() => setMemberFormVisible(false)}
         okText="保存"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={memberForm}
@@ -1075,14 +1124,13 @@ const TeamGroupManagement = () => {
               placeholder="请选择员工"
               disabled={!!editingMember}
               showSearch
-              optionFilterProp="children"
               filterOption={(input, option) =>
                 option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
               }
             >
               {options.employees?.map(employee => (
-                <Option key={employee.id} value={employee.id}>
-                  {employee.label}
+                <Option key={employee.value || employee.id} value={employee.value || employee.id}>
+                  {employee.label || employee.employee_name}
                 </Option>
               ))}
             </Select>
@@ -1144,12 +1192,12 @@ const TeamGroupManagement = () => {
       {/* 机台选择模态框 */}
       <Modal
         title="添加机台"
-        visible={machineFormVisible}
+        open={machineFormVisible}
         onOk={handleSaveMachine}
         onCancel={() => setMachineFormVisible(false)}
         okText="添加"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={machineForm}
@@ -1169,10 +1217,10 @@ const TeamGroupManagement = () => {
               }
             >
               {options.machines?.filter(machine => 
-                !machinesData.some(m => m.machine_id === machine.id)
+                !machinesData.some(m => m.machine_id === (machine.value || machine.id))
               ).map(machine => (
-                <Option key={machine.id} value={machine.id}>
-                  {machine.label}
+                <Option key={machine.value || machine.id} value={machine.value || machine.id}>
+                  {machine.label || machine.machine_name}
                 </Option>
               ))}
             </Select>
@@ -1202,12 +1250,12 @@ const TeamGroupManagement = () => {
       {/* 工序分类选择模态框 */}
       <Modal
         title="添加工序分类"
-        visible={processFormVisible}
+        open={processFormVisible}
         onOk={handleSaveProcess}
         onCancel={() => setProcessFormVisible(false)}
         okText="添加"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={processForm}
@@ -1227,10 +1275,10 @@ const TeamGroupManagement = () => {
               }
             >
               {options.process_categories?.filter(process => 
-                !processesData.some(p => p.process_category_id === process.id)
+                !processesData.some(p => p.process_category_id === (process.value || process.id))
               ).map(process => (
-                <Option key={process.id} value={process.id}>
-                  {process.label}
+                <Option key={process.value || process.id} value={process.value || process.id}>
+                  {process.label || process.process_name}
                 </Option>
               ))}
             </Select>

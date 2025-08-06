@@ -8,16 +8,13 @@ from app.models.basic_data import TeamGroup, TeamGroupMember, TeamGroupMachine, 
 from sqlalchemy import func, and_, or_
 from sqlalchemy.exc import IntegrityError
 import uuid
+import logging
 from datetime import datetime
 from typing import Optional
 import re
 
 class TeamGroupService(TenantAwareService):
     """班组管理服务"""
-    
-    def __init__(self, tenant_id: Optional[str] = None, schema_name: Optional[str] = None):
-        """初始化TeamGroup服务"""
-        super().__init__(tenant_id, schema_name)
     
     def get_team_groups(self, page=1, per_page=20, search=None, is_enabled=None):
         """获取班组列表"""
@@ -63,7 +60,24 @@ class TeamGroupService(TenantAwareService):
             if not team_group:
                 raise ValueError("班组不存在")
             
-            return team_group.to_dict(include_details=True)
+            result = team_group.to_dict(include_details=True)
+            
+            # 处理员工数据，确保返回正确的员工工号
+            if 'team_members' in result:
+                for member in result['team_members']:
+                    # 如果employee_id是UUID格式，则从员工表中获取正确的员工工号
+                    if member.get('employee_id') and len(str(member['employee_id'])) > 20:  # UUID通常很长
+                        try:
+                            employee = self.session.query(Employee).get(uuid.UUID(member['employee_id']))
+                            if employee:
+                                member['employee_id'] = employee.employee_id
+                                member['employee_name'] = employee.employee_name
+                                if employee.position:
+                                    member['position_name'] = employee.position.position_name
+                        except:
+                            pass  # 如果转换失败，保持原值
+            
+            return result
             
         except Exception as e:
             raise e
@@ -98,16 +112,22 @@ class TeamGroupService(TenantAwareService):
             # 添加班组人员
             if data.get('team_members'):
                 for member_data in data['team_members']:
+                    # 验证员工是否存在
+                    employee_id = uuid.UUID(member_data['employee_id'])
+                    employee = self.session.query(Employee).get(employee_id)
+                    if not employee:
+                        raise ValueError(f"员工不存在: {member_data['employee_id']}")
+                    
                     member_detail = {
                         'team_group_id': team_group_id,
-                        'employee_id': uuid.UUID(member_data['employee_id']),
+                        'employee_id': employee_id,
                         'piece_rate_percentage': member_data.get('piece_rate_percentage', 0),
                         'saving_bonus_percentage': member_data.get('saving_bonus_percentage', 0),
                         'remarks': member_data.get('remarks'),
                         'sort_order': member_data.get('sort_order', 0),
                     }
                     member = self.create_with_tenant(TeamGroupMember, **member_detail)
-            
+
             # 添加班组机台
             if data.get('team_machines'):
                 for machine_data in data['team_machines']:
@@ -131,7 +151,25 @@ class TeamGroupService(TenantAwareService):
             
             self.commit()
             
-            return team_group.to_dict(include_details=True)
+            # 获取创建后的数据，并确保员工信息正确
+            result = team_group.to_dict(include_details=True)
+            
+            # 处理员工数据，确保返回正确的员工工号
+            if 'team_members' in result:
+                for member in result['team_members']:
+                    # 如果employee_id是UUID格式，则从员工表中获取正确的员工工号
+                    if member.get('employee_id') and len(str(member['employee_id'])) > 20:  # UUID通常很长
+                        try:
+                            employee = self.session.query(Employee).get(uuid.UUID(member['employee_id']))
+                            if employee:
+                                member['employee_id'] = employee.employee_id
+                                member['employee_name'] = employee.employee_name
+                                if employee.position:
+                                    member['position_name'] = employee.position.position_name
+                        except:
+                            pass  # 如果转换失败，保持原值
+            
+            return result
             
         except IntegrityError as e:
             self.rollback()
@@ -152,19 +190,94 @@ class TeamGroupService(TenantAwareService):
     def update_team_group(self, team_group_id, data, updated_by):
         """更新班组"""
         try:
+            
             team_group = self.session.query(TeamGroup).get(uuid.UUID(team_group_id))
             if not team_group:
                 raise ValueError("班组不存在")
             
-            # 更新字段
+            # 分离关联数据，避免SQLAlchemy序列化问题
+            team_members_data = data.pop('team_members', None)
+            team_machines_data = data.pop('team_machines', None)
+            team_processes_data = data.pop('team_processes', None)
+            print('team_members', team_members_data)
+            # 更新基本信息字段
             for key, value in data.items():
                 if hasattr(team_group, key):
                     setattr(team_group, key, value)
             
             team_group.updated_by = uuid.UUID(updated_by)
             
+            # 处理关联数据
+            if team_members_data is not None:
+                # 删除现有成员
+                self.session.query(TeamGroupMember).filter_by(team_group_id=team_group.id).delete()
+                
+                # 添加新成员
+                for member_data in team_members_data:
+                    # 验证员工是否存在
+                    employee_id = uuid.UUID(member_data['employee_id'])
+                    employee = self.session.query(Employee).get(employee_id)
+                    if not employee:
+                        raise ValueError(f"员工不存在: {member_data['employee_id']}")
+                    
+                    member_detail = {
+                        'team_group_id': team_group.id,
+                        'employee_id': employee_id,
+                        'piece_rate_percentage': member_data.get('piece_rate_percentage', 0),
+                        'saving_bonus_percentage': member_data.get('saving_bonus_percentage', 0),
+                        'remarks': member_data.get('remarks'),
+                        'sort_order': member_data.get('sort_order', 0),
+                    }
+                    self.create_with_tenant(TeamGroupMember, **member_detail)
+
+            if team_machines_data is not None:
+                # 删除现有机台
+                self.session.query(TeamGroupMachine).filter_by(team_group_id=team_group.id).delete()
+                
+                # 添加新机台
+                for machine_data in team_machines_data:
+                    machine_detail = {
+                        'team_group_id': team_group.id,
+                        'machine_id': uuid.UUID(machine_data['machine_id']),
+                        'remarks': machine_data.get('remarks'),
+                        'sort_order': machine_data.get('sort_order', 0),
+                    }
+                    self.create_with_tenant(TeamGroupMachine, **machine_detail)
+            
+            if team_processes_data is not None:
+                # 删除现有工序分类
+                self.session.query(TeamGroupProcess).filter_by(team_group_id=team_group.id).delete()
+                
+                # 添加新工序分类
+                for process_data in team_processes_data:
+                    process_detail = {
+                        'team_group_id': team_group.id,
+                        'process_category_id': uuid.UUID(process_data['process_category_id']),
+                        'sort_order': process_data.get('sort_order', 0),
+                    }
+                    self.create_with_tenant(TeamGroupProcess, **process_detail)
+            
             self.commit()
-            return team_group.to_dict()
+            
+            # 获取更新后的数据，并确保员工信息正确
+            result = team_group.to_dict(include_details=True)
+            
+            # 处理员工数据，确保返回正确的员工工号
+            if 'team_members' in result:
+                for member in result['team_members']:
+                    # 如果employee_id是UUID格式，则从员工表中获取正确的员工工号
+                    if member.get('employee_id') and len(str(member['employee_id'])) > 20:  # UUID通常很长
+                        try:
+                            employee = self.session.query(Employee).get(uuid.UUID(member['employee_id']))
+                            if employee:
+                                member['employee_id'] = employee.employee_id
+                                member['employee_name'] = employee.employee_name
+                                if employee.position:
+                                    member['position_name'] = employee.position.position_name
+                        except:
+                            pass  # 如果转换失败，保持原值
+            
+            return result
             
         except Exception as e:
             self.rollback()
@@ -403,6 +516,17 @@ class TeamGroupService(TenantAwareService):
             
         except Exception as e:
             self.rollback()
+            raise e
+    
+    def get_form_options(self):
+        """获取表单选项数据"""
+        try:
+            return {
+                'employees': self.get_employee_options(),
+                'machines': self.get_machine_options(),
+                'process_categories': self.get_process_category_options()
+            }
+        except Exception as e:
             raise e
 
 

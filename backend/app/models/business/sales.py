@@ -48,7 +48,7 @@ class SalesOrder(TenantModel):
     order_requirements = Column(Text, comment='订单要求')  # 手工输入
     
     # 状态字段
-    status = Column(String(20), default='draft', comment='订单状态')  # draft/confirmed/production/shipped/completed/cancelled
+    status = Column(String(20), default='draft', comment='订单状态')  # draft/confirmed/production/shipped/partial_shipped/completed/cancelled
     is_active = Column(Boolean, default=True, comment='是否有效')
     
     # 审计字段
@@ -100,8 +100,11 @@ class SalesOrder(TenantModel):
             result['customer'] = {
                 'id': str(self.customer.id),
                 'customer_name': self.customer.customer_name,
-                'customer_code': self.customer.customer_code
+                'customer_code': self.customer.customer_code,
+                'customer_abbreviation': self.customer.customer_abbreviation
             }
+            # 为了兼容前端字段名，也添加customer_short_name
+            result['customer_short_name'] = self.customer.customer_abbreviation
         
         # 添加联系人信息
         if self.contact_person_id:
@@ -691,6 +694,7 @@ class DeliveryNotice(TenantModel):
             data['customer'] = {
                 'id': str(self.customer.id),
                 'customer_name': self.customer.customer_name,
+                'customer_abbreviation': self.customer.customer_abbreviation,
                 'customer_code': self.customer.customer_code
             }
         if self.details:
@@ -836,7 +840,10 @@ class DeliveryNoticeDetail(TenantModel):
                 'product_code': self.product.product_code,
                 'specification': self.product.specification if hasattr(self.product, 'specification') else None,
                 'unit_id': str(self.product.unit_id) if self.product.unit_id else None,
-                'unit_name': self.product.unit.unit_name if self.product.unit else None
+                'unit_name': self.product.unit.unit_name if self.product.unit else None,
+                'inner': self.product.inner if hasattr(self.product, 'inner') else None,
+                'middle': self.product.middle if hasattr(self.product, 'middle') else None,
+                'outer': self.product.outer if hasattr(self.product, 'outer') else None
             }
         
         # 添加单位详细信息

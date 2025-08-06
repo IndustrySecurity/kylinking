@@ -157,10 +157,13 @@ class EmployeeService(TenantAwareService):
     def get_business_type_options(self):
         """获取业务类型选项"""
         return [
-            {'value': 'salesperson', 'label': '业务员'},
-            {'value': 'purchaser', 'label': '采购员'},
-            {'value': 'comprehensive', 'label': '综合'},
-            {'value': 'delivery_person', 'label': '送货员'}
+            {'value': 'production', 'label': '生产'},
+            {'value': 'sales', 'label': '销售'},
+            {'value': 'purchasing', 'label': '采购'},
+            {'value': 'management', 'label': '管理'},
+            {'value': 'support', 'label': '支持'},
+            {'value': 'delivery', 'label': '送货'},
+            {'value': 'comprehensive', 'label': '综合'}
         ]
 
     def get_gender_options(self):

@@ -53,7 +53,7 @@ const CustomerManagement = () => {
   const [customers, setCustomers] = useState([])
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0
   })
 
@@ -850,7 +850,7 @@ const CustomerManagement = () => {
           <Row gutter={16}>
             <Col span={6}>
               <Input
-                placeholder="搜索客户名称、电话、税号等"
+                placeholder="搜索客户名称、客户简称、客户编号等"
                 value={searchParams.search}
                 onChange={(e) => setSearchParams(prev => ({ ...prev, search: e.target.value }))}
                 onPressEnter={handleSearch}
@@ -1227,6 +1227,18 @@ const CustomerManagement = () => {
               </Row>
 
               <Row gutter={16}>
+              <Col span={8}>
+                  <Form.Item label="皮重系数" name="tare_coefficient">
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      disabled={modalType === 'detail'}
+                      min={0}
+                      step={0.01}
+                      precision={2}
+                      placeholder="请输入皮重系数"
+                    />
+                  </Form.Item>
+                </Col>
                 <Col span={8}>
                   <Form.Item label="排序" name="sort_order">
                     <InputNumber
@@ -1241,11 +1253,7 @@ const CustomerManagement = () => {
                     <Switch disabled={modalType === 'detail'} />
                   </Form.Item>
                 </Col>
-                <Col span={8}>
-                  <Form.Item label="旧客户" name="old_customer" valuePropName="checked">
-                    <Switch disabled={modalType === 'detail'} />
-                  </Form.Item>
-                </Col>
+                
               </Row>
 
               <Row gutter={16}>
@@ -1478,7 +1486,7 @@ const CustomerManagement = () => {
                   </Form.Item>
                 </Col>
                 <Col span={8}>
-                  <Form.Item label="仓库" name="warehouse" valuePropName="checked">
+                  <Form.Item label="旧客户" name="old_customer" valuePropName="checked">
                     <Switch disabled={modalType === 'detail'} />
                   </Form.Item>
                 </Col>

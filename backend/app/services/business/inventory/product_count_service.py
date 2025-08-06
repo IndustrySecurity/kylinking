@@ -155,7 +155,7 @@ class ProductCountService(TenantAwareService):
             )
         return count_record
     
-    def get_count_plans(self, page: int = 1, page_size: int = 20, **filters) -> Dict[str, Any]:
+    def get_count_plans(self, page: int = 1, page_size: int = 10, **filters) -> Dict[str, Any]:
         """
         获取盘点计划列表
         

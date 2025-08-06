@@ -938,6 +938,451 @@ const FinishedGoodsInbound = () => {
     }
   };
 
+  // 解析产品规格，提取宽度、厚度（单位：丝）
+  const parseSpecification = (specification) => {
+    if (!specification) return null;
+    
+    // 尝试解析 "宽度*厚度" 格式，厚度单位为丝
+    const patterns = [
+      /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)/, // 数字×数字
+      /(\d+(?:\.\d+)?)\s*cm\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*丝/, // cm×丝
+      /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*丝/, // 数字×丝
+    ];
+    
+    for (const pattern of patterns) {
+      const match = specification.match(pattern);
+      if (match) {
+        const [, width, thickness] = match;
+        return {
+          width: parseFloat(width),
+          thickness: parseFloat(thickness) // 厚度单位为丝
+        };
+      }
+    }
+    
+    return null;
+  };
+
+  // 从产品数据中提取参数
+  const extractProductParams = (productData, specification = null) => {
+    if (!productData) return null;
+    
+    // 优先从规格字符串解析宽度和厚度
+    let width = null;
+    let thickness = null;
+    
+    if (specification) {
+      const specParams = parseSpecification(specification);
+      if (specParams && specParams.width && specParams.thickness) {
+        width = specParams.width;
+        thickness = specParams.thickness;
+      }
+    }
+    
+    // 如果从规格字符串解析到了宽度和厚度，且产品数据中有密度，则优先使用
+    if (width && thickness && productData.density) {
+      return {
+        width: width,
+        thickness: thickness, // 厚度单位为丝
+        density: productData.density
+      };
+    }
+    
+    // 如果没有规格字符串或解析失败，从产品结构表获取
+    if (productData.structures && productData.structures.length > 0) {
+      const structure = productData.structures[0];
+      if (structure.width && structure.thickness && structure.density) {
+        return {
+          width: structure.width,
+          thickness: structure.thickness, // 厚度单位为丝
+          density: structure.density
+        };
+      }
+    }
+    
+    // 从产品基本信息获取（现在所有字段都在products表中）
+    if (productData.struct_width && productData.struct_thickness && productData.density) {
+      return {
+        width: productData.struct_width,
+        thickness: productData.struct_thickness, // 厚度单位为丝
+        density: productData.density
+      };
+    }
+    
+    // 兼容旧格式
+    if (productData.width && productData.thickness && productData.density) {
+      return {
+        width: productData.width,
+        thickness: productData.thickness, // 厚度单位为丝
+        density: productData.density
+      };
+    }
+    
+    return null;
+  };
+
+  // 计算重量和长度的相互转换
+  const calculateConversion = (quantity, unitName, productParams, specification) => {
+    if (!quantity || quantity <= 0) return { planned_meters: undefined, planned_weight: undefined };
+    
+    const unitLower = unitName.toLowerCase();
+
+    try {
+      // 使用从 extractProductParams 获取的参数，需要将厚度从丝转换为mm
+      let params = productParams;
+      
+      if (params) {
+        params = {
+          width: params.width,
+          thickness: params.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+          density: params.density
+        };
+      }
+
+      if (!params || !params.width || !params.thickness || !params.density) {
+        return calculateBasicConversion(quantity, unitName);
+      }
+
+      // 重量转长度：重量(kg) / (宽度(cm) * 厚度(mm) * 密度(g/cm³) / 100)
+      // 长度转重量：长度(m) * 宽度(cm) * 厚度(mm) * 密度(g/cm³) / 100
+      
+      // 重量单位：kg/千克/公斤 -> 计算计划重量和计划米数
+      if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+        const plannedWeight = Number(quantity);
+        const plannedMeters = Number(quantity / (params.width * params.thickness * params.density / 100));
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 重量单位：t/吨 -> 转换为kg后计算
+      else if (unitLower.includes('t') || unitLower.includes('吨')) {
+        const plannedWeight = Number(quantity * 1000);
+        const plannedMeters = Number((quantity * 1000) / (params.width * params.thickness * params.density / 100));
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：m/米 -> 计算计划米数和计划重量
+      else if (unitLower.includes('m') || unitLower.includes('米')) {
+        const plannedMeters = Number(quantity);
+        const plannedWeight = Number(quantity * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：km/公里 -> 转换为米后计算
+      else if (unitLower.includes('km') || unitLower.includes('千米')) {
+        const plannedMeters = Number(quantity * 1000);
+        const plannedWeight = Number((quantity * 1000) * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：cm/厘米 -> 转换为米后计算
+      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+        const plannedMeters = Number(quantity / 100);
+        const plannedWeight = Number((quantity / 100) * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：mm/毫米 -> 转换为米后计算
+      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+        const plannedMeters = Number(quantity / 1000);
+        const plannedWeight = Number((quantity / 1000) * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+    } catch (error) {
+      console.error('计算转换时出错:', error);
+      return { planned_meters: undefined, planned_weight: undefined };
+    }
+    
+    return calculateBasicConversion(quantity, unitName);
+  };
+
+  // 基础单位转换（原来的逻辑）
+  const calculateBasicConversion = (quantity, unitName) => {
+    const unitLower = unitName.toLowerCase();
+    
+    // 重量单位：kg/千克/公斤 -> 填入计划重量
+    if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+      return { planned_meters: undefined, planned_weight: quantity };
+    }
+    // 重量单位：t/吨 -> 转换为kg填入计划重量
+    else if (unitLower.includes('t') || unitLower.includes('吨')) {
+      return { planned_meters: undefined, planned_weight: quantity * 1000 };
+    }
+    // 长度单位：m/米 -> 填入计划米数
+    else if (unitLower.includes('m') || unitLower.includes('米')) {
+      return { planned_meters: quantity, planned_weight: undefined };
+    }
+    // 长度单位：km/公里 -> 转换为米填入计划米数
+    else if (unitLower.includes('km') || unitLower.includes('千米')) {
+      return { planned_meters: quantity * 1000, planned_weight: undefined };
+    }
+    // 长度单位：cm/厘米 -> 转换为米填入计划米数
+    else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+      return { planned_meters: quantity / 100, planned_weight: undefined };
+    }
+    // 长度单位：mm/毫米 -> 转换为米填入计划米数
+    else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+      return { planned_meters: quantity / 1000, planned_weight: undefined };
+    }
+    
+    return { planned_meters: undefined, planned_weight: undefined };
+  };
+
+  // 计算计划值（米数和重量）
+  const calculatePlannedValues = (quantity, unitName, productData = null, specification = null) => {
+    if (!quantity || quantity <= 0 || !unitName) {
+      return { planned_meters: undefined, planned_weight: undefined };
+    }
+    
+    // 提取产品参数
+    const productParams = extractProductParams(productData, specification);
+    
+    // 使用智能转换
+    return calculateConversion(quantity, unitName, productParams, specification);
+  };
+
+  // 根据计划米数计算入库数量
+  const calculateInboundQuantityFromPlannedMeters = (plannedMeters, unitName, productData = null, specification = null) => {
+    if (!unitName || !plannedMeters || plannedMeters <= 0) return undefined;
+
+    // 提取产品参数
+    const productParams = extractProductParams(productData, specification);
+
+    if (!productParams || !productParams.width || !productParams.thickness || !productParams.density) {
+      return undefined;
+    }
+
+    // 将厚度从丝转换为mm，保持与calculateConversion函数一致
+    const params = {
+      width: productParams.width,
+      thickness: productParams.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+      density: productParams.density
+    };
+
+    const unitLower = unitName.toLowerCase();
+
+    try {
+      // 根据单位类型计算入库数量
+      if (unitLower.includes('m') || unitLower.includes('米')) {
+        return Number(plannedMeters);
+      }
+      else if (unitLower.includes('km') || unitLower.includes('千米')) {
+        const result = Number(plannedMeters / 1000);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+        const result = Number(plannedMeters * 100);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+        const result = Number(plannedMeters * 1000);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+        const weight = Number(plannedMeters * params.width * params.thickness * params.density / 100);
+        return Math.round(weight * 100) / 100;
+      }
+      else if (unitLower.includes('t') || unitLower.includes('吨')) {
+        const weight = Number(plannedMeters * params.width * params.thickness * params.density / 100);
+        const result = Number(weight / 1000);
+        return Math.round(result * 100) / 100;
+      }
+    } catch (error) {
+      console.error('计算入库数量时出错:', error);
+      return undefined;
+    }
+    
+    return undefined;
+  };
+
+  // 根据计划重量计算入库数量
+  const calculateInboundQuantityFromPlannedWeight = (plannedWeight, unitName, productData = null, specification = null) => {
+    if (!unitName || !plannedWeight || plannedWeight <= 0) return undefined;
+
+    // 提取产品参数
+    const productParams = extractProductParams(productData, specification);
+
+    if (!productParams || !productParams.width || !productParams.thickness || !productParams.density) {
+      return undefined;
+    }
+
+    // 将厚度从丝转换为mm，保持与calculateConversion函数一致
+    const params = {
+      width: productParams.width,
+      thickness: productParams.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+      density: productParams.density
+    };
+
+    const unitLower = unitName.toLowerCase();
+
+    try {
+      // 根据单位类型计算入库数量
+      if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+        return Number(plannedWeight);
+      }
+      else if (unitLower.includes('t') || unitLower.includes('吨')) {
+        return Number(plannedWeight / 1000);
+      }
+      else if (unitLower.includes('m') || unitLower.includes('米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        return Math.round(length * 100) / 100;
+      }
+      else if (unitLower.includes('km') || unitLower.includes('千米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        const result = Number(length / 1000);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        const result = Number(length * 100);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        const result = Number(length * 1000);
+        return Math.round(result * 100) / 100;
+      }
+    } catch (error) {
+      console.error('计算入库数量时出错:', error);
+      return undefined;
+    }
+    
+    return undefined;
+  };
+
+  // 更新明细字段的通用函数，实现三个字段的完全同步
+  const updateDetailField = (field, value, isUserInput = true) => {
+    const currentValues = detailForm.getFieldsValue();
+    const productId = currentValues.product_id;
+    const unitId = currentValues.unit_id;
+    
+    if (!productId || !unitId) {
+      // 如果没有选择产品和单位，只更新当前字段
+      detailForm.setFieldsValue({ [field]: value });
+      return;
+    }
+
+    const product = products.find(p => p.id === productId);
+    const unit = units.find(u => u.value === unitId);
+    
+    if (!product || !unit) {
+      detailForm.setFieldsValue({ [field]: value });
+      return;
+    }
+
+    const productData = product;
+    const specification = product.specification || product.spec || product.product_spec || product.specifications;
+    const unitName = unit.label;
+
+    // 只有用户直接输入时才进行联动计算
+    if (isUserInput) {
+      if (field === 'inbound_quantity') {
+        // 用户修改了入库数量，计算kg数和m数
+        detailForm.setFieldsValue({ [field]: value });
+        
+        const plannedValues = calculatePlannedValues(value, unitName, productData, specification);
+        
+        if (plannedValues.planned_meters !== undefined) {
+          detailForm.setFieldsValue({ inbound_m_quantity: plannedValues.planned_meters });
+        }
+        if (plannedValues.planned_weight !== undefined) {
+          detailForm.setFieldsValue({ inbound_kg_quantity: plannedValues.planned_weight });
+        }
+      }
+      else if (field === 'inbound_m_quantity') {
+        // 用户修改了m数，计算入库数量和kg数
+        detailForm.setFieldsValue({ [field]: value });
+        
+        const calculatedQuantity = calculateInboundQuantityFromPlannedMeters(value, unitName, productData, specification);
+        
+        if (calculatedQuantity !== undefined && calculatedQuantity !== null && !isNaN(calculatedQuantity) && isFinite(calculatedQuantity)) {
+          detailForm.setFieldsValue({ inbound_quantity: calculatedQuantity });
+          
+          const plannedValues = calculatePlannedValues(calculatedQuantity, unitName, productData, specification);
+          if (plannedValues.planned_weight !== undefined) {
+            detailForm.setFieldsValue({ inbound_kg_quantity: plannedValues.planned_weight });
+          }
+        } else {
+          detailForm.setFieldsValue({ 
+            inbound_quantity: undefined,
+            inbound_kg_quantity: undefined 
+          });
+        }
+      }
+      else if (field === 'inbound_kg_quantity') {
+        // 用户修改了kg数，计算入库数量和m数
+        detailForm.setFieldsValue({ [field]: value });
+        
+        const calculatedQuantity = calculateInboundQuantityFromPlannedWeight(value, unitName, productData, specification);
+        
+        if (calculatedQuantity !== undefined && calculatedQuantity !== null && !isNaN(calculatedQuantity) && isFinite(calculatedQuantity)) {
+          detailForm.setFieldsValue({ inbound_quantity: calculatedQuantity });
+          
+          const plannedValues = calculatePlannedValues(calculatedQuantity, unitName, productData, specification);
+          if (plannedValues.planned_meters !== undefined) {
+            detailForm.setFieldsValue({ inbound_m_quantity: plannedValues.planned_meters });
+          }
+        } else {
+          detailForm.setFieldsValue({ 
+            inbound_quantity: undefined,
+            inbound_m_quantity: undefined 
+          });
+        }
+      }
+      else if (field === 'unit_id') {
+        // 用户修改了单位，重新计算所有相关字段
+        detailForm.setFieldsValue({ [field]: value });
+        
+        const quantity = currentValues.inbound_quantity || 0;
+        const plannedValues = calculatePlannedValues(quantity, unitName, productData, specification);
+        if (plannedValues.planned_meters !== undefined) {
+          detailForm.setFieldsValue({ inbound_m_quantity: plannedValues.planned_meters });
+        }
+        if (plannedValues.planned_weight !== undefined) {
+          detailForm.setFieldsValue({ inbound_kg_quantity: plannedValues.planned_weight });
+        }
+      }
+      else {
+        // 其他字段，只更新当前字段
+        detailForm.setFieldsValue({ [field]: value });
+      }
+    } else {
+      // 程序计算更新，但如果是重新计算转换值，则进行联动
+      if (field === 'inbound_quantity') {
+        detailForm.setFieldsValue({ [field]: value });
+        
+        const plannedValues = calculatePlannedValues(value, unitName, productData, specification);
+        if (plannedValues.planned_meters !== undefined) {
+          detailForm.setFieldsValue({ inbound_m_quantity: plannedValues.planned_meters });
+        }
+        if (plannedValues.planned_weight !== undefined) {
+          detailForm.setFieldsValue({ inbound_kg_quantity: plannedValues.planned_weight });
+        }
+      } else {
+        // 其他字段的程序更新，只更新指定字段，不触发联动
+        detailForm.setFieldsValue({ [field]: value });
+      }
+    }
+  };
+
   const handleDetailSubmit = async (values) => {
     try {
       if (currentDetail) {
@@ -965,7 +1410,7 @@ const FinishedGoodsInbound = () => {
             item.id === currentDetail.id ? { ...item, ...values } : item
           );
           setOrderDetails(newDetails);
-          message.success('明细更新成功');
+            message.success('明细更新成功');
         }
       } else {
         // 添加明细
@@ -1498,7 +1943,26 @@ const FinishedGoodsInbound = () => {
                         unit_cost: product.standard_cost || product.unit_cost || detailForm.getFieldValue('unit_cost') || 0,
                         location_code: product.default_location || detailForm.getFieldValue('location_code') || ''
                       });
-                      console.log(detailForm.getFieldsValue());
+                      
+                      // 如果有入库数量，重新计算转换值
+                      const inboundQuantity = detailForm.getFieldValue('inbound_quantity');
+                      if (inboundQuantity) {
+                        // 延迟执行，确保单位字段已经更新
+                        setTimeout(() => {
+                          // 传递产品数据给计算函数
+                          const unitId = detailForm.getFieldValue('unit_id');
+                          const unit = units.find(u => u.value === unitId);
+                          if (unit) {
+                            const plannedValues = calculatePlannedValues(inboundQuantity, unit.label, product, product.specification || product.spec || product.product_spec || product.specifications);
+                            if (plannedValues.planned_meters !== undefined) {
+                              detailForm.setFieldsValue({ inbound_m_quantity: plannedValues.planned_meters });
+                            }
+                            if (plannedValues.planned_weight !== undefined) {
+                              detailForm.setFieldsValue({ inbound_kg_quantity: plannedValues.planned_weight });
+                            }
+                          }
+                        }, 0);
+                      }
                     }
                   }}
                 >
@@ -1550,6 +2014,7 @@ const FinishedGoodsInbound = () => {
                   placeholder="请输入入库数" 
                   style={{ width: '100%' }}
                   min={0}
+                  onChange={(value) => updateDetailField('inbound_quantity', value, true)}
                 />
               </Form.Item>
             </Col>
@@ -1559,7 +2024,11 @@ const FinishedGoodsInbound = () => {
                 label="单位"
                 rules={[{ required: true, message: '请选择单位' }]}
               >
-                <Select placeholder="请选择单位" allowClear>
+                <Select 
+                  placeholder="请选择单位" 
+                  allowClear
+                  onChange={(value) => updateDetailField('unit_id', value, true)}
+                >
                   {units.map(unit => (
                     <Option key={unit.value} value={unit.value}>{unit.label}</Option>
                   ))}
@@ -1592,6 +2061,7 @@ const FinishedGoodsInbound = () => {
                   style={{ width: '100%' }}
                   min={0}
                   precision={2}
+                  onChange={(value) => updateDetailField('inbound_kg_quantity', value, true)}
                 />
               </Form.Item>
             </Col>
@@ -1605,6 +2075,7 @@ const FinishedGoodsInbound = () => {
                   style={{ width: '100%' }}
                   min={0}
                   precision={2}
+                  onChange={(value) => updateDetailField('inbound_m_quantity', value, true)}
                 />
               </Form.Item>
             </Col>

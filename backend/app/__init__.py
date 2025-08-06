@@ -34,6 +34,12 @@ def create_app(config_name="development"):
     # 启用CORS
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     
+    # 配置静态文件服务
+    @app.route('/api/uploads/<path:filename>')
+    def uploaded_file(filename):
+        from flask import send_from_directory
+        return send_from_directory('uploads', filename)
+    
     # 创建一个基本路由用于健康检查
     @app.route('/health', methods=['GET'])
     def health():

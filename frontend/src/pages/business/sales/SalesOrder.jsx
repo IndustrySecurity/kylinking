@@ -106,7 +106,7 @@ const SalesOrder = () => {
 
   // 字段配置 - 从常量改为状态，支持动态更新
   const [fieldConfig, setFieldConfig] = useState({
-    order_number: { title: '销售单号', type: 'text', required: true, readonly: true, display_order: 1 },
+    order_number: { title: '销售单号', type: 'text', required: false, readonly: true, display_order: 1 },
     customer_id: { title: '客户名称', type: 'select', required: true, display_order: 2 },
     customer_order_number: { title: '客户订单号', type: 'text', display_order: 3 },
     contact_person_id: { title: '联系人', type: 'select', display_order: 4 },
@@ -405,10 +405,18 @@ const SalesOrder = () => {
     const config = fieldConfig[fieldName];
     if (!config) return null;
 
+    // 动态设置验证规则：编辑时销售单号必填，新建时不是必填
+    const getRules = () => {
+      if (fieldName === 'order_number') {
+        return currentRecord ? [{ required: true, message: `请输入${config.title}` }] : [];
+      }
+      return config.required ? [{ required: true, message: `请输入${config.title}` }] : [];
+    };
+
     const commonProps = {
       name: fieldName,
       label: config.title,
-      rules: config.required ? [{ required: true, message: `请输入${config.title}` }] : []
+      rules: getRules()
     };
 
     switch (fieldName) {
@@ -416,7 +424,10 @@ const SalesOrder = () => {
         return (
           <Col span={4} key={fieldName}>
             <Form.Item {...commonProps}>
-              <Input placeholder="自动生成" disabled />
+              <Input 
+                placeholder={currentRecord ? "请输入销售单号" : "自动生成"} 
+                disabled={!currentRecord}
+              />
             </Form.Item>
           </Col>
         );
@@ -428,7 +439,21 @@ const SalesOrder = () => {
               <Select 
                 placeholder="请选择客户" 
                 showSearch 
-                optionFilterProp="children"
+                filterOption={(input, option) => {
+                  // 获取选项的完整数据
+                  const customerOption = customerOptions.find(opt => opt.value === option.value);
+                  if (!customerOption) return false;
+                  
+                  // 搜索客户名称、客户简称、客户编号
+                  const searchText = input.toLowerCase();
+                  const customerName = (customerOption.customer_name || '').toLowerCase();
+                  const customerAbbreviation = (customerOption.customer_abbreviation || '').toLowerCase();
+                  const customerCode = (customerOption.code || '').toLowerCase();
+                  
+                  return customerName.includes(searchText) || 
+                         customerAbbreviation.includes(searchText) || 
+                         customerCode.includes(searchText);
+                }}
                 onChange={handleCustomerChange}
               >
                 {customerOptions.map(option => (
@@ -718,7 +743,8 @@ const SalesOrder = () => {
                 <Option value="draft">草稿</Option>
                 <Option value="confirmed">已确认</Option>
                 <Option value="production">生产中</Option>
-                <Option value="shipped">已发货</Option>
+                <Option value="shipped">已安排送货</Option>
+                <Option value="partial_shipped">已安排部分送货</Option>
                 <Option value="completed">已完成</Option>
                 <Option value="cancelled">已取消</Option>
               </Select>
@@ -1108,6 +1134,11 @@ const SalesOrder = () => {
         tax_rate_id: values.tax_id
       };
 
+      // 如果是新建订单，删除order_number字段，让后端自动生成
+      if (!currentRecord) {
+        delete orderData.order_number;
+      }
+
       let response;
       let newRecordId;
       if (currentRecord) {
@@ -1134,7 +1165,13 @@ const SalesOrder = () => {
           }
         }
         
-        message.success(currentRecord ? '更新成功' : '创建成功');
+        // 如果是新建订单，显示自动生成的销售单号
+        if (!currentRecord && response.data.data?.order_number) {
+          message.success(`创建成功！销售单号：${response.data.data.order_number}`);
+        } else {
+          message.success(currentRecord ? '更新成功' : '创建成功');
+        }
+        
         setModalVisible(false);
         fetchData();
       }
@@ -1226,6 +1263,7 @@ const SalesOrder = () => {
           // 自动填充客户相关字段
           form.setFieldsValue({
             customer_code: customerDetails.customer_code,
+            customer_short_name: customerDetails.customer_abbreviation,
             payment_method_id: customerDetails.payment_method_id,
             salesperson_id: customerDetails.salesperson_id,
             company_id: customerDetails.company_id,
@@ -1270,6 +1308,7 @@ const SalesOrder = () => {
       // 清空相关字段和联系人选项
       form.setFieldsValue({
         customer_code: '',
+        customer_short_name: '',
         contact_person_id: null,
         phone: '',
         mobile: '',
@@ -1376,42 +1415,121 @@ const SalesOrder = () => {
     setOrderDetails(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+
+
   // 缓存 updateOrderDetail 函数
-  const updateOrderDetail = useCallback(async (index, field, value) => {
+  const updateOrderDetail = useCallback(async (index, field, value, isUserInput = true) => {
     setOrderDetails(prev => {
       const newDetails = [...prev];
+      const detail = newDetails[index];
 
-      newDetails[index] = { ...newDetails[index], [field]: value };
-      
-      // 自动计算金额
-      if (field === 'order_quantity' || field === 'unit_price') {
-        newDetails[index].amount = (newDetails[index].order_quantity || 0) * (newDetails[index].unit_price || 0);
+      // 获取单位名称
+      let unitName = detail.unit_name || detail.unit;
+      if (!unitName && detail.unit_id) {
+        const unitOption = unitOptions.find(opt => opt.value === detail.unit_id);
+        unitName = unitOption ? unitOption.label : '';
       }
-      
-      // 自动填充计划米数和计划重量
-      if (field === 'order_quantity' || field === 'unit_id') {
 
-        const detail = newDetails[index];
-        const quantity = detail.order_quantity || 0;
-        
-        // 正确获取单位名称
-        let unitName = detail.unit_name || detail.unit;
-        if (!unitName && detail.unit_id) {
-          const unitOption = unitOptions.find(opt => opt.value === detail.unit_id);
-          unitName = unitOption ? unitOption.label : '';
+      // 获取产品数据和规格信息
+      const productData = detail.productData || null;
+      const specification = detail.product_specification || null;
+      
+
+
+      // 只有用户直接输入时才进行联动计算
+      if (isUserInput) {
+        // 根据修改的字段进行相应的计算
+        if (field === 'order_quantity') {
+          // 用户修改了订单数量，计算计划米数和计划重量
+          newDetails[index] = { 
+            ...newDetails[index], 
+            [field]: value,
+            amount: (value || 0) * (detail.unit_price || 0)
+          };
+          
+          const plannedValues = calculatePlannedValues(value, unitName, productData, specification);
+          
+          // 使用非用户输入模式更新其他字段，避免循环
+          newDetails[index].planned_meters = plannedValues.planned_meters;
+          newDetails[index].planned_weight = plannedValues.planned_weight;
+          
+          // 确保productData不会丢失
+          if (productData && !newDetails[index].productData) {
+            newDetails[index].productData = productData;
+          }
         }
-        
-        
-        
-        // 获取产品数据和规格信息
-        const productData = detail.productData || null;
-        const specification = detail.product_specification || null;
-        
-        const plannedValues = calculatePlannedValues(quantity, unitName, productData, specification);
-        
-        
-        newDetails[index].planned_meters = plannedValues.planned_meters;
-        newDetails[index].planned_weight = plannedValues.planned_weight;
+        else if (field === 'planned_meters') {
+          // 用户修改了计划米数，计算订单数量和计划重量
+          newDetails[index] = { ...newDetails[index], [field]: value };
+          
+          // 根据计划米数计算订单数量
+          const calculatedQuantity = calculateOrderQuantityFromPlannedMeters(value, unitName, productData, specification);
+          
+          // 确保计算结果是有效数值
+          if (calculatedQuantity !== undefined && calculatedQuantity !== null && !isNaN(calculatedQuantity) && isFinite(calculatedQuantity)) {
+            newDetails[index].order_quantity = calculatedQuantity;
+            newDetails[index].amount = (calculatedQuantity || 0) * (detail.unit_price || 0);
+            
+            // 根据计算出的订单数量计算计划重量
+            const plannedValues = calculatePlannedValues(calculatedQuantity, unitName, productData, specification);
+            if (plannedValues && plannedValues.planned_weight !== undefined && !isNaN(plannedValues.planned_weight)) {
+              newDetails[index].planned_weight = plannedValues.planned_weight;
+            }
+          } else {
+            // 如果计算结果无效，清空相关字段
+            newDetails[index].order_quantity = undefined;
+            newDetails[index].amount = 0;
+            newDetails[index].planned_weight = undefined;
+          }
+        }
+        else if (field === 'planned_weight') {
+          // 用户修改了计划重量，计算订单数量和计划米数
+          newDetails[index] = { ...newDetails[index], [field]: value };
+          
+          // 根据计划重量计算订单数量
+          const calculatedQuantity = calculateOrderQuantityFromPlannedWeight(value, unitName, productData, specification);
+          
+          // 确保计算结果是有效数值
+          if (calculatedQuantity !== undefined && calculatedQuantity !== null && !isNaN(calculatedQuantity) && isFinite(calculatedQuantity)) {
+            newDetails[index].order_quantity = calculatedQuantity;
+            newDetails[index].amount = (calculatedQuantity || 0) * (detail.unit_price || 0);
+            
+            // 根据计算出的订单数量计算计划米数
+            const plannedValues = calculatePlannedValues(calculatedQuantity, unitName, productData, specification);
+            if (plannedValues && plannedValues.planned_meters !== undefined && !isNaN(plannedValues.planned_meters)) {
+              newDetails[index].planned_meters = plannedValues.planned_meters;
+            }
+          } else {
+            // 如果计算结果无效，清空相关字段
+            newDetails[index].order_quantity = undefined;
+            newDetails[index].amount = 0;
+            newDetails[index].planned_meters = undefined;
+          }
+        }
+        else if (field === 'unit_price') {
+          // 用户修改了单价，只更新金额
+          newDetails[index] = { 
+            ...newDetails[index], 
+            [field]: value,
+            amount: (detail.order_quantity || 0) * (value || 0)
+          };
+        }
+        else if (field === 'unit_id') {
+          // 用户修改了单位，重新计算所有相关字段
+          newDetails[index] = { ...newDetails[index], [field]: value };
+          
+          const quantity = detail.order_quantity || 0;
+          const plannedValues = calculatePlannedValues(quantity, unitName, productData, specification);
+          newDetails[index].planned_meters = plannedValues.planned_meters;
+          newDetails[index].planned_weight = plannedValues.planned_weight;
+        }
+        else {
+          // 其他字段，只更新当前字段
+          newDetails[index] = { ...newDetails[index], [field]: value };
+        }
+      } else {
+        // 程序计算更新，只更新指定字段，不触发联动
+        newDetails[index] = { ...newDetails[index], [field]: value };
       }
       
       return newDetails;
@@ -1489,6 +1607,7 @@ const SalesOrder = () => {
             updatedDetails[index].productData = productData;
             
             const plannedValues = calculatePlannedValues(quantity, unitName, productData, productData.specification);
+            
             updatedDetails[index].planned_meters = plannedValues.planned_meters;
             updatedDetails[index].planned_weight = plannedValues.planned_weight;
             
@@ -1555,58 +1674,83 @@ const SalesOrder = () => {
   }, [productOptions]);
 
   // 单位转换和自动填充函数
-  // 解析产品规格字符串，提取宽度、厚度、密度
+  // 解析产品规格字符串，提取宽度、厚度（单位：丝）
   const parseSpecification = (specification) => {
     if (!specification) return null;
     
-
-    
-    // 尝试解析 "宽度*厚度*密度" 格式
+    // 尝试解析 "宽度*厚度" 格式，厚度单位为丝
     const patterns = [
-      /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)/, // 数字×数字×数字
-      /(\d+(?:\.\d+)?)\s*mm\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*μm\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*g\/cm³/, // mm×μm×g/cm³
-      /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*g\/cm³/, // 数字×数字×数字g/cm³
+      /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)/, // 数字×数字
+      /(\d+(?:\.\d+)?)\s*cm\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*丝/, // cm×丝
+      /(\d+(?:\.\d+)?)\s*[×xX*]\s*(\d+(?:\.\d+)?)\s*丝/, // 数字×丝
     ];
     
     for (const pattern of patterns) {
       const match = specification.match(pattern);
       if (match) {
-        const [, width, thickness, density] = match;
+        const [, width, thickness] = match;
 
         return {
           width: parseFloat(width),
-          thickness: parseFloat(thickness),
-          density: parseFloat(density)
+          thickness: parseFloat(thickness) // 厚度单位为丝
         };
       }
     }
-    
     
     return null;
   };
 
   // 从产品结构数据中提取参数
-  const extractProductParams = (productData) => {
+  const extractProductParams = (productData, specification = null) => {
     if (!productData) return null;
     
-    // 优先从产品结构表获取
-    if (productData.structures && productData.structures.length > 0) {
-      const structure = productData.structures[0];
-              if (structure.width && structure.thickness && structure.density) {
-          return {
-            width: structure.width,
-            thickness: structure.thickness,
-            density: structure.density
-          };
-        }
+    // 优先从规格字符串解析宽度和厚度
+    let width = null;
+    let thickness = null;
+    
+    if (specification) {
+      const specParams = parseSpecification(specification);
+      if (specParams && specParams.width && specParams.thickness) {
+        width = specParams.width;
+        thickness = specParams.thickness; // 厚度单位为丝
+      }
     }
     
-    // 从产品基本信息获取
-    if (productData.width && productData.thickness) {
-
+    // 如果从规格字符串解析到了宽度和厚度，且产品数据中有密度，则优先使用
+    if (width && thickness && productData.density) {
+      return {
+        width: width,
+        thickness: thickness, // 厚度单位为丝
+        density: productData.density
+      };
+    }
+    
+    // 如果没有规格字符串或解析失败，从产品结构表获取
+    if (productData.structures && productData.structures.length > 0) {
+      const structure = productData.structures[0];
+      if (structure.width && structure.thickness && structure.density) {
+        return {
+          width: structure.width,
+          thickness: structure.thickness, // 厚度单位为丝
+          density: structure.density
+        };
+      }
+    }
+    
+    // 从产品基本信息获取（现在所有字段都在products表中）
+    if (productData.struct_width && productData.struct_thickness && productData.density) {
+      return {
+        width: productData.struct_width,
+        thickness: productData.struct_thickness, // 厚度单位为丝
+        density: productData.density
+      };
+    }
+    
+    // 兼容旧格式
+    if (productData.width && productData.thickness && productData.density) {
       return {
         width: productData.width,
-        thickness: productData.thickness,
+        thickness: productData.thickness, // 厚度单位为丝
         density: productData.density
       };
     }
@@ -1620,68 +1764,99 @@ const SalesOrder = () => {
     
     const unitLower = unitName.toLowerCase();
 
-    
-    // 尝试从规格解析参数
-    let params = parseSpecification(specification);
-    if (!params) {
-      // 从产品数据获取参数
-      params = productParams;
+    try {
+      // 尝试从规格解析参数
+      let specParams = parseSpecification(specification);
+      let params = productParams;
+      
+      // 如果从规格解析到了宽度和厚度，使用规格的参数
+      if (specParams && specParams.width && specParams.thickness) {
+        params = {
+          width: specParams.width,
+          thickness: specParams.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+          density: params?.density // 从产品数据获取密度
+        };
+      } else if (params) {
+        // 如果使用产品结构数据，也需要将厚度从丝转换为mm
+        params = {
+          width: params.width,
+          thickness: params.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+          density: params.density
+        };
+      }
+      
+      if (!params || !params.width || !params.thickness || !params.density) {
+        return calculateBasicConversion(quantity, unitName);
+      }
+
+      // 重量转长度：重量(kg) / (宽度(cm) * 厚度(mm) * 密度(g/cm³) / 100)
+      // 长度转重量：长度(m) * 宽度(cm) * 厚度(mm) * 密度(g/cm³) / 100
+      
+      // 重量单位：kg/千克/公斤 -> 计算计划重量和计划米数
+      if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+        const plannedWeight = Number(quantity);
+        const plannedMeters = Number(quantity / (params.width * params.thickness * params.density / 100));
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 重量单位：t/吨 -> 转换为kg后计算
+      else if (unitLower.includes('t') || unitLower.includes('吨')) {
+        const plannedWeight = Number(quantity * 1000);
+        const plannedMeters = Number((quantity * 1000) / (params.width * params.thickness * params.density / 100));
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：m/米 -> 计算计划米数和计划重量
+      else if (unitLower.includes('m') || unitLower.includes('米')) {
+        const plannedMeters = Number(quantity);
+        const plannedWeight = Number(quantity * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：km/公里 -> 转换为米后计算
+      else if (unitLower.includes('km') || unitLower.includes('千米')) {
+        const plannedMeters = Number(quantity * 1000);
+        const plannedWeight = Number((quantity * 1000) * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：cm/厘米 -> 转换为米后计算
+      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+        const plannedMeters = Number(quantity / 100);
+        const plannedWeight = Number((quantity / 100) * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+      // 长度单位：mm/毫米 -> 转换为米后计算
+      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+        const plannedMeters = Number(quantity / 1000);
+        const plannedWeight = Number((quantity / 1000) * params.width * params.thickness * params.density / 100);
+
+        return { 
+          planned_meters: isFinite(plannedMeters) ? Math.round(plannedMeters * 100) / 100 : undefined, 
+          planned_weight: isFinite(plannedWeight) ? Math.round(plannedWeight * 100) / 100 : undefined 
+        };
+      }
+    } catch (error) {
+      console.error('计算转换时出错:', error);
+      return { planned_meters: undefined, planned_weight: undefined };
     }
     
-    if (!params || !params.width || !params.thickness || !params.density) {
-
-      return calculateBasicConversion(quantity, unitName);
-    }
-    
-
-    
-    // 重量转长度：重量(kg) / (宽度(mm) * 厚度(μm) * 密度(g/cm³) / 1000000)
-    // 长度转重量：长度(m) * 宽度(mm) * 厚度(μm) * 密度(g/cm³) / 1000000
-    
-         // 重量单位：kg/千克/公斤 -> 计算计划重量和计划米数
-     if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
-       const plannedWeight = quantity;
-       const plannedMeters = quantity / (params.width * params.thickness * params.density / 1000000);
-
-       return { planned_meters: plannedMeters, planned_weight: plannedWeight };
-     }
-     // 重量单位：t/吨 -> 转换为kg后计算
-     else if (unitLower.includes('t') || unitLower.includes('吨')) {
-       const plannedWeight = quantity * 1000;
-       const plannedMeters = (quantity * 1000) / (params.width * params.thickness * params.density / 1000000);
-
-       return { planned_meters: plannedMeters, planned_weight: plannedWeight };
-     }
-     // 长度单位：m/米 -> 计算计划米数和计划重量
-     else if (unitLower.includes('m') || unitLower.includes('米')) {
-       const plannedMeters = quantity;
-       const plannedWeight = quantity * params.width * params.thickness * params.density / 1000000;
-
-       return { planned_meters: plannedMeters, planned_weight: plannedWeight };
-     }
-     // 长度单位：km/公里 -> 转换为米后计算
-     else if (unitLower.includes('km') || unitLower.includes('千米')) {
-       const plannedMeters = quantity * 1000;
-       const plannedWeight = (quantity * 1000) * params.width * params.thickness * params.density / 1000000;
-
-       return { planned_meters: plannedMeters, planned_weight: plannedWeight };
-     }
-     // 长度单位：cm/厘米 -> 转换为米后计算
-     else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
-       const plannedMeters = quantity / 100;
-       const plannedWeight = (quantity / 100) * params.width * params.thickness * params.density / 1000000;
-
-       return { planned_meters: plannedMeters, planned_weight: plannedWeight };
-     }
-     // 长度单位：mm/毫米 -> 转换为米后计算
-     else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
-       const plannedMeters = quantity / 1000;
-       const plannedWeight = (quantity / 1000) * params.width * params.thickness * params.density / 1000000;
-
-       return { planned_meters: plannedMeters, planned_weight: plannedWeight };
-     }
-    
-
     return calculateBasicConversion(quantity, unitName);
   };
 
@@ -1726,10 +1901,146 @@ const SalesOrder = () => {
     }
     
     // 提取产品参数
-    const productParams = extractProductParams(productData);
+    const productParams = extractProductParams(productData, specification);
     
     // 使用智能转换
     return calculateConversion(quantity, unitName, productParams, specification);
+  };
+
+    // 根据计划米数计算订单数量
+  const calculateOrderQuantityFromPlannedMeters = (plannedMeters, unitName, productData = null, specification = null) => {
+    if (!unitName || !plannedMeters || plannedMeters <= 0) return undefined;
+
+    // 提取产品参数
+    const productParams = extractProductParams(productData, specification);
+
+    // 尝试从规格解析参数
+    let specParams = parseSpecification(specification);
+    let params = productParams;
+    
+    // 如果从规格解析到了宽度和厚度，使用规格的参数
+    if (specParams && specParams.width && specParams.thickness) {
+      params = {
+        width: specParams.width,
+        thickness: specParams.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+        density: params?.density // 从产品数据获取密度
+      };
+    } else if (params) {
+      // 如果使用产品结构数据，也需要将厚度从丝转换为mm
+      params = {
+        width: params.width,
+        thickness: params.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+        density: params.density
+      };
+    }
+
+    if (!params || !params.width || !params.thickness || !params.density) {
+      return undefined;
+    }
+
+    const unitLower = unitName.toLowerCase();
+
+    try {
+      // 根据单位类型计算订单数量
+      if (unitLower.includes('m') || unitLower.includes('米')) {
+        return Number(plannedMeters);
+      }
+      else if (unitLower.includes('km') || unitLower.includes('千米')) {
+        const result = Number(plannedMeters / 1000);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+        const result = Number(plannedMeters * 100);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+        const result = Number(plannedMeters * 1000);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+        const weight = Number(plannedMeters * params.width * params.thickness * params.density / 100);
+        return Math.round(weight * 100) / 100;
+      }
+      else if (unitLower.includes('t') || unitLower.includes('吨')) {
+        const weight = Number(plannedMeters * params.width * params.thickness * params.density / 100);
+        const result = Number(weight / 1000);
+        return Math.round(result * 100) / 100;
+      }
+    } catch (error) {
+      console.error('计算订单数量时出错:', error);
+      return undefined;
+    }
+    
+    return undefined;
+  };
+
+  // 根据计划重量计算订单数量
+  const calculateOrderQuantityFromPlannedWeight = (plannedWeight, unitName, productData = null, specification = null) => {
+    if (!unitName || !plannedWeight || plannedWeight <= 0) return undefined;
+
+    // 提取产品参数
+    const productParams = extractProductParams(productData, specification);
+
+    // 尝试从规格解析参数
+    let specParams = parseSpecification(specification);
+    let params = productParams;
+    
+    // 如果从规格解析到了宽度和厚度，使用规格的参数
+    if (specParams && specParams.width && specParams.thickness) {
+      params = {
+        width: specParams.width,
+        thickness: specParams.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+        density: params?.density // 从产品数据获取密度
+      };
+    } else if (params) {
+      // 如果使用产品结构数据，也需要将厚度从丝转换为mm
+      params = {
+        width: params.width,
+        thickness: params.thickness * 0.01, // 丝转换为mm (1丝 = 0.01mm)
+        density: params.density
+      };
+    }
+
+    if (!params || !params.width || !params.thickness || !params.density) {
+      return undefined;
+    }
+
+    const unitLower = unitName.toLowerCase();
+
+    try {
+      // 根据单位类型计算订单数量
+      if (unitLower.includes('kg') || unitLower.includes('千克') || unitLower.includes('公斤')) {
+        return Number(plannedWeight);
+      }
+      else if (unitLower.includes('t') || unitLower.includes('吨')) {
+        return Number(plannedWeight / 1000);
+      }
+      else if (unitLower.includes('m') || unitLower.includes('米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        // 四舍五入到2位小数，避免浮点数精度问题
+        return Math.round(length * 100) / 100;
+      }
+      else if (unitLower.includes('km') || unitLower.includes('千米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        const result = Number(length / 1000);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('cm') || unitLower.includes('厘米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        const result = Number(length * 100);
+        return Math.round(result * 100) / 100;
+      }
+      else if (unitLower.includes('mm') || unitLower.includes('毫米')) {
+        const length = Number(plannedWeight / (params.width * params.thickness * params.density / 100));
+        const result = Number(length * 1000);
+        return Math.round(result * 100) / 100;
+      }
+    } catch (error) {
+      console.error('计算订单数量时出错:', error);
+      return undefined;
+    }
+    
+    return undefined;
   };
 
   // 缓存 loadInventoryForProduct 函数
@@ -1838,7 +2149,8 @@ const SalesOrder = () => {
     draft: { color: 'default', text: '草稿' },
     confirmed: { color: 'processing', text: '已确认' },
     production: { color: 'blue', text: '生产中' },
-    shipped: { color: 'success', text: '已发货' },
+    shipped: { color: 'success', text: '已安排送货' },
+    partial_shipped: { color: 'warning', text: '部分安排送货' },
     completed: { color: 'success', text: '已完成' },
     cancelled: { color: 'error', text: '已取消' }
   };
@@ -1892,7 +2204,7 @@ const SalesOrder = () => {
         title: '状态',
         dataIndex: 'status',
         key: 'status',
-        width: 80,
+        width: 120,
         render: (status) => {
           const config = statusConfig[status] || { color: 'default', text: status };
           return <Tag color={config.color}>{config.text}</Tag>;
@@ -2074,12 +2386,12 @@ const SalesOrder = () => {
                 </Button>
               </>
             )}
-            {record.status === 'confirmed' && (
+            {(record.status === 'confirmed' || record.status === 'shipped' || record.status === 'partial_shipped') && (
               <Button type="link" size="small" onClick={() => handleFinish(record)}>
                 完成
               </Button>
             )}
-            {record.status === 'confirmed' && (
+            {(record.status === 'confirmed' || record.status === 'shipped' || record.status === 'partial_shipped') && (
               <Button type="link" size="small" danger onClick={() => handleCancel(record)}>
                 取消
               </Button>
@@ -2264,18 +2576,6 @@ const SalesOrder = () => {
            value={value}
            onChange={(val) => {
              updateOrderDetail(index, 'planned_meters', val);
-             // 如果手动修改了计划米数，自动计算计划重量
-             if (val && val > 0) {
-               const detail = orderDetails[index];
-               const productData = detail.productData || null;
-               const specification = detail.product_specification || null;
-               const productParams = extractProductParams(productData);
-               
-               if (productParams && productParams.width && productParams.thickness && productParams.density) {
-                 const plannedWeight = val * productParams.width * productParams.thickness * productParams.density / 1000000;
-                 updateOrderDetail(index, 'planned_weight', plannedWeight);
-               }
-             }
            }}
            placeholder="自动计算"
          />
@@ -2297,18 +2597,6 @@ const SalesOrder = () => {
            value={value}
            onChange={(val) => {
              updateOrderDetail(index, 'planned_weight', val);
-             // 如果手动修改了计划重量，自动计算计划米数
-             if (val && val > 0) {
-               const detail = orderDetails[index];
-               const productData = detail.productData || null;
-               const specification = detail.product_specification || null;
-               const productParams = extractProductParams(productData);
-               
-               if (productParams && productParams.width && productParams.thickness && productParams.density) {
-                 const plannedMeters = val / (productParams.width * productParams.thickness * productParams.density / 1000000);
-                 updateOrderDetail(index, 'planned_meters', plannedMeters);
-               }
-             }
            }}
            placeholder="自动计算"
          />
@@ -3100,7 +3388,8 @@ const SalesOrder = () => {
               <Option value="draft">草稿</Option>
               <Option value="confirmed">已确认</Option>
               <Option value="production">生产中</Option>
-              <Option value="shipped">已发货</Option>
+              <Option value="shipped">已安排送货</Option>
+              <Option value="partial_shipped">已安排部分送货</Option>
               <Option value="completed">已完成</Option>
               <Option value="cancelled">已取消</Option>
             </Select>

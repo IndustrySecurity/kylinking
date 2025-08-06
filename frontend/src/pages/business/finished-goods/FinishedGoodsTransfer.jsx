@@ -57,7 +57,7 @@ const FinishedGoodsTransfer = () => {
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0
   });
   

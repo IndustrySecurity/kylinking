@@ -2,6 +2,7 @@
 """
 送货通知单服务
 """
+import uuid
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import desc
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,6 +28,14 @@ class DeliveryNoticeService(TenantAwareService):
             schema_name: Schema名称
         """
         super().__init__(tenant_id, schema_name)
+
+    def _is_uuid(self, value: str) -> bool:
+        """检查字符串是否为有效的UUID格式"""
+        try:
+            uuid.UUID(str(value))
+            return True
+        except (ValueError, TypeError):
+            return False
 
     def _generate_notice_number(self) -> str:
         """生成送货通知单号 (DN前缀)"""
@@ -117,6 +126,12 @@ class DeliveryNoticeService(TenantAwareService):
                             current_qty = Decimal(0)
 
                         sod.scheduled_delivery_quantity = current_qty + qty_decimal
+            
+            # 更新销售订单状态
+            if notice.sales_order_id:
+                sales_order = self.get_session().query(SalesOrder).get(notice.sales_order_id)
+                if sales_order:
+                    sales_order.status = 'partial_shipped'
             
             # 检查是否需要关闭销售订单
             if notice.sales_order_id:
@@ -223,7 +238,23 @@ class DeliveryNoticeService(TenantAwareService):
         # 更新主表字段
         for key, value in data.items():
             if hasattr(notice, key) and key not in ['id', 'details', 'tenant_id']:
-                setattr(notice, key, value)
+                # 特殊处理 sales_order_id 字段
+                if key == 'sales_order_id' and value:
+                    # 如果传入的是订单号而不是UUID，需要查找对应的UUID
+                    if not self._is_uuid(value):
+                        # 通过订单号查找销售订单的UUID
+                        sales_order = session.query(SalesOrder).filter(
+                            SalesOrder.order_number == value
+                        ).first()
+                        if sales_order:
+                            setattr(notice, key, sales_order.id)
+                        else:
+                            # 如果找不到对应的销售订单，跳过这个字段
+                            continue
+                    else:
+                        setattr(notice, key, value)
+                else:
+                    setattr(notice, key, value)
         
         notice.updated_by = user_id
 
@@ -234,6 +265,18 @@ class DeliveryNoticeService(TenantAwareService):
             # 删除不在新数据中的明细
             for detail in notice.details[:]:
                 if str(detail.id) not in incoming_detail_ids:
+                    # 如果送货通知关联了销售订单，需要减少销售订单明细的已安排送货数
+                    if notice.sales_order_id and detail.product_id:
+                        sod = session.query(SalesOrderDetail).filter(
+                            SalesOrderDetail.sales_order_id == notice.sales_order_id,
+                            SalesOrderDetail.product_id == detail.product_id
+                        ).first()
+                        if sod is not None and hasattr(sod, 'scheduled_delivery_quantity'):
+                            from decimal import Decimal
+                            current_qty = sod.scheduled_delivery_quantity or Decimal(0)
+                            detail_qty = detail.notice_quantity or Decimal(0)
+                            sod.scheduled_delivery_quantity = current_qty - detail_qty
+                    
                     session.delete(detail)
             
             # 新增或更新明细
@@ -242,17 +285,45 @@ class DeliveryNoticeService(TenantAwareService):
                 if detail_id:  # 更新现有明细
                     detail = session.query(DeliveryNoticeDetail).get(detail_id)
                     if detail and self.validate_tenant_access(getattr(detail, 'tenant_id', self.tenant_id)):
+                        # 记录原始数量，用于计算差值
+                        old_notice_quantity = detail.notice_quantity or 0
+                        
                         for k, v in detail_data.items():
                             if hasattr(detail, k) and k not in ['id', 'tenant_id']:
+                                # 过滤掉字典类型的字段
+                                if isinstance(v, dict):
+                                    continue
                                 setattr(detail, k, v)
                         detail.updated_by = user_id
+                        
+                        # 如果送货通知关联了销售订单，更新销售订单明细的已安排送货数
+                        if notice.sales_order_id and detail.product_id:
+                            sod = session.query(SalesOrderDetail).filter(
+                                SalesOrderDetail.sales_order_id == notice.sales_order_id,
+                                SalesOrderDetail.product_id == detail.product_id
+                            ).first()
+                            if sod is not None and hasattr(sod, 'scheduled_delivery_quantity'):
+                                from decimal import Decimal
+                                current_qty = sod.scheduled_delivery_quantity or Decimal(0)
+                                new_qty = detail.notice_quantity or Decimal(0)
+                                old_qty = Decimal(str(old_notice_quantity))
+                                # 计算差值：新数量 - 旧数量
+                                qty_diff = new_qty - old_qty
+                                sod.scheduled_delivery_quantity = current_qty + qty_diff
                 else:  # 新增明细
                     if 'id' in detail_data:
                         del detail_data['id']
-                    detail_data['created_by'] = user_id
-                    detail_data['delivery_notice_id'] = notice.id
+                    
+                    # 过滤掉字典类型的字段
+                    clean_detail_data = {}
+                    for k, v in detail_data.items():
+                        if not isinstance(v, dict):
+                            clean_detail_data[k] = v
+                    
+                    clean_detail_data['created_by'] = user_id
+                    clean_detail_data['delivery_notice_id'] = notice.id
                     valid_fields = {c.name for c in DeliveryNoticeDetail.__table__.columns}
-                    clean_data = {k: v for k, v in detail_data.items() if k in valid_fields}
+                    clean_data = {k: v for k, v in clean_detail_data.items() if k in valid_fields}
                     clean_data['delivery_notice_id'] = notice.id
                     self.create_with_tenant(DeliveryNoticeDetail, **clean_data)
 
@@ -281,12 +352,13 @@ class DeliveryNoticeService(TenantAwareService):
         self.commit()
         return self.get_delivery_notice_by_id(notice_id)
 
-    def delete_delivery_notice(self, notice_id: str) -> bool:
+    def delete_delivery_notice(self, notice_id: str, user_id: str) -> bool:
         """
         删除送货通知单
         
         Args:
             notice_id: 送货通知单ID
+            user_id: 用户ID
             
         Returns:
             bool: 是否删除成功
@@ -299,6 +371,23 @@ class DeliveryNoticeService(TenantAwareService):
         
         if not self.validate_tenant_access(getattr(notice, 'tenant_id', self.tenant_id)):
             raise ValueError("无权限删除该送货通知单")
+        
+        # 在删除前，恢复销售订单明细的已安排数量
+        if notice.sales_order_id:
+            for detail in notice.details:
+                if detail.product_id:
+                    sod = session.query(SalesOrderDetail).filter(
+                        SalesOrderDetail.sales_order_id == notice.sales_order_id,
+                        SalesOrderDetail.product_id == detail.product_id
+                    ).first()
+                    if sod is not None and hasattr(sod, 'scheduled_delivery_quantity'):
+                        from decimal import Decimal
+                        current_qty = sod.scheduled_delivery_quantity or Decimal(0)
+                        detail_qty = detail.notice_quantity or Decimal(0)
+                        sod.scheduled_delivery_quantity = current_qty - detail_qty
+            
+            # 更新销售订单状态
+            self._update_sales_order_status_after_delete(notice.sales_order_id, user_id)
         
         self.log_operation('delete_delivery_notice', {'notice_id': notice_id})
         
@@ -434,8 +523,9 @@ class DeliveryNoticeService(TenantAwareService):
                 'product_id': od.product_id,
                 'product_name': od.product_name,
                 'product_code': od.product_code,
-                'specification': od.material_structure,
+                'specification': od.product_specification,
                 'order_quantity': od.order_quantity,
+                'remaining_quantity': remaining_qty,  # 添加未安排数量
                 'notice_quantity': remaining_qty,  # 默认剩余全部安排，可前端修改
                 'already_outbound_quantity': 0,
                 'pending_outbound_quantity': remaining_qty,
@@ -461,17 +551,53 @@ class DeliveryNoticeService(TenantAwareService):
     def _notice_to_dict(self, notice: DeliveryNotice) -> Dict[str, Any]:
         """将DeliveryNotice对象转换为字典并附加销售订单信息"""
         data = notice.to_dict() if hasattr(notice, 'to_dict') else {c.name: getattr(notice, c.name) for c in notice.__table__.columns}
+        
         # 客户信息已在 joinedload(customer) 中，可通过notice.customer
         if notice.customer:
             data['customer'] = {
                 'id': str(notice.customer.id),
-                'customer_name': notice.customer.customer_name
+                'customer_name': notice.customer.customer_name,
+                'customer_abbreviation': notice.customer.customer_abbreviation,
+                'remarks': notice.customer.remarks
             }
+        
+        # 销售订单信息
         if notice.sales_order:
             data['sales_order'] = {
                 'id': str(notice.sales_order.id),
                 'order_number': notice.sales_order.order_number
             }
+            # 同时设置 sales_order_id 为订单号，方便前端显示
+            data['sales_order_id'] = notice.sales_order.order_number
+        
+        # 处理明细，添加 remaining_quantity 字段
+        if 'details' in data and data['details']:
+            # 如果有销售订单，从销售订单明细中获取 remaining_quantity
+            if notice.sales_order:
+                session = self.get_session()
+                for detail in data['details']:
+                    if detail.get('product_id'):
+                        # 查找对应的销售订单明细
+                        sod = session.query(SalesOrderDetail).filter(
+                            SalesOrderDetail.sales_order_id == notice.sales_order.id,
+                            SalesOrderDetail.product_id == detail['product_id']
+                        ).first()
+                        if sod:
+                            # 计算未安排数量 = 订单数量 - 已安排数量 + 当前通知数量
+                            order_qty = float(sod.order_quantity or 0)
+                            scheduled_qty = float(sod.scheduled_delivery_quantity or 0)
+                            current_notice_qty = float(detail.get('notice_quantity', 0))
+                            # 编辑时：未安排数量 = 订单数量 - 已安排数量 + 当前通知数量
+                            detail['remaining_quantity'] = max(0, order_qty - scheduled_qty + current_notice_qty)
+                        else:
+                            detail['remaining_quantity'] = 0
+                    else:
+                        detail['remaining_quantity'] = 0
+            else:
+                # 如果没有销售订单，使用默认值
+                for detail in data['details']:
+                    detail['remaining_quantity'] = detail.get('order_quantity', 0)
+        
         return data
 
     def _check_and_close_sales_order(self, sales_order_id: str, user_id: str) -> None:
@@ -505,10 +631,65 @@ class DeliveryNoticeService(TenantAwareService):
                 break
         
         # 如果所有明细都已安排完毕，则关闭销售订单
-        if all_details_fully_scheduled and sales_order.status not in ['completed', 'cancelled']:
-            sales_order.status = 'completed'
+        if all_details_fully_scheduled and sales_order.status not in ['shipped', 'completed', 'cancelled']:
+            sales_order.status = 'shipped'
             sales_order.updated_by = user_id
             self.log_operation('auto_close_sales_order', {
                 'sales_order_id': sales_order_id,
                 'reason': '所有明细已安排完毕'
-            }) 
+            })
+
+    def _update_sales_order_status_after_delete(self, sales_order_id: str, user_id: str) -> None:
+        """
+        删除送货通知单后更新销售订单状态
+        
+        Args:
+            sales_order_id: 销售订单ID
+            user_id: 用户ID
+        """
+        session = self.get_session()
+        
+        # 获取销售订单及其所有明细
+        sales_order = session.query(SalesOrder).options(
+            joinedload(SalesOrder.order_details)
+        ).get(sales_order_id)
+        
+        if not sales_order:
+            return
+        
+        # 检查所有明细的已安排数量
+        all_details_no_scheduled = True
+        any_detail_has_scheduled = False
+        
+        for detail in sales_order.order_details:
+            scheduled_qty = Decimal(str(detail.scheduled_delivery_quantity or 0))
+            
+            if scheduled_qty > 0:
+                any_detail_has_scheduled = True
+                all_details_no_scheduled = False
+        
+        # 根据已安排数量更新销售订单状态
+        if all_details_no_scheduled:
+            # 如果所有明细的已安排数量都是0，则变为已确认
+            if sales_order.status in ['shipped', 'partial_shipped']:
+                old_status = sales_order.status
+                sales_order.status = 'confirmed'
+                sales_order.updated_by = user_id
+                self.log_operation('update_sales_order_status_after_delete', {
+                    'sales_order_id': sales_order_id,
+                    'old_status': old_status,
+                    'new_status': 'confirmed',
+                    'reason': '删除送货通知单后，所有明细已安排数量为0'
+                })
+        elif any_detail_has_scheduled:
+            # 如果有明细的已安排数量大于0，则变为部分安排送货
+            if sales_order.status in ['confirmed', 'shipped']:
+                old_status = sales_order.status
+                sales_order.status = 'partial_shipped'
+                sales_order.updated_by = user_id
+                self.log_operation('update_sales_order_status_after_delete', {
+                    'sales_order_id': sales_order_id,
+                    'old_status': old_status,
+                    'new_status': 'partial_shipped',
+                    'reason': '删除送货通知单后，部分明细仍有已安排数量'
+                }) 

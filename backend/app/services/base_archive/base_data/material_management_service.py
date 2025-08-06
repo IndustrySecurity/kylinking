@@ -21,7 +21,7 @@ class MaterialService(TenantAwareService):
     def get_materials(
         self,
         page: int = 1,
-        page_size: int = 20,
+        page_size: int = 10,
         search: Optional[str] = None,
         material_category_id: Optional[str] = None,
         inspection_type: Optional[str] = None,

@@ -53,7 +53,7 @@ const ProductCategoryManagement = () => {
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0,
     showSizeChanger: true,
     showQuickJumper: true,

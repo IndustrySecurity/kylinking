@@ -67,6 +67,13 @@ const BaseData = () => {
       icon: <TeamOutlined />,
       path: '/base-archive/base-data/employee-management',
       color: '#13c2c2'
+    },
+    {
+      key: 'teamGroups',
+      title: '班组',
+      icon: <TeamOutlined style={{ fontSize: '48px' }} />,
+      path: '/base-archive/base-data/team-group-management',
+      color: '#faad14'
     }
   ];
 

@@ -112,7 +112,7 @@ class MaterialInboundService(TenantAwareService):
         end_date: Optional[datetime] = None,
         search: Optional[str] = None,
         page: int = 1,
-        page_size: int = 20
+        page_size: int = 10
     ) -> Dict[str, Any]:
 
         """获取材料入库单列表"""

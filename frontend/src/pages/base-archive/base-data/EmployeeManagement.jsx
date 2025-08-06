@@ -52,7 +52,7 @@ const EmployeeManagement = () => {
   const [employees, setEmployees] = useState([])
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0
   })
   const [searchParams, setSearchParams] = useState({
@@ -387,10 +387,13 @@ const EmployeeManagement = () => {
       width: 100,
       render: (type) => {
         const typeMap = {
-          salesperson: '业务员',
-          purchaser: '采购员',
-          comprehensive: '综合',
-          delivery_person: '送货员'
+          production: '生产',
+          sales: '销售',
+          purchasing: '采购',
+          management: '管理',
+          support: '支持',
+          delivery: '送货',
+          comprehensive: '综合'
         }
         return typeMap[type] || type
       }

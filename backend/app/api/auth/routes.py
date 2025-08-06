@@ -8,6 +8,7 @@ from app.models.user import User
 from app.extensions import db
 from app.schemas.auth import LoginSchema, RegisterSchema
 from app.utils.tenant_context import TenantContext
+from app.constants.error_messages import get_error_message, AUTH_ERRORS, USER_ERRORS
 from datetime import datetime
 
 
@@ -44,11 +45,11 @@ def login():
     
     # 验证用户和密码
     if not user or not user.check_password(data['password']):
-        return jsonify({"message": "Invalid email or password"}), 401
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'invalid_credentials')}), 401
     
     # 验证用户状态
     if not user.is_active:
-        return jsonify({"message": "Account is inactive"}), 403
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'account_inactive')}), 403
     
     # 更新最后登录时间 - 直接设置，不调用方法
     user.last_login_at = datetime.now()
@@ -108,14 +109,14 @@ def admin_login():
     
     # 验证用户和密码
     if not user or not user.check_password(data['password']):
-        return jsonify({"message": "Invalid email or password"}), 401
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'invalid_credentials')}), 401
     
     # 验证用户状态和管理员权限
     if not user.is_active:
-        return jsonify({"message": "Account is inactive"}), 403
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'account_inactive')}), 403
     
     if not user.is_superadmin:
-        return jsonify({"message": "Superadmin privileges required"}), 403
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'superadmin_required')}), 403
     
     # 更新最后登录时间
     user.last_login_at = datetime.now()
@@ -176,7 +177,7 @@ def refresh():
     user = User.query.filter_by(id=current_user_id).first()
     
     if not user or not user.is_active:
-        return jsonify({"message": "User not found or inactive"}), 404
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'user_not_found')}), 404
     
     # 创建新的访问令牌
     additional_claims = {
@@ -203,7 +204,7 @@ def register():
     
     # 检查邮箱是否已存在
     if User.query.filter_by(email=data['email']).first():
-        return jsonify({"message": "Email already registered"}), 400
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'email_exists')}), 400
     
     # 创建新用户
     tenant_id = data.get('tenant_id')
@@ -223,7 +224,7 @@ def register():
     db.session.commit()
     
     return jsonify({
-        "message": "User registered successfully",
+        "message": get_error_message('USER_ERRORS', 'user_created'),
         "user": {
             "id": str(new_user.id),
             "email": new_user.email
@@ -239,7 +240,7 @@ def logout():
     注意：由于JWT是无状态的，服务器端不需要额外操作
     客户端应该删除本地存储的token
     """
-    return jsonify({"message": "Successfully logged out"}), 200
+    return jsonify({"message": get_error_message('AUTH_ERRORS', 'logout_success')}), 200
 
 
 @auth_bp.route('/me', methods=['GET'])
@@ -252,7 +253,7 @@ def get_user_info():
     user = User.query.filter_by(id=current_user_id).first()
     
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'user_not_found')}), 404
     
     return jsonify({
         "user": {
@@ -278,28 +279,28 @@ def change_password():
     user = User.query.filter_by(id=current_user_id).first()
     
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'user_not_found')}), 404
     
     data = request.json
     current_password = data.get('current_password')
     new_password = data.get('new_password')
     
     if not current_password or not new_password:
-        return jsonify({"message": "Current password and new password are required"}), 400
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'password_required')}), 400
     
     # 验证当前密码
     if not user.check_password(current_password):
-        return jsonify({"message": "Current password is incorrect"}), 400
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'current_password_incorrect')}), 400
     
     # 验证新密码长度
     if len(new_password) < 6:
-        return jsonify({"message": "New password must be at least 6 characters long"}), 400
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'password_too_short')}), 400
     
     # 设置新密码
     user.set_password(new_password)
     db.session.commit()
     
-    return jsonify({"message": "Password changed successfully"}), 200
+    return jsonify({"message": get_error_message('AUTH_ERRORS', 'password_changed')}), 200
 
 
 @auth_bp.route('/profile', methods=['PUT'])
@@ -312,7 +313,7 @@ def update_profile():
     user = User.query.filter_by(id=current_user_id).first()
     
     if not user:
-        return jsonify({"message": "User not found"}), 404
+        return jsonify({"message": get_error_message('AUTH_ERRORS', 'user_not_found')}), 404
     
     data = request.json
     
@@ -325,7 +326,7 @@ def update_profile():
     db.session.commit()
     
     return jsonify({
-        "message": "Profile updated successfully",
+        "message": get_error_message('AUTH_ERRORS', 'profile_updated'),
         "user": {
             "id": str(user.id),
             "email": user.email,

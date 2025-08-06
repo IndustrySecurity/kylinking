@@ -156,7 +156,7 @@ const FinishedGoodsWarehouse = () => {
       title: '成品盘点',
       description: '成品库存盘点，确保库存准确性',
       icon: <AuditOutlined style={{ fontSize: '32px', color: '#722ed1' }} />,
-      path: '/business/finished-goods/inventory',
+      path: '/business/finished-goods/count',
     },
     {
       key: 'transfer',

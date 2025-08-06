@@ -10,6 +10,7 @@ from .material_management_service import MaterialService
 from .department_service import DepartmentService
 from .position_service import PositionService
 from .employee_service import EmployeeService
+from .team_group_service import TeamGroupService
 
 __all__ = [
     'CustomerService',
@@ -18,5 +19,6 @@ __all__ = [
     'MaterialService',
     'DepartmentService',
     'PositionService',
-    'EmployeeService'
+    'EmployeeService',
+    'TeamGroupService'
 ]

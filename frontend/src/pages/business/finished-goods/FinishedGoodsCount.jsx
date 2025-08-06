@@ -148,7 +148,7 @@ const EditableCell = ({ value, onSave, record, disabled }) => {
 const FinishedGoodsCount = () => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [searchParams, setSearchParams] = useState({});
   
   // Tab状态

@@ -124,6 +124,13 @@ export const uploadImage = (file) => {
   });
 };
 
+// 删除产品图片
+export const deleteImage = (filename) => {
+  return request.post('/tenant/base-archive/base-data/products/delete-image', {
+    filename: filename
+  });
+};
+
 // 根据袋型获取产品结构模板
 export const getBagTypeStructure = (bagTypeId) => {
   return request.get(`/tenant/base-archive/base-data/products/bag-type-structure/${bagTypeId}`);
@@ -150,6 +157,7 @@ export const productManagementApi = {
   searchProducts,
   getFormOptions,
   uploadImage,
+  deleteImage,
   getBagTypeStructure,
   getCustomerInfo
 }; 

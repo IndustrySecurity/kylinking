@@ -12,7 +12,6 @@ from .package_method_service import PackageMethodService
 from .process_service import ProcessService
 from .specification_service import SpecificationService
 from .unit_service import UnitService
-from .team_group_service import TeamGroupService
 from .warehouse_service import WarehouseService
 
 __all__ = [
@@ -25,6 +24,5 @@ __all__ = [
     'ProcessService',
     'SpecificationService',
     'UnitService',
-    'TeamGroupService',
     'WarehouseService'
 ]
